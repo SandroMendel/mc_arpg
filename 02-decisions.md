@@ -389,3 +389,80 @@ verloren — außer der Auskunft, warum.
 **Für die folgenden Blöcke:** Ein Block gilt erst als fertig, wenn sein Modul in
 `RpgPlugin.modules()` steht, seine Standardkonfiguration ausgeliefert wird und `FullBootstrapTest`
 mit ihm grün ist.
+
+---
+
+## ADR-013 · Umsetzungsentscheidungen B04 (Attribut- & Stat-Engine)
+
+**Status:** Entschieden (2026-08-20, bei der Implementierung von B04)
+
+Fünf Entscheidungen aus der Umsetzung, die über B04 hinaus gelten.
+
+### 1. Bündelung über eine trägergebundene Einmalaufgabe, nicht über einen Tick-Ende-Durchlauf
+
+Eine Änderung setzt eine Vormerkung am betroffenen Träger; wer sie setzt, plant über
+`Scheduler.runSyncOnEntity` genau eine Aufgabe für diesen Träger. Jede weitere Änderung davor
+findet die Vormerkung gesetzt und plant nichts.
+
+*Verworfen:* der naheliegende serverweite Durchlauf am Tick-Ende. Er bräuchte eine globale,
+wiederkehrende Aufgabe — Prinzip I verbietet den globalen Scheduler, ADR-007 will den Folia-Pfad
+offenhalten — und liefe in jedem Tick an, auch wenn nichts zu tun ist (Prinzip II). Die
+trägergebundene Variante erreicht dasselbe Ergebnis und kostet in einem Tick ohne Änderung nichts,
+weil keine Aufgabe existiert.
+
+*Preis:* das Ergebnis liegt zu Beginn des Folgeticks vor, nicht am Ende des laufenden. FR-021 räumt
+das ohnehin ein; für den einen Fall, in dem es nicht reicht — die Freigabe nach dem Anmelden —
+gibt es `recalculateNow`.
+
+### 2. Immer vollständig neu summieren, nie einen entfernten Beitrag zurückrechnen
+
+Gleitkomma-Addition ist nicht assoziativ: `(a + b) − b` ist nicht verlässlich `a`. Inkrementelles
+Fortschreiben hinterließe bei jedem Ablegen eines Ausrüstungsteils einen Rest, der sich über eine
+Spielsitzung aufsummiert und in keinem Einzeltest auffällt. Vollständiges Neusummieren macht den
+driftfreien Rundlauf strukturell wahr statt geprüft — und erfüllt die Reihenfolgeunabhängigkeit
+gleich mit, weil Quellen in einer sortierten Karte liegen.
+
+### 3. Eigene Tabelle `rpg.character_stats` statt zweier Spalten an `rpg.character`
+
+Zwei Spalten anzuhängen sieht kleiner aus, koppelt aber zwei Blöcke an derselben Zeile: B03s
+`JdbcCharacterRepository` müsste B04s Felder mitschreiben, und beide teilten sich einen
+Revisionszähler. Eine eigene Tabelle mit eigenem Aggregattyp, eigenem Writer und eigener Position
+in der Schreibreihenfolge hält die Blockgrenze aus Prinzip III.
+
+Gespeichert werden ausschließlich die beiden Rohwerte. Maxima und Endwerte sind abgeleitet und
+entstehen beim Laden neu — dieselbe Regel, die ADR-004 für Items zieht, damit Rebalancing kein
+Datenmigrationsproblem wird.
+
+### 4. `SessionAttachment` — die Naht, an der spätere Blöcke am Sitzungslebenszyklus hängen
+
+FR-019b verlangt einen berechneten Träger **vor** der Freigabe des Spielers. Der einzige Zeitpunkt,
+der früh genug liegt, ist B03s Ladevorgang selbst, der im asynchronen Vorlade-Ereignis läuft. Ein
+Ereignis „Sitzung bereit" käme zu spät: der Spieler stünde für mindestens eine Runde mit falschen
+Werten in der Welt.
+
+Statt B04 in den Lebenszyklus hineinzuschreiben, bekommt B03 eine benannte Schnittstelle:
+`onSessionOpened(session, bundle)` läuft nach dem Laden und vor der Freigabe,
+`onSessionClosing(playerId)` vor dem Abschlussschreiben. Ausnahmen werden je Anhang abgefangen und
+begrenzt. **B06, B07 und B11 benutzen dieselbe Naht** statt jeweils eigene Eingriffe.
+
+`SessionBundle` trägt zusätzlich `CharacterResources` — analog zu den `ItemInstance`-Daten von B11,
+die dort bereits liegen. Der Bündellader ist *der eine* Ladepfad, nicht B03-Privatbesitz.
+
+### 5. Regenerationsschutz gehört zu B04, Schadensumlenkung zu B05
+
+B04 schaltet `natural_health_regeneration` ab und hält die Sättigung fest, damit ausschließlich die
+Engine die Herzleiste schreibt. Ohne das heilt Vanilla die gerade gesetzte Anzeige sichtbar wieder
+hoch, und die Herzleiste ist ab dem ersten Tag falsch.
+
+Die Grenze ist eng gezogen und wird durchgesetzt: `NoDamageInterceptionTest` scannt die Quellen und
+schlägt fehl, sobald B04 einen Handler auf `EntityDamageEvent` und Verwandte registriert. Fall,
+Feuer, Lava und Void gehören zu B05.
+
+**Nebenbefund zur Paper-API:** Die Attributkonstanten heißen seit Minecraft 1.21.3 `MAX_HEALTH`,
+`ATTACK_SPEED` und `MOVEMENT_SPEED` — das `GENERIC_`-Präfix aus ADR-003 und den Blocksteckbriefen
+ist entfallen. Ebenso ist `GameRule.NATURAL_REGENERATION` zugunsten von
+`GameRules.NATURAL_HEALTH_REGENERATION` zur Entfernung markiert. Gleiche Attribute, aktuelle Namen.
+
+**Für die folgenden Blöcke:** Basiswerte kommen über `BaseStatContributor` (B06 Level, B07 Klasse),
+Beiträge über `StatEngine.apply` mit einer `SourceId` (B08 Buffs, B09 Zonen, B11 Ausrüstung), Werte
+über `StatSnapshot` — einmal zu Beginn einer Handlung gezogen und bis zu deren Ende gehalten.

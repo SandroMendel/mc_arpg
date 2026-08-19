@@ -17,5 +17,13 @@ public enum AggregateType {
     /** One administrative action; append-only. */
     AUDIT_LOG,
     /** One character of an account, bound to a class (B03). */
-    CHARACTER
+    CHARACTER,
+    /**
+     * The current health and mana of one character (B04).
+     *
+     * <p>A table of its own rather than two columns on {@code character}: sharing a row would mean
+     * sharing a writer and a revision counter between B03 and B04, so every change to B04's values
+     * would be a change to B03's write path.
+     */
+    CHARACTER_STATS
 }

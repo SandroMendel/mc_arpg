@@ -27,6 +27,7 @@ import rpg.core.session.SessionMessageKeys;
 import rpg.persistence.PersistenceMessageKeys;
 import rpg.persistence.PersistenceModule;
 import rpg.persistence.session.SessionModule;
+import rpg.persistence.stats.StatsModule;
 import rpg.platform.PlatformMessageKeys;
 import rpg.platform.PreJoinGuard;
 import rpg.platform.config.YamlConfigLoader;
@@ -37,6 +38,8 @@ import rpg.platform.session.SessionConnectionCloseListener;
 import rpg.platform.session.SessionJoinListener;
 import rpg.platform.session.SessionPreLoadListener;
 import rpg.platform.session.SessionQuitListener;
+import rpg.platform.stats.PaperVanillaAttributeBridge;
+import rpg.platform.stats.VanillaRegenerationGuard;
 
 /**
  * Plugin entry point: wires the five modules together and hands control to
@@ -63,7 +66,7 @@ public class RpgPlugin extends JavaPlugin {
      * default of each means the first start works and the file is there to be edited.
      */
     private static final List<String> DEFAULT_CONFIG_FILES =
-            List.of("persistence.yml", "session.yml");
+            List.of("persistence.yml", "session.yml", "stats.yml");
 
     private final BootstrapState bootstrapState = new BootstrapState();
 
@@ -75,6 +78,7 @@ public class RpgPlugin extends JavaPlugin {
     private ModuleBootstrap bootstrap;
     private PersistenceModule persistenceModule;
     private SessionModule sessionModule;
+    private StatsModule statsModule;
 
     @Override
     public void onEnable() {
@@ -129,6 +133,7 @@ public class RpgPlugin extends JavaPlugin {
         }
 
         registerSessionListeners();
+        assembleStatLayer();
 
         Duration took = Duration.ofNanos(System.nanoTime() - startedAt);
         if (took.compareTo(BOOTSTRAP_BUDGET) > 0) {
@@ -174,6 +179,12 @@ public class RpgPlugin extends JavaPlugin {
     public boolean reloadConfiguration() {
         try {
             configLoader.reloadAll();
+            // Modules that keep derived state from their configuration have to be told. B04 does:
+            // its engine holds the attribute definitions and has to mark every holder so the new
+            // numbers actually take effect (User Story 7, scenario 4).
+            if (statsModule != null) {
+                statsModule.applyReloadedConfig();
+            }
             getLogger().info("[config] phase=RELOAD state=APPLIED - all modules reloaded");
             return true;
         } catch (ConfigValidationException rejected) {
@@ -223,7 +234,8 @@ public class RpgPlugin extends JavaPlugin {
     private List<Module> modules() {
         persistenceModule = new PersistenceModule(getLogger(), Clock.systemUTC());
         sessionModule = new SessionModule(persistenceModule, getLogger(), Clock.systemUTC());
-        return List.of(persistenceModule, sessionModule);
+        statsModule = new StatsModule(persistenceModule, sessionModule, getLogger(), Clock.systemUTC());
+        return List.of(persistenceModule, sessionModule, statsModule);
     }
 
     /**
@@ -279,6 +291,26 @@ public class RpgPlugin extends JavaPlugin {
                                 .map(org.bukkit.entity.Player::getUniqueId)
                                 .toList(),
                 stash::expireStale);
+    }
+
+    /**
+     * Assembles the Paper-facing half of B04.
+     *
+     * <p>Same introduction the session layer needs, for the same reason: the mirror lives in
+     * {@code rpg-platform} and knows only {@code rpg-core} interfaces, the engine lives in
+     * {@code rpg-persistence}, and neither module may depend on the other (Constitution III.2).
+     *
+     * <p>The regeneration guard runs after the bootstrap because it writes a game rule, which needs
+     * the worlds to exist. It handles regeneration and food and nothing else - vanilla damage
+     * sources belong to B05, and a test enforces that (FR-030b).
+     */
+    private void assembleStatLayer() {
+        statsModule.installVanillaBridge(
+                new PaperVanillaAttributeBridge(getServer(), scheduler, getLogger()));
+
+        VanillaRegenerationGuard regenerationGuard = new VanillaRegenerationGuard(getLogger());
+        regenerationGuard.applyTo(getServer());
+        getServer().getPluginManager().registerEvents(regenerationGuard, this);
     }
 
     /** The configuration loader; also the entry point B14's reload command will use. */

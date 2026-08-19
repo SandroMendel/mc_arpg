@@ -20,6 +20,8 @@ import rpg.core.persistence.PersistenceException;
 import rpg.core.persistence.PlayerState;
 import rpg.core.session.PlayerCharacter;
 import rpg.core.session.SessionBundle;
+import rpg.core.stats.CharacterResources;
+import rpg.persistence.stats.JdbcCharacterResourcesRepository;
 
 /**
  * Reads everything a session needs in a single database round (FR-005).
@@ -87,8 +89,9 @@ public final class SessionBundleLoader {
                 }
                 List<PlayerCharacter> loaded = characters.readByPlayer(connection, playerId);
                 List<ItemInstance> items = readItems(connection, playerId);
+                List<CharacterResources> resources = readResources(connection, loaded);
                 connection.commit();
-                return new SessionBundle(playerId, account, loaded, items);
+                return new SessionBundle(playerId, account, loaded, items, resources);
             } catch (SQLException failure) {
                 connection.rollback();
                 throw failure;
@@ -136,5 +139,26 @@ public final class SessionBundleLoader {
             }
         }
         return List.copyOf(items);
+    }
+
+    /**
+     * Reads the stored resources of every character in this bundle (B04, FR-028).
+     *
+     * <p>The fourth statement on the same connection and inside the same transaction, so the "one
+     * load, one round" property this class exists for survives. A character with no row is normal -
+     * it means new, and the load path starts it at its maxima rather than treating the absence as a
+     * fault.
+     */
+    private static List<CharacterResources> readResources(
+            Connection connection, List<PlayerCharacter> characters) throws SQLException {
+        if (characters.isEmpty()) {
+            return List.of();
+        }
+        List<CharacterResources> resources = new ArrayList<>(characters.size());
+        for (PlayerCharacter character : characters) {
+            JdbcCharacterResourcesRepository.read(connection, character.characterId())
+                    .ifPresent(resources::add);
+        }
+        return List.copyOf(resources);
     }
 }

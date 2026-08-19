@@ -49,6 +49,19 @@ public final class DefaultSessionLifecycle implements SessionLifecycle {
     /** Players who disconnected while their load was running; their result is discarded. */
     private final ConcurrentHashMap<UUID, Boolean> abandoned = new ConcurrentHashMap<>();
 
+    /**
+     * Blocks that hang their own state off a session (B04 onwards).
+     *
+     * <p>Copy-on-write because it is written once at startup and read on every login.
+     */
+    private final java.util.List<SessionAttachment> attachments =
+            new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    /** Registers an attachment. Called during module start, before any player can connect. */
+    public void addAttachment(SessionAttachment attachment) {
+        attachments.add(Objects.requireNonNull(attachment, "attachment"));
+    }
+
     public DefaultSessionLifecycle(
             DefaultSessionRegistry registry,
             Function<UUID, SessionBundle> loader,
@@ -128,6 +141,22 @@ public final class DefaultSessionLifecycle implements SessionLifecycle {
 
         session.transitionTo(SessionState.UNLOADING, clock.instant());
 
+        // Before the final write, so an attachment can hand over anything still to be persisted.
+        for (SessionAttachment attachment : attachments) {
+            try {
+                attachment.onSessionClosing(playerId);
+            } catch (RuntimeException failure) {
+                logger.log(
+                        Level.WARNING,
+                        "[session] attachment '"
+                                + attachment.id()
+                                + "' failed while closing the session of "
+                                + playerId
+                                + "; continuing with the write",
+                        failure);
+            }
+        }
+
         if (!session.mayBeWritten()) {
             registry.remove(playerId);
             return CompletableFuture.completedFuture(null);
@@ -202,6 +231,23 @@ public final class DefaultSessionLifecycle implements SessionLifecycle {
         // A record that had to be migrated is marked so the new format is written back (FR-026).
         if (migrator.migratedAnything(bundle, migrated)) {
             writer.markCharactersDirty(migrated.characters());
+        }
+
+        // Later blocks build their per-session state here, while the player is still held. B04
+        // needs this: a stat holder has to be calculated before release (FR-019b).
+        for (SessionAttachment attachment : attachments) {
+            try {
+                attachment.onSessionOpened(session, migrated);
+            } catch (RuntimeException failure) {
+                logger.log(
+                        Level.WARNING,
+                        "[session] attachment '"
+                                + attachment.id()
+                                + "' failed while opening the session of "
+                                + playerId
+                                + "; continuing without it",
+                        failure);
+            }
         }
         return session;
     }

@@ -54,7 +54,7 @@ class CharacterMigrationTest {
             MigrationOutcome first = new SchemaMigrator(pools.writePool(), QUIET).migrateToLatest();
             MigrationOutcome second = new SchemaMigrator(pools.writePool(), QUIET).migrateToLatest();
 
-            assertThat(first.applied()).isEqualTo(3); // V1, V3_1, V3_2
+            assertThat(first.applied()).isEqualTo(4); // V1, V3_1, V3_2, V4_1
             assertThat(second.applied()).isZero();
         }
     }
@@ -83,6 +83,9 @@ class CharacterMigrationTest {
             assertThat(rows.next()).isTrue();
             // Within a block the sequence counts up; 3.2 must follow 3.1, not precede it.
             assertThat(rows.getString(1)).isEqualTo("3.2");
+            assertThat(rows.next()).isTrue();
+            // And B04 lands after B03, which is the whole point of the per-block numbering.
+            assertThat(rows.getString(1)).isEqualTo("4.1");
         }
     }
 

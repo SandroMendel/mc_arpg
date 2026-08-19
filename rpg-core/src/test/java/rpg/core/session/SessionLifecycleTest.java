@@ -63,6 +63,7 @@ class SessionLifecycleTest {
                 playerId,
                 Optional.of(rpg.core.persistence.PlayerState.initial(playerId, NOW)),
                 List.of(character),
+                List.of(),
                 List.of());
     }
 
@@ -185,6 +186,7 @@ class SessionLifecycleTest {
                                         Optional.of(
                                                 rpg.core.persistence.PlayerState.initial(id, NOW)),
                                         List.of(fromFuture),
+                                        List.of(),
                                         List.of()));
 
         assertThatThrownBy(() -> lifecycle.beginLoad(playerId, TIMEOUT).join())
@@ -203,6 +205,7 @@ class SessionLifecycleTest {
                                         id,
                                         Optional.of(
                                                 rpg.core.persistence.PlayerState.initial(id, NOW)),
+                                        List.of(),
                                         List.of(),
                                         List.of()));
 

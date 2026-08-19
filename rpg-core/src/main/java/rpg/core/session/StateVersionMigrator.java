@@ -55,7 +55,11 @@ public final class StateVersionMigrator {
             migrated.add(migrateOne(character));
         }
         return new SessionBundle(
-                bundle.playerId(), bundle.accountState(), migrated, bundle.items());
+                bundle.playerId(),
+                bundle.accountState(),
+                migrated,
+                bundle.items(),
+                bundle.resources());
     }
 
     /** Whether migrating changed anything - the caller then writes the new format back (FR-026). */

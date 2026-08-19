@@ -49,12 +49,14 @@ public final class FlushCycle implements WriteBehindCoordinator {
      * <p>Not arbitrary any more since B03: the foreign keys demand it. A character references an
      * account, and an item references a character (ADR-011), so a newly created character must be
      * written before the items pointing at it - otherwise the item insert fails against a row that
-     * does not exist yet. Statistics and the audit log carry no such constraint and come last.
+     * does not exist yet. B04's resource row references a character for the same reason and follows
+     * it. Statistics and the audit log carry no such constraint and come last.
      */
     private static final List<AggregateType> WRITE_ORDER =
             List.of(
                     AggregateType.PLAYER_STATE,
                     AggregateType.CHARACTER,
+                    AggregateType.CHARACTER_STATS,
                     AggregateType.ITEM_INSTANCE,
                     AggregateType.STATISTICS,
                     AggregateType.AUDIT_LOG);

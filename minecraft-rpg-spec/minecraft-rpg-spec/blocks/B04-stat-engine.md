@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Schicht** | 1 — Regel-Engine |
-| **Status** | Offene Fragen geklärt (2026-08-19) — bereit für `/specify` |
+| **Status** | Implementiert (2026-08-20) — 101 Aufgaben, 481 Tests grün, Spec unter `specs/004-stat-engine/` |
 | **Abhängig von** | B01, B03 |
 | **Benötigt von** | B05, B06, B07, B08, B10, B11, B13 |
 
@@ -94,3 +94,27 @@ Ausrüstung und Effekten die konkreten Werte eines Spielers oder Mobs?
   Leerlauf messbar 0 ms Tick-Zeit.
 - Ein Rundlauf (Item anlegen → Wert steigt → Item ablegen → Ausgangswert) endet
   exakt beim Ausgangswert, ohne Drift.
+
+## Umsetzung (2026-08-20)
+
+Spezifikation, Plan, Verträge und Aufgaben: `specs/004-stat-engine/`.
+Umsetzungsentscheidungen: **ADR-013** in `02-decisions.md`.
+
+**Namenshinweis zur Paper-API:** Die Attributkonstanten heißen inzwischen `MAX_HEALTH`,
+`ATTACK_SPEED` und `MOVEMENT_SPEED` — das `GENERIC_`-Präfix in ADR-003 und in diesem Steckbrief
+ist mit Minecraft 1.21.3 entfallen. Gleiche Attribute, aktuelle Namen.
+
+**Nachträglich geklärt und hier festgehalten:**
+
+- Aktuelles Leben und Mana gehören zu B04 und werden persistiert (Tabelle `rpg.character_stats`,
+  Migration `V4_1`). Wann sich ein Stand ändert, entscheiden B05 und B08.
+- B04 schaltet die natürliche Regeneration ab und fixiert die Sättigung. Das Umlenken von
+  Vanilla-Schadensquellen bleibt bei B05 und wird durch einen Negativtest ferngehalten.
+- Der Attributsatz ist geschlossen; ein neuntes Attribut ist eine Konstante plus ein
+  Konfigurationseintrag.
+- Die Caps (40 %, ±50 %, ±30 %) stehen als Pflichtfelder in `stats.yml` und sind für das Balancing
+  änderbar; ein fehlender oder unplausibler Wert bricht den Start ab.
+
+**Offen:** Der Lasttest-Nachweis auf einem echten Paper-Server (Abschnitt 8 des
+Validierungsleitfadens) steht noch aus — sinnvoll gemeinsam mit den offenen Serverprüfungen aus
+B02 und B03.

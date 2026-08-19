@@ -1,0 +1,68 @@
+# B04 - attribute definitions. Every balancing number lives here, never in code (Principle V).
+#
+# The formula, from ADR-008:
+#
+#   effectiveBase = base + contributions from level and class (B06, B07)
+#   raw           = (effectiveBase + sum of FLAT) * (1 + sum of PERCENT)
+#   final         = clamp(raw, min, max)
+#
+# Percent modifiers are summed and applied ONCE. Two +50% items give x2.0, not x2.25 - chaining
+# them would make the result depend on the order things were equipped.
+#
+# Every field below is required. A missing or implausible value stops the server at startup with a
+# message naming the attribute and the field, rather than letting an attribute run unbounded.
+
+attributes:
+
+  # Own HP system (ADR-003). The vanilla heart bar is a percentage display: it stays pinned at 20
+  # points and shows current/max, whether the maximum is 100 or 2000.
+  health:
+    base: 100.0
+    # Never zero: a holder without a maximum cannot exist.
+    min: 1.0
+    max: 2000.0
+
+  # Divisor model: damage * 100/(100 + defense). 300 is exactly 75% mitigation. No separate cap is
+  # needed - the curve approaches complete immunity without ever reaching it.
+  defense:
+    base: 0.0
+    min: 0.0
+    max: 300.0
+
+  mana:
+    base: 50.0
+    min: 0.0
+    max: 500.0
+
+  physicalDamage:
+    base: 5.0
+    min: 0.0
+    max: 150.0
+
+  magicDamage:
+    base: 5.0
+    min: 0.0
+    max: 150.0
+
+  # Mirrored to the vanilla attack speed attribute. modifier-band is the effective limit: the value
+  # may deviate at most this much from the base, so +-50%. max only guards against a value the
+  # server itself would refuse.
+  attackSpeed:
+    base: 4.0
+    min: 0.0
+    max: 1024.0
+    modifier-band: 0.50
+
+  # Same idea, +-30%.
+  movementSpeed:
+    base: 0.1
+    min: 0.0
+    max: 1.0
+    modifier-band: 0.30
+
+  # A fraction, not a number of seconds: 0.40 means "40% off the cooldown". max IS the hard cap
+  # from ADR-008 - in a generic attribute model a cap is nothing other than a ceiling.
+  abilityCooldown:
+    base: 0.0
+    min: 0.0
+    max: 0.40

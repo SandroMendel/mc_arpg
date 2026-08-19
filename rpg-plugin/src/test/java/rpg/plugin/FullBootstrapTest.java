@@ -6,6 +6,9 @@ import java.nio.file.Path;
 import java.util.Arrays;
 
 import org.bukkit.event.HandlerList;
+import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntityRegainHealthEvent;
+import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.player.AsyncPlayerPreLoginEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
@@ -45,6 +48,10 @@ class FullBootstrapTest {
     void setUp() throws Exception {
         PostgresContainer.resetSchema();
         server = MockBukkit.mock();
+        // A world has to exist before the plugin enables: B04's regeneration guard writes a game
+        // rule to every loaded world, and with no worlds the assertion about it would pass
+        // vacuously.
+        server.addSimpleWorld("world");
         TestServerSetup.useTestDatabase();
         plugin = MockBukkit.load(RpgPlugin.class);
     }
@@ -104,7 +111,53 @@ class FullBootstrapTest {
 
         assertThat(dataFolder.resolve("persistence.yml")).exists();
         assertThat(dataFolder.resolve("session.yml")).exists();
+        assertThat(dataFolder.resolve("stats.yml")).exists();
         assertThat(dataFolder.resolve("messages.yml")).exists();
+    }
+
+    // --- B04 --------------------------------------------------------------
+    //
+    // ADR-012: a module that is not wired into the plugin is inert on a real server, however green
+    // its own tests are. B02 and B03 were both fully tested and both unregistered. These four
+    // assertions are the cheapest thing that would have caught it.
+
+    @Test
+    void theStatEngineIsResolvableThroughTheRegistry() {
+        assertThat(plugin.registry().findService(rpg.core.stats.StatEngine.class)).isPresent();
+    }
+
+    @Test
+    void theStatsTableExistsBecauseB04sMigrationRanToo() {
+        assertThat(PostgresContainer.tableExists("character_stats")).isTrue();
+    }
+
+    @Test
+    void theRegenerationGuardIsRegisteredSoNothingElseWritesTheHealthBar() {
+        // Exactly one handler each, and none at all on damage - redirecting damage is B05 (FR-030b).
+        assertThat(handlerCount(EntityRegainHealthEvent.getHandlerList())).isEqualTo(1);
+        assertThat(handlerCount(FoodLevelChangeEvent.getHandlerList())).isEqualTo(1);
+        assertThat(handlerCount(EntityDamageEvent.getHandlerList())).isZero();
+    }
+
+    @Test
+    void naturalRegenerationIsOffInEveryWorld() {
+        assertThat(server.getWorlds())
+                .isNotEmpty()
+                .allSatisfy(
+                        world ->
+                                assertThat(
+                                                world.getGameRuleValue(
+                                                        org.bukkit.GameRules.NATURAL_HEALTH_REGENERATION))
+                                        .isFalse());
+    }
+
+    @Test
+    void theStatEngineStartsWithEightAttributesAndNoHolders() {
+        rpg.core.stats.StatEngine engine =
+                plugin.registry().getService(rpg.core.stats.StatEngine.class);
+
+        assertThat(rpg.core.stats.Attribute.count()).isEqualTo(8);
+        assertThat(engine.holderCount()).isZero();
     }
 
     @Test

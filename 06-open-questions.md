@@ -5,7 +5,7 @@ stehen im jeweiligen Blocksteckbrief. Stand: 2026-08-19 — Klärungsrunde mit d
 Auftraggeber abgeschlossen, Ergebnisse sind in den Blocksteckbriefen und in
 `02-decisions.md` (ADR-006, ADR-008) nachgetragen.
 
-## B04 (Stat-Engine) — abgeschlossen
+## B04 (Stat-Engine) — abgeschlossen und implementiert (2026-08-20)
 
 - [x] Stacking-Reihenfolge: `(Base + Flat) × (1 + ΣPercent)`
 - [x] Defense-Formel: Divisor-Modell `dmg × 100/(100+def)`, kein separater Cap
@@ -17,7 +17,16 @@ Auftraggeber abgeschlossen, Ergebnisse sind in den Blocksteckbriefen und in
 - [x] Sekundärwerte (Crit-Chance, Crit-Schaden, Lifesteal, Resistenzen):
       vorerst nicht Teil von B04
 
-→ Details und Begründung: `02-decisions.md` ADR-008, `blocks/B04-stat-engine.md`
+Bei der Umsetzung zusätzlich geklärt (siehe ADR-013):
+
+- [x] Ressourcenbehälter (aktuelles Leben/Mana) gehören zu B04 und werden persistiert
+- [x] Vanilla-Regeneration abschalten: B04; Vanilla-Schadensquellen umlenken: B05
+- [x] Attributsatz geschlossen, keine Laufzeit-Registratur
+- [x] Caps konfigurierbar, aber Pflichtfelder mit Fail-Fast
+- [x] Bündelung automatisch über eine trägergebundene Einmalaufgabe
+
+→ Details und Begründung: `02-decisions.md` ADR-008 und ADR-013,
+  `blocks/B04-stat-engine.md`, `specs/004-stat-engine/`
 
 ## B06/B07 (Progression & Klassen) — abgeschlossen, Basiswerte offen
 

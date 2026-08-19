@@ -179,6 +179,7 @@ class SessionReconcilerTest {
                 playerId,
                 Optional.of(rpg.core.persistence.PlayerState.initial(playerId, NOW)),
                 List.of(character),
+                List.of(),
                 List.of());
     }
 
