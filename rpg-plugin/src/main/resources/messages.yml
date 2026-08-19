@@ -1,0 +1,39 @@
+# Player-facing texts. Constitution V: no text lives in code.
+#
+# Every key used anywhere in the plugin must appear here - the bootstrap validates that and
+# refuses to start otherwise (FR-023a), so a forgotten entry cannot surface later as a blank
+# message at the worst possible moment.
+#
+# Placeholders are written as {name} and substituted in a single pass; substituted content is
+# never re-examined, so a value containing {something} cannot inject another placeholder.
+#
+# Multilingual support is NOT implemented (ADR-005) - this file is the structure that keeps it
+# possible without touching code later.
+
+server:
+  kick:
+    # Shown while the plugin is still starting up (B01, FR-013)
+    starting-up: 'The server is still starting up. Please try again in a moment.'
+    # Shown when the bootstrap failed and the server refuses sessions
+    bootstrap-failed: 'The server did not start correctly and is not accepting players. Please contact an administrator.'
+    # Shown while the server is shutting down
+    shutting-down: 'The server is shutting down.'
+
+session:
+  kick:
+    # Stored state could not be read; the login is refused (B03, FR-011)
+    load-failed: 'Your character data could not be loaded. Your progress is safe - please try again shortly.'
+    # Loading exceeded its 5 second budget (B03, FR-006)
+    load-timeout: 'Loading your character took too long. Please try again.'
+    # The stored state is in a version this build does not know (B03, FR-027)
+    unknown-data-version: 'Your character data was saved by a newer version of the server. Please contact an administrator.'
+  character:
+    # A second character of the same class was rejected (B03, FR-020)
+    class-taken: 'You already have a character of that class.'
+
+persistence:
+  kick:
+    # Shown when persistence is unreachable and no state can be loaded (B02, FR-005a)
+    database-unavailable: 'The server cannot reach its data storage right now. Your progress is safe - please try again shortly.'
+    # Shown when the write buffer hit its limit and everyone must be disconnected (B02, FR-009b)
+    buffer-exhausted: 'The server must disconnect you to protect your progress. Please try again shortly.'

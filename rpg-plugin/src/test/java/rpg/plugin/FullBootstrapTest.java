@@ -1,0 +1,127 @@
+package rpg.plugin;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.nio.file.Path;
+import java.util.Arrays;
+
+import org.bukkit.event.HandlerList;
+import org.bukkit.event.player.AsyncPlayerPreLoginEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockbukkit.mockbukkit.MockBukkit;
+import org.mockbukkit.mockbukkit.ServerMock;
+
+import com.destroystokyo.paper.event.player.PlayerConnectionCloseEvent;
+
+import rpg.core.module.BootstrapState;
+import rpg.persistence.support.PostgresContainer;
+
+/**
+ * The whole plugin, started the way a server starts it, against a real database.
+ *
+ * <p>This is the only test that can catch a class of problem the module tests cannot: a module that
+ * is written but never registered, a listener that is never subscribed, a configuration file that
+ * ships with no default, a message key nothing declares. Every one of those passes every unit test
+ * in the project and produces a plugin that does nothing on a real server.
+ *
+ * <p>It is also what proves the start order: B03 declares a dependency on B02, and if that order
+ * were wrong the session module would build its repositories against pools that do not exist yet.
+ *
+ * <p>MockBukkit reports unimplemented operations as <em>aborted</em>, not failed, so a green run
+ * that skipped everything is indistinguishable from a real one at a glance - the skipped count is
+ * checked on every run of this module.
+ */
+class FullBootstrapTest {
+
+    private ServerMock server;
+    private RpgPlugin plugin;
+
+    @BeforeEach
+    void setUp() throws Exception {
+        PostgresContainer.resetSchema();
+        server = MockBukkit.mock();
+        TestServerSetup.useTestDatabase();
+        plugin = MockBukkit.load(RpgPlugin.class);
+    }
+
+    @AfterEach
+    void tearDown() {
+        MockBukkit.unmock();
+    }
+
+    @Test
+    void theWholeStackStartsAndTheServerAcceptsPlayers() {
+        assertThat(plugin.bootstrapState().phase()).isEqualTo(BootstrapState.Phase.READY);
+        assertThat(plugin.bootstrapState().acceptsPlayers()).isTrue();
+    }
+
+    @Test
+    void bothBlocksTablesExistBecauseTheMigrationsRanDuringStartup() {
+        // B02's tables and B03's, in one schema, applied by the plugin itself rather than by a test.
+        assertThat(PostgresContainer.tableExists("player_state")).isTrue();
+        assertThat(PostgresContainer.tableExists("character")).isTrue();
+        assertThat(PostgresContainer.tableExists("item_instance")).isTrue();
+    }
+
+    @Test
+    void theSessionServicesAreResolvableThroughTheRegistry() {
+        // How B04, B07, B12 and B14 will reach them - by interface, through B01's registry.
+        assertThat(plugin.registry().findService(rpg.core.session.SessionRegistry.class)).isPresent();
+        assertThat(plugin.registry().findService(rpg.core.session.CharacterRepository.class)).isPresent();
+        assertThat(plugin.registry().findService(rpg.core.session.OfflinePlayerReader.class)).isPresent();
+        assertThat(plugin.registry().findService(rpg.core.persistence.PlayerStateRepository.class))
+                .isPresent();
+    }
+
+    @Test
+    void theLifecycleItselfIsNotPublished() {
+        // Deliberate: a block that could open a session could open a second one for the same player
+        // (FR-014). Reading sessions is a service; driving them is not.
+        assertThat(plugin.registry().findService(rpg.core.session.SessionLifecycle.class)).isEmpty();
+    }
+
+    @Test
+    void everyEventTheLifecycleNeedsHasExactlyOneHandler() {
+        // One entry and one exit. A second handler on any of these is how a duplicate load or a
+        // duplicate unload gets introduced without anything looking wrong.
+        assertThat(handlerCount(AsyncPlayerPreLoginEvent.getHandlerList()))
+                .as("the bootstrap guard and the session loader")
+                .isEqualTo(2);
+        assertThat(handlerCount(PlayerJoinEvent.getHandlerList())).isEqualTo(1);
+        assertThat(handlerCount(PlayerQuitEvent.getHandlerList())).isEqualTo(1);
+        assertThat(handlerCount(PlayerConnectionCloseEvent.getHandlerList())).isEqualTo(1);
+        assertThat(handlerCount(PlayerMoveEvent.getHandlerList())).isEqualTo(1);
+    }
+
+    @Test
+    void theDefaultConfigurationFilesAreWrittenOutOnFirstStart() {
+        Path dataFolder = plugin.getDataFolder().toPath();
+
+        assertThat(dataFolder.resolve("persistence.yml")).exists();
+        assertThat(dataFolder.resolve("session.yml")).exists();
+        assertThat(dataFolder.resolve("messages.yml")).exists();
+    }
+
+    @Test
+    void stoppingTheServerShutsEverythingDownWithoutThrowing() {
+        server.getPluginManager().disablePlugin(plugin);
+
+        assertThat(plugin.bootstrapState().phase()).isEqualTo(BootstrapState.Phase.SHUTTING_DOWN);
+        assertThat(plugin.bootstrapState().acceptsPlayers()).isFalse();
+    }
+
+    // --- fixtures ---
+
+    private static int handlerCount(HandlerList handlers) {
+        return (int)
+                Arrays.stream(handlers.getRegisteredListeners())
+                        .filter(listener -> listener.getPlugin() instanceof RpgPlugin)
+                        .count();
+    }
+
+}

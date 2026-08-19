@@ -1,0 +1,19 @@
+# B03 - player session and data lifecycle.
+session:
+  # Last resort, not an expected load time: the target is 500 ms. A player whose session cannot be
+  # loaded within this is refused with a message rather than left standing on the server, because
+  # being refused is recoverable and playing with values that are not yours is not.
+  # Capped at 5 seconds by the schema.
+  load-timeout-seconds: 5
+
+  # How often the server checks for sessions whose player is no longer connected. In normal
+  # operation this finds nothing; it exists so that a session left behind by any path - a cancelled
+  # quit event, a failed cleanup, a future change - cannot accumulate over weeks of uptime.
+  # At least 5 seconds by the schema.
+  reconcile-interval-seconds: 30
+
+  # How long a session loaded during login waits to be collected before it is discarded. A login
+  # can pass the pre-login stage and never reach the world; without this the loaded session would
+  # sit in memory forever. Nothing is written when an entry expires - a player who never entered
+  # never had a state worth saving.
+  pending-expiry-seconds: 30

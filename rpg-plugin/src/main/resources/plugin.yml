@@ -1,0 +1,17 @@
+name: VuntexRPG
+version: '${version}'
+main: rpg.plugin.RpgPlugin
+api-version: '26.2'
+description: 'B01 Core & Platform, B02 Persistence, B03 Player Session - module registry, event bus, scheduler abstraction, configuration, PostgreSQL persistence and the player session lifecycle.'
+author: Vuntex
+website: https://github.com/vuntex/vuntex-rpg
+load: STARTUP
+
+# Resolved by Paper from Maven Central at startup into an isolated classloader (ADR-010).
+# Keeping them out of the jar preserves the property established in B01 that the shipped
+# artifact contains no third-party classes.
+libraries:
+  - org.postgresql:postgresql:42.7.13
+  - com.zaxxer:HikariCP:7.1.0
+  - org.flywaydb:flyway-core:13.3.0
+  - org.flywaydb:flyway-database-postgresql:13.3.0

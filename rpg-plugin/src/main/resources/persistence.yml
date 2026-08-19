@@ -1,0 +1,31 @@
+# B02 - persistence layer.
+#
+# host, database, user and password have no defaults on purpose: a wrong guess would connect the
+# server to somebody else's database, and the failure would look like data loss rather than a
+# configuration mistake. Everything else has a default that works.
+persistence:
+  host: localhost
+  port: 5432
+  database: vuntex
+  user: vuntex
+  password: change-me
+
+  pool:
+    # Writes go through the background flush, logins through their own pool. Separating them is
+    # what keeps a slow write from delaying a login (and the reverse) when 200 players connect
+    # at once.
+    write-size: 8
+    login-size: 4
+
+  # How often unwritten changes are flushed. After a hard kill at most this much is lost.
+  # Lower means more database load; higher means more to lose.
+  autosave-seconds: 45
+
+  # How many changed aggregates may wait for the next flush. Reaching this is not normal - it
+  # means the database has not been keeping up - and a warning is logged well before the limit.
+  buffer-capacity: 50000
+
+  # The budget for the final flush when the server stops. Bounded because the module system
+  # abandons a module that has not finished after 10 seconds; 8 leaves room to report the result
+  # rather than being cut off mid-write.
+  shutdown-flush-seconds: 8

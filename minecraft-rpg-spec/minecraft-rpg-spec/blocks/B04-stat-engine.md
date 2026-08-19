@@ -1,0 +1,96 @@
+# B04 · Attribut- & Stat-Engine
+
+| | |
+|---|---|
+| **Schicht** | 1 — Regel-Engine |
+| **Status** | Offene Fragen geklärt (2026-08-19) — bereit für `/specify` |
+| **Abhängig von** | B01, B03 |
+| **Benötigt von** | B05, B06, B07, B08, B10, B11, B13 |
+
+## Zweck
+
+Das zentrale Vertragswerk des Spiels: Wie entstehen aus Klasse, Level,
+Ausrüstung und Effekten die konkreten Werte eines Spielers oder Mobs?
+
+## Die acht Attribute
+
+| Code-Bezeichner | Deutsch | Kurzbeschreibung |
+|---|---|---|
+| `health` | Leben | Eigener HP-Wert (siehe ADR-003) |
+| `defense` | Verteidigung | Mindert eingehenden Schaden |
+| `mana` | Mana | Ressource für aktive Fähigkeiten |
+| `physicalDamage` | Physischer Schaden | Basis für Waffenschaden |
+| `magicDamage` | Magischer Schaden | Basis für Fähigkeitsschaden |
+| `attackSpeed` | Angriffsgeschwindigkeit | Angriffe pro Zeiteinheit |
+| `movementSpeed` | Bewegungsgeschwindigkeit | Laufgeschwindigkeit |
+| `abilityCooldown` | Abklingzeit | Reduktion der Fähigkeiten-Cooldowns |
+
+## Umfang
+
+- Generisches Attributmodell — **acht Instanzen eines Systems, keine acht
+  Sonderfälle**
+- Modifier-Modell mit Quellenverfolgung (Klasse, Level, Item, Buff, Aura, Zone)
+- Stacking- und Berechnungsreihenfolge inkl. Caps
+- Ereignisgesteuerte Neuberechnung mit unveränderlichem `StatSnapshot`
+- Brücke zu Vanilla-Attributen für die Werte, die die Engine ohnehin kennt
+- Dasselbe Modell gilt für Mobs (B10)
+
+## Festgelegte Anforderungen
+
+- **ADR-003**: HP ist eigenständig, `GENERIC_MAX_HEALTH` fix auf 20, angezeigte
+  Health = `currentHP / maxHP * 20`
+- **ADR-004**: Ausrüstung ist Stat-Quelle neben Klasse und Level
+
+## Architekturvorgaben
+
+- Neuberechnung **nur bei Änderung** einer Quelle, niemals pro Tick.
+- Ergebnis ist ein unveränderlicher Snapshot; laufende Berechnungen (z. B. ein
+  fliegendes Projektil) arbeiten mit dem Snapshot vom Zeitpunkt der Auslösung.
+- Modifikatoren tragen eine Quellen-ID, damit sie beim Entfernen (Item abgelegt,
+  Buff abgelaufen) gezielt entfernt werden können — kein Neuaufbau von Grund auf.
+- Änderungen an `movementSpeed`, `attackSpeed` und `maxHealth` werden im selben
+  Vorgang zum Vanilla-Attribut und zum HUD gespiegelt.
+- Die gesamte Berechnungslogik liegt in `rpg-core` und ist ohne Server testbar.
+
+## Offene Fragen — geklärt (2026-08-19)
+
+- [x] **Stacking-Reihenfolge**: `(Base + Flat) × (1 + ΣPercent)`. Alle Flat-Boni
+      addieren sich zur Basis, alle Prozent-Boni werden aufsummiert und einmal
+      multipliziert (keine sequenzielle Verkettung).
+- [x] **Defense-Formel**: Divisor-Modell `dmg × 100/(100+def)`. Kein separater
+      harter Cap nötig, da die Formel asymptotisch gegen 100% Reduktion läuft.
+- [x] **Skalierungsverhältnis**: Ausrüstung dominant. Level liefert nur einen
+      kleinen festen Stat-Zuwachs pro Level (siehe B06), der Großteil der
+      Endpower kommt aus Ausrüstung (konsistent mit ADR-004).
+- [x] **attackSpeed / movementSpeed**: Beide über Vanilla-Attribute
+      (`GENERIC_ATTACK_SPEED`, `GENERIC_MOVEMENT_SPEED`), durch Modifier aus
+      B04 gesteuert.
+- [x] **abilityCooldown**: Prozentuale Reduktion mit hartem Cap bei 40%.
+- [x] **Wertebereiche und Caps je Attribut** (Start Lvl 1 → Max bei Best-Gear,
+      Ausgangspunkt für Balancing, jederzeit über Content-Config änderbar):
+
+  | Attribut | Start (Lvl 1) | Max (Best Gear) |
+  |---|---|---|
+  | Health | 100 | 2000 |
+  | Defense | 0 | 300 (→ 75% Dmg-Reduktion) |
+  | Mana | 50 | 500 |
+  | Physical Damage | 5 | 150 |
+  | Magic Damage | 5 | 150 |
+  | Attackspeed | Vanilla-Basis | ±50% durch Modifier |
+  | Movement Speed | Vanilla-Basis | ±30% durch Modifier |
+  | Ability Cooldown | 0% | 40% (harter Cap) |
+
+- [x] **Sekundärwerte** (Crit-Chance, Crit-Schaden, Lifesteal, Resistenzen):
+      Vorerst **nein** — B04 bleibt bei den 8 Basisattributen. Kann später als
+      eigener Block/ADR nachgezogen werden, ohne das generische Modifier-Modell
+      zu ändern.
+
+## Akzeptanzkriterien (Entwurf)
+
+- Alle Formeln sind ohne laufenden Server unit-getestet, inkl. Randfälle
+  (Wert 0, negative Modifikatoren, Cap-Überschreitung).
+- Vollständiger Ausrüstungswechsel löst genau **eine** Neuberechnung aus.
+- 200 Spieler mit je 8 Attributen und je ~20 Modifikatoren verbrauchen im
+  Leerlauf messbar 0 ms Tick-Zeit.
+- Ein Rundlauf (Item anlegen → Wert steigt → Item ablegen → Ausgangswert) endet
+  exakt beim Ausgangswert, ohne Drift.
