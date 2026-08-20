@@ -64,25 +64,28 @@ class RpgPluginTest {
     void reloadAppliesAGoodFileAndKeepsThePreviousOneOnABadFile() throws Exception {
         Path dataFolder = plugin.getDataFolder().toPath();
         Files.createDirectories(dataFolder);
-        Path file = dataFolder.resolve("combat.yml");
-        Files.writeString(file, "combat:\n  max-targets: 5\n");
+        // A placeholder name on purpose: this test is about B01s reload mechanics, not about any
+        // real block. It used to be called combat.yml, until B05 took that name for something that
+        // actually exists - and the two schemas then fought over the same file.
+        Path file = dataFolder.resolve("example-block.yml");
+        Files.writeString(file, "example:\n  max-targets: 5\n");
 
         ConfigSchema<Integer> schema =
                 ConfigSchema.<Integer>builder(1)
-                        .required("combat.max-targets", FieldType.INTEGER)
-                        .boundTo(view -> view.getInt("combat.max-targets"))
+                        .required("example.max-targets", FieldType.INTEGER)
+                        .boundTo(view -> view.getInt("example.max-targets"))
                         .build();
 
         ConfigLoader loader = configLoaderOf(plugin);
-        ConfigHandle<Integer> handle = loader.register(Path.of("combat.yml"), schema);
+        ConfigHandle<Integer> handle = loader.register(Path.of("example-block.yml"), schema);
         assertThat(handle.get()).isEqualTo(5);
 
-        Files.writeString(file, "combat:\n  max-targets: 9\n");
+        Files.writeString(file, "example:\n  max-targets: 9\n");
         assertThat(plugin.reloadConfiguration()).isTrue();
         assertThat(handle.get()).isEqualTo(9);
 
         // quickstart section 3, step 4: a broken reload must not crash and must keep the old value
-        Files.writeString(file, "combat:\n  max-targets: 'plenty'\n");
+        Files.writeString(file, "example:\n  max-targets: 'plenty'\n");
         assertThat(plugin.reloadConfiguration()).isFalse();
         assertThat(handle.get()).isEqualTo(9);
     }

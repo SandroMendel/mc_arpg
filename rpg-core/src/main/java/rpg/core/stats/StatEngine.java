@@ -69,6 +69,16 @@ public interface StatEngine {
     /** Creates a holder without a player behind it - a mob (B10, FR-035). */
     UUID createForEntity(UUID entityId);
 
+    /**
+     * The character behind a holder, or empty for a holder without a player (a mob).
+     *
+     * <p>Added for B05, which needs it twice: to decide whether the no-PvP rule applies, and to put
+     * the right id into its death event. Both were previously guesswork from the outside - the
+     * session registry answers "is a session loaded", not "is this a character", and using the
+     * player id as a character id is simply wrong.
+     */
+    Optional<UUID> characterIdOf(UUID holderId);
+
     /** Drops a holder with everything attached to it (FR-036). Idempotent; never throws. */
     void remove(UUID holderId);
 
@@ -95,6 +105,16 @@ public interface StatEngine {
 
     /** Changes current mana by {@code delta}, clamped into {@code [0, maxMana]}. */
     double changeMana(UUID holderId, double delta);
+
+    /**
+     * Sets both resources outright, clamped against the current maxima (FR-027, FR-028).
+     *
+     * <p>For load paths, not for gameplay: B03 restores a player's stored values here, and B05 uses
+     * it to start a freshly equipped creature at full. Both need it <em>after</em> the first
+     * calculation, because the maxima do not exist before it - setting resources first would clamp
+     * them against a maximum that has not been computed yet.
+     */
+    void restoreResources(UUID holderId, ResourcePool pool);
 
     // ------------------------------------------------------------- registration
 

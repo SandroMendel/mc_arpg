@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Schicht** | 1 — Regel-Engine |
-| **Status** | Entwurf — performancekritisch |
+| **Status** | Implementiert (2026-08-20) — 120 Aufgaben, 570 Tests grün; Lasttest steht aus |
 | **Abhängig von** | B04 |
 | **Benötigt von** | B08, B10, B12 |
 
@@ -48,16 +48,27 @@ Weiterhin:
 - Damage-Attribution nutzt ein begrenztes, zeitlich verfallendes Beitragsfenster
   je Mob — keine unbegrenzt wachsende Angreiferliste.
 
-## Offene Fragen
+## Offene Fragen — geklärt (2026-08-20)
 
-- [ ] Vollständige Schadensformel inkl. Reihenfolge (Crit vor oder nach Defense?)
-- [ ] Gibt es Crit, Ausweichen, Blocken, Resistenztypen?
-- [ ] Angriffsgeschwindigkeit: Cooldown pro Angriff oder Schadensskalierung?
-- [ ] Loot-/XP-Verteilung: letzter Treffer, meister Schaden, oder alle Beteiligten
-      anteilig?
-- [ ] Todesstrafe für Spieler (XP-Verlust, Ausrüstungsschaden, nichts)?
-- [ ] Ist PvP grundsätzlich aktiv, zonenabhängig oder deaktiviert?
-- [ ] Schadenszahlen anzeigen (Holograms/Text-Displays) — Performancekosten?
+- [x] **Sekundärmechaniken**: keine. Kein Krit, kein Ausweichen, kein Blocken, keine
+      Resistenztypen — B05 rechnet ausschliesslich mit den acht Attributen aus B04.
+      Konsistent mit ADR-008.
+- [x] **Schadensformel**: Rohschaden aus dem Angreifer-Snapshot, danach
+      `DamageMitigation.afterDefense` aus B04. Die Reihenfolgefrage entfällt mit dem Krit.
+- [x] **Angriffsgeschwindigkeit**: eigenes Cooldown-Modell je Angriff, zeitstempelbasiert
+      und lazy ausgewertet. Zu frühe Schläge werden verworfen, nicht abgeschwächt.
+      Vanilla-Waffencooldown wird abgeschaltet.
+- [x] **Loot und XP**: XP anteilig nach Schadensanteil, Loot an den höchsten Beitrag.
+      XP lässt sich teilen, ein Item nicht.
+- [x] **PvP**: aus. Die Verzweigung existiert an genau einer Stelle; B09 füllt sie später
+      mit einer Regel je Zone.
+- [x] **Todesstrafe**: Ausrüstungsschaden. B05 meldet den Tod, B11 entscheidet über die
+      Ausrüstung — kein Vorgriff auf Haltbarkeiten, die es noch nicht gibt.
+- [x] **Schadenszahlen**: ja, aber zusammengefasst. Die Bündelung liegt in B05, das Zeichnen
+      in B13. B05 erzeugt selbst keine Text-Displays.
+- [x] **Vanilla-Schadensquellen**: Umgebungsschaden abbilden (Fall, Feuer, Lava, Void,
+      Ertrinken, Explosion, Kaktus, Ersticken, Blitz, Magma), Statuseffekte abschalten
+      (Verhungern, Wither, Poison, Instant Damage/Health, Absorption). Void bleibt tödlich.
 
 ## Akzeptanzkriterien (Entwurf)
 
@@ -65,3 +76,42 @@ Weiterhin:
 - Die Herzleiste zeigt bei jedem Schadensereignis den korrekten Prozentwert.
 - Lasttest: 150 Spieler gegen 800 Mobs im Dauerkampf halten p95 MSPT < 40 ms.
 - Schadensberechnung ist unit-getestet mit dokumentierten Beispielrechnungen.
+
+## Umsetzung (2026-08-20)
+
+Spezifikation, Plan, Verträge und Aufgaben: `specs/005-combat-pipeline/`.
+Umsetzungsentscheidungen: **ADR-014** in `02-decisions.md`.
+
+### Die Liste der Schadensquellen oben war unvollständig
+
+Dieser Steckbrief nennt 17 Vanilla-Schadensursachen. **Paper 26.2 kennt 33.** Die folgenden
+sechzehn fehlten und sind bei der Umsetzung entschieden worden:
+
+| Ursache | Behandlung |
+|---|---|
+| `CAMPFIRE`, `FALLING_BLOCK`, `FLY_INTO_WALL`, `FREEZE`, `DRYOUT`, `DRAGON_BREATH`, `SONIC_BOOM`, `WORLD_BORDER` | auf eigenen Schaden abgebildet |
+| `ENTITY_SWEEP_ATTACK`, `THORNS`, `MELTING`, `CRAMMING`, `CUSTOM` | abgeschaltet |
+| `SUICIDE` | tödlich, wie `KILL` |
+| `CONTACT` | ist Kaktus und Süßbeerenstrauch |
+| `HOT_FLOOR` | ist der Magma-Block |
+
+Die vollständige Tabelle steht in `specs/005-combat-pipeline/contracts/damage-sources.md`. Umgesetzt
+als erschöpfender Switch mit Verweigerungs-Standardfall: Eine künftig hinzukommende Ursache kann
+keinen Schaden durchlassen, sondern erzeugt eine Protokollzeile.
+
+### Nachträglich geklärt und hier festgehalten
+
+- Umgebungsschaden ist ein **fester Betrag**, kein Anteil des maximalen Lebens, und Verteidigung
+  greift dabei nicht. Gefahren sollen für Anfänger ernst und für Ausgerüstete belanglos werden.
+- Beim Tod fällt **kein Inventar** — sonst wäre die gewählte Strafe (Ausrüstungsschaden durch B11)
+  daneben bedeutungslos. Der Vanilla-Todesbildschirm bleibt.
+- **Projektile** gehören zu B05. Ohne sie wäre ein Bogen ab Tag eins wirkungslos, weil der
+  Vanilla-Pfeilschaden ohnehin neutralisiert wird.
+- **Mobs bekommen ihre Werte von B05**, aus `combat.yml`, hinter einer Schnittstelle, die B10
+  übernimmt. Ohne das wirkt die gesamte Pipeline auf nichts außer Spieler.
+- B05 führt den **Kampfzustand** und veröffentlicht ihn — B08 braucht ihn bereits.
+- Vanilla-Erfahrungskugeln und Vanilla-Beute werden beim Mob-Tod unterdrückt.
+- Mobs verletzen einander nicht; die Erlaubnis fällt an genau einer Stelle, die B09 ersetzt.
+
+**Offen:** Der Lasttest (150 Spieler gegen 800 Mobs, p95 MSPT < 40 ms). Prinzip VII nennt B05
+ausdrücklich als lasttestpflichtig — bis dahin gilt der Block nicht als abgenommen.

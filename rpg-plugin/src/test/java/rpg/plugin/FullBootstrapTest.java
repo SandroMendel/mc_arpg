@@ -112,6 +112,7 @@ class FullBootstrapTest {
         assertThat(dataFolder.resolve("persistence.yml")).exists();
         assertThat(dataFolder.resolve("session.yml")).exists();
         assertThat(dataFolder.resolve("stats.yml")).exists();
+        assertThat(dataFolder.resolve("combat.yml")).exists();
         assertThat(dataFolder.resolve("messages.yml")).exists();
     }
 
@@ -133,10 +134,14 @@ class FullBootstrapTest {
 
     @Test
     void theRegenerationGuardIsRegisteredSoNothingElseWritesTheHealthBar() {
-        // Exactly one handler each, and none at all on damage - redirecting damage is B05 (FR-030b).
         assertThat(handlerCount(EntityRegainHealthEvent.getHandlerList())).isEqualTo(1);
         assertThat(handlerCount(FoodLevelChangeEvent.getHandlerList())).isEqualTo(1);
-        assertThat(handlerCount(EntityDamageEvent.getHandlerList())).isZero();
+        // Damage is handled - by B05, since it exists. That B04 is not the one doing it is asserted
+        // where it can actually be told apart: NoDamageInterceptionTest scans the sources of
+        // rpg/platform/stats and fails if a damage handler appears there (FR-030b). Counting
+        // handlers here cannot distinguish owners, so this only checks that exactly one block took
+        // the job.
+        assertThat(handlerCount(EntityDamageEvent.getHandlerList())).isEqualTo(1);
     }
 
     @Test
@@ -158,6 +163,57 @@ class FullBootstrapTest {
 
         assertThat(rpg.core.stats.Attribute.count()).isEqualTo(8);
         assertThat(engine.holderCount()).isZero();
+    }
+
+    // --- B05 --------------------------------------------------------------
+    //
+    // Same reasoning as the B04 block above: a pipeline that is not wired in is inert, however
+    // green its own tests are. For B05 there is a second trap on top - without the mob equipping,
+    // the whole pipeline applies to nothing but players, which no unit test would notice.
+
+    @Test
+    void theCombatPipelineIsResolvableThroughTheRegistry() {
+        assertThat(plugin.registry().findService(rpg.core.combat.CombatPipeline.class)).isPresent();
+    }
+
+    @Test
+    void everyCombatEventHasExactlyOneHandler() {
+        assertThat(handlerCount(EntityDamageEvent.getHandlerList()))
+                .as("B05 intercepts damage; B04 must not")
+                .isEqualTo(1);
+        // ProjectileLaunchEvent extends EntitySpawnEvent and declares no HandlerList of its own, so
+        // it SHARES one with CreatureSpawnEvent. The two cannot be counted separately - what this
+        // asserts is that exactly two handlers sit on that shared list: projectile pricing and mob
+        // equipping, one each.
+        assertThat(handlerCount(org.bukkit.event.entity.EntitySpawnEvent.getHandlerList()))
+                .as("projectile pricing and mob equipping share one handler list")
+                .isEqualTo(2);
+        assertThat(handlerCount(org.bukkit.event.entity.EntityDeathEvent.getHandlerList()))
+                .as("vanilla loot and experience are suppressed here")
+                .isEqualTo(2); // the death listener plus the mob equipment release
+    }
+
+    @Test
+    void inventoryIsKeptOnDeathInEveryWorld() {
+        assertThat(server.getWorlds())
+                .isNotEmpty()
+                .allSatisfy(
+                        world ->
+                                assertThat(
+                                                world.getGameRuleValue(
+                                                        org.bukkit.GameRules.KEEP_INVENTORY))
+                                        .as("otherwise the equipment-damage penalty is meaningless")
+                                        .isTrue());
+    }
+
+    @Test
+    void everyVanillaDamageCauseHasADecision() {
+        // The count is asserted in the platform test; here it is only about the mapping existing at
+        // all once the plugin is up.
+        var mapping = new rpg.platform.combat.VanillaDamageMapping(plugin.getLogger());
+        for (var cause : EntityDamageEvent.DamageCause.values()) {
+            assertThat(mapping.resolve(cause)).as(cause.name()).isNotNull();
+        }
     }
 
     @Test

@@ -466,3 +466,86 @@ ist entfallen. Ebenso ist `GameRule.NATURAL_REGENERATION` zugunsten von
 **Für die folgenden Blöcke:** Basiswerte kommen über `BaseStatContributor` (B06 Level, B07 Klasse),
 Beiträge über `StatEngine.apply` mit einer `SourceId` (B08 Buffs, B09 Zonen, B11 Ausrüstung), Werte
 über `StatSnapshot` — einmal zu Beginn einer Handlung gezogen und bis zu deren Ende gehalten.
+
+---
+
+## ADR-014 · Umsetzungsentscheidungen B05 (Kampf- & Schadens-Pipeline)
+
+**Status:** Entschieden (2026-08-20, bei der Implementierung von B05)
+
+Sechs Entscheidungen aus der Umsetzung, die über B05 hinaus gelten.
+
+### 1. Die Vanilla-Quellentabelle ist erschöpfend, nicht handgepflegt
+
+Der Blocksteckbrief nennt 17 Schadensursachen. **Paper 26.2 kennt 33.** Sechzehn hatte niemand
+entschieden — darunter `FREEZE`, `CRAMMING`, `DRYOUT`, `SONIC_BOOM`, `WORLD_BORDER`,
+`FALLING_BLOCK`, `DRAGON_BREATH`, `CAMPFIRE`, `THORNS` und `FLY_INTO_WALL`.
+
+Die Zuordnung ist deshalb ein **vollständiger Switch über den Aufzählungstyp** mit einem
+**Verweigerungs-Standardfall**: Eine fehlende Konstante meldet der Compiler, eine künftig
+hinzukommende wird neutralisiert und einmal protokolliert. Ein Minecraft-Update kann damit keinen
+Schaden durchlassen — es erzeugt eine Aufforderung zur Entscheidung.
+
+*Für die folgenden Blöcke:* Wo ein Blocksteckbrief eine Liste von Vanilla-Konstanten aufzählt, ist
+die Liste zu prüfen, nicht zu übernehmen.
+
+### 2. Der Schadensvorgang wird wiederverwendet, die Lesesicht verfällt
+
+`DamageContext` ist ein Objekt je Tick-Thread, das zwischen Treffern zurückgesetzt wird. Bei 150
+Spielern gegen 800 Mobs sind das tausende Vorgänge je Sekunde; ein Objekt je Treffer wäre Müll, den
+der Tick bezahlt.
+
+Der Preis der Wiederverwendung ist eine Falle: Eine Stufe, die den Vorgang über sein Ende hinaus
+festhält, liest später fremde Daten. Deshalb bekommen Stufen `DamageView`, und **jeder Zugriff nach
+Ende des Vorgangs wirft** statt zu antworten. Der Fehler landet an der Zeile, die ihn verursacht.
+
+### 3. Projektile tragen ihren Rohschaden, nicht ihren Schnappschuss
+
+Beim Abschuss wird der Rohschaden berechnet und als einzelne Zahl im PersistentDataContainer des
+Projektils hinterlegt. Die naheliegende Alternative — eine Karte von Projektil auf Schnappschuss —
+ist ein Leck mit Ansage: ein Pfeil, der in einem entladenen Chunk verschwindet, räumt seinen Eintrag
+nie auf, und das Aufräumen bräuchte genau die wiederkehrende Aufgabe, die Prinzip II vermeidet.
+
+### 4. Vanilla-Invulnerabilitätsticks werden abgeschaltet
+
+Vanilla macht ein Wesen nach jedem Treffer zehn Ticks unverwundbar — ein zweites, verstecktes
+Angriffszeitfenster. Es hätte `attackSpeed` stillschweigend bei zwei Treffern je Sekunde gedeckelt,
+und niemand wäre darauf gekommen, warum das Attribut nur zur Hälfte wirkt.
+
+Kein Widerspruch zu B04s Spiegelung: Der Vanilla-Waffencooldown skaliert nur *Vanilla-Schaden*, den
+B05 ohnehin auf null setzt. Die Spiegelung treibt damit nur noch die Cooldown-Anzeige im Client —
+und die zeigt dank derselben Zahl genau die Schlagfolge, die B05 durchsetzt.
+
+### 5. B05 stattet Mobs mit Werten aus, hinter einer Schnittstelle für B10
+
+FR-018 lässt Wesen ohne Stat-Träger unangetastet, und kein Block vergab welche. Die vollständige
+Pipeline hätte auf nichts außer Spieler gewirkt — fertig, grün getestet, im Spiel unsichtbar.
+Dieselbe Fehlerklasse, für die ADR-012 geschrieben wurde. Zusätzlich wäre der lasttestpflichtige
+Nachweis (150 gegen 800) bis B10 nicht durchführbar gewesen.
+
+`MobStatProvider` liefert Zahlen aus `combat.yml` unter der Quelle `(CLASS, "mob:<TYPE>")` —
+demselben Schlüssel, den B10 später ersetzt statt einen zweiten einzuführen. Was ein Mob *ist*,
+bleibt vollständig B10.
+
+### 6. `CombatModule` liegt in `rpg-core`
+
+B02, B03 und B04 haben ihre Module in `rpg-persistence`, weil sie ein Repository aufbauen mussten.
+B05 hat keine Datenbank. Das Modul dort abzulegen hätte eine Abhängigkeit vorgetäuscht, die nicht
+existiert.
+
+**Zwei Ergänzungen an B04**, die B05 gebraucht hat und die dort ohnehin fehlten:
+`StatEngine.characterIdOf` (die Sitzungsregistratur beantwortet „ist eine Sitzung geladen", nicht
+„ist das ein Charakter") und `StatEngine.restoreResources` in der Schnittstelle statt nur auf der
+konkreten Klasse — B03s Ladepfad und B05s Mob-Ausstattung brauchen beide dasselbe.
+
+**Zwei Namenskollisionen, die auffielen und behoben wurden:** Das Todesereignis heißt
+`CombatDeathEvent`, nicht `EntityDeathEvent` — so heißt Bukkits eigene Klasse, die derselbe Listener
+importiert. Und B01s Reload-Test benutzte `combat.yml` als Platzhalternamen; er heißt jetzt
+`example-block.yml`, weil B05 den echten Namen belegt.
+
+**Ein Bukkit-Detail für spätere Blöcke:** `ProjectileLaunchEvent` erbt von `EntitySpawnEvent` und
+teilt sich dessen `HandlerList` mit `CreatureSpawnEvent`. Handler lassen sich für diese beiden
+Ereignisse nicht getrennt zählen.
+
+**Offen:** Der Lasttest (150 Spieler gegen 800 Mobs, p95 MSPT < 40 ms) steht noch aus. Prinzip VII
+nennt B05 ausdrücklich als lasttestpflichtig — der Block gilt bis dahin nicht als abgenommen.

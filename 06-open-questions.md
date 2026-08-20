@@ -28,6 +28,57 @@ Bei der Umsetzung zusätzlich geklärt (siehe ADR-013):
 → Details und Begründung: `02-decisions.md` ADR-008 und ADR-013,
   `blocks/B04-stat-engine.md`, `specs/004-stat-engine/`
 
+## B05 (Kampf- & Schadens-Pipeline) — abgeschlossen und implementiert (2026-08-20)
+
+- [x] Sekundärmechaniken: **keine**. Kein Krit, kein Ausweichen, kein Blocken, keine
+      Resistenztypen. Schaden ist physicalDamage bzw. magicDamage gegen defense, sonst nichts.
+      Konsistent mit ADR-008, das Sekundärwerte aus B04 herausgehalten hat, damit sie später ohne
+      Architekturänderung nachrückbar sind.
+- [x] Schadensformel: Rohschaden aus dem Angreifer-Snapshot, dann `DamageMitigation.afterDefense`
+      aus B04. Keine Reihenfolgefrage mehr, weil es keinen Krit gibt.
+- [x] Angriffsgeschwindigkeit: eigenes Cooldown-Modell je Angriff, zeitstempelbasiert und lazy
+      ausgewertet (Prinzip II). Der Vanilla-Waffencooldown wird abgeschaltet. Zu frühe Schläge
+      werden verworfen, nicht abgeschwächt.
+- [x] Loot und XP: **XP anteilig nach Schadensanteil, Loot an den höchsten Beitrag.** XP lässt sich
+      teilen, ein Item nicht. Braucht das zeitlich verfallende Beitragsfenster je Mob aus dem
+      Blocksteckbrief.
+- [x] PvP: **aus**, aber die Pipeline hat die Verzweigung an genau einer Stelle. B09 füllt sie
+      später mit einer Regel je Zone, ohne dass B05 angefasst wird.
+- [x] Todesstrafe: **Ausrüstungsschaden.** B05 erkennt und meldet den Tod; was mit der Ausrüstung
+      geschieht, entscheidet B11 über ein Todesereignis. B05 greift nicht auf Haltbarkeiten zu, die
+      B11 noch nicht definiert hat.
+- [x] Schadenszahlen: **ja, zusammengefasst.** Die Bündelung mehrerer Treffer zu einem Ereignis
+      liegt in B05, weil sie Schadenslogik ist; das Zeichnen liegt in B13. B05 erzeugt selbst kein
+      Text-Display — bei 150 Spielern gegen 800 Mobs wären das tausende kurzlebige Entitäten je
+      Sekunde.
+- [x] Vanilla-Schadensquellen: **Umgebungsschaden abbilden, Statuseffekte abschalten.** Fall,
+      Feuer, Lava, Void, Ertrinken, Explosion, Kaktus, Ersticken, Blitz und Magma werden auf eigenen
+      Schaden umgerechnet (Void bleibt tödlich). Verhungern, Wither, Poison, Instant Damage,
+      Instant Health und Absorption werden abgeschaltet. Jede Quelle wird einzeln in einer Tabelle
+      festgelegt, wie ADR-003 es verlangt.
+- [x] Umgebungsschaden ist ein **fester, konfigurierbarer Betrag**, kein Anteil des maximalen
+      Lebens: Gefahren sollen für Anfänger ernst und für ausgerüstete Spieler belanglos werden.
+      Fallschaden wächst mit der Fallhöhe. Die Verteidigung greift bei Umgebungsschaden **nicht** —
+      der Verlauf soll nur einen Wirkmechanismus haben, nämlich wachsendes Leben.
+
+Bei zwei /clarify-Runden zusätzlich geklärt (siehe ADR-014):
+
+- [x] Beim Tod fällt **kein Inventar** — sonst verdeckt der Verlust die gewählte Strafe
+- [x] Der Vanilla-Todesbildschirm bleibt; Respawn füllt Leben und Mana auf
+- [x] Fähigkeiten geben ihren Schaden als **Multiplikator auf `magicDamage`** an
+- [x] **Projektile** gehören zu B05, sonst wäre ein Bogen ab Tag eins wirkungslos
+- [x] **Mobs verletzen einander nicht**; die Erlaubnis fällt an genau einer Stelle
+- [x] **B05 stattet Mobs mit Werten aus** (aus `combat.yml`), bis B10 das übernimmt — ohne das
+      wirkt die gesamte Pipeline auf nichts außer Spieler
+- [x] **B05 führt den Kampfzustand** und veröffentlicht ihn; B08, B12 und B13 fragen ihn ab
+- [x] Vanilla-Erfahrungskugeln und Vanilla-Beute werden beim Mob-Tod unterdrückt
+
+**Wichtig:** Die Liste der Vanilla-Schadensquellen im Blocksteckbrief war unvollständig — 17 statt
+33. Die fehlenden sechzehn sind in `blocks/B05-combat-pipeline.md` und in
+`specs/005-combat-pipeline/contracts/damage-sources.md` entschieden.
+
+→ `naturalRegeneration` und Sättigung sind bereits in B04 erledigt (ADR-013).
+
 ## B06/B07 (Progression & Klassen) — abgeschlossen, Basiswerte offen
 
 - [x] Maximallevel: 60, moderat ansteigende Kurve

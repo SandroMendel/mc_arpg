@@ -10,6 +10,8 @@ import java.util.logging.Level;
 
 import org.bukkit.plugin.java.JavaPlugin;
 
+import rpg.core.combat.CombatModule;
+import rpg.core.combat.CombatPipeline;
 import rpg.core.config.ConfigLoader;
 import rpg.core.config.ConfigValidationException;
 import rpg.core.event.DefaultEventBus;
@@ -24,12 +26,22 @@ import rpg.core.module.Module;
 import rpg.core.module.ModuleBootstrap;
 import rpg.core.scheduler.Scheduler;
 import rpg.core.session.SessionMessageKeys;
+import rpg.core.stats.StatConfig;
+import rpg.core.stats.StatEngine;
 import rpg.persistence.PersistenceMessageKeys;
 import rpg.persistence.PersistenceModule;
 import rpg.persistence.session.SessionModule;
 import rpg.persistence.stats.StatsModule;
 import rpg.platform.PlatformMessageKeys;
 import rpg.platform.PreJoinGuard;
+import rpg.platform.combat.CombatDeathListener;
+import rpg.platform.combat.MobEquipmentListener;
+import rpg.platform.combat.PaperDamageFeedback;
+import rpg.platform.combat.PaperMobStatProvider;
+import rpg.platform.combat.ProjectileCombatListener;
+import rpg.platform.combat.ProjectileDamageTag;
+import rpg.platform.combat.VanillaDamageListener;
+import rpg.platform.combat.VanillaDamageMapping;
 import rpg.platform.config.YamlConfigLoader;
 import rpg.platform.scheduler.PaperSchedulerAdapter;
 import rpg.platform.session.PendingSessionStash;
@@ -66,7 +78,7 @@ public class RpgPlugin extends JavaPlugin {
      * default of each means the first start works and the file is there to be edited.
      */
     private static final List<String> DEFAULT_CONFIG_FILES =
-            List.of("persistence.yml", "session.yml", "stats.yml");
+            List.of("persistence.yml", "session.yml", "stats.yml", "combat.yml");
 
     private final BootstrapState bootstrapState = new BootstrapState();
 
@@ -79,6 +91,7 @@ public class RpgPlugin extends JavaPlugin {
     private PersistenceModule persistenceModule;
     private SessionModule sessionModule;
     private StatsModule statsModule;
+    private CombatModule combatModule;
 
     @Override
     public void onEnable() {
@@ -134,6 +147,7 @@ public class RpgPlugin extends JavaPlugin {
 
         registerSessionListeners();
         assembleStatLayer();
+        assembleCombatLayer();
 
         Duration took = Duration.ofNanos(System.nanoTime() - startedAt);
         if (took.compareTo(BOOTSTRAP_BUDGET) > 0) {
@@ -235,7 +249,9 @@ public class RpgPlugin extends JavaPlugin {
         persistenceModule = new PersistenceModule(getLogger(), Clock.systemUTC());
         sessionModule = new SessionModule(persistenceModule, getLogger(), Clock.systemUTC());
         statsModule = new StatsModule(persistenceModule, sessionModule, getLogger(), Clock.systemUTC());
-        return List.of(persistenceModule, sessionModule, statsModule);
+        combatModule =
+                new CombatModule(sessionModule.registry(), getLogger(), Clock.systemUTC());
+        return List.of(persistenceModule, sessionModule, statsModule, combatModule);
     }
 
     /**
@@ -311,6 +327,56 @@ public class RpgPlugin extends JavaPlugin {
         VanillaRegenerationGuard regenerationGuard = new VanillaRegenerationGuard(getLogger());
         regenerationGuard.applyTo(getServer());
         getServer().getPluginManager().registerEvents(regenerationGuard, this);
+    }
+
+    /**
+     * Assembles the Paper-facing half of B05.
+     *
+     * <p>Five listeners, each with one job. The mob equipping is the one that would be easy to
+     * forget and impossible to notice missing: without it nothing has a stat holder, so the entire
+     * combat pipeline would apply to nothing but players - working, tested, and invisible.
+     *
+     * <p>Creatures that were already loaded when the plugin started are equipped here too. On a
+     * reload the world is full of mobs that will never fire a spawn event again.
+     */
+    private void assembleCombatLayer() {
+        CombatPipeline pipeline = registry.getService(CombatPipeline.class);
+        StatEngine stats = registry.getService(StatEngine.class);
+
+        ProjectileDamageTag.initialise(this);
+        pipeline.registerFeedback(new PaperDamageFeedback(getServer(), scheduler, getLogger()));
+
+        PaperMobStatProvider mobStats =
+                new PaperMobStatProvider(combatModule.config(), StatConfig.defaults());
+        pipeline.setMobStatProvider(mobStats);
+
+        MobEquipmentListener mobEquipment =
+                new MobEquipmentListener(stats, pipeline, mobStats, getLogger());
+        CombatDeathListener deaths = new CombatDeathListener(stats, pipeline, getLogger());
+        deaths.applyTo(getServer());
+
+        getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new VanillaDamageListener(
+                                pipeline, new VanillaDamageMapping(getLogger()), getLogger()),
+                        this);
+        getServer().getPluginManager().registerEvents(new ProjectileCombatListener(stats), this);
+        getServer().getPluginManager().registerEvents(mobEquipment, this);
+        getServer().getPluginManager().registerEvents(deaths, this);
+
+        int equipped = 0;
+        for (org.bukkit.World world : getServer().getWorlds()) {
+            for (org.bukkit.entity.LivingEntity entity :
+                    world.getLivingEntities()) {
+                if (mobEquipment.wouldEquip(entity)) {
+                    mobEquipment.equip(entity);
+                    equipped++;
+                }
+            }
+        }
+        getLogger()
+                .info("[combat] listeners registered; " + equipped + " already-loaded creature(s) equipped");
     }
 
     /** The configuration loader; also the entry point B14's reload command will use. */

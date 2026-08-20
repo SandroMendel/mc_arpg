@@ -1,0 +1,91 @@
+# B05 - combat rules. Every balancing number lives here, never in code (Principle V).
+#
+# Damage formula (ADR-008, via B04):
+#   raw   = attacker attribute * factor        [factor is 1.0 for a melee swing]
+#   final = raw * 100/(100 + defence)          [physical and magic only]
+#
+# Environment damage is a FIXED amount and ignores defence. That is deliberate, not a
+# simplification: a hazard should matter to a beginner with 100 health and become negligible to a
+# geared player with 2000. A percentage of maximum health would stay equally dangerous across the
+# whole progression, which is the opposite of the intent.
+
+combat:
+  # How long after the last hit given or taken a holder still counts as "in combat".
+  # B08 reduces mana regeneration during this window.
+  combat-timeout-seconds: 8
+
+  attribution:
+    # Attackers tracked per target. A fixed-size array, not a growing list: when it is full the
+    # smallest contribution is evicted. Capped at 64 by the schema, because this is memory per
+    # target and there can be 800 of them.
+    max-attackers: 16
+    # A contribution older than this no longer counts towards loot and XP.
+    timeout-seconds: 30
+
+  feedback:
+    # Hits from the same attacker on the same target inside this window are summed into ONE
+    # display event. At 150 players against 800 mobs, one event per hit would be thousands per
+    # second for B13 to draw. The hurt animation still fires per hit - only the number is summed.
+    aggregation-window-millis: 500
+    knockback-strength: 0.4
+
+# Fixed amounts, applied without defence.
+environment:
+  fall:
+    # No damage below this height, then this much per block beyond it.
+    # A fall from 10 blocks costs (10 - 3) * 4 = 28: 28% of a beginner, 1.4% of a geared player.
+    safe-blocks: 3.0
+    damage-per-block: 4.0
+    # Ceiling, so a drop next to the void does not produce an absurd number.
+    max-damage: 200.0
+  fire: 2.0
+  fire-tick: 1.0
+  lava: 8.0
+  hot-floor: 2.0
+  campfire: 2.0
+  drowning: 3.0
+  suffocation: 3.0
+  contact: 1.0
+  block-explosion: 25.0
+  entity-explosion: 25.0
+  lightning: 30.0
+  falling-block: 20.0
+  fly-into-wall: 6.0
+  freeze: 2.0
+  dryout: 2.0
+  dragon-breath: 6.0
+  sonic-boom: 20.0
+  world-border: 2.0
+
+# Stat values B05 gives a hostile creature when it appears, until B10 replaces this with real mob
+# definitions. Numbers only - what a mob IS belongs to B10.
+#
+# Without these, nothing would have a stat holder and the whole pipeline would apply to nothing but
+# players: finished, fully tested and invisible in the game.
+mobs:
+  default:
+    health: 60.0
+    defense: 0.0
+    physical-damage: 8.0
+  by-type:
+    ZOMBIE:
+      health: 80.0
+      defense: 10.0
+      physical-damage: 10.0
+    SKELETON:
+      health: 60.0
+      defense: 0.0
+      physical-damage: 9.0
+    CREEPER:
+      health: 50.0
+      defense: 0.0
+      # Damage comes from its explosion, which is environment damage.
+      physical-damage: 0.0
+    SPIDER:
+      health: 55.0
+      defense: 5.0
+      physical-damage: 7.0
+    ENDERMAN:
+      health: 200.0
+      defense: 20.0
+      physical-damage: 25.0

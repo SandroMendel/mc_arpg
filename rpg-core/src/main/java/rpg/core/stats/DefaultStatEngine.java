@@ -193,6 +193,12 @@ public final class DefaultStatEngine implements StatEngine {
     }
 
     @Override
+    public Optional<UUID> characterIdOf(UUID holderId) {
+        StatHolder holder = holders.get(holderId);
+        return holder == null ? Optional.empty() : holder.characterId();
+    }
+
+    @Override
     public void remove(UUID holderId) {
         StatHolder holder = holders.remove(holderId);
         if (holder == null) {
@@ -269,6 +275,7 @@ public final class DefaultStatEngine implements StatEngine {
     }
 
     /** Sets both resources outright - used by the load path (FR-027, FR-028). */
+    @Override
     public void restoreResources(UUID holderId, ResourcePool pool) {
         StatHolder holder = require(holderId);
         StatSnapshot snapshot = currentSnapshot(holder);
