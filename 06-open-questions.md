@@ -79,7 +79,7 @@ Bei zwei /clarify-Runden zusätzlich geklärt (siehe ADR-014):
 
 → `naturalRegeneration` und Sättigung sind bereits in B04 erledigt (ADR-013).
 
-## B06/B07 (Progression & Klassen) — abgeschlossen, Basiswerte offen
+## B06/B07 (Progression & Klassen) — abgeschlossen
 
 - [x] Maximallevel: 60, moderat ansteigende Kurve
 - [x] Level-Up: kleine feste Wertsteigerung; Fähigkeiten separat per Level
@@ -88,10 +88,17 @@ Bei zwei /clarify-Runden zusätzlich geklärt (siehe ADR-014):
       `blocks/B07-class-system.md`)
 - [x] Klassenwechsel: nicht möglich, Klasse ist permanent
 - [x] Charakter-Slots: 3 pro Account (ein Slot je Klasse)
-- [ ] Basiswerte und Wachstumskurven je Klasse für alle acht Attribute →
-      bei `/specify` B07 auszuarbeiten (Content, keine Architekturfrage)
-- [ ] Waffen-/Rüstungsbeschränkungen je Klasse?
-- [ ] Was passiert vor der Klassenwahl (Tutorialbereich)?
+- [x] Basiswerte und Wachstumskurven je Klasse für alle acht Attribute:
+      ausgearbeitet in `specs/007-class-system/spec.md`, ausgeliefert in
+      `classes.yml`. Sie **ersetzen** B06s klassenneutrales Wachstum, statt sich
+      dazu zu addieren *(2026-08-21)*
+- [x] Waffen-/Rüstungsbeschränkungen je Klasse: kein Filter, sondern je Klasse ein
+      fester Rüstungs- und Waffenpfad mit konfigurierter Länge → **ADR-017**
+      *(2026-08-21)*
+- [x] Was passiert vor der Klassenwahl: kein Spielzustand; die Auswahl öffnet sich
+      bei **jedem** Beitritt und ist der Weg, zwischen Charakteren zu wechseln →
+      **ADR-020**, erweitert durch **ADR-021**. Der Tutorialbereich aus ADR-006
+      bleibt nachrüstbar, ohne B07 anzufassen *(2026-08-22)*
 - [x] XP-Kurve: explizite Tabelle in `progression.yml`, Level 2–60 einzeln,
       keine Formel; beim Start auf Lückenlosigkeit und strenge Monotonie
       geprüft *(2026-08-20)*

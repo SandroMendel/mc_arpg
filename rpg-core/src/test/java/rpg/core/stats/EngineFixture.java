@@ -31,11 +31,22 @@ final class EngineFixture {
         eventBus.subscribe(ResourceChangedEvent.class, resourceChanges::add);
     }
 
-    /** A holder for a player character, calculated once, as the load path leaves it. */
+    /**
+     * A holder for a player character, calculated once and filled, as the load path leaves it.
+     *
+     * <p>The restore is not decoration: production always follows {@code createForCharacter} with it,
+     * because the zero pool a holder is created with is a placeholder - the maxima only exist after the
+     * first calculation. A fixture that stopped before the restore left every test running against a
+     * character at zero health, a state no live server ever has, and hid what that state means to the
+     * vanilla mirror: {@code setHealth(0)} kills the player.
+     */
     UUID character() {
         UUID playerId = UUID.randomUUID();
         engine.createForCharacter(playerId, UUID.randomUUID(), new ResourcePool(0.0, 0.0));
-        engine.recalculateNow(playerId);
+        StatSnapshot first = engine.recalculateNow(playerId);
+        engine.restoreResources(
+                playerId,
+                ResourcePool.full(first.get(Attribute.HEALTH), first.get(Attribute.MANA)));
         clearRecorded();
         return playerId;
     }

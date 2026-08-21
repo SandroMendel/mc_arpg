@@ -55,8 +55,15 @@ public final class BoundItemTag {
         return Optional.ofNullable(container.get(KEY, PersistentDataType.STRING));
     }
 
-    /** Whether this item carries any binding tag at all. */
-    static boolean isTagged(ItemStack item) {
+    /**
+     * Whether this item carries any binding tag at all - whether it belongs to a character rather than
+     * to the player holding it.
+     *
+     * <p>Public because the question is asked outside this package: the stored inventory leaves bound
+     * items out, since they are rebuilt from the reached tier on every entry and a stored copy could
+     * hand back an outdated one.
+     */
+    public static boolean isTagged(ItemStack item) {
         return read(item).isPresent();
     }
 }

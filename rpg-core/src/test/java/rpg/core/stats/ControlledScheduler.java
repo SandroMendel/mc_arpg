@@ -21,6 +21,20 @@ final class ControlledScheduler implements Scheduler {
 
     private final Deque<Runnable> pending = new ArrayDeque<>();
     private int scheduledCount;
+    private boolean refuseEntityTasks;
+
+    /**
+     * Makes entity-bound scheduling fail the way the real one does when the entity cannot be resolved:
+     * nothing is queued and an already-cancelled handle comes back.
+     */
+    void refuseEntityTasks() {
+        this.refuseEntityTasks = true;
+    }
+
+    /** Back to normal - the entity can be resolved again. */
+    void acceptEntityTasks() {
+        this.refuseEntityTasks = false;
+    }
 
     /** How many tasks were scheduled since this scheduler was created. */
     int scheduledCount() {
@@ -51,6 +65,11 @@ final class ControlledScheduler implements Scheduler {
 
     @Override
     public TaskHandle runSyncOnEntity(EntityRef entity, Runnable task) {
+        if (refuseEntityTasks) {
+            RecordedHandle refused = new RecordedHandle();
+            refused.cancel();
+            return refused;
+        }
         return enqueue(task);
     }
 

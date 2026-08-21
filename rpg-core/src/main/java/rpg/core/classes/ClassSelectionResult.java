@@ -16,25 +16,44 @@ public final class ClassSelectionResult {
 
     private final PlayerCharacter character;
     private final ClassSelectionRejection rejection;
+    private final boolean created;
 
-    private ClassSelectionResult(PlayerCharacter character, ClassSelectionRejection rejection) {
+    private ClassSelectionResult(
+            PlayerCharacter character, ClassSelectionRejection rejection, boolean created) {
         this.character = character;
         this.rejection = rejection;
+        this.created = created;
     }
 
-    public static ClassSelectionResult accepted(PlayerCharacter character) {
-        return new ClassSelectionResult(Objects.requireNonNull(character, "character"), null);
+    /** A character that did not exist a moment ago. */
+    public static ClassSelectionResult created(PlayerCharacter character) {
+        return new ClassSelectionResult(Objects.requireNonNull(character, "character"), null, true);
+    }
+
+    /** A character the account already had, taken into play (US1.4). */
+    public static ClassSelectionResult resumed(PlayerCharacter character) {
+        return new ClassSelectionResult(Objects.requireNonNull(character, "character"), null, false);
     }
 
     public static ClassSelectionResult rejected(ClassSelectionRejection rejection) {
-        return new ClassSelectionResult(null, Objects.requireNonNull(rejection, "rejection"));
+        return new ClassSelectionResult(null, Objects.requireNonNull(rejection, "rejection"), false);
     }
 
     public boolean accepted() {
         return character != null;
     }
 
-    /** The freshly created character, present exactly when {@link #accepted()}. */
+    /**
+     * Whether the character was created by this choice rather than resumed.
+     *
+     * <p>Matters to the caller, not to this block: a character starting its very first session gets a
+     * clean inventory before its equipment is handed over, and a returning one keeps what it carried.
+     */
+    public boolean created() {
+        return created;
+    }
+
+    /** The chosen character, present exactly when {@link #accepted()}. */
     public Optional<PlayerCharacter> character() {
         return Optional.ofNullable(character);
     }
@@ -46,7 +65,7 @@ public final class ClassSelectionResult {
     @Override
     public String toString() {
         return accepted()
-                ? "ClassSelectionResult[accepted " + character.characterClass() + "]"
+                ? "ClassSelectionResult[" + (created ? "created " : "resumed ") + character.characterClass() + "]"
                 : "ClassSelectionResult[rejected " + rejection + "]";
     }
 }

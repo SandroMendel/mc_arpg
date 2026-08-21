@@ -78,6 +78,7 @@ public final class BoundItemFactory {
         applyColour(meta, appearance);
         applyTrim(meta, appearance);
         neutraliseVanillaModifiers(meta);
+        makeIndestructible(meta);
         BoundItemTag.write(meta, tag);
         item.setItemMeta(meta);
         return item;
@@ -93,6 +94,7 @@ public final class BoundItemFactory {
         }
         applyTrim(meta, appearance);
         neutraliseVanillaModifiers(meta);
+        makeIndestructible(meta);
         BoundItemTag.write(meta, tag);
         item.setItemMeta(meta);
         return item;
@@ -121,6 +123,23 @@ public final class BoundItemFactory {
     private static void neutraliseVanillaModifiers(ItemMeta meta) {
         meta.setAttributeModifiers(ImmutableMultimap.of());
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+    }
+
+    /**
+     * Takes wear out of the equation: class equipment does not degrade.
+     *
+     * <p>It is part of the character, not an item the player owns (ADR-017/ADR-018). A sword that broke
+     * left the warrior unarmed with no way to replace it - the ladder is the only source of weapons and
+     * dropping or crafting one is refused. Only a relogin brought it back, because the applier rebuilds
+     * the set on every session.
+     *
+     * <p>Durability is also the wrong lever here for a second reason: the tier carries the numbers, and
+     * a damaged item would quietly weaken a character in a way no attribute reflects. If wear is ever
+     * wanted as a mechanic, it belongs to the tier, not to the item stack.
+     */
+    private static void makeIndestructible(ItemMeta meta) {
+        meta.setUnbreakable(true);
+        meta.addItemFlags(ItemFlag.HIDE_UNBREAKABLE);
     }
 
     private void applyColour(ItemMeta meta, TierAppearance appearance) {

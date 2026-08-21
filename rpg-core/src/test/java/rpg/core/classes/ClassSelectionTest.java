@@ -85,18 +85,24 @@ class ClassSelectionTest {
     }
 
     @Test
-    @DisplayName("eine bereits belegte Klasse wird benannt abgelehnt, ohne Ausnahme (FR-036)")
-    void takenClassIsRejectedByName() {
+    @DisplayName("eine bereits bespielte Klasse wird fortgesetzt, nicht neu angelegt (US1.4)")
+    void aPlayedClassIsResumed() {
+        // Die Auswahl erscheint bei jedem Beitritt, auch mit vorhandenen Charakteren. Ein Klick auf
+        // eine Klasse, die das Konto schon spielt, heißt deshalb "diesen spielen" - früher war das
+        // eine Ablehnung, weil die Auswahl nur beim allerersten Beitritt aufging.
         Fixture fixture = new Fixture();
-        PlayerSession withWarrior = session(null, character(CharacterClass.WARRIOR));
+        PlayerCharacter warrior = character(CharacterClass.WARRIOR);
+        PlayerSession withWarrior = session(null, warrior);
 
         ClassSelectionResult result =
                 fixture.selection.choose(withWarrior, CharacterClass.WARRIOR).join();
 
-        assertThat(result.accepted()).isFalse();
-        assertThat(result.rejection()).hasValue(ClassSelectionRejection.CLASS_ALREADY_TAKEN);
-        assertThat(fixture.repository.created).as("kein Anlegeversuch").isEmpty();
-        assertThat(fixture.events).isEmpty();
+        assertThat(result.accepted()).isTrue();
+        assertThat(result.character()).hasValue(warrior);
+        assertThat(fixture.repository.created).as("nichts anzulegen, es gibt ihn schon").isEmpty();
+        assertThat(fixture.events)
+                .as("die Klasse hat sich nicht geändert, es wurde nur weitergespielt")
+                .isEmpty();
     }
 
     @Test

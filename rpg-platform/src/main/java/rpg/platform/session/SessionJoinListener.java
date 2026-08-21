@@ -29,16 +29,28 @@ public final class SessionJoinListener implements Listener {
     private final SessionLifecycle lifecycle;
     private final PendingSessionStash stash;
     private final SafeStateGuard safeState;
+    private final SessionObserver observer;
     private final Logger logger;
 
+    /** Without an observer - the shape this listener had before B07 needed to hear about a join. */
     public SessionJoinListener(
             SessionLifecycle lifecycle,
             PendingSessionStash stash,
             SafeStateGuard safeState,
             Logger logger) {
+        this(lifecycle, stash, safeState, SessionObserver.NONE, logger);
+    }
+
+    public SessionJoinListener(
+            SessionLifecycle lifecycle,
+            PendingSessionStash stash,
+            SafeStateGuard safeState,
+            SessionObserver observer,
+            Logger logger) {
         this.lifecycle = Objects.requireNonNull(lifecycle, "lifecycle");
         this.stash = Objects.requireNonNull(stash, "stash");
         this.safeState = Objects.requireNonNull(safeState, "safeState");
+        this.observer = Objects.requireNonNull(observer, "observer");
         this.logger = Objects.requireNonNull(logger, "logger");
     }
 
@@ -50,6 +62,9 @@ public final class SessionJoinListener implements Listener {
         if (preloaded.isPresent()) {
             lifecycle.markReady(player.getUniqueId());
             safeState.release(player);
+            // After the release, on purpose: an observer that wants to hold the player again - B07
+            // does, until a class is chosen - must not be undone by a release that follows.
+            notifyReady(player);
             return;
         }
 
@@ -60,5 +75,22 @@ public final class SessionJoinListener implements Listener {
                         + player.getUniqueId()
                         + " - holding them and loading now");
         safeState.hold(player);
+    }
+
+    /**
+     * Tells the observer, and never lets it break the join.
+     *
+     * <p>An observer failing must not leave a player half-joined (Constitution VI). The session is
+     * ready either way; what an observer wanted to do on top of that is its own problem.
+     */
+    private void notifyReady(Player player) {
+        try {
+            observer.onSessionReady(player);
+        } catch (RuntimeException failure) {
+            logger.log(
+                    java.util.logging.Level.WARNING,
+                    "[session] an observer failed on join for " + player.getUniqueId(),
+                    failure);
+        }
     }
 }

@@ -52,6 +52,42 @@ class PaperSchedulerAdapterTest {
     }
 
     @Test
+    void asyncWorkStillRunsWhileThePluginIsBeingDisabled() {
+        // The bug this is here for was a full session's progress on every server stop. Paper refuses to
+        // register a task for a disabled plugin, and the plugin is already disabled when the modules
+        // stop - which is exactly when the open sessions are ended and B02 flushes for the last time.
+        // The refusal skipped the final write, escaped the flush, and left the pools open too.
+        AtomicInteger runs = new AtomicInteger();
+        server.getPluginManager().disablePlugin(plugin);
+
+        TaskHandle handle = scheduler.runAsync(runs::incrementAndGet);
+
+        assertThat(runs)
+                .as("on the calling thread, which during shutdown is already off the tick")
+                .hasValue(1);
+        assertThat(handle.isCancelled()).isFalse();
+    }
+
+    @Test
+    void tickBoundWorkIsDroppedWhileThePluginIsBeingDisabled() {
+        // The opposite decision, and for the opposite reason: there is no tick left to run on, and
+        // running it here would be running tick work off the tick. The cancelled handle is the answer
+        // callers check.
+        AtomicInteger runs = new AtomicInteger();
+        server.getPluginManager().disablePlugin(plugin);
+
+        TaskHandle atLocation = scheduler.runSyncAtLocation(positionIn(world), runs::incrementAndGet);
+        TaskHandle onEntity =
+                scheduler.runSyncOnEntity(new EntityRef(UUID.randomUUID()), runs::incrementAndGet);
+        TaskHandle delayed = scheduler.runAsyncDelayed(Duration.ofMinutes(1), runs::incrementAndGet);
+
+        assertThat(runs).as("nothing ran").hasValue(0);
+        assertThat(atLocation.isCancelled()).isTrue();
+        assertThat(onEntity.isCancelled()).isTrue();
+        assertThat(delayed.isCancelled()).as("a delayed task is not due, and there is no later").isTrue();
+    }
+
+    @Test
     void aLocationBoundTaskRunsOnTheTick() {
         AtomicInteger runs = new AtomicInteger();
 

@@ -42,6 +42,19 @@ public final class JdbcClassProgressRepository implements ClassProgressRepositor
             "SELECT character_id, armor_tier, weapon_tier, data_version, revision"
                     + " FROM rpg.character_class_progress WHERE character_id = ?";
 
+    /**
+     * Every row, joined to the character for its class.
+     *
+     * <p>An inner join on purpose: a tier row without a character cannot exist - the foreign key with
+     * {@code ON DELETE CASCADE} rules it out - and if one ever did, silently skipping it would hide the
+     * corruption the startup check is there to find.
+     */
+    private static final String SELECT_ALL_WITH_CLASS =
+            "SELECT p.character_id, p.armor_tier, p.weapon_tier, p.data_version, p.revision,"
+                    + " c.character_class"
+                    + " FROM rpg.character_class_progress p"
+                    + " JOIN rpg.character c ON c.character_id = p.character_id";
+
     private static final String UPSERT =
             "INSERT INTO rpg.character_class_progress"
                     + " (character_id, armor_tier, weapon_tier, data_version, revision, updated_at)"
@@ -103,6 +116,46 @@ public final class JdbcClassProgressRepository implements ClassProgressRepositor
     public void markDirty(UUID characterId) {
         Objects.requireNonNull(characterId, "characterId");
         coordinator.markDirty(AggregateType.CHARACTER_CLASS_PROGRESS, characterId.toString());
+    }
+
+    /**
+     * Every stored tier row, with the class of the character it belongs to.
+     *
+     * <p>For the startup check that compares what characters have reached against what the ladders in
+     * {@code classes.yml} still offer. One query on the boot thread, deliberately synchronous: it has to
+     * finish before the module is allowed to declare itself ready, and its whole purpose is to stop the
+     * start.
+     *
+     * <p>The class comes from {@code rpg.character} rather than from this table, because that is where
+     * it lives (ADR-019) - a second copy here would be a second truth.
+     */
+    public StoredTiers readAll(DataSource dataSource) {
+        List<ClassProgress> tiers = new ArrayList<>();
+        Map<UUID, rpg.core.session.CharacterClass> classes = new java.util.HashMap<>();
+        try (Connection connection = dataSource.getConnection();
+                PreparedStatement statement = connection.prepareStatement(SELECT_ALL_WITH_CLASS);
+                ResultSet rows = statement.executeQuery()) {
+            while (rows.next()) {
+                ClassProgress progress = mapRow(rows);
+                tiers.add(progress);
+                classes.put(
+                        progress.characterId(),
+                        rpg.core.session.CharacterClass.valueOf(rows.getString("character_class")));
+            }
+        } catch (SQLException failure) {
+            throw new PersistenceException("could not read the stored class tiers", failure);
+        }
+        return new StoredTiers(List.copyOf(tiers), Map.copyOf(classes));
+    }
+
+    /** What the startup check needs: the rows, and the class each belongs to. */
+    public record StoredTiers(
+            List<ClassProgress> tiers, Map<UUID, rpg.core.session.CharacterClass> classes) {
+
+        /** As the validator wants it. */
+        public Function<UUID, Optional<rpg.core.session.CharacterClass>> classOf() {
+            return characterId -> Optional.ofNullable(classes.get(characterId));
+        }
     }
 
     /** Reads on an existing connection, for the session load that batches its queries. */

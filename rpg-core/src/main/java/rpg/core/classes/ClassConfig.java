@@ -177,6 +177,56 @@ public final class ClassConfig {
                 });
     }
 
+    /**
+     * V19 - no stored tier may exceed the configured ladder length (FR-024).
+     *
+     * <p>Runs at startup, after the migration and <b>before the first player joins</b>. The order is
+     * part of the promise: later, a character would already be loaded when the mistake surfaces.
+     *
+     * <p>Refusing to start is the point. Silently demoting a character to the new top tier would take
+     * away something they paid for, and it would do so on the quietest possible path - a balancing edit
+     * that shortened a ladder.
+     *
+     * @param storedTiers every persisted tier state, from the repository
+     * @param classOf which class a character has
+     * @throws IllegalArgumentException naming character, slot, stored tier and configured length
+     */
+    public void validateAgainstStoredTiers(
+            Iterable<ClassProgress> storedTiers,
+            Function<java.util.UUID, java.util.Optional<CharacterClass>> classOf) {
+        Objects.requireNonNull(storedTiers, "storedTiers");
+        Objects.requireNonNull(classOf, "classOf");
+        for (ClassProgress stored : storedTiers) {
+            CharacterClass id =
+                    classOf.apply(stored.characterId())
+                            .orElseThrow(
+                                    () ->
+                                            new IllegalArgumentException(
+                                                    "character "
+                                                            + stored.characterId()
+                                                            + " has stored tiers but no class"));
+            CharacterClassDefinition definition = definition(id);
+            for (LadderSlot slot : LadderSlot.values()) {
+                int tier = stored.tierOf(slot);
+                int length = definition.ladder(slot).length();
+                if (tier > length) {
+                    throw new IllegalArgumentException(
+                            "character "
+                                    + stored.characterId()
+                                    + " ("
+                                    + id
+                                    + ") stands on "
+                                    + slot.configKey()
+                                    + " tier "
+                                    + tier
+                                    + ", but the configured ladder has only "
+                                    + length
+                                    + ". Refusing to start rather than demoting the character");
+                }
+            }
+        }
+    }
+
     /** Base + level growth + the top tier of the ladder that carries this attribute. */
     private static double effectiveMaximum(
             CharacterClassDefinition definition, Attribute attribute, int maxLevel) {

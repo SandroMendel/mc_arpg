@@ -221,6 +221,24 @@ public final class ProgressionModule implements Module {
             progression.load(characterId, session.playerId(), state);
         }
 
+        /**
+         * A character entered play, so its progress comes into memory.
+         *
+         * <p>Out of the bundle, not out of a query: an existing character has its row among what the
+         * login read, and one created a moment ago has none and starts at level 1 (FR-058). Asking the
+         * database here would be a query on the player's tick for rows already in hand.
+         */
+        @Override
+        public void onCharacterActivated(
+                PlayerSession session, PlayerCharacter character, SessionBundle bundle) {
+            UUID characterId = character.characterId();
+            ProgressState state =
+                    bundle.progressOf(characterId)
+                            .map(CharacterProgress::toState)
+                            .orElse(ProgressState.INITIAL);
+            progression.load(characterId, session.playerId(), state);
+        }
+
         @Override
         public void onSessionClosing(UUID playerId) {
             progression.characterOf(playerId)

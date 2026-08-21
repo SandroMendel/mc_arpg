@@ -52,6 +52,33 @@ public final class ClassMessageKeys {
      */
     public static final MessageKey INVENTORY_FULL = MessageKey.of("class.inventory.full");
 
+    /**
+     * The lore of a slot in the selection.
+     *
+     * <p>Shown on every join, so it has to answer "which of my characters is this" at a glance: the
+     * level, how far both ladders have come, and when it was last played.
+     */
+    public static final MessageKey SLOT_LEVEL = MessageKey.of("class.slot.level");
+
+    public static final MessageKey SLOT_TIERS = MessageKey.of("class.slot.tiers");
+    public static final MessageKey SLOT_LAST_PLAYED = MessageKey.of("class.slot.last-played");
+    public static final MessageKey SLOT_RESUME = MessageKey.of("class.slot.resume");
+    public static final MessageKey SLOT_EMPTY = MessageKey.of("class.slot.empty");
+    public static final MessageKey SLOT_CREATE = MessageKey.of("class.slot.create");
+
+    /**
+     * The selection does not wait forever.
+     *
+     * <p>A player parked in the menu holds a session, a stat-free state and a slot on the server. The
+     * warning comes first and says how long is left; the kick reason says why they were removed, since
+     * a disconnect without one reads as a crash.
+     */
+    public static final MessageKey SELECTION_TIMEOUT_WARNING =
+            MessageKey.of("class.selection.timeout.warning");
+
+    public static final MessageKey SELECTION_TIMEOUT_KICK =
+            MessageKey.of("class.selection.timeout.kick");
+
     private ClassMessageKeys() {}
 
     /** Every key this block can emit, for the resolution test in the plugin module. */
@@ -72,6 +99,14 @@ public final class ClassMessageKeys {
                 TIER_UNKNOWN_CHARACTER,
                 EQUIPMENT_BOUND,
                 EQUIPMENT_DROP_DISABLED,
-                INVENTORY_FULL);
+                INVENTORY_FULL,
+                SLOT_LEVEL,
+                SLOT_TIERS,
+                SLOT_LAST_PLAYED,
+                SLOT_RESUME,
+                SLOT_EMPTY,
+                SLOT_CREATE,
+                SELECTION_TIMEOUT_WARNING,
+                SELECTION_TIMEOUT_KICK);
     }
 }

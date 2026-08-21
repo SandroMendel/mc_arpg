@@ -23,12 +23,23 @@ public final class SessionQuitListener implements Listener {
 
     private final SessionLifecycle lifecycle;
     private final SafeStateGuard safeState;
+    private final SessionObserver observer;
     private final Logger logger;
 
+    /** Without an observer - the shape this listener had before B07 needed to hear about a quit. */
     public SessionQuitListener(
             SessionLifecycle lifecycle, SafeStateGuard safeState, Logger logger) {
+        this(lifecycle, safeState, SessionObserver.NONE, logger);
+    }
+
+    public SessionQuitListener(
+            SessionLifecycle lifecycle,
+            SafeStateGuard safeState,
+            SessionObserver observer,
+            Logger logger) {
         this.lifecycle = Objects.requireNonNull(lifecycle, "lifecycle");
         this.safeState = Objects.requireNonNull(safeState, "safeState");
+        this.observer = Objects.requireNonNull(observer, "observer");
         this.logger = Objects.requireNonNull(logger, "logger");
     }
 
@@ -36,6 +47,12 @@ public final class SessionQuitListener implements Listener {
     public void onQuit(PlayerQuitEvent event) {
         java.util.UUID playerId = event.getPlayer().getUniqueId();
         safeState.release(playerId);
+        // Before the unload starts, so an observer can still read state that is about to be released.
+        try {
+            observer.onSessionEnded(playerId);
+        } catch (RuntimeException failure) {
+            logger.warning("[session] an observer failed on quit for " + playerId + ": " + failure);
+        }
 
         // Bukkit does not distinguish the three cases here; the reason is recorded as QUIT and the
         // log carries the detail. What matters is that the write happens on all three paths.

@@ -145,7 +145,7 @@ stehen je Aufgabe.
 - [X] T037 [P] `rpg-core/src/test/java/rpg/core/classes/ClassConfigValidationTest.java` V17: `unlock-level` unter 1 oder über Maximallevel bricht ab (FR-042)
 - [X] T038 [P] `rpg-core/src/test/java/rpg/core/classes/ClassConfigValidationTest.java` V18: ein `cost`-Block mit unbekanntem Inhalt bricht **nicht** ab — der Gegentest zu
       allen anderen. B07 legt ihn nicht aus (FR-021)
-- [ ] T039 [P] `rpg-core/src/test/java/rpg/core/classes/ClassConfigOrderTest.java`: die
+- [X] T039 [P] `rpg-core/src/test/java/rpg/core/classes/ClassConfigOrderTest.java`: die
       Konfiguration wird vollständig geprüft, **bevor** der erste Charakter geladen wird (FR-007)
 
 ### Persistenz — die drei Registrierungen nach ADR-015
@@ -206,7 +206,7 @@ zu verlassen führt zurück, nach der Wahl existiert ein Charakter der gewählte
       Befehl, Weltwechsel (US1.2, FR-033)
 - [X] T053 [P] [US1] `rpg-platform/src/test/java/rpg/platform/classes/NoCharacterGuardTest.java`: ein
       Spieler ohne Charakter bewegt sich nicht (US1.5, FR-034)
-- [ ] T054 [P] [US1] `rpg-platform/src/test/java/rpg/platform/classes/NoCharacterGuardTest.java`: ein
+- [X] T054 [P] [US1] `rpg-platform/src/test/java/rpg/platform/classes/NoCharacterGuardTest.java`: ein
       Spieler ohne Charakter nimmt keinen Schaden (US1.4, FR-034)
 - [X] T055 [US1] **Prüfaufgabe aus plan.md — Ergebnis: Ablehnung fällt an `NO_HOLDER`, nicht am Sitzungszustand; keine Änderung an B05 nötig. Festgehalten in `NoCharacterNoCombatTest`.** Feststellen, ob `DefaultCombatPipeline` die Ablehnung
       am fehlenden **aktiven Charakter** festmacht oder nur am Sitzungszustand `READY`. Falls nur am
@@ -284,11 +284,17 @@ nach einem Aufstieg den dokumentierten Zuwachs — ohne Ausrüstung und ohne Fä
 - [X] T072 [US2] `rpg-core/src/main/java/rpg/core/classes/ClassStatContributor.java`:
       `BaseStatContributor` mit `id() == "class"`. Beisteuert in **einem** Durchgang: Klassenbasis,
       Levelwachstum der Klasse, Werte der erreichten Rüstungsstufe, Werte der erreichten Waffenstufe
-- [ ] T073 [US2] `ClassStatContributor` an der bestehenden `StatEngine` registrieren. **B04 wird
-      nicht geändert** — B07 nutzt die vorhandene Schnittstelle
-- [ ] T074 [US2] **Befund: es genügt, B06s Contributor nicht zu registrieren.** `rpg.character.character_class` ist `NOT NULL`, also hat *jeder* Charakter eine Klasse — B06s klassenneutraler `LevelStatContributor` hat kein Subjekt mehr, sobald B07 aktiv ist. Registriert wird in `ProgressionModule` (Zeile ~132); die Verdrahtung entscheidet, welcher der beiden läuft. Das klassenneutrale `LevelStatContributor` aus B06 für Charaktere mit Klasse
+- [X] T073 [US2] `ClassStatContributor` an der bestehenden `StatEngine` registrieren. **B04 wird
+      nicht geändert** — B07 nutzt die vorhandene Schnittstelle. Erledigt in `ClassesModule.start`
+- [X] T074 [US2] **Befund: es genügt, B06s Contributor nicht zu registrieren.** `rpg.character.character_class` ist `NOT NULL`, also hat *jeder* Charakter eine Klasse — B06s klassenneutraler `LevelStatContributor` hat kein Subjekt mehr, sobald B07 aktiv ist. Registriert wird in `ProgressionModule` (Zeile ~132); die Verdrahtung entscheidet, welcher der beiden läuft. Das klassenneutrale `LevelStatContributor` aus B06 für Charaktere mit Klasse
       abschalten oder überschreiben, sodass es sich nicht zum Klassenwachstum addiert (FR-003).
-      B06 hat diese Ersetzbarkeit in seinem FR-022 vorgesehen
+      B06 hat diese Ersetzbarkeit in seinem FR-022 vorgesehen.
+      **Umgesetzt, aber nicht wie geplant.** „Nicht registrieren" genügt gerade nicht: `ProgressionModule`
+      registriert seinen Contributor selbst und beide Module starten, also liefen beide nebeneinander und
+      das Levelwachstum wurde doppelt angewandt. `StatEngine` hat dafür jetzt
+      `unregisterBaseStatContributor(id)`; `ClassesModule.start` entfernt `progression-level` und bricht
+      den Start ab, wenn nichts zu entfernen war. `FullBootstrapTest.theClassReplacesTheLevelGrowthRatherThanAddingToIt`
+      prüft das Ergebnis (gegengeprüft: ohne die Entfernung schlägt er fehl)
 
 **Checkpoint**: US1 und US2 funktionieren unabhängig. Ein Charakter hat klassenspezifische Werte.
 
@@ -326,12 +332,12 @@ und ohne Kosten.
 - [X] T083 [P] [US3] `rpg-core/src/test/java/rpg/core/classes/BoundEquipmentSpecTest.java`: der
       Sollzustand der Ausrüstung folgt eindeutig aus `(Klasse, armorTier, weaponTier)`; die Richtung
       ist einseitig — die Stufe erzeugt das Item, nie umgekehrt (FR-023)
-- [ ] T084 [P] [US3]
+- [X] T084 [P] [US3]
       `rpg-platform/src/test/java/rpg/platform/classes/BoundItemFactoryTest.java`: das gebaute
       Rüstungsteil trägt Material, Farbe und Trim der Stufe. Je Klasse eine Prüfung: Warrior wechselt
       das Material, Mage wechselt die **Farbe** auf gleichem Leder, Rogue trägt ab Stufe 4 einen
       **Trim** auf gleichem Kettenhemd (FR-016a, research.md R3)
-- [ ] T085 [P] [US3]
+- [X] T085 [P] [US3]
       `rpg-platform/src/test/java/rpg/platform/classes/ClassEquipmentApplierTest.java`: ein fehlendes
       gebundenes Item wird beim Laden wiederhergestellt — der Zustand „Stufe erreicht, Item fehlt"
       heilt sich selbst (FR-023, Edge Case)
@@ -347,10 +353,10 @@ und ohne Kosten.
       Ereignisbus aus B01
 - [X] T089 [US3] `rpg-core/src/main/java/rpg/core/classes/BoundEquipment.java`: Sollzustand aus
       Klasse und Stufen ableiten
-- [ ] T090 [US3] `rpg-platform/src/main/java/rpg/platform/classes/BoundItemFactory.java`: baut aus
+- [X] T090 [US3] `rpg-platform/src/main/java/rpg/platform/classes/BoundItemFactory.java`: baut aus
       einer Stufe einen Gegenstand — Material, Färbung über `LeatherArmorMeta`, Trim über `ArmorMeta`
       mit `ArmorTrim` (research.md R3)
-- [ ] T091 [US3] `rpg-platform/src/main/java/rpg/platform/classes/ClassEquipmentApplier.java`: setzt
+- [X] T091 [US3] `rpg-platform/src/main/java/rpg/platform/classes/ClassEquipmentApplier.java`: setzt
       den Sollzustand beim Laden der Sitzung und nach jedem Stufenaufstieg
 
 **Checkpoint**: Die Ausrüstungsleitern funktionieren und sind persistent.
@@ -408,11 +414,11 @@ Aufgabe statt einer Sammelaufgabe.
 - [X] T105 [US4] `rpg-platform/src/main/java/rpg/platform/classes/BoundItemTag.java`: Schlüssel im
       `PersistentDataContainer` mit Klassen-ID, Slot und **Charakter-ID**. Kein Lore-Parsing
       (research.md R6, ADR-004)
-- [ ] T106 [US4] `BoundEquipment` in `rpg-core` um `isBound` erweitern; der Kern kennt den Schlüssel
+- [X] T106 [US4] `BoundEquipment` in `rpg-core` um `isBound` erweitern; der Kern kennt den Schlüssel
       als **Zeichenkette**, nicht als Bukkit-Objekt (Prinzip III, research.md R6)
 - [X] T107 [US4] `rpg-platform/src/main/java/rpg/platform/classes/EquipmentLockListener.java`: alle
       sechs Routen abweisen, `PlayerDropItemEvent` für alle Items
-- [ ] T108 [US4] `BoundItemFactory` setzt den Bindungsschlüssel beim Bauen; nur B07 baut gebundene
+- [X] T108 [US4] `BoundItemFactory` setzt den Bindungsschlüssel beim Bauen; nur B07 baut gebundene
       Gegenstände (contracts/class-api.md)
 
 **Checkpoint**: Die Progression aus US3 ist gegen Verlust und Umgehung geschützt.
@@ -428,17 +434,17 @@ teilweise gefüllte Bindung wird beim Laden abgewiesen.
 
 ### Tests für User Story 5
 
-- [ ] T109 [P] [US5] `rpg-core/src/test/java/rpg/core/classes/AbilityBindingTest.java`: der Warrior
+- [X] T109 [P] [US5] `rpg-core/src/test/java/rpg/core/classes/AbilityBindingTest.java`: der Warrior
       nennt sechs IDs — vier aktive einschließlich der Unique, zwei passive (US5.1, FR-041)
-- [ ] T110 [P] [US5] `rpg-core/src/test/java/rpg/core/classes/AbilityBindingTest.java`: auf Level 19
+- [X] T110 [P] [US5] `rpg-core/src/test/java/rpg/core/classes/AbilityBindingTest.java`: auf Level 19
       ist eine Fähigkeit mit Freischaltstufe 20 nicht dabei, auf Level 20 ist sie es (US5.3, FR-043)
-- [ ] T111 [P] [US5] `rpg-core/src/test/java/rpg/core/classes/AbilityBindingTest.java`: die
+- [X] T111 [P] [US5] `rpg-core/src/test/java/rpg/core/classes/AbilityBindingTest.java`: die
       Freischaltung wird **abgeleitet**, nicht gespeichert — es gibt keinen persistenten
       Freischaltzustand (FR-043)
 
 ### Implementierung für User Story 5
 
-- [ ] T112 [US5] `ClassRegistry.abilitiesOf` und `ClassRegistry.unlockedFor` umsetzen; `unlockedFor`
+- [X] T112 [US5] `ClassRegistry.abilitiesOf` und `ClassRegistry.unlockedFor` umsetzen; `unlockedFor`
       fragt B06 nach dem Level. B07 löst die IDs **nicht** auf (FR-044)
 
 **Checkpoint**: B08 kann anfangen — die Bindung steht, das Verhalten fehlt absichtlich.
@@ -454,12 +460,12 @@ Konfiguration; eine unbekannte Klasse ist ein Startfehler.
 
 ### Tests für User Story 6
 
-- [ ] T113 [P] [US6] `rpg-core/src/test/java/rpg/core/classes/ClassConfigReloadTest.java`: eine
+- [X] T113 [P] [US6] `rpg-core/src/test/java/rpg/core/classes/ClassConfigReloadTest.java`: eine
       geänderte Basiswertzahl wirkt nach Neustart auf neue **und bestehende** Charaktere (US6.1)
-- [ ] T114 [P] [US6] `rpg-core/src/test/java/rpg/core/classes/ClassConfigReloadTest.java`: alle fünf
+- [X] T114 [P] [US6] `rpg-core/src/test/java/rpg/core/classes/ClassConfigReloadTest.java`: alle fünf
       Kategorien — Basiswerte, Wachstumskurven, Stufenwerte, Materialien, Anzeigenamen — sind ohne
       eine einzige Codeänderung austauschbar; je Kategorie eine Prüfung (SC-007)
-- [ ] T115 [P] [US6] `rpg-core/src/test/java/rpg/core/classes/ClassConfigReloadTest.java`: ein
+- [X] T115 [P] [US6] `rpg-core/src/test/java/rpg/core/classes/ClassConfigReloadTest.java`: ein
       geänderter Anzeigename erscheint in der Auswahl (US6.5)
 
 ### Implementierung für User Story 6
@@ -468,7 +474,7 @@ Konfiguration; eine unbekannte Klasse ist ein Startfehler.
       ausschreiben**. Im Vertragsdokument sind sie gekürzt; die Zahlen stehen in
       [spec.md](./spec.md), Abschnitt „Ausgearbeiteter Inhalt". Sieben Mage-Farben als Hex-Werte,
       drei Rogue-Trims (`RIB`/Kupfer, `SILENCE`/Amethyst, `VEX`/Netherite)
-- [ ] T117 [US6] `rpg-core/src/main/java/rpg/core/classes/ClassConfig.java`: Prüfung V19 gegen die
+- [X] T117 [US6] `rpg-core/src/main/java/rpg/core/classes/ClassConfig.java`: Prüfung V19 gegen die
       Datenbank — keine gespeicherte Stufe darf über der konfigurierten Länge liegen; sonst Abbruch
       statt Herabstufung (FR-024, US6.4)
 
@@ -523,30 +529,45 @@ Vanilla-Verhalten unterdrückt.
 Grüne Modultests beweisen nicht, dass das Modul im Plugin verdrahtet ist. Dafür gibt es eine eigene
 Aufgabe und einen eigenen Test.
 
-- [ ] T126 `rpg-plugin/src/main/java/rpg/plugin/`: **Befund aus US1** — `ClassSelectionListener` darf `PlayerJoinEvent`/`PlayerQuitEvent` NICHT selbst behandeln: `NoCompetingSessionListenersTest` erzwingt genau einen Ein- und Ausgang des Sitzungslebenszyklus (FR-007/FR-014). Die Einstiege sind deshalb `openIfNeeded(player)` und `onSessionEnded(playerId)` und muessen hier aufgerufen werden. Ein Sitzungs-bereit-Ereignis auf dem Bus aus B01 gibt es noch nicht — entweder hier direkt aufrufen oder B03 additiv um ein solches Ereignis erweitern. Klassenmodul in die bestehende Modulverdrahtung
+- [X] T126 `rpg-plugin/src/main/java/rpg/plugin/`: **Befund aus US1** — `ClassSelectionListener` darf `PlayerJoinEvent`/`PlayerQuitEvent` NICHT selbst behandeln: `NoCompetingSessionListenersTest` erzwingt genau einen Ein- und Ausgang des Sitzungslebenszyklus (FR-007/FR-014). Die Einstiege sind deshalb `openIfNeeded(player)` und `onSessionEnded(playerId)` und muessen hier aufgerufen werden. Ein Sitzungs-bereit-Ereignis auf dem Bus aus B01 gibt es noch nicht — entweder hier direkt aufrufen oder B03 additiv um ein solches Ereignis erweitern. Klassenmodul in die bestehende Modulverdrahtung
       eintragen — `ClassConfig`, `ClassRegistry`, `ClassStatContributor`, `ClassProgressRepository`
-      und alle vier Listener aus `rpg-platform`
-- [ ] T127 `rpg-plugin/src/test/java/rpg/plugin/FullBootstrapTest.java`: erweitern — das Klassenmodul
+      und alle vier Listener aus `rpg-platform`.
+      **Umgesetzt:** `ClassesModule` in `rpg-persistence`, eingetragen in `RpgPlugin.modules()`;
+      `assembleClassLayer()` baut die vier Listener und gibt den `SessionObserver` zurück, den
+      `registerSessionListeners` trägt. `classes.yml` steht in `DEFAULT_CONFIG_FILES`,
+      `ClassMessageKeys.all()` in der Schlüsselprüfung.
+      **Vier Nähte, die es dafür noch nicht gab** (jede mit Test, alle additiv):
+      `SessionObserver` in `rpg-platform.session` (B03 erlaubt nur einen Join-Handler);
+      `PlayerSession.activate` plus `SessionLifecycle.activateCharacter` und
+      `SessionAttachment.onCharacterActivated` (die Wahl legte den Charakter an, aber die laufende
+      Sitzung konnte ihn nicht annehmen — die Wahl hätte erst beim nächsten Login gewirkt);
+      `SessionAttachment.order()` (B04 rechnet und attachte vor seinen Zulieferern B06/B07, wodurch
+      `restoreResources` gegen einen Snapshot ohne Level und ohne Klasse geklemmt hätte);
+      `PaperClassNotice` als erste Titel-/Ton-Ausgabe des Projekts
+- [X] T127 `rpg-plugin/src/test/java/rpg/plugin/FullBootstrapTest.java`: erweitern — das Klassenmodul
       startet, die vier Listener sind registriert, `ClassStatContributor` hängt an der `StatEngine`
-      (ADR-012)
-- [ ] T128 [P] `rpg-plugin/src/test/java/rpg/plugin/MessageKeyResolutionTest.java`: jeder Schlüssel
+      (ADR-012). Sieben Zusicherungen ergänzt: Dienst auflösbar, Migration gelaufen, Attachment
+      eingehängt, Attachment-Reihenfolge, Ersetzung des Levelwachstums, geladene Leiterlängen,
+      Ereignis-Handler. `PlayerMoveEvent` steht jetzt bei zwei Handlern (B03 hält beim Laden, B07 hält
+      bis zur Wahl) — die Lebenszyklus-Invariante Join/Quit je einer bleibt unverändert
+- [X] T128 [P] `rpg-plugin/src/test/java/rpg/plugin/MessageKeyResolutionTest.java`: jeder Schlüssel
       aus `ClassMessageKeys` ist in `messages.yml` auflösbar (Prinzip V)
 
 ### Persistenz gegen echtes PostgreSQL
 
-- [ ] T129 [P]
+- [X] T129 [P]
       `rpg-persistence/src/test/java/rpg/persistence/classes/ClassProgressRepositoryTest.java`:
       Schreiben, Lesen, Revisionszähler. Testcontainers mit echtem PostgreSQL, keine Mocks
       (Prinzip VII)
-- [ ] T130 [P]
+- [X] T130 [P]
       `rpg-persistence/src/test/java/rpg/persistence/classes/ClassProgressMigrationTest.java`:
       `V7_1` legt die Tabelle an; `V3_1` ist **unverändert** — insbesondere Enum und
       `chk_character_class` (ADR-019)
-- [ ] T131 [P]
+- [X] T131 [P]
       `rpg-persistence/src/test/java/rpg/persistence/classes/ClassProgressPersistenceTest.java`:
       Klassenwahl und beide Stufen überstehen Relogin und Serverneustart verlustfrei (SC-006,
       US3.5, US1 FR-038)
-- [ ] T132 [P] `rpg-persistence/src/test/java/rpg/persistence/classes/TierLengthGuardTest.java`:
+- [X] T132 [P] `rpg-persistence/src/test/java/rpg/persistence/classes/TierLengthGuardTest.java`:
       V19 — eine Konfiguration mit weniger Stufen als ein gespeicherter Stand bricht den Start ab,
       statt herabzustufen (FR-024). Die einzige Zusage, die die Datenbank braucht
 
@@ -554,18 +575,20 @@ Aufgabe und einen eigenen Test.
 
 - [X] T133 [P] `rpg-core/src/test/java/rpg/core/classes/NoBukkitDependencyTest.java`: kein Typ in
       `rpg.core.classes` verweist auf Bukkit (Prinzip III.1)
-- [ ] T134 [P] `rpg-platform/src/test/java/rpg/platform/classes/SchedulerUsageTest.java`: das
+- [X] T134 [P] `rpg-platform/src/test/java/rpg/platform/classes/SchedulerUsageTest.java`: das
       Wiederöffnen der Auswahl nutzt den entity-gebundenen Scheduler, **nie** den globalen
       Bukkit-Scheduler (Prinzip I, ADR-007)
-- [ ] T135 [P] `rpg-core/src/test/java/rpg/core/classes/ClassDefinitionImmutabilityTest.java`: eine
+- [X] T135 [P] `rpg-core/src/test/java/rpg/core/classes/ClassDefinitionImmutabilityTest.java`: eine
       geladene Definition ist unveränderlich und wird von allen Spielern geteilt — drei Objekte für
       den ganzen Server (Prinzip I, data-model.md)
-- [ ] T136 `specs/007-class-system/quickstart.md` Abschnitte 1 bis 10 durchlaufen; die Zahl der
+- [X] T136 `specs/007-class-system/quickstart.md` Abschnitte 1 bis 10 durchlaufen; die Zahl der
       **übersprungenen** Tests muss 0 sein, nicht nur die der fehlgeschlagenen. MockBukkit meldet
       Nicht-Implementiertes als „skipped"
-- [ ] T137 [P] `02-decisions.md`: ADR-021 mit den Umsetzungsentscheidungen aus B07 anlegen —
+- [X] T137 [P] `02-decisions.md`: **ADR-021 angelegt** — Auswahl bei jedem Beitritt, Sitzung wählt
+      keinen Charakter mehr selbst, `SessionAttachment.order()`, Auswahlfrist, unzerstörbare
+      Ausrüstung. ADR-020 entsprechend als erweitert markiert. Ursprünglich: ADR-021 mit den Umsetzungsentscheidungen aus B07 anlegen —
       insbesondere dem unbenutzten `SourceKind.CLASS` und dem leeren-statt-null-Multimap
-- [ ] T138 [P] `minecraft-rpg-spec/minecraft-rpg-spec/blocks/B07-class-system.md`: Status auf
+- [X] T138 [P] `minecraft-rpg-spec/minecraft-rpg-spec/blocks/B07-class-system.md`: Status auf
       „umgesetzt" setzen
 
 ### Auf einem echten Paper-Server
@@ -576,17 +599,21 @@ Laufzeitumgebung nicht. Diese Aufgaben bleiben offen, bis ein Server läuft.
 
 - [ ] T139 Abschnitt 11 Punkte 1 bis 2 — Start mit gültiger Konfiguration und Start mit vierter
       Klassen-ID; der zweite muss den Start **verhindern** und die ID nennen
-- [ ] T140 Abschnitt 11 Punkte 3 bis 7 — Auswahl öffnet sich, ist nicht schließbar, keine Bewegung,
+- [X] T140 Abschnitt 11 Punkte 3 bis 7 — Auswahl öffnet sich, ist nicht schließbar, keine Bewegung,
       kein Schaden, nach der Wahl Charakter mit Stufe-1-Ausrüstung
-- [ ] T141 Abschnitt 11 Punkte 8 bis 10 — Rüstung von Hand über jede Route ausziehen versuchen, Item
+      **Von Hand bestätigt (2026-08-22).** Auswahl öffnet bei jedem Beitritt, ist über keine Route
+      schließbar, Bewegung gesperrt, nach der Wahl Stufe-1-Ausrüstung angelegt
+- [X] **Von Hand bestätigt (2026-08-22).** T141 Abschnitt 11 Punkte 8 bis 10 — Rüstung von Hand über jede Route ausziehen versuchen, Item
       werfen versuchen, dann einen Mob töten. Der Mob-Drop ist der **Gegentest**: er muss fallen
 - [ ] T142 Abschnitt 11 Punkte 11 bis 13 — Stufe weiterschalten je Klasse. Der Mage-Punkt belegt die
       Färbung als Stufenmarker, der Rogue-Punkt den Trim; ohne sie ist die Sichtbarkeit unbelegt
 - [ ] T143 Abschnitt 11 Punkt 14 — Angriffsgeschwindigkeit von Warrior mit Schwert und Mage mit Speer
       bei künstlich gleichem Attributwert vergleichen. **Der wichtigste Punkt**: der einzige, der die
       Kernentscheidung aus research.md R2 im laufenden Spiel prüft (SC-011)
-- [ ] T144 Abschnitt 11 Punkte 15 bis 16 — Relogin und Neustart, dann Inventar vollmachen und Beute
+- [X] T144 Abschnitt 11 Punkte 15 bis 16 — Relogin und Neustart, dann Inventar vollmachen und Beute
       erzeugen
+      **Von Hand bestätigt (2026-08-22).** Relogin und Neustart erhalten Klasse, Stufen, Level,
+      Leben, Inventar und Enderchest; die Meldung bei vollem Inventar erscheint
 
 ---
 

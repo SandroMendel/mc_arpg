@@ -44,6 +44,36 @@ class RecalcPendingTest {
     }
 
     @Test
+    @DisplayName("a schedule that was refused takes its mark back, so a later change still recalculates")
+    void aRefusedScheduleDoesNotStrandTheHolder() {
+        // The situation on a real server: the entity is not resolvable at that moment - a creature
+        // still being added to the world, a player already gone - so the scheduler places nothing and
+        // hands back a cancelled handle. If the mark stayed set, every later markPending would lose its
+        // compare-and-set and this holder would never recalculate again. Nothing throws, nothing is
+        // logged where it matters, and the modifiers simply never reach a snapshot.
+        EngineFixture fixture = new EngineFixture();
+        UUID holder = fixture.character();
+        fixture.scheduler.refuseEntityTasks();
+
+        fixture.engine.apply(
+                holder,
+                EngineFixture.equipment("slot:CHEST", StatModifier.flat(Attribute.HEALTH, 500.0)));
+        assertThat(fixture.scheduler.pendingCount()).as("nothing was placed").isZero();
+
+        // The entity is resolvable again - a tick later, or the player is back. The next change has to
+        // reach a snapshot, and it carries the refused one with it.
+        fixture.scheduler.acceptEntityTasks();
+        fixture.engine.apply(
+                holder,
+                EngineFixture.equipment("slot:HEAD", StatModifier.flat(Attribute.HEALTH, 50.0)));
+        fixture.tick();
+
+        assertThat(fixture.engine.value(holder, Attribute.HEALTH))
+                .as("both modifiers, so the refused mark did not strand the holder")
+                .isEqualTo(650.0);
+    }
+
+    @Test
     @DisplayName("a holder removed while a mark is outstanding lets the task expire without effect")
     void removalDuringPendingIsHarmless() {
         EngineFixture fixture = new EngineFixture();

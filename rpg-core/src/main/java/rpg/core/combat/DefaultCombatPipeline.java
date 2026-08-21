@@ -515,6 +515,22 @@ public final class DefaultCombatPipeline implements CombatPipeline {
         }
     }
 
+    /**
+     * Publishes the damage windows whose time is up.
+     *
+     * <p>{@link DamageAggregator#record} only closes a window when the <b>next</b> hit arrives after it
+     * expired, so a window that never sees another hit stays open forever. Hitting a mob three times
+     * and walking away therefore published nothing at all, and every listener - a readout, a statistic,
+     * a quest counter - missed those hits entirely. Only a kill flushed them, through
+     * {@code closeFor}.
+     *
+     * <p>Driven from outside, like {@link #publishExpiredCombatStates}: this class owns no task
+     * (Constitution I). The natural cadence is the aggregation window from {@code combat.yml}.
+     */
+    public void publishExpiredDamageWindows() {
+        aggregator.closeExpired().forEach(eventBus::publish);
+    }
+
     /** Resource reading for the platform side. */
     public Optional<ResourceView> resources(UUID holderId) {
         try {

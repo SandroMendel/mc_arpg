@@ -1,9 +1,14 @@
 package rpg.core.classes;
 
+import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -47,6 +52,55 @@ public final class ClassSelection {
         return session.activeCharacter().isEmpty();
     }
 
+    /** The character of this account for {@code id}, if the account has one. */
+    private static Optional<PlayerCharacter> characterOf(PlayerSession session, CharacterClass id) {
+        for (PlayerCharacter existing : session.availableCharacters()) {
+            if (existing.characterClass() == id) {
+                return Optional.of(existing);
+            }
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * What the menu shows: one entry per class, played or not (US1.4).
+     *
+     * <p>Every class on every join, because the selection is now also how a player picks <em>which</em>
+     * of their characters to play. A slot the account has a character for carries that character and
+     * what it has reached; the rest are offers to create one.
+     *
+     * <p>The reached values are looked up rather than carried in the session, because they belong to
+     * B06 and B07 and this block does not own them. Both answer from what the login already read.
+     */
+    public List<ClassSlot> slots(
+            PlayerSession session,
+            java.util.function.ToIntFunction<UUID> levelOf,
+            Function<UUID, Optional<ClassProgress>> tiersOf) {
+        Objects.requireNonNull(session, "session");
+        Objects.requireNonNull(levelOf, "levelOf");
+        Objects.requireNonNull(tiersOf, "tiersOf");
+        List<ClassSlot> slots = new ArrayList<>(CharacterClass.values().length);
+        for (CharacterClass id : CharacterClass.values()) {
+            Optional<PlayerCharacter> existing = characterOf(session, id);
+            if (existing.isEmpty()) {
+                slots.add(ClassSlot.empty(id));
+                continue;
+            }
+            PlayerCharacter character = existing.get();
+            ClassProgress tiers =
+                    tiersOf.apply(character.characterId())
+                            .orElseGet(() -> ClassProgress.initial(character.characterId()));
+            slots.add(
+                    ClassSlot.played(
+                            id,
+                            character,
+                            levelOf.applyAsInt(character.characterId()),
+                            tiers.armorTier(),
+                            tiers.weaponTier()));
+        }
+        return slots;
+    }
+
     /**
      * The classes still open to this account (FR-035).
      *
@@ -87,9 +141,13 @@ public final class ClassSelection {
             return CompletableFuture.completedFuture(
                     ClassSelectionResult.rejected(ClassSelectionRejection.ALREADY_HAS_CHARACTER));
         }
-        if (!available(session).contains(id)) {
-            return CompletableFuture.completedFuture(
-                    ClassSelectionResult.rejected(ClassSelectionRejection.CLASS_ALREADY_TAKEN));
+        Optional<PlayerCharacter> existing = characterOf(session, id);
+        if (existing.isPresent()) {
+            // Resuming, not creating. The menu shows every class on every join (US1.4), so a click on a
+            // class the account already plays means "play that one" - the character exists and nothing
+            // needs to be written. CLASS_ALREADY_TAKEN stays for the race below, where the account
+            // gained the character between the menu being built and the insert landing.
+            return CompletableFuture.completedFuture(ClassSelectionResult.resumed(existing.get()));
         }
         return characters
                 .create(session.playerId(), id)
@@ -103,7 +161,7 @@ public final class ClassSelection {
                                             session.playerId(),
                                             character.characterId(),
                                             character.characterClass()));
-                            return ClassSelectionResult.accepted(character);
+                            return ClassSelectionResult.created(character);
                         });
     }
 

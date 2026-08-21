@@ -68,6 +68,8 @@ public final class FlushCycle implements WriteBehindCoordinator {
                     // B07 stores the reached armour and weapon tier per character and references it,
                     // so it follows CHARACTER for the same reason the two rows above do (ADR-015).
                     AggregateType.CHARACTER_CLASS_PROGRESS,
+                    // The stored inventory hangs off a character too, so it follows CHARACTER as well.
+                    AggregateType.CHARACTER_INVENTORY,
                     AggregateType.ITEM_INSTANCE,
                     AggregateType.STATISTICS,
                     AggregateType.AUDIT_LOG);
@@ -150,19 +152,29 @@ public final class FlushCycle implements WriteBehindCoordinator {
 
         CompletableFuture<FlushResult> future = new CompletableFuture<>();
         inFlight.set(future);
-        scheduler.runAsync(
-                () -> {
-                    try {
-                        future.complete(performFlush(reason));
-                    } catch (RuntimeException unexpected) {
-                        // Still not a failed future: the contract says flushNow never fails
-                        // outwards, or the interval cycle would die with it.
-                        logger.log(Level.SEVERE, "[persistence] flush failed unexpectedly", unexpected);
-                        future.complete(new FlushResult(reason, 0, buffer.pending(), Duration.ZERO));
-                    } finally {
-                        running.set(false);
-                    }
-                });
+        try {
+            scheduler.runAsync(
+                    () -> {
+                        try {
+                            future.complete(performFlush(reason));
+                        } catch (RuntimeException unexpected) {
+                            // Still not a failed future: the contract says flushNow never fails
+                            // outwards, or the interval cycle would die with it.
+                            logger.log(
+                                    Level.SEVERE, "[persistence] flush failed unexpectedly", unexpected);
+                            future.complete(new FlushResult(reason, 0, buffer.pending(), Duration.ZERO));
+                        } finally {
+                            running.set(false);
+                        }
+                    });
+        } catch (RuntimeException notScheduled) {
+            // The work was never handed over. Without this the flag stays set and the future stays
+            // unfinished, so every later flush returns that dead future and nothing is ever written
+            // again - a scheduler hiccup would turn into permanent silence.
+            running.set(false);
+            future.complete(new FlushResult(reason, 0, buffer.pending(), Duration.ZERO));
+            throw notScheduled;
+        }
         return future;
     }
 
@@ -217,6 +229,17 @@ public final class FlushCycle implements WriteBehindCoordinator {
             logger.warning("[persistence] shutdown flush was interrupted");
         } catch (java.util.concurrent.ExecutionException failure) {
             logger.log(Level.SEVERE, "[persistence] shutdown flush failed", failure.getCause());
+        } catch (RuntimeException failure) {
+            // The three checked cases above were the only ones anticipated, and that was the gap: a
+            // scheduler that refuses to take the work throws right here, the exception left this method
+            // and PersistenceModule.stop with it, and the connection pools were never closed. Loud, and
+            // then let the caller finish its shutdown.
+            logger.log(
+                    Level.SEVERE,
+                    "[persistence] shutdown flush could not be started - "
+                            + buffer.pending()
+                            + " change(s) may be unwritten",
+                    failure);
         }
     }
 

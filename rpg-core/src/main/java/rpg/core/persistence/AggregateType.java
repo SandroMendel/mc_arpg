@@ -44,5 +44,20 @@ public enum AggregateType {
      * it. A type missing from the write order has its marks counted as failed on every flush and is
      * never written - which looks like a database problem and is none.
      */
-    CHARACTER_CLASS_PROGRESS
+    CHARACTER_CLASS_PROGRESS,
+
+    /**
+     * The stored contents of one character's inventory.
+     *
+     * <p>Groundwork for B11, brought forward because B07 made it necessary. The selection lets a player
+     * switch between their characters, and the Minecraft inventory belongs to the <em>player</em>, not
+     * to any one of them. With nowhere to keep it, the only consistent behaviour was to empty it on
+     * every entry - which threw away whatever had been farmed.
+     *
+     * <p>Distinct from {@link #ITEM_INSTANCE}, which is B11's model for RPG items with a template and
+     * rolled values. This is the raw contents, vanilla loot included, and B11 may well replace it.
+     *
+     * <p>Registration 1 of 3 (ADR-015), as above.
+     */
+    CHARACTER_INVENTORY
 }

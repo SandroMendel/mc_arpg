@@ -15,6 +15,8 @@ import java.util.logging.Logger;
 
 import javax.sql.DataSource;
 
+import rpg.core.classes.ClassProgress;
+import rpg.core.inventory.CharacterInventory;
 import rpg.core.persistence.ItemInstance;
 import rpg.core.persistence.PersistenceException;
 import rpg.core.persistence.PlayerState;
@@ -22,6 +24,8 @@ import rpg.core.progression.CharacterProgress;
 import rpg.core.session.PlayerCharacter;
 import rpg.core.session.SessionBundle;
 import rpg.core.stats.CharacterResources;
+import rpg.persistence.classes.JdbcClassProgressRepository;
+import rpg.persistence.inventory.JdbcCharacterInventoryRepository;
 import rpg.persistence.progression.JdbcCharacterProgressRepository;
 import rpg.persistence.stats.JdbcCharacterResourcesRepository;
 
@@ -59,14 +63,20 @@ public final class SessionBundleLoader {
 
     private final DataSource loginPool;
     private final rpg.persistence.jdbc.JdbcCharacterRepository characters;
+    private final rpg.persistence.jdbc.JdbcPlayerStateRepository playerStates;
+    private final java.time.Clock clock;
     private final Logger logger;
 
     public SessionBundleLoader(
             DataSource loginPool,
             rpg.persistence.jdbc.JdbcCharacterRepository characters,
+            rpg.persistence.jdbc.JdbcPlayerStateRepository playerStates,
+            java.time.Clock clock,
             Logger logger) {
         this.loginPool = Objects.requireNonNull(loginPool, "loginPool");
         this.characters = Objects.requireNonNull(characters, "characters");
+        this.playerStates = Objects.requireNonNull(playerStates, "playerStates");
+        this.clock = Objects.requireNonNull(clock, "clock");
         this.logger = Objects.requireNonNull(logger, "logger");
     }
 
@@ -84,17 +94,38 @@ public final class SessionBundleLoader {
             try {
                 Optional<PlayerState> account = readAccount(connection, playerId);
                 if (account.isEmpty()) {
-                    // A first-time player: nothing else can exist either, so the remaining two
+                    // A first-time player: nothing else can exist either, so the remaining
                     // statements are skipped rather than run against a key that cannot match.
+                    //
+                    // The row itself is written now rather than left to the first flush. Everything a
+                    // character hangs off references it - rpg.character.player_id is a foreign key -
+                    // and B07 creates a character within seconds of the login, long before the
+                    // autosave. Leaving it to the write-behind meant the very first class selection
+                    // of every new player failed on that key.
+                    PlayerState created = PlayerState.initial(playerId, clock.instant());
+                    playerStates.insertInitial(connection, created);
                     connection.commit();
+                    // Still the empty bundle: it describes what the login *found*, and it found
+                    // nothing. The row that was just written is the account's existence, not its
+                    // content - there is no state to hand to anyone.
                     return SessionBundle.empty(playerId);
                 }
                 List<PlayerCharacter> loaded = characters.readByPlayer(connection, playerId);
                 List<ItemInstance> items = readItems(connection, playerId);
                 List<CharacterResources> resources = readResources(connection, loaded);
                 List<CharacterProgress> progress = readProgress(connection, loaded);
+                List<ClassProgress> classProgress = readClassProgress(connection, loaded);
+                List<CharacterInventory> inventories = readInventories(connection, loaded);
                 connection.commit();
-                return new SessionBundle(playerId, account, loaded, items, resources, progress);
+                return new SessionBundle(
+                        playerId,
+                        account,
+                        loaded,
+                        items,
+                        resources,
+                        progress,
+                        classProgress,
+                        inventories);
             } catch (SQLException failure) {
                 connection.rollback();
                 throw failure;
@@ -166,11 +197,52 @@ public final class SessionBundleLoader {
     }
 
     /**
+     * Reads the stored inventory of every character in this bundle.
+     *
+     * <p>All of them, not only the one that will be played: which character that is has not been
+     * decided at load time - the selection does that afterwards (ADR-021) - and asking again later
+     * would be a query on the player's tick.
+     */
+    private static List<CharacterInventory> readInventories(
+            Connection connection, List<PlayerCharacter> characters) throws SQLException {
+        if (characters.isEmpty()) {
+            return List.of();
+        }
+        List<CharacterInventory> inventories = new ArrayList<>(characters.size());
+        for (PlayerCharacter character : characters) {
+            JdbcCharacterInventoryRepository.read(connection, character.characterId())
+                    .ifPresent(inventories::add);
+        }
+        return List.copyOf(inventories);
+    }
+
+    /**
+     * The reached tiers of every character (B07).
+     *
+     * <p>On the same connection as everything else. B07 could have fetched it later through its
+     * repository, but the class contributes tier values to the base stats - a tier that arrived after
+     * the session was declared ready would make the character compute with tier 1 for a moment and
+     * then visibly correct itself.
+     */
+    private static List<ClassProgress> readClassProgress(
+            Connection connection, List<PlayerCharacter> characters) throws SQLException {
+        if (characters.isEmpty()) {
+            return List.of();
+        }
+        List<ClassProgress> progress = new ArrayList<>(characters.size());
+        for (PlayerCharacter character : characters) {
+            JdbcClassProgressRepository.read(connection, character.characterId())
+                    .ifPresent(progress::add);
+        }
+        return List.copyOf(progress);
+    }
+
+    /**
      * Reads the stored progress of every character in this bundle (B06, FR-058).
      *
-     * <p>The fifth statement on the same connection and inside the same transaction, for the same
-     * reason as the resources above: the login path must not need a second round trip. A character
-     * with no row is normal - it means level 1 with no experience, not a fault.
+     * <p>On the same connection and inside the same transaction, for the same reason as the resources
+     * above: the login path must not need a second round trip. A character with no row is normal - it
+     * means level 1 with no experience, not a fault.
      */
     private static List<CharacterProgress> readProgress(
             Connection connection, List<PlayerCharacter> characters) throws SQLException {

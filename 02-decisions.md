@@ -863,7 +863,8 @@ Stellen: einen Enum-Wert und eine Migration.
 
 ## ADR-020 · Vor der Klassenwahl gibt es keinen Spielzustand
 
-**Status:** Entschieden *(2026-08-21)*
+**Status:** Entschieden *(2026-08-21)* — **erweitert durch ADR-021:** die Auswahl erscheint bei
+*jedem* Beitritt, nicht nur beim ersten. Der Kern bleibt: kein Spielzustand vor der Wahl.
 
 Ein Spieler ohne Charakter ist **nicht spielbar**. Nach dem Laden der Sitzung (B03) öffnet sich die
 Klassenauswahl und lässt sich nicht schließen; bis zur Wahl gibt es keinen Stat-Snapshot, keinen
@@ -897,3 +898,62 @@ liegt in Weltinhalten, die erst B09 liefert.
 - **Zu testen ist die Nichtschließbarkeit selbst**, nicht nur der glückliche Pfad: jeder Weg aus der
   GUI heraus — Escape, Inventarwechsel, Befehl, Weltwechsel — muss zurück in die GUI führen. Dieselbe
   Vollständigkeitspflicht wie bei der Inventarsperre in ADR-018.
+
+---
+
+## ADR-021 · Die Auswahl ist der Eintritt in den Spielzustand — bei jedem Beitritt
+
+**Status:** Entschieden *(2026-08-21)*
+
+Fünf Entscheidungen aus der Umsetzung von B07, die zusammengehören, weil sie alle an derselben Stelle
+hängen: dem Übergang von „verbunden" zu „im Spiel".
+
+**1. Die Auswahl erscheint bei jedem Beitritt.** Nicht nur beim ersten. Sie ist damit auch der Weg, mit
+dem ein Konto zwischen seinen bis zu drei Charakteren wechselt — eine Funktion, für die es sonst einen
+eigenen Befehl oder ein zweites Menü gebraucht hätte. Ein Slot, den das Konto schon bespielt, wird
+fortgesetzt statt neu angelegt; die Lore nennt Level, beide Ausrüstungsstufen und wann zuletzt gespielt
+wurde. `CLASS_ALREADY_TAKEN` bleibt für das Rennen zweier gleichzeitiger Beitritte, das der
+Unique-Index aus B03 entscheidet.
+
+**2. Die Sitzung wählt keinen Charakter mehr selbst.** `PlayerSession` startet immer ohne aktiven
+Charakter; `preferredCharacter()` wird nicht mehr gelesen. Das ist die Voraussetzung für Punkt 1 — eine
+im Voraus getroffene Wahl müsste das Menü zurücknehmen, nachdem vier Blöcke schon Zustand dafür gebaut
+haben.
+
+**Folge, die den Ausschlag gab:** Damit verschiebt sich der Aufbau des Charakterzustands von
+`SessionAttachment.onSessionOpened` nach `onCharacterActivated`. Der Rückruf bekommt deshalb das
+`SessionBundle` mit, das der Login ohnehin gelesen hat, und die Sitzung hält es bis zu ihrem Ende.
+Sonst müsste B04, B06 und B07 je eine zweite Abfrage stellen — auf dem Tick, im Moment des
+Welteintritts.
+
+**3. Zulieferer laufen vor der Rechnung** (`SessionAttachment.order()`). Die Modulstartreihenfolge ist
+hier die falsche: B04 startet vor B06 und B07, weil beide von ihm abhängen — aber B04 *rechnet*, und
+die anderen liefern, woraus. Lief B04 zuerst, klemmte `restoreResources` die gespeicherte Gesundheit
+gegen einen Snapshot ohne Level und ohne Klasse. Seit ADR-017 die Klasse zur dominanten Quelle gemacht
+hat, wäre das nicht ein Rundungsfehler, sondern der größte Teil des Charakters gewesen.
+
+**4. Die Auswahl läuft ab.** Warnung nach einer Minute (Chat und Ton), Trennung nach zwei. Ein Spieler
+im Menü hält eine Sitzung, den geladenen Zustand und einen Platz auf dem Server, ohne ansprechbar,
+verwundbar oder beweglich zu sein — ein über Nacht offen gelassener Client hielte all das. Die Frist
+verlängert sich beim Wiederöffnen nicht, sonst wäre sie durch Escape beliebig hinauszuschieben. Für den
+Spieler zu wählen wäre die Alternative gewesen und ist schlechter: sie setzt jemanden in die Welt, der
+nicht am Rechner sitzt.
+
+**5. Klassenausrüstung ist unzerstörbar.** Sie ist Bestandteil des Charakters, kein Besitz (ADR-017,
+ADR-018). Ein zerbrochenes Schwert ließ den Warrior waffenlos zurück, denn die Leiter ist die einzige
+Quelle und Aufheben, Herstellen und Ablegen sind gesperrt — nur ein Relogin half. Der zweite Grund
+wiegt schwerer: die Werte hängen an der Stufe, ein beschädigtes Item würde einen Charakter still
+schwächen, ohne dass ein Attribut das abbildet. Verschleiß als Mechanik gehört, falls je gewollt, an
+die Stufe.
+
+**Konsequenzen:**
+
+- **Der Halt im Menü ist vollständig.** Vorher wurde nur ein Wechsel des *Blocks* abgewiesen, was
+  innerhalb eines Blocks freie Bewegung ließ und zum Herunterfallen reichte. Die Kamera bleibt frei:
+  sie ist clientseitig, und der einzige Hebel dagegen wäre ein Teleport pro Tick, der wie eine kaputte
+  Verbindung aussieht.
+- **`onSessionOpened` baut keinen Charakterzustand mehr auf.** Der frühe Ausstieg bei fehlendem
+  Charakter greift jetzt immer; die Arbeit steht in `onCharacterActivated`.
+- **Die Frist ist eine Konstante, keine Konfiguration** — wie die Meldungssperre in
+  `InventoryFullNoticeListener`. Sollte sich das als falsch erweisen, wandert sie nach `classes.yml`,
+  was eine Schemaänderung ist und auf Verdacht nicht lohnt.

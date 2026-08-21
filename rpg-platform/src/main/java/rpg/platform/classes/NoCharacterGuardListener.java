@@ -80,20 +80,20 @@ public final class NoCharacterGuardListener implements Listener {
         if (!waiting.contains(event.getPlayer().getUniqueId())) {
             return;
         }
-        // Looking around is free; only leaving the block is refused. Same rule as B03's guard - a
-        // frozen camera reads as a broken client, a frozen position reads as a locked state.
-        if (!changedBlock(event.getFrom(), event.getTo())) {
+        // Every change of position, not just of block. Comparing block coordinates left a whole block
+        // to walk around in, which is what a player sees as "not really frozen" - and it is enough to
+        // step off a ledge. Looking around stays free: the camera is client-side and the only way to
+        // fight it is to teleport the view back every tick, which reads as a broken connection.
+        if (!moved(event.getFrom(), event.getTo())) {
             return;
         }
         event.setCancelled(true);
     }
 
-    private static boolean changedBlock(Location from, Location to) {
+    private static boolean moved(Location from, Location to) {
         if (to == null) {
             return false;
         }
-        return from.getBlockX() != to.getBlockX()
-                || from.getBlockY() != to.getBlockY()
-                || from.getBlockZ() != to.getBlockZ();
+        return from.getX() != to.getX() || from.getY() != to.getY() || from.getZ() != to.getZ();
     }
 }

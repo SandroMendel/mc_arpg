@@ -12,6 +12,7 @@ import rpg.core.classes.ClassConfig;
 import rpg.core.classes.ClassGrowth;
 import rpg.core.classes.ClassMessageKeys;
 import rpg.core.classes.ClassRegistry;
+import rpg.core.classes.ClassSlot;
 import rpg.core.classes.EquipmentLadder;
 import rpg.core.classes.EquipmentTier;
 import rpg.core.classes.LadderSlot;
@@ -20,6 +21,7 @@ import rpg.core.message.MapMessages;
 import rpg.core.message.MessageKey;
 import rpg.core.message.Messages;
 import rpg.core.session.CharacterClass;
+import rpg.core.session.PlayerCharacter;
 import rpg.core.stats.Attribute;
 
 /**
@@ -117,6 +119,33 @@ final class PlatformClassFixture {
                 Map.of());
     }
 
+    /** Three free slots - the account has never created anything. */
+    static List<ClassSlot> freeSlots() {
+        List<ClassSlot> slots = new ArrayList<>(CharacterClass.values().length);
+        for (CharacterClass id : CharacterClass.values()) {
+            slots.add(ClassSlot.empty(id));
+        }
+        return slots;
+    }
+
+    /** A slot source for tests that are not about the menu's contents. */
+    static ClassSlotSource emptySlots() {
+        return session -> freeSlots();
+    }
+
+    /** The same three, with the named class played at the given level and tiers. */
+    static List<ClassSlot> slotsWithPlayed(
+            CharacterClass played, PlayerCharacter character, int level, int armor, int weapon) {
+        List<ClassSlot> slots = new ArrayList<>(CharacterClass.values().length);
+        for (CharacterClass id : CharacterClass.values()) {
+            slots.add(
+                    id == played
+                            ? ClassSlot.played(id, character, level, armor, weapon)
+                            : ClassSlot.empty(id));
+        }
+        return slots;
+    }
+
     /** Every key this block can emit, so a menu never renders a blank name. */
     static Messages messages() {
         Map<String, String> texts = new HashMap<>();
@@ -127,6 +156,16 @@ final class PlatformClassFixture {
         texts.put(ClassMessageKeys.MAGE_NAME.value(), "Mage");
         texts.put(ClassMessageKeys.ROGUE_NAME.value(), "Rogue");
         texts.put(ClassMessageKeys.SELECTION_TITLE.value(), "Choose your class");
+        // With their placeholders, because the lore test is about the numbers reaching the tooltip. A
+        // key that resolves to its own name would make that test pass on any input.
+        texts.put(ClassMessageKeys.SLOT_LEVEL.value(), "Level {level}");
+        texts.put(
+                ClassMessageKeys.SLOT_TIERS.value(),
+                "Armour {armor}/{armor_max}   Weapon {weapon}/{weapon_max}");
+        texts.put(ClassMessageKeys.SLOT_LAST_PLAYED.value(), "Last played {when} ago");
+        texts.put(ClassMessageKeys.SLOT_RESUME.value(), "Click to play");
+        texts.put(ClassMessageKeys.SLOT_EMPTY.value(), "No character yet");
+        texts.put(ClassMessageKeys.SLOT_CREATE.value(), "Click to create one");
         return new MapMessages(texts);
     }
 }

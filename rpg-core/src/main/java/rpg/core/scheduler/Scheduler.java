@@ -33,6 +33,16 @@ public interface Scheduler {
      * Runs {@code task} on the server tick that currently owns {@code entity}.
      *
      * <p>If the entity no longer exists when the task is due, the task is dropped.
+     *
+     * <p><b>It may also never be placed at all.</b> If the entity cannot be resolved <em>now</em>, an
+     * already-cancelled handle comes back and {@code task} will not run. That is an ordinary outcome,
+     * not a fault: a creature is not resolvable by uuid while it is still being added to the world, and
+     * a player who has just left is not resolvable either.
+     *
+     * <p>So a caller that set state the task was meant to settle - a dirty mark, a pending flag - has
+     * to check {@link TaskHandle#isCancelled()} and undo it. Leaving it set means the state is never
+     * settled and, worse, never can be: the next attempt sees the flag already set and schedules
+     * nothing.
      */
     TaskHandle runSyncOnEntity(EntityRef entity, Runnable task);
 

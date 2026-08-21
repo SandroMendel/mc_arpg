@@ -21,6 +21,7 @@ import rpg.core.classes.ClassSelectionResult;
 import rpg.core.scheduler.EntityRef;
 import rpg.core.scheduler.Scheduler;
 import rpg.core.session.CharacterClass;
+import rpg.core.session.PlayerCharacter;
 import rpg.core.session.PlayerSession;
 import rpg.core.session.SessionRegistry;
 
@@ -45,6 +46,9 @@ public final class ClassSelectionListener implements Listener {
     private final ClassSelectionMenu menu;
     private final SessionRegistry sessions;
     private final NoCharacterGuardListener guard;
+    private final CharacterEntry entry;
+    private final ClassSlotSource slots;
+    private final SelectionTimeout timeout;
     private final Scheduler scheduler;
     private final Logger logger;
 
@@ -53,12 +57,18 @@ public final class ClassSelectionListener implements Listener {
             ClassSelectionMenu menu,
             SessionRegistry sessions,
             NoCharacterGuardListener guard,
+            CharacterEntry entry,
+            ClassSlotSource slots,
+            SelectionTimeout timeout,
             Scheduler scheduler,
             Logger logger) {
         this.selection = Objects.requireNonNull(selection, "selection");
         this.menu = Objects.requireNonNull(menu, "menu");
         this.sessions = Objects.requireNonNull(sessions, "sessions");
         this.guard = Objects.requireNonNull(guard, "guard");
+        this.entry = Objects.requireNonNull(entry, "entry");
+        this.slots = Objects.requireNonNull(slots, "slots");
+        this.timeout = Objects.requireNonNull(timeout, "timeout");
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
         this.logger = Objects.requireNonNull(logger, "logger");
     }
@@ -67,14 +77,22 @@ public final class ClassSelectionListener implements Listener {
      * Called by the wiring once a session is gone.
      *
      * <p>No half-created character is left behind, because {@code choose} is the only path that
-     * creates one (FR-037). All this has to do is stop holding a player who is no longer there.
+     * creates one (FR-037). All this has to do is stop holding a player who is no longer there, and
+     * stop the clock that would otherwise kick someone who has already left.
      */
     public void onSessionEnded(UUID playerId) {
-        guard.release(Objects.requireNonNull(playerId, "playerId"));
+        Objects.requireNonNull(playerId, "playerId");
+        guard.release(playerId);
+        timeout.cancel(playerId);
     }
 
     /**
-     * Opens the selection if this player has no character, and holds them while it is open.
+     * Opens the selection and holds the player until they choose.
+     *
+     * <p>On <b>every</b> join, not only for an account without a character (US1.4): the selection is
+     * also how a player picks which of their characters to play, so a session that has not chosen yet
+     * always ends up here. {@code needsSelection} is therefore about whether a choice has been made in
+     * <em>this</em> session, not about whether the account owns anything.
      *
      * <p>Called by the wiring once a session is ready - not from a join handler here, see the class
      * comment.
@@ -84,10 +102,13 @@ public final class ClassSelectionListener implements Listener {
         Optional<PlayerSession> session = sessions.find(player.getUniqueId());
         if (session.isEmpty() || !selection.needsSelection(session.get())) {
             guard.release(player.getUniqueId());
+            timeout.cancel(player.getUniqueId());
             return;
         }
         guard.hold(player);
-        player.openInventory(menu.build(selection.available(session.get())));
+        player.openInventory(menu.build(slots.slotsFor(session.get())));
+        // After the menu is up, and idempotent: reopening on every close must not push the limit out.
+        timeout.start(player);
     }
 
     /**
@@ -133,15 +154,23 @@ public final class ClassSelectionListener implements Listener {
         if (clicked == null || clicked.equals(player.getInventory())) {
             return;
         }
-        Set<CharacterClass> available = selection.available(session.get());
-        Optional<CharacterClass> chosen = menu.classAt(available, event.getSlot());
+        Optional<CharacterClass> chosen =
+                menu.classAt(slots.slotsFor(session.get()), event.getSlot());
         if (chosen.isEmpty()) {
             return;
         }
         choose(player, session.get(), chosen.get());
     }
 
-    private void choose(Player player, PlayerSession session, CharacterClass id) {
+    /**
+     * The choice itself, reachable without an {@code InventoryClickEvent}.
+     *
+     * <p>Package-private rather than private so a test can exercise what follows a choice. MockBukkit
+     * cannot construct an {@code InventoryClickEvent} - {@code SimpleInventoryViewMock.convertSlot} is
+     * unimplemented and throws, which JUnit reports as <em>skipped</em> rather than failed. A test that
+     * went through the event would therefore silently not run at all.
+     */
+    void choose(Player player, PlayerSession session, CharacterClass id) {
         selection
                 .choose(session, id)
                 .whenComplete(
@@ -173,7 +202,38 @@ public final class ClassSelectionListener implements Listener {
             openIfNeeded(player);
             return;
         }
+
+        // The character exists - created just now, or long since. Either way the player is not in the
+        // game state yet: no stat holder, no level, no tiers, no equipment. Entering builds all of it.
+        // Only then is the hold lifted - releasing first would put someone into the world with nothing
+        // (ADR-020).
+        PlayerCharacter character = result.character().orElseThrow();
+        if (!enter(player, character)) {
+            // The character is stored and will be offered again on the next join. Keeping the player in
+            // the menu is the safe state; letting them out would be the unsafe one.
+            openIfNeeded(player);
+            return;
+        }
+        // The clock stops here and not before: everything above this line can put the player back into
+        // the menu, and a limit that stopped on the attempt would never fire for someone stuck in one.
+        timeout.cancel(player.getUniqueId());
         guard.release(player.getUniqueId());
         player.closeInventory();
+    }
+
+    /** Entering must not throw into the selection flow (Constitution VI, FR-031). */
+    private boolean enter(Player player, PlayerCharacter character) {
+        try {
+            return entry.enter(player, character);
+        } catch (RuntimeException failure) {
+            logger.log(
+                    Level.WARNING,
+                    "[class] entering the game state as "
+                            + character.characterId()
+                            + " failed for "
+                            + player.getUniqueId(),
+                    failure);
+            return false;
+        }
     }
 }

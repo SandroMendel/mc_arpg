@@ -37,6 +37,7 @@ public final class StatHolder implements StatHolderView {
 
     private volatile StatSnapshot snapshot;
     private volatile ResourcePool resources;
+    private volatile boolean resourcesKnown;
     private long revisionCounter;
 
     StatHolder(UUID holderId, UUID characterId, ResourcePool initialResources) {
@@ -77,6 +78,24 @@ public final class StatHolder implements StatHolderView {
 
     void setResources(ResourcePool pool) {
         this.resources = pool;
+        resourcesKnown = true;
+    }
+
+    /**
+     * Whether this holder's resources are a real value rather than the placeholder it was created with.
+     *
+     * <p>A holder is created before anyone knows its maxima - they come out of the first calculation -
+     * so it starts at zero and is filled or restored immediately afterwards. Zero health is
+     * indistinguishable from "dead" by value, and mirroring it to vanilla means
+     * {@code setHealth(0)}: it <b>kills the player</b>.
+     *
+     * <p>That went unnoticed for as long as holders were built during the async pre-login, where there
+     * is no player object yet and the mirror quietly did nothing. Building them when a character enters
+     * play - which is where B07 put it - made the window real, and every class selection ended in a
+     * death.
+     */
+    boolean resourcesKnown() {
+        return resourcesKnown;
     }
 
     /**
