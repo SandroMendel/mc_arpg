@@ -115,7 +115,7 @@ Beispielrechnung aus [data-model.md](./data-model.md) §3, ohne Server, ohne Dat
       greift; Verteidigung ändert **nichts** (FR-012a bis FR-012c, SC-012a)
 - [X] T019 [P] [US1] Im selben Test: derselbe Sturz kostet bei 100 maximalem Leben einen deutlich
       größeren Anteil als bei 2000, bei gleichem absolutem Betrag — die Designentscheidung als Test
-- [ ] T020 [P] [US1] `rpg-core/src/test/java/rpg/core/combat/DamageEdgeCaseTest.java`: negativer und
+- [X] T020 [P] [US1] `rpg-core/src/test/java/rpg/core/combat/DamageEdgeCaseTest.java`: negativer und
       nicht endlicher Rohschaden werden abgelehnt und protokolliert, nicht als Heilung gedeutet
       (FR-006)
 
@@ -153,17 +153,17 @@ ungefiltert durch.
       [contracts/damage-sources.md](./contracts/damage-sources.md)
 - [X] T027 [P] [US2] Im selben Test: eine unbekannte Ursache wird neutralisiert **und** protokolliert
       — der Verweigerungs-Standardfall, der die Richtung des Risikos umdreht (research.md E1)
-- [ ] T028 [P] [US2] `rpg-platform/src/test/java/rpg/platform/combat/VanillaDamageListenerTest.java`:
+- [X] T028 [P] [US2] `rpg-platform/src/test/java/rpg/platform/combat/VanillaDamageListenerTest.java`:
       kein Vanilla-Ereignis verlässt den Listener mit einem Schaden über null (FR-016)
-- [ ] T029 [P] [US2] Im selben Test: die Trefferanimation wird ausdrücklich ausgelöst, weil ein auf
+- [X] T029 [P] [US2] Im selben Test: die Trefferanimation wird ausdrücklich ausgelöst, weil ein auf
       null gesetztes Ereignis von sich aus keine zeigt (FR-017)
-- [ ] T030 [P] [US2] Im selben Test: ein Wesen ohne Stat-Träger bleibt vollständig unangetastet
+- [X] T030 [P] [US2] Im selben Test: ein Wesen ohne Stat-Träger bleibt vollständig unangetastet
       (FR-018)
-- [ ] T031 [P] [US2] Im selben Test: Void und `/kill` töten sofort, unabhängig vom Lebenswert
+- [X] T031 [P] [US2] Im selben Test: Void und `/kill` töten sofort, unabhängig vom Lebenswert
       (FR-014, FR-015)
-- [ ] T032 [P] [US2] Im selben Test: die Statuseffekte aus der Abschaltliste haben keinerlei Wirkung
+- [X] T032 [P] [US2] Im selben Test: die Statuseffekte aus der Abschaltliste haben keinerlei Wirkung
       (FR-013)
-- [ ] T033 [P] [US2] `rpg-core/src/test/java/rpg/core/combat/CombatConfigSchemaTest.java`: jede
+- [X] T033 [P] [US2] `rpg-core/src/test/java/rpg/core/combat/CombatConfigSchemaTest.java`: jede
       Prüfregel aus [contracts/combat-config.md](./contracts/combat-config.md) mit eigenem Fall,
       gegen die Meldung geprüft
 
@@ -258,7 +258,7 @@ gesteuerter Uhr.
       nächsten Schlag, ohne dass etwas neu geplant wird (FR-023)
 - [X] T054 [P] [US4] Im selben Test: über den gesamten Lauf wird **null** Aufgabe geplant — der
       eigentliche Beweis für Prinzip II (FR-022)
-- [ ] T055 [P] [US4] `rpg-platform/src/test/java/rpg/platform/combat/VanillaWeaponCooldownTest.java`:
+- [X] T055 [P] [US4] `rpg-platform/src/test/java/rpg/platform/combat/VanillaWeaponCooldownTest.java`:
       der Vanilla-Waffencooldown hat keinen Einfluss auf den Schaden; die Spiegelung aus B04 bleibt
       bestehen und treibt nur noch die Anzeige (FR-024, research.md E7)
 
@@ -374,7 +374,7 @@ gesteuerter Uhr.
       **nicht** zusammengefasst — die Bündelung gilt je Angreifer-Ziel-Paar
 - [X] T084 [P] [US7] Im selben Test: der Tod des Ziels schließt das Fenster sofort ab, statt auf den
       Ablauf zu warten
-- [ ] T085 [P] [US7] `rpg-platform/src/test/java/rpg/platform/combat/PaperDamageFeedbackTest.java`:
+- [X] T085 [P] [US7] `rpg-platform/src/test/java/rpg/platform/combat/PaperDamageFeedbackTest.java`:
       Trefferanimation und Rückstoß werden **je Treffer** ausgelöst — die Zusammenfassung betrifft
       nur die Zahl (FR-037)
 - [X] T086 [P] [US7] `rpg-platform/src/test/java/rpg/platform/combat/NoDisplayEntityTest.java` als
@@ -412,7 +412,7 @@ gesteuerter Uhr.
       noch Beitrag (FR-043)
 - [X] T093 [P] [US8] Im selben Test: die Explosion eines Mobs verletzt Spieler ganz normal, andere
       Mobs aber nicht (FR-042a)
-- [ ] T094 [P] [US8] `rpg-core/src/test/java/rpg/core/combat/SinglePermissionPointTest.java` als
+- [X] T094 [P] [US8] `rpg-core/src/test/java/rpg/core/combat/SinglePermissionPointTest.java` als
       Struktur­test: es gibt genau **eine** Stelle, die über Erlaubnis entscheidet — sonst wäre die
       spätere Zonenregel aus B09 über die ganze Pipeline verstreut (FR-042)
 
@@ -469,7 +469,7 @@ mehreren Stories liegen. Ohne die erste wirkt die gesamte Pipeline auf nichts au
       `rpg-platform/src/main/java/rpg/platform/combat/ProjectileCombatListener.java`: beim Abschuss
       den Rohschaden aus dem Schützen-Schnappschuss berechnen und **als einzelne Zahl** am Projektil
       hinterlegen, beim Einschlag lesen (FR-024a, FR-024b, research.md E3)
-- [ ] T109 [P] `rpg-platform/src/test/java/rpg/platform/combat/ProjectileCombatTest.java`: ein
+- [X] T109 [P] `rpg-platform/src/test/java/rpg/platform/combat/ProjectileCombatTest.java`: ein
       Bogenschuss macht Schaden über denselben Rechenweg wie ein Nahkampfschlag; ein Projektil ohne
       hinterlegte Zahl wird nur neutralisiert; ein Treffer nach dem Tod des Schützen wirkt weiter
       (SC-010a)

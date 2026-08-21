@@ -69,6 +69,17 @@ public final class FlushCycle implements WriteBehindCoordinator {
                     AggregateType.STATISTICS,
                     AggregateType.AUDIT_LOG);
 
+    /**
+     * The write order, for the test that every {@link AggregateType} appears in it.
+     *
+     * <p>Package-private on purpose: nothing in production needs to read this, but the invariant is
+     * worth guarding. A type missing from the list has its marks counted as failed on every flush and
+     * never written - and that looks like a database fault rather than a forgotten line.
+     */
+    static List<AggregateType> writeOrder() {
+        return WRITE_ORDER;
+    }
+
     private final WriteBehindBuffer buffer;
     private final OutageState outageState;
     private final DataSource writePool;

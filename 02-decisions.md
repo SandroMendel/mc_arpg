@@ -673,3 +673,39 @@ Nachweis, dass die Prüfung greift.
 
 **Offen:** Der Durchlauf auf einem echten Paper-Server (Abschnitt 11 des Validierungsleitfadens).
 B06 ist **nicht** lasttestpflichtig — Prinzip VII nennt B05 und B10, nicht B06.
+
+---
+
+## ADR-016 · Zwei Fehler, die die nachgeholten B05-Tests gefunden haben
+
+**Status:** Behoben (2026-08-21)
+
+Die elf Testlücken aus B05 waren als „der Code existiert, nur die Tests fehlen" eingetragen. Beim
+Schreiben stellte sich heraus, dass zwei davon echte Fehler verdeckten — beide in der Behandlung von
+Schaden, der keine brauchbare Zahl ist (FR-006).
+
+**1. Ein `double`-Sentinel kann keine Abwesenheit ausdrücken**
+
+`DefaultCombatPipeline.attack` unterschied „kein vorgegebener Rohschaden" von „ein vorgegebener
+Rohschaden" über `Double.isNaN(presetRaw)`. Damit waren „kein Wert" und „ein kaputter Wert" dasselbe:
+ein Projektil, das NaN trug — etwa weil das Schreiben des Werts fehlschlug —, bekam **vollen, aus den
+Angreiferattributen gerechneten Schaden** statt neutralisiert zu werden. Genau das, was T109
+ausschliessen sollte.
+
+*Behoben* durch ein eigenes `boolean hasPreset`. Verbindlich: es gibt keinen `double`, der nicht als
+Datum ankommen kann, also kann kein `double` ein Sentinel sein.
+
+**2. Eine Ausnahme aus dem Kampfpfad ist keine Ablehnung**
+
+`abilityDamage` mit negativem oder nicht endlichem Faktor liess `DamageFormula.rawDamage` eine
+`IllegalArgumentException` aus der Pipeline werfen. FR-006 verlangt ablehnen und protokollieren, und
+FR-010 verlangt, dass ein Fehler lokal bleibt — eine Ausnahme hätte die aufrufende Fähigkeit aus B08
+mitgenommen. Der Faktor wird jetzt am Eingang geprüft und mit `INVALID_DAMAGE` abgelehnt.
+
+**Warum das kein Zufall war:** Beide Fälle liegen an Eingängen, die heute niemand aufruft — B08 gibt
+es noch nicht, und Projektile ohne Wert entstehen nur durch Spender oder Fehler. Solche Pfade sind
+genau die, die eine fehlende Testdatei jahrelang verdeckt.
+
+**Nebenbefund, als Invariante festgehalten:** `NoDatabaseAccessPerGameEventTest` prüft jetzt, dass
+jeder Wert von `AggregateType` in `FlushCycle.WRITE_ORDER` steht und jedes Kind nach seinem Elternteil
+kommt. Der erste Teil hätte den B06-Fehler aus ADR-015 Punkt 7 sofort gezeigt.

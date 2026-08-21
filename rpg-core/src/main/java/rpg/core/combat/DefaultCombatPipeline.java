@@ -100,18 +100,25 @@ public final class DefaultCombatPipeline implements CombatPipeline {
 
     @Override
     public DamageResult meleeAttack(UUID attackerId, UUID targetId) {
-        return attack(attackerId, targetId, DamageType.PHYSICAL, DamageOrigin.MELEE, 1.0, Double.NaN);
+        return attack(
+                attackerId, targetId, DamageType.PHYSICAL, DamageOrigin.MELEE, 1.0, 0.0, false);
     }
 
     @Override
     public DamageResult abilityDamage(UUID attackerId, UUID targetId, DamageType type, double factor) {
-        return attack(attackerId, targetId, type, DamageOrigin.ABILITY, factor, Double.NaN);
+        return attack(attackerId, targetId, type, DamageOrigin.ABILITY, factor, 0.0, false);
     }
 
     @Override
     public DamageResult projectileDamage(UUID shooterId, UUID targetId, double rawDamage) {
         return attack(
-                shooterId, targetId, DamageType.PHYSICAL, DamageOrigin.PROJECTILE, 1.0, rawDamage);
+                shooterId,
+                targetId,
+                DamageType.PHYSICAL,
+                DamageOrigin.PROJECTILE,
+                1.0,
+                rawDamage,
+                true);
     }
 
     @Override
@@ -143,7 +150,13 @@ public final class DefaultCombatPipeline implements CombatPipeline {
     /**
      * One combat damage event, end to end.
      *
-     * @param presetRaw a raw damage already worked out (projectiles), or {@code NaN} to compute it
+     * @param presetRaw a raw damage figure worked out elsewhere - a projectile carries one from the
+     *     moment it was fired
+     * @param hasPreset whether {@code presetRaw} means anything.
+     *     <p>A separate flag rather than a sentinel value. {@code Double.NaN} used to serve as the
+     *     sentinel, which made "no preset" and "a preset that is broken" the same thing: a projectile
+     *     carrying NaN silently got full attribute-based damage instead of being neutralised. There is
+     *     no {@code double} that cannot arrive as data, so no {@code double} can be the sentinel.
      */
     private DamageResult attack(
             UUID attackerId,
@@ -151,8 +164,22 @@ public final class DefaultCombatPipeline implements CombatPipeline {
             DamageType type,
             DamageOrigin origin,
             double factor,
-            double presetRaw) {
+            double presetRaw,
+            boolean hasPreset) {
         Objects.requireNonNull(targetId, "targetId");
+
+        if (!hasPreset && !DamageFormula.isUsable(factor)) {
+            // Refused, not thrown. B08 will call this from inside an ability, and an exception
+            // escaping the pipeline would take that ability down with it - FR-006 says reject and
+            // log, and FR-010 keeps a fault local.
+            logger.warning(
+                    "[combat] refused damage factor "
+                            + factor
+                            + " from "
+                            + attackerId
+                            + " - not a usable value; a negative hit is not healing (FR-006)");
+            return DamageResult.of(RejectReason.INVALID_DAMAGE);
+        }
 
         // --- SOURCE -------------------------------------------------------
         if (Boolean.TRUE.equals(dead.get(targetId))) {
@@ -196,10 +223,10 @@ public final class DefaultCombatPipeline implements CombatPipeline {
             // --- RAW_DAMAGE ------------------------------------------------
             context.advanceTo(PipelineStage.RAW_DAMAGE);
             double raw =
-                    Double.isNaN(presetRaw)
-                            ? DamageFormula.rawDamage(
-                                    attackerStats.get().get(type.basis()), factor)
-                            : presetRaw;
+                    hasPreset
+                            ? presetRaw
+                            : DamageFormula.rawDamage(
+                                    attackerStats.get().get(type.basis()), factor);
             if (!DamageFormula.isUsable(raw)) {
                 logger.warning(
                         "[combat] refused raw damage " + raw + " from " + attackerId + " - not a"

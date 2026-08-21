@@ -418,7 +418,7 @@ alle Tabellen auf die ursprüngliche Kennung durchsuchen und Allzeit-Summen verg
 - [ ] T086 Lasttest mit 200 simulierten Sitzungen **einschließlich eines Ausfalls unter Last**:
       Tick-Budget ≤ 5 ms für B02, Wartezeit des Login-Pools durchgehend null, keine messbare
       Verschlechterung der Tickrate während des Ausfalls (SC-003, SC-004)
-- [ ] T087 Nachweis, dass kein Spielereignis einen Datenbankzugriff erzeugt — Zugriffe je
+- [X] T087 Nachweis, dass kein Spielereignis einen Datenbankzugriff erzeugt — Zugriffe je
       Zeiteinheit gegen die Zahl der Spielereignisse (SC-005)
 
 ---
