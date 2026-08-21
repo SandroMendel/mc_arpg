@@ -58,6 +58,18 @@ public final class DefaultSessionLifecycle implements SessionLifecycle {
             new java.util.concurrent.CopyOnWriteArrayList<>();
 
     /** Registers an attachment. Called during module start, before any player can connect. */
+    /**
+     * The ids of everything hooked into the lifecycle.
+     *
+     * <p>Exists so a bootstrap test can assert that a block actually registered. ADR-012 was written
+     * because B02 and B03 were once fully implemented, fully tested, and not wired - an attachment
+     * that nobody added is the same failure one layer down: {@code load} and {@code release} would
+     * simply never be called.
+     */
+    public java.util.List<String> attachmentIds() {
+        return attachments.stream().map(SessionAttachment::id).toList();
+    }
+
     public void addAttachment(SessionAttachment attachment) {
         attachments.add(Objects.requireNonNull(attachment, "attachment"));
     }

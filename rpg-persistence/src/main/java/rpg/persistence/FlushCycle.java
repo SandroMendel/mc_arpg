@@ -51,12 +51,20 @@ public final class FlushCycle implements WriteBehindCoordinator {
      * written before the items pointing at it - otherwise the item insert fails against a row that
      * does not exist yet. B04's resource row references a character for the same reason and follows
      * it. Statistics and the audit log carry no such constraint and come last.
+     *
+     * <p><b>Every new aggregate type has to be listed here.</b> Adding a value to
+     * {@link AggregateType} is not enough: a type missing from this list has its marks counted as
+     * failed on every flush and never written, which looks exactly like a database problem and is
+     * none. B06 learned that the hard way - see {@code ProgressSessionEndFlushTest}.
      */
     private static final List<AggregateType> WRITE_ORDER =
             List.of(
                     AggregateType.PLAYER_STATE,
                     AggregateType.CHARACTER,
                     AggregateType.CHARACTER_STATS,
+                    // B06's progress row references a character, so it follows CHARACTER for the
+                    // same reason CHARACTER_STATS does.
+                    AggregateType.CHARACTER_PROGRESS,
                     AggregateType.ITEM_INSTANCE,
                     AggregateType.STATISTICS,
                     AggregateType.AUDIT_LOG);

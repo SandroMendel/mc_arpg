@@ -176,6 +176,48 @@ class FullBootstrapTest {
         assertThat(plugin.registry().findService(rpg.core.combat.CombatPipeline.class)).isPresent();
     }
 
+    // B06. The same reason the block boundary is tested at all: B02 and B03 were once fully
+    // implemented, fully unit-tested, and RpgPlugin.modules() returned an empty list (ADR-012). For
+    // B06 the equivalent trap is the session attachment - without it load() and release() are dead
+    // code and no character ever has a level.
+
+    @Test
+    void progressionIsResolvableThroughTheRegistry() {
+        assertThat(plugin.registry().findService(rpg.core.progression.Progression.class))
+                .as("B07 to B14 develop against this")
+                .isPresent();
+        assertThat(plugin.registry().findService(rpg.core.progression.PartyRegistry.class))
+                .as("B14 builds its party commands on this")
+                .isPresent();
+    }
+
+    @Test
+    void progressionHooksIntoTheSessionLifecycle() {
+        // The single most consequential wiring in B06. Without an attachment, load() and release()
+        // are dead code: no character would ever have a level, and the promise against leaks would
+        // be unproven. Every unit test in the block would still be green - which is exactly the
+        // failure class ADR-012 exists for.
+        assertThat(plugin.sessionLifecycle().attachmentIds())
+                .as("progress is loaded on session open and released on close")
+                .contains("progression")
+                .as("and the party drops the player when the session ends")
+                .contains("progression-party");
+    }
+
+    @Test
+    void progressionIsWiredIntoTheStatEngineAndTheSession() {
+        rpg.core.progression.Progression progression =
+                plugin.registry().getService(rpg.core.progression.Progression.class);
+
+        // The maximum level comes from the shipped curve, which proves the configuration was written
+        // and read rather than defaulted somewhere.
+        assertThat(progression.maxLevel()).isEqualTo(60);
+
+        // A query on a character nobody loaded must answer rather than throw - five blocks depend on
+        // that (FR-027).
+        assertThat(progression.meetsLevel(java.util.UUID.randomUUID(), 1)).isFalse();
+    }
+
     @Test
     void everyCombatEventHasExactlyOneHandler() {
         assertThat(handlerCount(EntityDamageEvent.getHandlerList()))

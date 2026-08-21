@@ -7,22 +7,30 @@ import java.util.UUID;
 
 import rpg.core.persistence.ItemInstance;
 import rpg.core.persistence.PlayerState;
+import rpg.core.progression.CharacterProgress;
 import rpg.core.stats.CharacterResources;
 
 /**
  * Everything a session needs, read in one go (FR-005).
  *
+ * <p>Blocks that own per-character data add a list here rather than reading their own row at login:
+ * B02's promise is that the login path never waits on a second round trip. B04 added
+ * {@code resources}, B06 added {@code progress}, and a later block would do the same.
+ *
  * @param playerId the account
  * @param accountState the stored account record, empty for a first-time player
  * @param characters every character of the account, at most one per class
  * @param items the items belonging to those characters
+ * @param resources stored health and mana per character (B04)
+ * @param progress stored level and experience per character (B06)
  */
 public record SessionBundle(
         UUID playerId,
         Optional<PlayerState> accountState,
         List<PlayerCharacter> characters,
         List<ItemInstance> items,
-        List<CharacterResources> resources) {
+        List<CharacterResources> resources,
+        List<CharacterProgress> progress) {
 
     public SessionBundle {
         Objects.requireNonNull(playerId, "playerId");
@@ -30,11 +38,13 @@ public record SessionBundle(
         characters = List.copyOf(Objects.requireNonNull(characters, "characters"));
         items = List.copyOf(Objects.requireNonNull(items, "items"));
         resources = List.copyOf(Objects.requireNonNull(resources, "resources"));
+        progress = List.copyOf(Objects.requireNonNull(progress, "progress"));
     }
 
     /** A player connecting for the very first time: no record, no characters, no items. */
     public static SessionBundle empty(UUID playerId) {
-        return new SessionBundle(playerId, Optional.empty(), List.of(), List.of(), List.of());
+        return new SessionBundle(
+                playerId, Optional.empty(), List.of(), List.of(), List.of(), List.of());
     }
 
     /**
@@ -49,6 +59,11 @@ public record SessionBundle(
      */
     public Optional<CharacterResources> resourcesOf(UUID characterId) {
         return resources.stream().filter(r -> r.characterId().equals(characterId)).findFirst();
+    }
+
+    /** Stored progress of one character, empty when it has never been written (B06, FR-058). */
+    public Optional<CharacterProgress> progressOf(UUID characterId) {
+        return progress.stream().filter(p -> p.characterId().equals(characterId)).findFirst();
     }
 
     /** Whether this account has never been stored before. */

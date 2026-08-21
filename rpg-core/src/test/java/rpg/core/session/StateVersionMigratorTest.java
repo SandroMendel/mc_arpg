@@ -138,6 +138,7 @@ class StateVersionMigratorTest {
                         bundle.accountState(),
                         List.of(changed),
                         List.of(),
+                        List.of(),
                         List.of());
 
         assertThat(migrator.migratedAnything(bundle, after)).isTrue();
@@ -148,6 +149,7 @@ class StateVersionMigratorTest {
                 character.playerId(),
                 Optional.of(rpg.core.persistence.PlayerState.initial(character.playerId(), NOW)),
                 List.of(character),
+                List.of(),
                 List.of(),
                 List.of());
     }

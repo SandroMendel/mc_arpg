@@ -92,9 +92,19 @@ Bei zwei /clarify-Runden zusätzlich geklärt (siehe ADR-014):
       bei `/specify` B07 auszuarbeiten (Content, keine Architekturfrage)
 - [ ] Waffen-/Rüstungsbeschränkungen je Klasse?
 - [ ] Was passiert vor der Klassenwahl (Tutorialbereich)?
-- [ ] XP-Skalierung bei Levelunterschied zum Mob (Anti-Powerleveling)?
-- [ ] Gruppen-/Party-XP-Teilung vorgesehen?
-- [ ] Fortsetzung nach Maximallevel (Paragon/Prestige)?
+- [x] XP-Kurve: explizite Tabelle in `progression.yml`, Level 2–60 einzeln,
+      keine Formel; beim Start auf Lückenlosigkeit und strenge Monotonie
+      geprüft *(2026-08-20)*
+- [x] XP-Skalierung bei Levelunterschied zum Mob: keine — XP hängt nur am Mob.
+      Powerleveling und Startzonen-Farmen sind damit bewusst möglich; begrenzt
+      wird über die Levelanforderungen der Zonen aus B09 *(2026-08-20)*
+- [x] Gruppen-/Party-XP-Teilung: echtes Party-System mit Einladung, geteilter
+      XP und Nähe-Bonus. Modell und Teilungsregeln in B06, Befehle in B14,
+      Anzeige in B13. Party ist Laufzeitzustand, nicht persistiert
+      *(2026-08-20)*
+- [x] Fortsetzung nach Maximallevel: keine. Level 60 ist das Ende; XP darüber
+      verfällt still. Weiteres Wachstum über Coins (B08) und Ausrüstung (B11).
+      Paragon/Prestige bleiben als eigener Block nachrüstbar *(2026-08-20)*
 
 ## B08 (Fähigkeiten) — abgeschlossen
 

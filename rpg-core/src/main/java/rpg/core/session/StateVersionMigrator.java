@@ -59,7 +59,8 @@ public final class StateVersionMigrator {
                 bundle.accountState(),
                 migrated,
                 bundle.items(),
-                bundle.resources());
+                bundle.resources(),
+                bundle.progress());
     }
 
     /** Whether migrating changed anything - the caller then writes the new format back (FR-026). */

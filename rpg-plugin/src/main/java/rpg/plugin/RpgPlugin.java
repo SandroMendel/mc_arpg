@@ -24,12 +24,17 @@ import rpg.core.module.BootstrapState;
 import rpg.core.module.DefaultModuleRegistry;
 import rpg.core.module.Module;
 import rpg.core.module.ModuleBootstrap;
+import rpg.core.progression.DefaultProgression;
+import rpg.core.progression.PartyRegistry;
+import rpg.core.progression.ProgressionMessageKeys;
+import rpg.core.progression.XpDistributor;
 import rpg.core.scheduler.Scheduler;
 import rpg.core.session.SessionMessageKeys;
 import rpg.core.stats.StatConfig;
 import rpg.core.stats.StatEngine;
 import rpg.persistence.PersistenceMessageKeys;
 import rpg.persistence.PersistenceModule;
+import rpg.persistence.progression.ProgressionModule;
 import rpg.persistence.session.SessionModule;
 import rpg.persistence.stats.StatsModule;
 import rpg.platform.PlatformMessageKeys;
@@ -43,6 +48,8 @@ import rpg.platform.combat.ProjectileDamageTag;
 import rpg.platform.combat.VanillaDamageListener;
 import rpg.platform.combat.VanillaDamageMapping;
 import rpg.platform.config.YamlConfigLoader;
+import rpg.platform.progression.PaperProximityCheck;
+import rpg.platform.progression.ProgressionDeathListener;
 import rpg.platform.scheduler.PaperSchedulerAdapter;
 import rpg.platform.session.PendingSessionStash;
 import rpg.platform.session.SafeStateGuard;
@@ -78,7 +85,12 @@ public class RpgPlugin extends JavaPlugin {
      * default of each means the first start works and the file is there to be edited.
      */
     private static final List<String> DEFAULT_CONFIG_FILES =
-            List.of("persistence.yml", "session.yml", "stats.yml", "combat.yml");
+            List.of(
+                    "persistence.yml",
+                    "session.yml",
+                    "stats.yml",
+                    "combat.yml",
+                    "progression.yml");
 
     private final BootstrapState bootstrapState = new BootstrapState();
 
@@ -92,6 +104,7 @@ public class RpgPlugin extends JavaPlugin {
     private SessionModule sessionModule;
     private StatsModule statsModule;
     private CombatModule combatModule;
+    private ProgressionModule progressionModule;
 
     @Override
     public void onEnable() {
@@ -148,6 +161,7 @@ public class RpgPlugin extends JavaPlugin {
         registerSessionListeners();
         assembleStatLayer();
         assembleCombatLayer();
+        assembleProgressionLayer();
 
         Duration took = Duration.ofNanos(System.nanoTime() - startedAt);
         if (took.compareTo(BOOTSTRAP_BUDGET) > 0) {
@@ -231,6 +245,7 @@ public class RpgPlugin extends JavaPlugin {
         List<MessageKey> declared = new ArrayList<>(PlatformMessageKeys.all());
         declared.addAll(PersistenceMessageKeys.all());
         declared.addAll(SessionMessageKeys.all());
+        declared.addAll(ProgressionMessageKeys.all());
         MessageKeyValidator.verifyAllPresent(loaded, declared);
 
         getLogger().info("[messages] " + declared.size() + " declared key(s) resolved");
@@ -251,7 +266,11 @@ public class RpgPlugin extends JavaPlugin {
         statsModule = new StatsModule(persistenceModule, sessionModule, getLogger(), Clock.systemUTC());
         combatModule =
                 new CombatModule(sessionModule.registry(), getLogger(), Clock.systemUTC());
-        return List.of(persistenceModule, sessionModule, statsModule, combatModule);
+        progressionModule =
+                new ProgressionModule(
+                        persistenceModule, sessionModule, getLogger(), Clock.systemUTC());
+        return List.of(
+                persistenceModule, sessionModule, statsModule, combatModule, progressionModule);
     }
 
     /**
@@ -379,6 +398,77 @@ public class RpgPlugin extends JavaPlugin {
                 .info("[combat] listeners registered; " + equipped + " already-loaded creature(s) equipped");
     }
 
+    /**
+     * Assembles the Paper-facing half of B06.
+     *
+     * <p>Two extension points and one subscriber. The proximity check is the only part of this block
+     * that needs Bukkit at all; the death listener hangs off the <b>core</b> event bus, because that
+     * is where B05 publishes - and it does so while Bukkit's death handling is still running, which
+     * is what makes reading the creature's location safe.
+     */
+    private void assembleProgressionLayer() {
+        DefaultProgression progression = progressionModule.progression();
+        StatEngine stats = registry.getService(StatEngine.class);
+
+        progression.setProximityCheck(new PaperProximityCheck(getServer()));
+
+        PartyRegistry parties =
+                new PartyRegistry(
+                        sessionModule.registry(),
+                        eventBus,
+                        Clock.systemUTC(),
+                        progressionModule.config().partyMaxSize(),
+                        progressionModule.config().inviteTimeout());
+        registry.registerService(ProgressionModule.ID, PartyRegistry.class, parties);
+        sessionModule.lifecycle().addAttachment(new PartySessionAttachment(parties));
+
+        XpDistributor distributor =
+                new XpDistributor(
+                        progression,
+                        parties,
+                        stats,
+                        progressionModule.config(),
+                        getLogger());
+        ProgressionDeathListener deaths =
+                new ProgressionDeathListener(getServer(), distributor, getLogger());
+        deaths.subscribeTo(eventBus);
+
+        getLogger()
+                .info(
+                        "[progression] listeners registered - max level "
+                                + progression.maxLevel()
+                                + ", party range "
+                                + progressionModule.config().partyRange()
+                                + " blocks");
+    }
+
+    /**
+     * Removes a player from their party when their session ends (FR-034).
+     *
+     * <p>Separate from the attachment inside {@code ProgressionModule}, which handles the progress
+     * state: the party lives in the plugin layer because it is assembled here, and one attachment
+     * reaching across both would tie two lifetimes together that have nothing to do with each other.
+     */
+    private record PartySessionAttachment(PartyRegistry parties)
+            implements rpg.core.session.SessionAttachment {
+
+        @Override
+        public String id() {
+            return ProgressionModule.ID + "-party";
+        }
+
+        @Override
+        public void onSessionOpened(
+                rpg.core.session.PlayerSession session, rpg.core.session.SessionBundle bundle) {
+            // Nothing to restore - a party is never persisted (FR-029).
+        }
+
+        @Override
+        public void onSessionClosing(java.util.UUID playerId) {
+            parties.onSessionEnded(playerId);
+        }
+    }
+
     /** The configuration loader; also the entry point B14's reload command will use. */
     public ConfigLoader configLoader() {
         return configLoader;
@@ -400,6 +490,16 @@ public class RpgPlugin extends JavaPlugin {
     }
 
     /** Whether the server currently accepts player sessions (FR-013). */
+    /**
+     * The session lifecycle, so a bootstrap test can assert which blocks hooked into it.
+     *
+     * <p>Deliberately not published as a service - only the plugin assembles attachments, and a
+     * block reaching for the lifecycle through the registry would be able to add one from anywhere.
+     */
+    public rpg.core.session.DefaultSessionLifecycle sessionLifecycle() {
+        return sessionModule == null ? null : sessionModule.lifecycle();
+    }
+
     public BootstrapState bootstrapState() {
         return bootstrapState;
     }

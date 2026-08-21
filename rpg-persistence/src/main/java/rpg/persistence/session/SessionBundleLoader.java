@@ -18,9 +18,11 @@ import javax.sql.DataSource;
 import rpg.core.persistence.ItemInstance;
 import rpg.core.persistence.PersistenceException;
 import rpg.core.persistence.PlayerState;
+import rpg.core.progression.CharacterProgress;
 import rpg.core.session.PlayerCharacter;
 import rpg.core.session.SessionBundle;
 import rpg.core.stats.CharacterResources;
+import rpg.persistence.progression.JdbcCharacterProgressRepository;
 import rpg.persistence.stats.JdbcCharacterResourcesRepository;
 
 /**
@@ -90,8 +92,9 @@ public final class SessionBundleLoader {
                 List<PlayerCharacter> loaded = characters.readByPlayer(connection, playerId);
                 List<ItemInstance> items = readItems(connection, playerId);
                 List<CharacterResources> resources = readResources(connection, loaded);
+                List<CharacterProgress> progress = readProgress(connection, loaded);
                 connection.commit();
-                return new SessionBundle(playerId, account, loaded, items, resources);
+                return new SessionBundle(playerId, account, loaded, items, resources, progress);
             } catch (SQLException failure) {
                 connection.rollback();
                 throw failure;
@@ -160,5 +163,25 @@ public final class SessionBundleLoader {
                     .ifPresent(resources::add);
         }
         return List.copyOf(resources);
+    }
+
+    /**
+     * Reads the stored progress of every character in this bundle (B06, FR-058).
+     *
+     * <p>The fifth statement on the same connection and inside the same transaction, for the same
+     * reason as the resources above: the login path must not need a second round trip. A character
+     * with no row is normal - it means level 1 with no experience, not a fault.
+     */
+    private static List<CharacterProgress> readProgress(
+            Connection connection, List<PlayerCharacter> characters) throws SQLException {
+        if (characters.isEmpty()) {
+            return List.of();
+        }
+        List<CharacterProgress> progress = new ArrayList<>(characters.size());
+        for (PlayerCharacter character : characters) {
+            JdbcCharacterProgressRepository.read(connection, character.characterId())
+                    .ifPresent(progress::add);
+        }
+        return List.copyOf(progress);
     }
 }

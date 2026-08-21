@@ -25,5 +25,12 @@ public enum AggregateType {
      * sharing a writer and a revision counter between B03 and B04, so every change to B04's values
      * would be a change to B03's write path.
      */
-    CHARACTER_STATS
+    CHARACTER_STATS,
+    /**
+     * The level and the experience inside that level of one character (B06).
+     *
+     * <p>Own table for the same reason as {@link #CHARACTER_STATS}: one owner, one writer, one
+     * position in the flush order. Additive, so no existing contract changes.
+     */
+    CHARACTER_PROGRESS
 }

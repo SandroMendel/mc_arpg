@@ -304,6 +304,29 @@ Netzwerkzugriff auf Maven Central; danach sind die Artefakte lokal zwischengespe
 Rückfallweg bleibt Papers `PluginLoader` mit `MavenLibraryResolver` dokumentiert, falls später
 eine Abhängigkeit aus einem anderen Repository nötig wird.
 
+*Nachtrag 2026-08-20 — der isolierte Klassenlader hat einen Preis, der beim ersten echten
+Serverstart sichtbar wurde:* Der Start scheiterte mit `No suitable driver` für
+`jdbc:postgresql://localhost:5432/vuntex`, obwohl der Treiber ordnungsgemäß in `libraries:` steht
+und HikariCP aus demselben Klassenlader geladen hatte. Ursache ist nicht die Auslieferung, sondern
+`java.sql.DriverManager`: der scannt genau **einmal** über den System-Klassenlader nach Treibern,
+und zwar lange bevor Papers Bibliotheks-Klassenlader überhaupt existiert. Ein Treiber, der nur dort
+liegt, registriert sich nie — und Hikaris Rückfallweg ist `DriverManager.getDriver(url)`.
+
+*Konsequenz, verbindlich für jede weitere Bibliothek hinter einem globalen Registry-Mechanismus:*
+Die Treiberklasse wird **ausdrücklich benannt** (`HikariConfig.setDriverClassName`), damit Hikari
+sie über den eigenen Klassenlader lädt, statt eine Registry zu befragen, die sie nicht sehen kann.
+Verworfen wurde `Class.forName` vor dem Poolbau: das registriert den Treiber prozessweit in
+`DriverManager` und hält beim Neuladen des Plugins den alten Klassenlader fest — genau der Leak, den
+die Isolation vermeiden soll. Ebenfalls verworfen wurde das Schatten des Treibers ins Jar, weil das
+die Eigenschaft aus B01 aufgeben würde.
+
+*Lehre für die Teststrategie:* Alle 601 Tests waren grün, `FullBootstrapTest` eingeschlossen. Auf
+dem Testklassenpfad liegt der Treiber auf dem System-Klassenlader, wo `DriverManager` ihn von selbst
+findet — die Fehlerursache ist im Test **strukturell nicht erreichbar**. Geprüft wird deshalb jetzt
+die Pool-Konfiguration statt der Verbindung (`DriverRegistrationTest`, drei Tests). Für Fehler
+dieser Art bleibt der echte Serverstart der einzige Nachweis; das gilt auch für die noch offenen
+T117/T118 aus B05.
+
 ---
 
 ## ADR-011 · Item-Instanzen gehören dem Charakter, nicht dem Account
@@ -549,3 +572,104 @@ Ereignisse nicht getrennt zählen.
 
 **Offen:** Der Lasttest (150 Spieler gegen 800 Mobs, p95 MSPT < 40 ms) steht noch aus. Prinzip VII
 nennt B05 ausdrücklich als lasttestpflichtig — der Block gilt bis dahin nicht als abgenommen.
+
+---
+
+## ADR-015 · Umsetzungsentscheidungen B06 (Progression)
+
+**Status:** Entschieden (2026-08-20, bei der Implementierung von B06)
+
+Sechs Entscheidungen aus der Umsetzung, die über B06 hinaus gelten.
+
+**1. `SourceKind.LEVEL` bleibt unbenutzt — und das ist kein Versehen**
+
+B04 enthält zwei Aussagen darüber, wie ein Level auf Attribute wirkt. `SourceKind.LEVEL` ist
+dokumentiert als „The character's level (B06)", während ADR-013 dasselbe dem `BaseStatContributor`
+zuweist. B06 folgt ADR-013, und die Arithmetik lässt keine Wahl: `StatCalculator` legt das
+Modifikatorband um den **effektiven** Basiswert, also um `definition.base()` plus Basisbeitrag. Als
+FLAT-Modifikator landete das Levelwachstum in `flat[]` — innerhalb einer Klammer, die am
+unveränderten Level-1-Wert hängt. Das Band „plus/minus 30 %" würde mit jedem Level relativ enger,
+und die Ausrüstungsbeiträge aus B11 wären auf Level 60 messbar falsch geklammert. Die Javadoc von
+`AttributeDefinition.bandFloor` nennt B06 und B07 genau dafür beim Namen.
+
+`SourceKind.LEVEL` behält seine Berechtigung für einen *Modifikator*, der aus dem Level folgt, ohne
+den Basiswert zu heben — etwa einen Meilensteinbonus alle zehn Level. B06 braucht so etwas nicht.
+Der Wert wird deshalb nicht entfernt, sondern bleibt reserviert. Belegt durch
+`LevelStatContributorTest.growthMovesTheBand`: dasselbe Ausrüstungsstück ist auf Level 4 mehr wert
+als auf Level 1.
+
+**2. Die Reihenfolge im Levelaufstieg ist Teil der Entscheidung, nicht Geschmack**
+
+Erst Fortschritt setzen, dann `recalculateNow`, **dann** Leben und Mana auffüllen. Umgekehrt füllte
+`ResourcePool.full` gegen das alte Maximum — ein Fehler, der bei jedem Aufstieg nur um wenige Prozent
+daneben liegt und deshalb sehr lange unentdeckt geblieben wäre. Als FR-021b in der Spezifikation
+verankert und in `LevelUpResourcesTest` geprüft.
+
+*Für die folgenden Blöcke:* Wer einen Attributbeitrag ändert und danach Ressourcen anfasst, muss
+zwischen beidem neu berechnen. Das gilt für B07 (Klassenwachstum) und B11 (Ausrüstung) genauso.
+
+**3. `SessionBundle` bekommt je Block eine Liste, nicht je Block eine Abfrage**
+
+B06 braucht den Fortschritt beim Login. Ein eigener Repository-Aufruf in `onSessionOpened` wäre eine
+zweite Datenbankrunde im Anmeldepfad, und B02 sichert ausdrücklich zu, dass der Login nie auf eine
+zweite Runde wartet. Also eine sechste Komponente `progress` in `SessionBundle` plus eine fünfte
+Anweisung in `SessionBundleLoader` — dieselbe Erweiterung, die B04 für `resources` bekommen hat.
+
+*Auswirkung:* Jeder weitere Block mit charakterbezogenen Daten macht es genauso. Der Record wächst
+dabei, aber die Zusage „ein Laden, eine Runde" bleibt. Neun Konstruktionsstellen mussten nachgezogen
+werden; der Compiler findet sie alle.
+
+**4. Repository-Schnittstellen liegen im Blockpaket, nicht in `rpg/core/persistence/`**
+
+`CharacterProgressRepository` liegt in `rpg/core/progression/`, wie `CharacterResourcesRepository` in
+`rpg/core/stats/` (B04). In `rpg/core/persistence/` liegen die Aggregate, die B02 selbst besitzt.
+Entscheidend ist beides: **in `rpg-core`**, weil die Regelschicht die Schnittstelle braucht und die
+Richtung `plugin → persistence → core` nichts anderes erlaubt — und **im Blockpaket**, weil der
+Besitzer daran ablesbar sein soll.
+
+**5. Ein Fehler in der Vergabe verliert die Markierung, nicht den Zustand**
+
+`grant` setzt den Zustand und markiert danach. Schlägt die Markierung fehl, steht der Aufstieg im
+Speicher, ist aber nicht zum Schreiben vorgemerkt. Bewusst so: `onSessionClosing` markiert erneut,
+bevor es freigibt, also ist der Verlust auf ein Autosave-Intervall begrenzt. Die umgekehrte
+Reihenfolge hätte ein Flush zwischen Markierung und Zustandsänderung den alten Wert schreiben und die
+Markierung löschen lassen — derselbe Verlust, nur ohne den Rückfall am Sitzungsende.
+
+**6. Ein Ort wird als Wert weitergegeben, nie als Id eines toten Wesens**
+
+`ProximityCheck` nimmt einen `WorldPoint`, nicht die Id des gestorbenen Gegners. `CombatDeathEvent`
+trägt keinen Ort, und `rpg-core` hat keinen Ortstyp — die naheliegende Lösung wäre gewesen, in der
+Plattformschicht `Bukkit.getEntity(id).getLocation()` aufzurufen. Das gelingt aber nur, solange B05s
+Todesbehandlung noch läuft: eine Zeitbedingung, die an einem öffentlichen Erweiterungspunkt niemand
+sieht und die beim ersten asynchronen Aufruf bricht. Der Listener liest den Ort dort, wo er sicher
+gültig ist.
+
+*Für B09:* `WorldPoint` mit `distanceSquaredTo` (verschiedene Welten ergeben unendlich, keine
+Ausnahme) ist der bukkitfreie Ortstyp, den Zonengeometrie ebenfalls brauchen wird.
+
+**7. Ein neuer Aggregattyp braucht drei Eintragungen, nicht eine**
+
+Beim Schreiben des Sitzungsende-Tests (T139) fielen zwei Fehler auf, die beide zum vollständigen
+Verlust des letzten Fortschritts einer Sitzung geführt hätten — und die **kein** Unit-Test der
+Regelschicht sehen kann, weil sie erst an der Naht zwischen Freigabe und Flush auftreten:
+
+1. **`FlushCycle.WRITE_ORDER` muss den Typ auflisten.** Ein Wert in `AggregateType` allein genügt
+   nicht: ein fehlender Typ lässt seine Markierungen bei jedem Flush als *failed* zählen und
+   niemals schreiben. Das sieht aus wie ein Datenbankproblem und ist keins. Die Liste trägt jetzt
+   einen Hinweis darauf.
+2. **Der letzte Wert muss vor der Freigabe beiseitegelegt werden.** Der Flush liest über die
+   `liveSource`; er läuft asynchron und damit normalerweise **nach** `release`, wo nichts Lebendiges
+   mehr zu lesen ist. B04 hält dafür eine `lastKnown`-Karte, die vor dem Entfernen gefüllt und beim
+   Lesen geleert wird. B06 hatte sie zunächst nicht.
+
+*Verbindlich für jeden Block mit eigenem Aggregat:* Enum-Wert **und** `WRITE_ORDER` **und**
+Stash-vor-Freigabe. Die Reihenfolge im Sitzungsende ist: beiseitelegen, markieren, freigeben.
+
+**Nebenbefund zur Teststrategie:** Sechs Fehler wurden von den eigenen Tests gefunden, nicht beim
+Lesen — darunter ein echter Implementierungsfehler (`ConfigMobXpProvider` fehlte, alle Mobs gaben den
+Standardbetrag) und zweimal falsche Testdaten, die eine Zusage verdeckt hätten. Die Kurvenvalidierung
+hat zweimal die eigenen Testkurven abgelehnt, weil sie die strenge Monotonie verletzten. Das ist der
+Nachweis, dass die Prüfung greift.
+
+**Offen:** Der Durchlauf auf einem echten Paper-Server (Abschnitt 11 des Validierungsleitfadens).
+B06 ist **nicht** lasttestpflichtig — Prinzip VII nennt B05 und B10, nicht B06.

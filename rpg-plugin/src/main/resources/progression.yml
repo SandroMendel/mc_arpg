@@ -1,0 +1,169 @@
+# B06 - experience and levels. Every balancing number lives here, never in code (Principle V).
+#
+# Vanilla XP and the vanilla experience bar are NOT used as progress storage. This block keeps its
+# own numbers; whether the bar later mirrors them is B13's decision, not this file's.
+
+# The curve. The key is the level being reached, the value the experience needed INSIDE the level
+# below it. The highest key here IS the maximum level - it is deliberately not a constant in code,
+# so raising the ceiling is one more line.
+#
+# Three rules are checked at startup, and a violation names the first offending level:
+# no gaps from 2 upwards, every value positive, strictly increasing. A gap leaves a level
+# unreachable, a zero makes it free, and a non-increasing sequence pins a player in place forever.
+#
+# Shape of this table: ~7.5 % per level, so 100 at level 2 and 6630 at level 60. That is 93,800
+# experience in total, or roughly 7,800 kills of an ordinary mob - moderate, as decided for B06.
+xp-curve:
+  2: 100
+  3: 110
+  4: 120
+  5: 130
+  6: 140
+  7: 150
+  8: 160
+  9: 170
+  10: 180
+  11: 190
+  12: 210
+  13: 220
+  14: 240
+  15: 260
+  16: 280
+  17: 300
+  18: 320
+  19: 340
+  20: 370
+  21: 400
+  22: 420
+  23: 460
+  24: 490
+  25: 530
+  26: 570
+  27: 610
+  28: 660
+  29: 700
+  30: 760
+  31: 810
+  32: 880
+  33: 940
+  34: 1010
+  35: 1090
+  36: 1170
+  37: 1260
+  38: 1350
+  39: 1450
+  40: 1560
+  41: 1680
+  42: 1800
+  43: 1940
+  44: 2090
+  45: 2240
+  46: 2410
+  47: 2590
+  48: 2780
+  49: 2990
+  50: 3220
+  51: 3460
+  52: 3720
+  53: 4000
+  54: 4300
+  55: 4620
+  56: 4970
+  57: 5340
+  58: 5740
+  59: 6170
+  60: 6630
+
+# What one level adds to each of the eight attributes. The keys are the attribute keys from
+# stats.yml, so the two files name the same things the same way.
+#
+# All eight fields are required, including the three that are zero. A missing field stops the start
+# rather than quietly becoming zero - otherwise "movement speed does not grow" would be
+# indistinguishable from "somebody forgot the line".
+#
+# Why those three are zero:
+#   movementSpeed   - Minecraft is extremely sensitive here; growth over 60 levels is unplayable.
+#   attackSpeed     - runs into vanilla invulnerability (B05, ~2 hits/second); growth evaporates.
+#   abilityCooldown - B08 already sells cooldown reduction for coins; two sources would compound.
+#
+# Class-neutral. B07 replaces these numbers per class without a single code change.
+level-growth:
+  health: 8.0
+  defense: 2.0
+  mana: 4.0
+  physicalDamage: 1.5
+  magicDamage: 1.5
+  attackSpeed: 0.0
+  movementSpeed: 0.0
+  abilityCooldown: 0.0
+
+# Experience per mob type. Same shape as `mobs:` in combat.yml, so two files side by side read
+# alike: a default plus overrides keyed by the Bukkit type name in upper case.
+#
+# A mob without an entry of its own gets the default and produces ONE warning per type - not per
+# kill. Zero would mean every mob Mojang adds is silently worthless.
+#
+# Until B10 exists, this file is the truth about what a creature is worth.
+mob-xp:
+  default: 10
+  by-type:
+    ZOMBIE: 12
+    HUSK: 13
+    DROWNED: 13
+    SKELETON: 12
+    STRAY: 14
+    SPIDER: 10
+    CAVE_SPIDER: 11
+    CREEPER: 18
+    ENDERMAN: 40
+    WITCH: 45
+    PIGLIN: 20
+    PIGLIN_BRUTE: 55
+    HOGLIN: 30
+    BLAZE: 35
+    WITHER_SKELETON: 50
+    GHAST: 45
+    SLIME: 8
+    MAGMA_CUBE: 12
+    PHANTOM: 22
+    PILLAGER: 24
+    VINDICATOR: 32
+    RAVAGER: 70
+    EVOKER: 75
+    GUARDIAN: 38
+    ELDER_GUARDIAN: 120
+    SHULKER: 42
+    WARDEN: 400
+    ENDER_DRAGON: 1500
+    WITHER: 1200
+
+party:
+  # Maximum size including the leader.
+  max-size: 5
+
+  # Range in blocks, measured from the DEAD CREATURE - the one point every member has in common.
+  # Measuring from a contributor instead could be stretched into a chain of players and would be
+  # ambiguous when several members dealt damage. A different world is never in range.
+  range-blocks: 50.0
+
+  # Percentage added per ADDITIONAL member in range. Not a fixed amount: a fixed bonus would be
+  # enormous at level 1 and irrelevant at level 60, because mob experience rises steeply. This is
+  # the opposite case from environmental damage in B05, where a fixed amount is exactly the point.
+  #
+  # One member in range means no bonus at all - a party of one behaves like no party.
+  bonus-per-member: 0.10
+
+  # Ceiling for the bonus overall. Must not be below bonus-per-member: that would cap the bonus at
+  # the second member and make bonus-per-member meaningless, so the start refuses it.
+  bonus-cap: 0.40
+
+  # An invitation expires after this. Checked when something asks, never by a scheduled task.
+  invite-timeout-seconds: 60
+
+progress-event:
+  # Experience gains inside this window are summed into ONE event - the same pattern combat.yml
+  # uses for damage numbers. At 1000 gains per second, one event per gain would be thousands of
+  # draw calls per second for B13.
+  #
+  # A level-up flushes the open window first, so the progress bar never jumps backwards.
+  window-millis: 500

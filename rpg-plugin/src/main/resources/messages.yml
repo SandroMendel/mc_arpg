@@ -37,3 +37,26 @@ persistence:
     database-unavailable: 'The server cannot reach its data storage right now. Your progress is safe - please try again shortly.'
     # Shown when the write buffer hit its limit and everyone must be disconnected (B02, FR-009b)
     buffer-exhausted: 'The server must disconnect you to protect your progress. Please try again shortly.'
+
+progression:
+  # B06. Every player-facing string of the progression block lives here; the block itself contains
+  # no text at all (FR-038). B13 draws these and B14 answers with them.
+  level-up: 'You reached level <level>.'
+  max-level: 'You have reached the maximum level.'
+  party:
+    created: 'You founded a party.'
+    invited: 'You invited <player> to your party.'
+    joined: '<player> joined the party.'
+    left: '<player> left the party.'
+    removed: '<player> was removed from the party.'
+    disbanded: 'The party was disbanded.'
+    leader-changed: '<player> is now the party leader.'
+    error:
+      already-in-party: 'That player is already in a party.'
+      full: 'Your party is full.'
+      not-leader: 'Only the party leader can do that.'
+      invite-expired: 'That invitation has expired.'
+      invite-unknown: 'You have no pending invitation.'
+      target-not-ready: 'That player is not ready yet.'
+      self-invite: 'You cannot invite yourself.'
+      not-a-member: 'That player is not in your party.'
