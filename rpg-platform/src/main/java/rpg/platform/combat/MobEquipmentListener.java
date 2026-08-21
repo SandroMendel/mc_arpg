@@ -53,6 +53,31 @@ public final class MobEquipmentListener implements Listener {
         equip(event.getEntity());
     }
 
+    /**
+     * Creatures that were <b>loaded</b> rather than spawned (FR-019a).
+     *
+     * <p>The gap this closes was visible in play: a mob standing in the world before a restart took no
+     * damage, showed no values and could not be hurt, while anything that spawned afterwards behaved
+     * perfectly. A creature saved in a chunk fires no {@code CreatureSpawnEvent} when that chunk comes
+     * back - it was never spawned, it was read from disk - and the sweep the plugin runs at startup only
+     * reaches the chunks that were already loaded at that moment. Everything further out was invisible
+     * to this block for as long as the server ran.
+     *
+     * <p>It is the missing half of a pair the class comment already describes on the other side: the
+     * release handles a chunk unloading, so something has to handle it loading again.
+     *
+     * <p>No overlap with {@code onSpawn} - the two events cover different origins - and {@link #equip}
+     * is idempotent anyway, so an overlap would cost a map lookup and nothing else.
+     */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onEntitiesLoad(org.bukkit.event.world.EntitiesLoadEvent event) {
+        for (Entity entity : event.getEntities()) {
+            if (entity instanceof LivingEntity living) {
+                equip(living);
+            }
+        }
+    }
+
     /** Public so the plugin can equip creatures that were already loaded when it started. */
     public void equip(LivingEntity entity) {
         if (entity instanceof Player || !isHostile(entity)) {

@@ -48,6 +48,9 @@ public final class PaperSchedulerAdapter implements Scheduler {
         Objects.requireNonNull(task, "task");
 
         PaperTaskHandle handle = new PaperTaskHandle(logger);
+        if (cancelledBecauseDisabled(handle, "a location-bound task")) {
+            return handle;
+        }
         Location location = toLocation(position);
         if (location == null) {
             logger.warning(
@@ -69,12 +72,24 @@ public final class PaperSchedulerAdapter implements Scheduler {
         Objects.requireNonNull(task, "task");
 
         PaperTaskHandle handle = new PaperTaskHandle(logger);
+        if (cancelledBecauseDisabled(handle, "an entity-bound task")) {
+            return handle;
+        }
         Entity entity = resolve(entityRef.entityId());
         if (entity == null) {
-            logger.warning(
-                    "[scheduler] dropped an entity-bound task: entity "
-                            + entityRef.entityId()
-                            + " no longer exists");
+            // Not an error, and not rare. Two ordinary situations land here on every server: a creature
+            // that is still being added to the world - during CreatureSpawnEvent the entity is not yet
+            // resolvable by uuid, and B05 equips mobs from exactly that event - and a player who is
+            // already gone. As a warning this produced a line for every hostile mob that spawned.
+            //
+            // The cancelled handle is the signal, not the log line. A caller holding state that the
+            // task was meant to settle has to check it; DefaultStatEngine does, and takes its pending
+            // mark back rather than leaving the holder unable to ever recalculate again.
+            logger.fine(
+                    () ->
+                            "[scheduler] no entity "
+                                    + entityRef.entityId()
+                                    + " to bind a task to - returning a cancelled handle");
             handle.cancel();
             return handle;
         }
@@ -92,10 +107,29 @@ public final class PaperSchedulerAdapter implements Scheduler {
         return handle;
     }
 
+    /**
+     * Runs work off the tick - and keeps running it while the plugin is being disabled.
+     *
+     * <p><b>The shutdown case is the one that matters.</b> Paper refuses to register a task for a
+     * disabled plugin ({@code IllegalPluginAccessException}), and the plugin is already disabled by the
+     * time the modules stop. That is exactly when the last writes happen: ending the open sessions and
+     * B02's shutdown flush both come through here. Letting the refusal stand meant the final write of
+     * every session was skipped, the exception escaped the flush, and the connection pools were never
+     * closed either - a full session's progress lost on every stop with a player online.
+     *
+     * <p>So when there is no scheduler left to take the work, it runs on the calling thread. That still
+     * honours what this method promises: module shutdown already runs on its own executor, not on the
+     * tick. The alternative - refusing - trades a thread hop for data loss.
+     */
     @Override
     public TaskHandle runAsync(Runnable task) {
         Objects.requireNonNull(task, "task");
         PaperTaskHandle handle = new PaperTaskHandle(logger);
+        if (!plugin.isEnabled()) {
+            logger.fine("[scheduler] plugin disabled - running async work on the calling thread");
+            runUnlessCancelled(handle, task);
+            return handle;
+        }
         handle.bind(
                 server.getAsyncScheduler()
                         .runNow(plugin, scheduled -> runUnlessCancelled(handle, task)));
@@ -116,6 +150,11 @@ public final class PaperSchedulerAdapter implements Scheduler {
         if (delay.isZero()) {
             return runAsync(task);
         }
+        if (cancelledBecauseDisabled(handle, "a delayed task")) {
+            // Unlike runAsync this is not run here: it is not due yet, and there will be no later to
+            // run it in. The cancelled handle says so.
+            return handle;
+        }
         handle.bind(
                 server.getAsyncScheduler()
                         .runDelayed(
@@ -124,6 +163,25 @@ public final class PaperSchedulerAdapter implements Scheduler {
                                 delay.toMillis(),
                                 TimeUnit.MILLISECONDS));
         return handle;
+    }
+
+    /**
+     * Cancels the handle if there is no plugin left to schedule against.
+     *
+     * <p>For the paths where running the work here and now would be wrong: a tick-bound task has no
+     * tick to run on once the server is stopping, and a delayed one is not due. Paper would throw
+     * {@code IllegalPluginAccessException}; a cancelled handle says the same thing without unwinding
+     * the caller, and callers holding state check it (see {@link Scheduler#runSyncOnEntity}).
+     *
+     * @return whether the handle was cancelled, i.e. whether the caller should stop here
+     */
+    private boolean cancelledBecauseDisabled(PaperTaskHandle handle, String what) {
+        if (plugin.isEnabled()) {
+            return false;
+        }
+        logger.fine(() -> "[scheduler] plugin disabled - dropping " + what);
+        handle.cancel();
+        return true;
     }
 
     /**
@@ -149,7 +207,24 @@ public final class PaperSchedulerAdapter implements Scheduler {
         return new Location(world, position.x(), position.y(), position.z());
     }
 
+    /**
+     * Finds the entity without breaking the thread rules.
+     *
+     * <p>{@code Server#getEntity} walks the chunk entity lists and is main-thread only - Paper's
+     * {@code AsyncCatcher} flags it. That matters here because this scheduler exists precisely to be
+     * called from anywhere: B02 completes its futures on an async pool, and the code that continues
+     * there is exactly the code that wants to get back onto an entity's tick.
+     *
+     * <p>The player lookup goes through the player list instead and is safe from any thread, which
+     * covers every holder that is a player. For anything else off the tick there is no safe lookup, so
+     * the caller is handed the same cancelled handle as for an entity that is gone, and
+     * {@link #runSyncOnEntity} says what that means.
+     */
     private Entity resolve(UUID entityId) {
-        return server.getEntity(entityId);
+        Entity player = server.getPlayer(entityId);
+        if (player != null) {
+            return player;
+        }
+        return server.isPrimaryThread() ? server.getEntity(entityId) : null;
     }
 }

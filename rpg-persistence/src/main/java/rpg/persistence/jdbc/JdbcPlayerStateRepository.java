@@ -63,6 +63,16 @@ public final class JdbcPlayerStateRepository implements PlayerStateRepository, B
                     + "   updated_at = now()"
                     + " WHERE rpg.player_state.revision = ?";
 
+    /**
+     * The first row of an account. {@code DO NOTHING} because two logins of the same account racing
+     * here is a normal outcome, not a conflict to report.
+     */
+    private static final String INSERT_INITIAL =
+            "INSERT INTO rpg.player_state"
+                    + " (player_id, data_version, revision, last_seen_at, anonymized, updated_at)"
+                    + " VALUES (?, ?, ?, ?, ?, now())"
+                    + " ON CONFLICT (player_id) DO NOTHING";
+
     private static final String REPOINT_STATISTICS =
             "UPDATE rpg.player_statistic_daily SET player_id = ? WHERE player_id = ?";
 
@@ -229,6 +239,35 @@ public final class JdbcPlayerStateRepository implements PlayerStateRepository, B
                 throw failure;
             }
         }
+    }
+
+    /**
+     * Writes the row for an account seen for the first time, inside the caller's transaction.
+     *
+     * <p>Deliberately outside the write-behind buffer, and the only place that is. Everything a player
+     * owns references this row by foreign key - {@code rpg.character.player_id} above all - and B07
+     * creates a character within seconds of the login, long before the first autosave. Left to the
+     * buffer, the very first class selection of every new player failed on that key.
+     *
+     * <p>Not a second write path for player <em>state</em>: this writes the initial record once, and
+     * every change to it afterwards still goes through the buffer and its revision guard. The insert
+     * does nothing if the row is already there, so a concurrent login cannot turn into an error.
+     *
+     * <p>Also puts the state into the cache, so the next flush computes its revision guard against the
+     * row that now exists rather than finding nothing and dropping the mark.
+     */
+    public void insertInitial(Connection connection, PlayerState state) throws SQLException {
+        Objects.requireNonNull(connection, "connection");
+        Objects.requireNonNull(state, "state");
+        try (PreparedStatement statement = connection.prepareStatement(INSERT_INITIAL)) {
+            statement.setObject(1, state.playerId());
+            statement.setInt(2, state.dataVersion());
+            statement.setLong(3, state.revision());
+            statement.setTimestamp(4, Timestamp.from(state.lastSeenAt()));
+            statement.setBoolean(5, state.anonymized());
+            statement.executeUpdate();
+        }
+        cache.put(state.playerId(), state);
     }
 
     /** Puts a state into the in-memory cache and marks it for the next flush. */

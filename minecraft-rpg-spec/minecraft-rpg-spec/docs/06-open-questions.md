@@ -28,13 +28,31 @@ Auftraggeber abgeschlossen, Ergebnisse sind in den Blocksteckbriefen und in
       `blocks/B07-class-system.md`)
 - [x] Klassenwechsel: nicht möglich, Klasse ist permanent
 - [x] Charakter-Slots: 3 pro Account (ein Slot je Klasse)
+- [x] Vierte Klasse: drei Klassen bleiben im Code festgeschrieben, ihr Inhalt ist
+      Config; eine vierte ist späteres Upgrade (ADR-019). „Berserker" ist
+      Anzeigename des Warrior, keine eigene Klasse. *(2026-08-21)*
+- [x] Waffen-/Rüstungsbeschränkungen: kein Filter, sondern je Klasse ein fester
+      Rüstungs- und Waffenpfad mit fünf Stufen und festen Werten. Ersetzt
+      Beute-Ausrüstung und revidiert ADR-004 (ADR-017). *(2026-08-21)*
+- [x] Ablegen und Droppen: Rüstung nie ablegbar, keine Items dropbar; die Sperre
+      kommt mit B07 (ADR-018). *(2026-08-21)*
 - [ ] Basiswerte und Wachstumskurven je Klasse für alle acht Attribute →
       bei `/specify` B07 auszuarbeiten (Content, keine Architekturfrage)
-- [ ] Waffen-/Rüstungsbeschränkungen je Klasse?
-- [ ] Was passiert vor der Klassenwahl (Tutorialbereich)?
-- [ ] XP-Skalierung bei Levelunterschied zum Mob (Anti-Powerleveling)?
-- [ ] Gruppen-/Party-XP-Teilung vorgesehen?
-- [ ] Fortsetzung nach Maximallevel (Paragon/Prestige)?
+- [x] Vor der Klassenwahl: kein Spielzustand, GUI nicht schließbar, keine Stats,
+      kein Schaden, keine Bewegung. Die Tutorialwelt aus ADR-006 bleibt
+      nachrüstbar (ADR-020). *(2026-08-21)*
+- [ ] Wer bezahlt den Stufenaufstieg der Klassenausrüstung — Coins, Level,
+      Material? Gehört zu B11/B16; B07 liefert nur einen `cost`-Block.
+
+In B06s `/clarify` beantwortet und umgesetzt:
+
+- [x] XP-Skalierung bei Levelunterschied zum Mob: keine. Die XP eines Mobs hängt
+      ausschliesslich am Mob, nie am Level des Tötenden. *(B06)*
+- [x] Gruppen-/Party-XP-Teilung: echtes Party-System mit Einladung, geteilter XP
+      und Nähe-Bonus als Prozentaufschlag. Eine Party gilt als **ein**
+      Beitragender und setzt B05s „XP anteilig nach Schadensanteil" fort. *(B06)*
+- [x] Fortsetzung nach Maximallevel 60: keine. XP darüber verfällt still;
+      weiteres Wachstum läuft über Ausrüstung und Fähigkeiten. *(B06)*
 
 ## B08 (Fähigkeiten) — abgeschlossen
 
@@ -68,16 +86,34 @@ Auftraggeber abgeschlossen, Ergebnisse sind in den Blocksteckbriefen und in
 - [ ] Zonengeometrie: Quader, Polygon oder Chunk-Menge?
 - [ ] Reisesystem: Laufen, Portale, Wegpunkte, Teleport-Kosten?
 
-## B11 (Items) — abgeschlossen, Details offen
+## B11 (Items) — durch ADR-017 neu aufgeworfen
 
-- [x] Ausrüstungsslots: nur Vanilla-Armor + Waffe
-- [x] Raritätsstufen (8, mit Farben): Common (Weiß) → Uncommon (Hellgrün) →
-      Rare (Blau) → Epic (Lila) → Legendary (Orange) → Mythic (Pink) →
-      Divine (Hellblau) → Special (Rot, Seasons/Events)
-- [x] Item-Level-Anforderung und Klassenbindung: beides
+ADR-017 macht Rüstung und Waffe zu Klassenprogression statt Beute. Damit sind
+mehrere hier als abgeschlossen geführte Punkte wieder offen — der Steckbrief
+`blocks/B11-items-loot-equipment.md` trägt den Neuzuschnitt.
+
+- [x] Ausrüstungsslots: nur Vanilla-Armor + Waffe — nach ADR-018 zusätzlich
+      gesperrt (nicht ablegbar)
 - [x] Handel zwischen Spielern: nicht erlaubt
+- [ ] **Bleiben die acht Raritätsstufen bestehen?** Ihr einziger Träger war
+      Ausrüstung. Übertragen auf Verbrauchbares und Kosmetik, oder streichen?
+- [ ] **Bleibt der Roll-Mechanismus bestehen?** Ohne gewürfelte Ausrüstung ist
+      offen, ob überhaupt noch etwas Wertebereiche braucht — davon hängt ab, wie
+      viel von ADR-004 für den Rest von B11 übrig bleibt.
+- [x] Was noch aus Mobs fällt: Mobs behalten ihre Loot-Table. ADR-018 sperrt nur
+      den Spieler-Drop, nicht den Mob-Drop. Kämpfen bleibt Beutequelle; nur
+      Ausrüstung fällt nicht mehr. *(2026-08-21)*
+- [x] Lagerplatz: Vanilla-Inventar plus Enderchest, keine eigene Bank. Bei vollem
+      Inventar Warnung als Title plus Sound; der Spieler schafft selbst Platz über
+      Enderchest, NPC-Verkauf oder Mülleimer-Befehl (ADR-018). *(2026-08-21)*
+- [ ] Wer bezahlt den Stufenaufstieg der Klassenleitern aus B07?
 - [ ] Zufällige Affixe/Suffixe zusätzlich zu Basiswerten?
-- [ ] Lagerplatz: Vanilla-Inventar, Enderchest, eigene Bank?
+- [ ] **Wem gehört der NPC-Händler?** Kein Steckbrief B01–B17 deckt NPCs ab.
+      Entweder Umfang von B11 oder ein eigener Block.
+- [ ] **Nicht-Ziel „kein Wirtschaftssystem" präzisieren.** `00-vision-scope.md`
+      schließt Wirtschaft und Handel aus, während Coins Währung sind und der
+      NPC-Verkauf eine Coin-Quelle wäre. Vermutlich gemeint: kein
+      Spieler-zu-Spieler-Handel, kein Crafting.
 
 ## B12 (Statistiken) — abgeschlossen, Details offen
 

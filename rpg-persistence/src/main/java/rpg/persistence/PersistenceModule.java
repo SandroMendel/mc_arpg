@@ -179,6 +179,17 @@ public final class PersistenceModule implements Module {
     }
 
     /**
+     * The account records, for the session load.
+     *
+     * <p>B03 needs one thing from it that the buffer cannot provide: the row of an account seen for the
+     * first time has to exist before the login finishes, because everything the player then creates
+     * references it by foreign key. See {@code JdbcPlayerStateRepository#insertInitial}.
+     */
+    public rpg.persistence.jdbc.JdbcPlayerStateRepository playerStates() {
+        return playerStates;
+    }
+
+    /**
      * The connection pools.
      *
      * <p>Exposed for the session module's bundled read (B03/FR-005), which needs the login pool to

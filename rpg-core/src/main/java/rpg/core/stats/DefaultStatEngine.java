@@ -318,6 +318,25 @@ public final class DefaultStatEngine implements StatEngine {
     }
 
     @Override
+    public boolean unregisterBaseStatContributor(String id) {
+        java.util.Objects.requireNonNull(id, "id");
+        return contributors.removeIf(contributor -> contributor.id().equals(id));
+    }
+
+    /**
+     * The ids of everything supplying base values right now.
+     *
+     * <p>Exists so a bootstrap test can assert which suppliers a fully wired server ends up with -
+     * {@code DefaultSessionLifecycle.attachmentIds()} is here for the same reason. The case that needs
+     * it: B07 replaces B06's level growth rather than adding to it, and if the removal ever stopped
+     * working, every character would simply be too strong. Nothing would throw and no unit test in
+     * either block would notice.
+     */
+    public List<String> baseContributorIds() {
+        return contributors.stream().map(BaseStatContributor::id).toList();
+    }
+
+    @Override
     public void registerVanillaBridge(VanillaAttributeBridge bridge) {
         this.bridge = bridge;
     }
@@ -369,21 +388,35 @@ public final class DefaultStatEngine implements StatEngine {
 
     /**
      * Marks a holder and, if this is the first mark, schedules the one task that will do the work.
+     *
+     * <p>A schedule that could not be placed takes the mark back with it. Without that the mark stays
+     * set forever, every later {@code markPending} loses its compare-and-set, and the holder never
+     * recalculates again - its modifiers sit in the sources and never reach a snapshot. Nothing throws
+     * and nothing is logged at the point where it matters, which is what made this worth a comment: the
+     * scheduler refuses whenever the entity is not resolvable, and that is an ordinary situation - a mob
+     * still being added to the world, a player already gone.
      */
     private void markForRecalculation(StatHolder holder) {
         if (holder.isRemoved() || !holder.markPending()) {
             return;
         }
-        scheduler.runSyncOnEntity(
-                new EntityRef(holder.holderId()),
-                () -> {
-                    if (holder.isRemoved()) {
-                        // The holder went away between the mark and this task. Nothing to do, and
-                        // nothing to clean up - the mark went with it.
-                        return;
-                    }
-                    recalculate(holder);
-                });
+        rpg.core.scheduler.TaskHandle handle =
+                scheduler.runSyncOnEntity(
+                        new EntityRef(holder.holderId()),
+                        () -> {
+                            if (holder.isRemoved()) {
+                                // The holder went away between the mark and this task. Nothing to do,
+                                // and nothing to clean up - the mark went with it.
+                                return;
+                            }
+                            recalculate(holder);
+                        });
+        if (handle.isCancelled()) {
+            // Nothing will run, so the holder is left dirty rather than pending - the next mark gets to
+            // try again. Recalculating here instead would run on whatever thread this is, which is the
+            // one thing the entity-bound scheduler exists to prevent.
+            holder.clearPending();
+        }
     }
 
     private StatSnapshot recalculate(StatHolder holder) {
@@ -476,7 +509,13 @@ public final class DefaultStatEngine implements StatEngine {
         if (target == null) {
             return;
         }
-        target.mirrorHealth(holder.holderId(), pool.currentHealth(), current.get(Attribute.HEALTH));
+        // Health only once it is a real value. Between creating a holder and restoring its resources
+        // the pool is the zero placeholder, and mirroring that is setHealth(0) - it kills the player.
+        // Attack and movement speed are safe either way: they come from the snapshot, not the pool.
+        if (holder.resourcesKnown()) {
+            target.mirrorHealth(
+                    holder.holderId(), pool.currentHealth(), current.get(Attribute.HEALTH));
+        }
         if (previous == null
                 || previous.get(Attribute.ATTACK_SPEED) != current.get(Attribute.ATTACK_SPEED)) {
             target.mirrorAttackSpeed(holder.holderId(), current.get(Attribute.ATTACK_SPEED));

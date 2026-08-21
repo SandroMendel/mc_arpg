@@ -34,6 +34,53 @@ class DamageAggregatorTest {
     }
 
     @Test
+    @DisplayName("an idle window closes on its own once its time is up")
+    void anIdleWindowClosesByItself() {
+        // The gap this covers was visible in play: hitting a mob and walking away published nothing at
+        // all, because a window only closed when the NEXT hit arrived after it expired. Everything that
+        // listens - the target readout, and later statistics - never heard about those hits.
+        CombatFixture.TestClock clock = new CombatFixture.TestClock();
+        DamageAggregator aggregator = new DamageAggregator(clock, Duration.ofMillis(500));
+        UUID attacker = UUID.randomUUID();
+        UUID target = UUID.randomUUID();
+
+        aggregator.record(attacker, target, DamageType.PHYSICAL, 7.0);
+        aggregator.record(attacker, target, DamageType.PHYSICAL, 8.0);
+        clock.advanceMillis(600);
+
+        var events = aggregator.closeExpired();
+
+        assertThat(events)
+                .singleElement()
+                .satisfies(
+                        event -> {
+                            assertThat(event.hitCount()).isEqualTo(2);
+                            assertThat(event.totalDamage()).isEqualTo(15.0);
+                            assertThat(event.lethal())
+                                    .as("a window running out is not something dying")
+                                    .isFalse();
+                        });
+        assertThat(aggregator.openWindowCount()).as("and it is gone, not left open").isZero();
+    }
+
+    @Test
+    @DisplayName("ein Fenster, dessen Zeit noch läuft, bleibt beim Sweep unberührt")
+    void anOpenWindowSurvivesTheSweep() {
+        CombatFixture.TestClock clock = new CombatFixture.TestClock();
+        DamageAggregator aggregator = new DamageAggregator(clock, Duration.ofMillis(500));
+        UUID attacker = UUID.randomUUID();
+        UUID target = UUID.randomUUID();
+
+        aggregator.record(attacker, target, DamageType.PHYSICAL, 7.0);
+        clock.advanceMillis(100);
+
+        assertThat(aggregator.closeExpired()).isEmpty();
+        assertThat(aggregator.openWindowCount())
+                .as("sonst würde jeder Sweep die Bündelung zerschlagen")
+                .isEqualTo(1);
+    }
+
+    @Test
     @DisplayName("a hit after the window closes the previous one and starts a new one")
     void windowRollsOver() {
         CombatFixture.TestClock clock = new CombatFixture.TestClock();

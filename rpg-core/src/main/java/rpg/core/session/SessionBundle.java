@@ -5,6 +5,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
+import rpg.core.classes.ClassProgress;
+import rpg.core.inventory.CharacterInventory;
 import rpg.core.persistence.ItemInstance;
 import rpg.core.persistence.PlayerState;
 import rpg.core.progression.CharacterProgress;
@@ -30,7 +32,9 @@ public record SessionBundle(
         List<PlayerCharacter> characters,
         List<ItemInstance> items,
         List<CharacterResources> resources,
-        List<CharacterProgress> progress) {
+        List<CharacterProgress> progress,
+        List<ClassProgress> classProgress,
+        List<CharacterInventory> inventories) {
 
     public SessionBundle {
         Objects.requireNonNull(playerId, "playerId");
@@ -39,12 +43,62 @@ public record SessionBundle(
         items = List.copyOf(Objects.requireNonNull(items, "items"));
         resources = List.copyOf(Objects.requireNonNull(resources, "resources"));
         progress = List.copyOf(Objects.requireNonNull(progress, "progress"));
+        classProgress = List.copyOf(Objects.requireNonNull(classProgress, "classProgress"));
+        inventories = List.copyOf(Objects.requireNonNull(inventories, "inventories"));
+    }
+
+    /**
+     * A bundle without stored inventories - the shape before that existed.
+     *
+     * <p>Same reason as the constructor below it: callers that predate the table, and tests about
+     * sessions, should not have to name a type they do not use.
+     */
+    public SessionBundle(
+            UUID playerId,
+            Optional<PlayerState> accountState,
+            List<PlayerCharacter> characters,
+            List<ItemInstance> items,
+            List<CharacterResources> resources,
+            List<CharacterProgress> progress,
+            List<ClassProgress> classProgress) {
+        this(playerId, accountState, characters, items, resources, progress, classProgress, List.of());
+    }
+
+    /** The stored contents of one character, or empty if it has never stored any. */
+    public Optional<CharacterInventory> inventoryOf(UUID characterId) {
+        return inventories.stream()
+                .filter(inventory -> inventory.characterId().equals(characterId))
+                .findFirst();
+    }
+
+    /**
+     * A bundle without class progress.
+     *
+     * <p>Not a shortcut for the loader - it fills the list - but a meaningful state in its own right:
+     * B03's own version migrator rebuilds a bundle without knowing that classes exist, and a test that
+     * is about sessions has no business naming a B07 type. Both would otherwise have to carry an empty
+     * list they do not care about.
+     */
+    public SessionBundle(
+            UUID playerId,
+            Optional<PlayerState> accountState,
+            List<PlayerCharacter> characters,
+            List<ItemInstance> items,
+            List<CharacterResources> resources,
+            List<CharacterProgress> progress) {
+        this(playerId, accountState, characters, items, resources, progress, List.of());
     }
 
     /** A player connecting for the very first time: no record, no characters, no items. */
     public static SessionBundle empty(UUID playerId) {
         return new SessionBundle(
-                playerId, Optional.empty(), List.of(), List.of(), List.of(), List.of());
+                playerId,
+                Optional.empty(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of());
     }
 
     /**
@@ -64,6 +118,18 @@ public record SessionBundle(
     /** Stored progress of one character, empty when it has never been written (B06, FR-058). */
     public Optional<CharacterProgress> progressOf(UUID characterId) {
         return progress.stream().filter(p -> p.characterId().equals(characterId)).findFirst();
+    }
+
+    /**
+     * The reached armour and weapon tier of one character (B07).
+     *
+     * <p>Loaded here rather than fetched later, on purpose: the class contributes the tier values to
+     * the base stats, so a character whose tier arrived a moment after the session was declared ready
+     * would briefly compute with tier 1 and then correct itself, visibly. The session load already
+     * batches its queries, so this is one more read on a connection that is open anyway.
+     */
+    public Optional<ClassProgress> classProgressOf(UUID characterId) {
+        return classProgress.stream().filter(p -> p.characterId().equals(characterId)).findFirst();
     }
 
     /** Whether this account has never been stored before. */

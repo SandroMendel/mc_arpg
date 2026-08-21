@@ -94,6 +94,57 @@ class MobEquipmentListenerTest {
     }
 
     @Test
+    @DisplayName("eine geladene Kreatur wird ausgerüstet, nicht nur eine gespawnte")
+    void aLoadedCreatureIsEquippedToo() {
+        // Der Fehler, der das hier nötig gemacht hat, war im Spiel sichtbar: ein Mob, der vor einem
+        // Neustart in der Welt stand, nahm keinen Schaden und zeigte keine Werte, während alles
+        // frisch Gespawnte einwandfrei lief. Eine aus einem Chunk geladene Kreatur feuert kein
+        // CreatureSpawnEvent - sie wurde nie gespawnt, sie wurde von der Platte gelesen.
+        var zombie = world.spawnEntity(world.getSpawnLocation(), EntityType.ZOMBIE);
+        stats.remove(zombie.getUniqueId()); // so, als sei sie dem Block noch nie begegnet
+        assertThat(stats.findSnapshot(zombie.getUniqueId())).isEmpty();
+
+        listener.onEntitiesLoad(
+                new org.bukkit.event.world.EntitiesLoadEvent(
+                        world.getChunkAt(world.getSpawnLocation()), java.util.List.of(zombie)));
+
+        assertThat(stats.findSnapshot(zombie.getUniqueId())).isPresent();
+        assertThat(stats.value(zombie.getUniqueId(), Attribute.HEALTH)).isEqualTo(80.0);
+        assertThat(stats.value(zombie.getUniqueId(), Attribute.DEFENSE)).isEqualTo(10.0);
+    }
+
+    @Test
+    @DisplayName("ein zweites Laden rüstet nicht doppelt aus")
+    void loadingTwiceIsIdempotent() {
+        var zombie = world.spawnEntity(world.getSpawnLocation(), EntityType.ZOMBIE);
+        var chunk = world.getChunkAt(world.getSpawnLocation());
+        listener.onEntitiesLoad(
+                new org.bukkit.event.world.EntitiesLoadEvent(chunk, java.util.List.of(zombie)));
+        double afterFirst = stats.value(zombie.getUniqueId(), Attribute.HEALTH);
+
+        listener.onEntitiesLoad(
+                new org.bukkit.event.world.EntitiesLoadEvent(chunk, java.util.List.of(zombie)));
+
+        assertThat(stats.value(zombie.getUniqueId(), Attribute.HEALTH))
+                .as("die Werte werden ersetzt, nicht addiert")
+                .isEqualTo(afterFirst);
+    }
+
+    @Test
+    @DisplayName("ein Spieler im geladenen Chunk wird nicht als Kreatur ausgerüstet")
+    void aLoadedPlayerIsNotEquipped() {
+        var player = server.addPlayer();
+
+        listener.onEntitiesLoad(
+                new org.bukkit.event.world.EntitiesLoadEvent(
+                        world.getChunkAt(world.getSpawnLocation()), java.util.List.of(player)));
+
+        assertThat(stats.findSnapshot(player.getUniqueId()))
+                .as("Spieler gehören B03 und B04, nicht diesem Listener")
+                .isEmpty();
+    }
+
+    @Test
     @DisplayName("it starts at full health, not at the pre-modifier maximum")
     void startsFull() {
         var zombie = world.spawnEntity(world.getSpawnLocation(), EntityType.ZOMBIE);

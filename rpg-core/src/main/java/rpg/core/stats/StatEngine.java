@@ -121,6 +121,21 @@ public interface StatEngine {
     /** Registers a supplier of base values - B06 for level, B07 for class (FR-039). */
     void registerBaseStatContributor(BaseStatContributor contributor);
 
+    /**
+     * Removes a registered supplier by its id, and reports whether one was there.
+     *
+     * <p>For a block that <em>replaces</em> another's contribution rather than adding to it. B07 is the
+     * case this exists for: it supplies the level growth per class, so B06's class-neutral growth must
+     * stop - registering both would apply the growth twice and nothing would look wrong (FR-003).
+     *
+     * <p>The return value matters. A block that means to replace something and silently removes nothing
+     * has the double contribution it was trying to avoid, so the caller is expected to check.
+     *
+     * <p>Startup only. Removing a contributor while holders exist leaves every snapshot stale until the
+     * next recalculation.
+     */
+    boolean unregisterBaseStatContributor(String id);
+
     /** Registers the vanilla mirror. Without one, mirroring is a no-op (FR-034). */
     void registerVanillaBridge(VanillaAttributeBridge bridge);
 

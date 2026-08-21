@@ -89,6 +89,38 @@ public final class DamageAggregator {
         return events;
     }
 
+    /**
+     * Closes every window whose time is up, wherever it is.
+     *
+     * <p>Without this a window only ever closes when the <em>next</em> hit arrives after it expired,
+     * and one that never sees another hit stays open forever. Hitting a mob three times and walking
+     * away therefore produced no event at all, and anything listening - a readout, a statistic, a
+     * quest counter - simply never heard about those hits.
+     *
+     * <p>Driven from outside rather than by a timer of its own: this class has no clock to tick and no
+     * business owning a task (Constitution I). The caller decides the cadence, and the natural one is
+     * the window length.
+     *
+     * @return the events for every window that just closed, empty when none had expired
+     */
+    public List<DamageDealtEvent> closeExpired() {
+        long now = clock.millis();
+        List<DamageDealtEvent> events = new ArrayList<>();
+        open.entrySet()
+                .removeIf(
+                        entry -> {
+                            synchronized (entry.getValue()) {
+                                if (now - entry.getValue().openedAt < windowMillis) {
+                                    return false;
+                                }
+                                // Not lethal: this is a window running out, not something dying.
+                                events.add(toEvent(entry.getKey(), entry.getValue(), false));
+                            }
+                            return true;
+                        });
+        return events;
+    }
+
     /** Drops everything for a target without publishing - on unload. */
     public void forget(UUID targetId) {
         open.entrySet().removeIf(entry -> entry.getKey().targetId().equals(targetId));

@@ -10,6 +10,9 @@ import java.util.logging.Level;
 
 import org.bukkit.plugin.java.JavaPlugin;
 
+import rpg.core.classes.ClassMessageKeys;
+import rpg.core.classes.ClassRegistry;
+import rpg.core.combat.CombatMessageKeys;
 import rpg.core.combat.CombatModule;
 import rpg.core.combat.CombatPipeline;
 import rpg.core.config.ConfigLoader;
@@ -34,11 +37,22 @@ import rpg.core.stats.StatConfig;
 import rpg.core.stats.StatEngine;
 import rpg.persistence.PersistenceMessageKeys;
 import rpg.persistence.PersistenceModule;
+import rpg.persistence.classes.ClassesModule;
+import rpg.persistence.inventory.InventoryModule;
 import rpg.persistence.progression.ProgressionModule;
 import rpg.persistence.session.SessionModule;
 import rpg.persistence.stats.StatsModule;
 import rpg.platform.PlatformMessageKeys;
 import rpg.platform.PreJoinGuard;
+import rpg.platform.classes.BoundItemFactory;
+import rpg.platform.classes.ClassEquipmentApplier;
+import rpg.platform.classes.ClassSelectionListener;
+import rpg.platform.classes.ClassSelectionMenu;
+import rpg.platform.classes.EquipmentLockListener;
+import rpg.platform.classes.InventoryFullNoticeListener;
+import rpg.platform.classes.NoCharacterGuardListener;
+import rpg.platform.classes.PaperClassNotice;
+import rpg.platform.classes.SelectionTimeout;
 import rpg.platform.combat.CombatDeathListener;
 import rpg.platform.combat.MobEquipmentListener;
 import rpg.platform.combat.PaperDamageFeedback;
@@ -48,6 +62,9 @@ import rpg.platform.combat.ProjectileDamageTag;
 import rpg.platform.combat.VanillaDamageListener;
 import rpg.platform.combat.VanillaDamageMapping;
 import rpg.platform.config.YamlConfigLoader;
+import rpg.platform.hud.StatusActionBar;
+import rpg.platform.hud.TargetReport;
+import rpg.platform.progression.ExperienceBar;
 import rpg.platform.progression.PaperProximityCheck;
 import rpg.platform.progression.ProgressionDeathListener;
 import rpg.platform.scheduler.PaperSchedulerAdapter;
@@ -55,6 +72,7 @@ import rpg.platform.session.PendingSessionStash;
 import rpg.platform.session.SafeStateGuard;
 import rpg.platform.session.SessionConnectionCloseListener;
 import rpg.platform.session.SessionJoinListener;
+import rpg.platform.session.SessionObserver;
 import rpg.platform.session.SessionPreLoadListener;
 import rpg.platform.session.SessionQuitListener;
 import rpg.platform.stats.PaperVanillaAttributeBridge;
@@ -78,6 +96,15 @@ public class RpgPlugin extends JavaPlugin {
     private static final String MESSAGES_FILE = "messages.yml";
 
     /**
+     * How often every online player's inventory is written down.
+     *
+     * <p>Bounds what a crash costs. Deliberately the same order as B02's autosave: a tighter interval
+     * would serialise 41 slots per player more often for a smaller window than everything else already
+     * accepts, and a wider one would make the inventory the weakest link.
+     */
+    private static final Duration INVENTORY_SWEEP = Duration.ofSeconds(45);
+
+    /**
      * Configuration files written out on first start.
      *
      * <p>A module whose file is missing refuses to start, which is the right behaviour for a running
@@ -90,7 +117,8 @@ public class RpgPlugin extends JavaPlugin {
                     "session.yml",
                     "stats.yml",
                     "combat.yml",
-                    "progression.yml");
+                    "progression.yml",
+                    "classes.yml");
 
     private final BootstrapState bootstrapState = new BootstrapState();
 
@@ -105,6 +133,9 @@ public class RpgPlugin extends JavaPlugin {
     private StatsModule statsModule;
     private CombatModule combatModule;
     private ProgressionModule progressionModule;
+    private ClassesModule classesModule;
+    private InventoryModule inventoryModule;
+    private ExperienceBar experienceBar;
 
     @Override
     public void onEnable() {
@@ -158,10 +189,18 @@ public class RpgPlugin extends JavaPlugin {
             return;
         }
 
-        registerSessionListeners();
+        // Before the session listeners, because it produces the observer they carry: B07 has to hear
+        // about a ready session, and B03 allows exactly one join handler (FR-007).
+        SessionObserver classes = assembleClassLayer();
+        registerSessionListeners(classes);
         assembleStatLayer();
         assembleCombatLayer();
         assembleProgressionLayer();
+
+        // Same cadence as B02's autosave, and for the same reason: a crash should cost one interval,
+        // not a whole session's loot. The quit path captures on its own; this is only for the case
+        // where there is no quit path.
+        startInventorySweep(INVENTORY_SWEEP);
 
         Duration took = Duration.ofNanos(System.nanoTime() - startedAt);
         if (took.compareTo(BOOTSTRAP_BUDGET) > 0) {
@@ -246,6 +285,8 @@ public class RpgPlugin extends JavaPlugin {
         declared.addAll(PersistenceMessageKeys.all());
         declared.addAll(SessionMessageKeys.all());
         declared.addAll(ProgressionMessageKeys.all());
+        declared.addAll(ClassMessageKeys.all());
+        declared.addAll(CombatMessageKeys.all());
         MessageKeyValidator.verifyAllPresent(loaded, declared);
 
         getLogger().info("[messages] " + declared.size() + " declared key(s) resolved");
@@ -269,8 +310,25 @@ public class RpgPlugin extends JavaPlugin {
         progressionModule =
                 new ProgressionModule(
                         persistenceModule, sessionModule, getLogger(), Clock.systemUTC());
+        classesModule =
+                new ClassesModule(
+                        persistenceModule,
+                        sessionModule,
+                        statsModule,
+                        progressionModule,
+                        getLogger(),
+                        Clock.systemUTC());
+        inventoryModule =
+                new InventoryModule(
+                        persistenceModule, sessionModule, getLogger(), Clock.systemUTC());
         return List.of(
-                persistenceModule, sessionModule, statsModule, combatModule, progressionModule);
+                persistenceModule,
+                sessionModule,
+                statsModule,
+                combatModule,
+                progressionModule,
+                classesModule,
+                inventoryModule);
     }
 
     /**
@@ -285,7 +343,7 @@ public class RpgPlugin extends JavaPlugin {
      * arriving while the modules are still coming up would find a lifecycle that is not there yet;
      * until this call, B01's {@code PreJoinGuard} is what answers those connections.
      */
-    private void registerSessionListeners() {
+    private void registerSessionListeners(SessionObserver observer) {
         SafeStateGuard safeState = new SafeStateGuard(getLogger());
         PendingSessionStash stash =
                 new PendingSessionStash(
@@ -306,12 +364,17 @@ public class RpgPlugin extends JavaPlugin {
                 .getPluginManager()
                 .registerEvents(
                         new SessionJoinListener(
-                                sessionModule.lifecycle(), stash, safeState, getLogger()),
+                                sessionModule.lifecycle(),
+                                stash,
+                                safeState,
+                                observer,
+                                getLogger()),
                         this);
         getServer()
                 .getPluginManager()
                 .registerEvents(
-                        new SessionQuitListener(sessionModule.lifecycle(), safeState, getLogger()),
+                        new SessionQuitListener(
+                                sessionModule.lifecycle(), safeState, observer, getLogger()),
                         this);
         getServer()
                 .getPluginManager()
@@ -396,6 +459,295 @@ public class RpgPlugin extends JavaPlugin {
         }
         getLogger()
                 .info("[combat] listeners registered; " + equipped + " already-loaded creature(s) equipped");
+
+        // The two readouts. Deliberately not called a HUD: that name and its layout belong to B13,
+        // which will take both over. Until then these are one action bar line and one chat line.
+        // B04 adapted to the three numbers a readout needs. The displays get a reading, not the
+        // engine - twenty of its twenty-one methods are none of their business.
+        rpg.platform.hud.CombatStatusSource statusSource =
+                holderId ->
+                        stats.findSnapshot(holderId)
+                                .map(
+                                        snapshot -> {
+                                            var resources = stats.resources(holderId);
+                                            return new rpg.platform.hud.CombatStatusSource.Status(
+                                                    resources.currentHealth(),
+                                                    resources.maxHealth(),
+                                                    snapshot.get(rpg.core.stats.Attribute.DEFENSE));
+                                        });
+
+        StatusActionBar actionBar =
+                new StatusActionBar(getServer(), statusSource, scheduler, messages, getLogger());
+        actionBar.subscribeTo(eventBus);
+        // The list comes from B03's registry, which is the authority on who is playing - not from
+        // whichever module happens to keep a map of them.
+        actionBar.startRefresh(this::playersInPlay);
+
+        TargetReport targets =
+                new TargetReport(getServer(), statusSource, scheduler, messages, getLogger());
+        targets.subscribeTo(eventBus);
+
+        startDamageWindowSweep(combatModule.config().aggregationWindow(), combatModule.pipeline());
+    }
+
+    /** Everyone currently playing a character, from the registry that decides it. */
+    private List<java.util.UUID> playersInPlay() {
+        return sessionModule.registry().all().stream()
+                .filter(session -> session.activeCharacter().isPresent())
+                .map(rpg.core.session.PlayerSession::playerId)
+                .toList();
+    }
+
+    /**
+     * Closes the damage windows whose time is up.
+     *
+     * <p>Without this nothing ever closes an idle window: B05 only closes one when the <em>next</em>
+     * hit arrives after it expired, so hitting a mob and stopping published no event at all. Everything
+     * that listens - the target line, and later statistics and quests - simply never heard about those
+     * hits.
+     *
+     * <p>Runs at the aggregation window from {@code combat.yml}, because that is the delay the design
+     * already accepts between a hit and the report of it. One pass over the open windows; with none
+     * open it is a single empty map scan.
+     */
+    private void startDamageWindowSweep(
+            Duration interval, rpg.core.combat.DefaultCombatPipeline pipeline) {
+        scheduler.runAsyncDelayed(
+                interval,
+                () -> {
+                    pipeline.publishExpiredDamageWindows();
+                    if (isEnabled()) {
+                        startDamageWindowSweep(interval, pipeline);
+                    }
+                });
+    }
+
+    /**
+     * Assembles the Paper-facing half of B07, and hands back the seam B03 drives it through.
+     *
+     * <p>Four listeners and one observer. The observer is why this runs before
+     * {@link #registerSessionListeners}: B07 has to act the moment a session is ready - open the
+     * selection, or put the class equipment back on - and B03 permits exactly one join handler
+     * (FR-007). So the class layer does not listen for joins; it is told about them.
+     *
+     * <p>{@link ClassSelectionListener} gets a {@link rpg.platform.classes.CharacterEntry} that is the
+     * only path from "class chosen" to "in the game state": activating the character on the session runs
+     * every attachment - B04's holder, B06's level, B07's tiers - and the equipment goes on afterwards,
+     * because it is built from those tiers.
+     */
+    private SessionObserver assembleClassLayer() {
+        ClassRegistry classes = classesModule.registry();
+        NoCharacterGuardListener guard = new NoCharacterGuardListener(getLogger());
+        // The vanilla bar shows B06's level and experience; it stores nothing of its own. Subscribed
+        // here so every gain reaches it, and read once on entry for the character's starting value.
+        experienceBar = new ExperienceBar(getServer(), scheduler, getLogger());
+        experienceBar.subscribeTo(eventBus);
+        ClassEquipmentApplier equipment =
+                new ClassEquipmentApplier(
+                        classesModule.boundEquipment(), new BoundItemFactory(messages), getLogger());
+
+        ClassSelectionListener selection =
+                new ClassSelectionListener(
+                        classesModule.selection(),
+                        new ClassSelectionMenu(classes, messages),
+                        sessionModule.registry(),
+                        guard,
+                        (player, character) -> enterGameState(player, character, equipment),
+                        // The one place that sees all three blocks: B03 owns the characters, B06 the
+                        // levels, B07 the tiers, and a menu entry needs all of it.
+                        classesModule::slotsFor,
+                        new SelectionTimeout(getServer(), scheduler, messages),
+                        scheduler,
+                        getLogger());
+
+        getServer().getPluginManager().registerEvents(guard, this);
+        getServer().getPluginManager().registerEvents(selection, this);
+        getServer().getPluginManager().registerEvents(new EquipmentLockListener(getLogger()), this);
+        getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new InventoryFullNoticeListener(
+                                new PaperClassNotice(getServer(), messages), Clock.systemUTC()),
+                        this);
+
+        getLogger()
+                .info(
+                        "[classes] listeners registered - selection, guard, equipment lock, "
+                                + "inventory notice");
+
+        return new SessionObserver() {
+            @Override
+            public void onSessionReady(org.bukkit.entity.Player player) {
+                // Nothing of the previous character while choosing: no items, no hearts, no level. What
+                // the client shows here is whatever vanilla saved for the *player*, and the real copies
+                // are in the database, waiting for the character they belong to.
+                resetToNeutralState(player, experienceBar);
+                // Opens the selection for a player without a character, and releases the guard for one
+                // who has. Either way the equipment is applied afterwards - and does nothing when there
+                // is no character to build it from.
+                selection.openIfNeeded(player);
+                classesModule
+                        .characterOf(player.getUniqueId())
+                        .ifPresent(characterId -> equipment.apply(player, characterId));
+            }
+
+            @Override
+            public void onSessionEnded(java.util.UUID playerId) {
+                selection.onSessionEnded(playerId);
+                // Before B03 starts the unload: the player is still here, so their inventory can still
+                // be read - and this is the last moment that is true. The observer runs on the quit
+                // event, which is the player's own tick.
+                org.bukkit.entity.Player leaving = getServer().getPlayer(playerId);
+                if (leaving != null) {
+                    captureInventory(leaving);
+                }
+            }
+        };
+    }
+
+    /**
+     * Takes a freshly chosen character into play.
+     *
+     * <p>Activation first, equipment second, and the order is the whole point: the items are built from
+     * the tiers, and the tiers only exist once the session activated the character.
+     *
+     * <p>A failure to put the equipment on is <b>not</b> a failure to enter. The character exists, has
+     * stats and a level, and can play; the applier logs what it could not place, and the next login
+     * applies it again. Refusing the entry over it would leave a stored character no session can reach.
+     */
+    private boolean enterGameState(
+            org.bukkit.entity.Player player,
+            rpg.core.session.PlayerCharacter character,
+            ClassEquipmentApplier equipment) {
+        if (!sessionModule.lifecycle().activateCharacter(player.getUniqueId(), character)) {
+            return false;
+        }
+        java.util.UUID characterId = character.characterId();
+
+        // Three steps, and the order is the whole of it.
+        //
+        // Emptied first, every time: in Minecraft both containers belong to the *player*, and the
+        // selection is how someone switches between their characters - keeping them would carry the
+        // warrior's loot into the mage. In practice they are already empty, because they are cleared
+        // when the selection opens; this is the guarantee rather than the mechanism.
+        clearCarriedItems(player);
+        // Then what this character was carrying and storing when it was last put down. Bound items are
+        // not in there; they are rebuilt below from the reached tier.
+        inventoryModule
+                .contentsOf(characterId)
+                .ifPresent(
+                        stored -> {
+                            rpg.platform.inventory.PlayerInventoryContents.restore(
+                                    player, stored.contents(), getLogger());
+                            rpg.platform.inventory.PlayerInventoryContents.restoreEnderChest(
+                                    player, stored.enderChest(), getLogger());
+                        });
+        // Class equipment last, so it always wins the slots it owns.
+        equipment.apply(player, characterId);
+
+        // The bar, now that B06 has loaded this character's progress. From here on the subscription
+        // keeps it current; this is only the starting value.
+        registry.getService(rpg.core.progression.Progression.class)
+                .progressOf(characterId)
+                .ifPresent(
+                        view ->
+                                experienceBar.show(
+                                        player.getUniqueId(), view.level(), view.fraction()));
+        return true;
+    }
+
+    /**
+     * Empties both containers that belong to the player rather than to a character.
+     *
+     * <p>Called when the selection opens and again on entry. The first is what the player sees: nobody
+     * stands in the menu looking at the last character's backpack, and nothing from it can be reached
+     * while choosing. The second is the guarantee that entry starts from a known state.
+     *
+     * <p>Safe to do at the menu because the contents were written down on the way out of the previous
+     * session and are read back on entry. The one exception is the very first start with this build:
+     * whatever players were carrying then belongs to no character - there was no character-level store
+     * to attribute it to - and it is cleared.
+     */
+    private void clearCarriedItems(org.bukkit.entity.Player player) {
+        player.getInventory().clear();
+        player.getEnderChest().clear();
+    }
+
+    /**
+     * Wipes everything the client shows that belongs to the player rather than to a character.
+     *
+     * <p>Items, hearts and the experience bar are all saved by vanilla per player, so at the moment a
+     * session becomes ready they still show the character that was last played. Someone choosing a
+     * character must not be looking at another one's health and level.
+     *
+     * <p>None of it is lost: the items come out of the database on entry, the hearts out of B04's
+     * stored resources, and the bar out of B06's stored progress. This only clears the display until
+     * the character that owns those values is in play.
+     */
+    private void resetToNeutralState(org.bukkit.entity.Player player, ExperienceBar bar) {
+        clearCarriedItems(player);
+        bar.reset(player);
+        // Full hearts, because a half-empty bar belongs to the character that emptied it. The real
+        // value arrives with the stat holder, which only exists once a character is chosen.
+        org.bukkit.attribute.AttributeInstance maxHealth =
+                player.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH);
+        if (maxHealth != null) {
+            player.setHealth(maxHealth.getValue());
+        }
+    }
+
+    /**
+     * Writes down what a player is carrying, for the character they are playing.
+     *
+     * <p>Must run on the player's tick - reading an inventory is a tick-only call - and must run while
+     * they are still there. Both are why this is called from the quit observer and from a periodic
+     * sweep rather than from the module that stores the result.
+     */
+    private void captureInventory(org.bukkit.entity.Player player) {
+        inventoryModule
+                .characterOf(player.getUniqueId())
+                .ifPresent(
+                        characterId ->
+                                inventoryModule.store(
+                                        characterId,
+                                        rpg.platform.inventory.PlayerInventoryContents.capture(
+                                                player, getLogger()),
+                                        rpg.platform.inventory.PlayerInventoryContents
+                                                .captureEnderChest(player, getLogger())));
+    }
+
+    /**
+     * Snapshots every online player's inventory, again and again.
+     *
+     * <p>Without this a crash costs the whole session's loot: the quit path captures, but a crash has no
+     * quit path. With it the loss is bounded by the interval, which is the same promise B02 makes for
+     * everything else it writes.
+     *
+     * <p>Re-schedules itself instead of using a repeating task, because the scheduler has none - and
+     * deliberately so (ADR-007). Each capture hops onto the owning player's tick; the waiting happens
+     * off it.
+     */
+    private void startInventorySweep(Duration interval) {
+        scheduler.runAsyncDelayed(
+                interval,
+                () -> {
+                    // The module's list, not the server's: asking the server for its online players
+                    // from off the tick is not safe, and this is the more precise question anyway -
+                    // someone still sitting in the selection has no character to capture for.
+                    for (java.util.UUID playerId : inventoryModule.playersInPlay()) {
+                        scheduler.runSyncOnEntity(
+                                new rpg.core.scheduler.EntityRef(playerId),
+                                () -> {
+                                    org.bukkit.entity.Player player = getServer().getPlayer(playerId);
+                                    if (player != null) {
+                                        captureInventory(player);
+                                    }
+                                });
+                    }
+                    if (isEnabled()) {
+                        startInventorySweep(interval);
+                    }
+                });
     }
 
     /**
@@ -489,7 +841,6 @@ public class RpgPlugin extends JavaPlugin {
         return scheduler;
     }
 
-    /** Whether the server currently accepts player sessions (FR-013). */
     /**
      * The session lifecycle, so a bootstrap test can assert which blocks hooked into it.
      *
@@ -500,6 +851,18 @@ public class RpgPlugin extends JavaPlugin {
         return sessionModule == null ? null : sessionModule.lifecycle();
     }
 
+    /**
+     * The stat engine as it was assembled, for the bootstrap test.
+     *
+     * <p>Not the {@link StatEngine} from the registry: what needs asserting is which base-value
+     * suppliers a fully wired server ends up with, and that is not part of the interface other blocks
+     * use.
+     */
+    public rpg.core.stats.DefaultStatEngine statEngine() {
+        return statsModule.engine();
+    }
+
+    /** The bootstrap phase, which decides whether the server accepts player sessions (FR-013). */
     public BootstrapState bootstrapState() {
         return bootstrapState;
     }

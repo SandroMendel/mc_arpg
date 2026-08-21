@@ -96,7 +96,12 @@ public final class SessionModule implements Module {
         persistence.flushCycle().register(AggregateType.CHARACTER, characters);
 
         bundleLoader =
-                new SessionBundleLoader(persistence.pools().loginPool(), characters, logger);
+                new SessionBundleLoader(
+                        persistence.pools().loginPool(),
+                        characters,
+                        persistence.playerStates(),
+                        clock,
+                        logger);
         scheduler = context.scheduler();
 
         lifecycle =

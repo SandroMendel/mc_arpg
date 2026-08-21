@@ -40,7 +40,11 @@ einer zusammenhängenden Spielwelt im Stil von MMORPGs.
 4. **Erfahrungslevel** — eigenes Levelsystem, unabhängig von Vanilla-XP
 5. **Gebiete / Regionen** — mehrere Zonen mit unterschiedlichen Levelbereichen
 6. **Monsterhorden** — Custom-Mobs mit eigenen Werten, dichtes Spawning
-7. **Ausrüstung & Loot** — Items tragen Attributwerte und sind Stat-Quelle
+7. **Ausrüstung & Loot** — ~~Items tragen Attributwerte und sind Stat-Quelle~~
+   *Seit ADR-017 (2026-08-21): Rüstung und Waffe sind klassengebundene
+   Aufstiegsleitern mit festen Werten und damit Klassenprogression. Die dominante
+   Stat-Quelle ist die Klasse, nicht erbeutete Ausrüstung. Loot bleibt für
+   Material, Verbrauchbares und Kosmetik.*
 8. **Statistiken & Leaderboards**
 9. **Persistenz** — alle Spielerdaten asynchron in PostgreSQL
 
@@ -49,6 +53,11 @@ einer zusammenhängenden Spielwelt im Stil von MMORPGs.
 - Kein Proxy-/Multi-Server-Netzwerk (Velocity, BungeeCord)
 - Kein Resource Pack, keine Client-Mods (Option bleibt architektonisch offen)
 - Kein Crafting-/Wirtschafts-/Handelssystem
+  — **zu präzisieren:** Coins sind seit dem 19.08. Währung (Fähigkeits- und
+  Ausrüstungsaufwertung), und ADR-018 sieht Verkauf an einen NPC als
+  Entsorgungsweg vor. Beides ist eine minimale Wirtschaft. Vermutlich gemeint:
+  kein **Spieler-zu-Spieler**-Handel und kein Crafting. Zu klären vor `/specify`
+  B11.
 - Kein PvP als Kernmechanik
 - Keine Mehrsprachigkeit zum Start (Struktur wird aber vorbereitet)
 - Kein Bauen/Terraforming durch Spieler

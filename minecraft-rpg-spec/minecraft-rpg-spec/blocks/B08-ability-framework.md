@@ -53,8 +53,11 @@ entstehen — nicht durch eine neue Java-Klasse je Fähigkeit.
 
 ## Offene Fragen (blockierend) — geklärt (2026-08-19)
 
-- [x] **Anzahl Fähigkeiten je Klasse**: 4 aktiv + 2 passiv (ohne Unique Class
-      Ability).
+- [x] **Anzahl Fähigkeiten je Klasse**: 4 aktiv + 2 passiv, also **sechs
+      Fähigkeiten je Klasse**. Die Unique Class Ability zählt als eine der vier
+      aktiven — *(korrigiert 2026-08-21; die frühere Fassung sagte „ohne Unique
+      Class Ability" und ergab damit sieben, was auf keinen der festgelegten
+      Loadouts passt)*.
 - [x] **Eingabeschema**: Hotbar-Slot-Wechsel + Rechtsklick — jede aktive
       Fähigkeit liegt auf einem eigenen Hotbar-Slot (Custom-Item), Rechtsklick
       löst sie aus.
@@ -72,6 +75,32 @@ entstehen — nicht durch eine neue Java-Klasse je Fähigkeit.
     passiv → Doppelsprung + Slow-Fall-Effekt.
 - [ ] Gibt es einen globalen Cooldown zwischen beliebigen Fähigkeiten?
 - [ ] Sind Casting-Zeiten und Unterbrechung vorgesehen?
+
+### Loadouts je Klasse *(2026-08-21)*
+
+B07 bindet die Fähigkeits-IDs und Freischaltstufen an die Klasse, B08
+implementiert das Verhalten (Workflow-Regel 5).
+
+**Warrior** (Anzeigename „Berserker", siehe ADR-019):
+
+| Fähigkeit | Art |
+|---|---|
+| Wut | passiv |
+| Lifesteal | passiv |
+| Schild | aktiv |
+| Sprung | aktiv |
+| Wirbel | aktiv |
+| Call of the Berserker | aktiv, Unique Class Ability |
+
+Der Loadout ist damit **vollständig**: vier aktive Fähigkeiten inklusive der
+Unique, zwei passive. *(2026-08-21)*
+
+- [ ] **Lifesteal ist kein B04-Attribut.** ADR-008 stellt Sekundärwerte
+      (Crit-Chance, Crit-Schaden, Lifesteal, Resistenzen) ausdrücklich zurück.
+      Als Fähigkeitseffekt im Kampf-Hook („heile X % des ausgeteilten Schadens")
+      geht es ohne Attribut; als skalierender Wert bräuchte es die
+      Sekundärwert-Erweiterung von B04.
+- [ ] Loadouts für Mage und Rogue → bei `/specify` B08 auszuarbeiten.
 
 ## Akzeptanzkriterien (Entwurf)
 

@@ -57,7 +57,15 @@ public final class DefaultSessionLifecycle implements SessionLifecycle {
     private final java.util.List<SessionAttachment> attachments =
             new java.util.concurrent.CopyOnWriteArrayList<>();
 
-    /** Registers an attachment. Called during module start, before any player can connect. */
+    /**
+     * What the login read, kept until the session ends.
+     *
+     * <p>The character is chosen after the session is ready, and the blocks that then build its state
+     * need the rows belonging to it. Holding one bundle per online player is a few hundred bytes and
+     * saves a query on the tick at the moment a player enters the world.
+     */
+    private final ConcurrentHashMap<UUID, SessionBundle> loaded = new ConcurrentHashMap<>();
+
     /**
      * The ids of everything hooked into the lifecycle.
      *
@@ -70,8 +78,55 @@ public final class DefaultSessionLifecycle implements SessionLifecycle {
         return attachments.stream().map(SessionAttachment::id).toList();
     }
 
+    /**
+     * Registers an attachment. Called during module start, before any player can connect.
+     *
+     * <p>Inserted according to {@link SessionAttachment#order()} rather than appended, so the order is
+     * settled once here instead of being re-derived on every login. Equal orders keep their
+     * registration sequence, which is the module start order.
+     */
     public void addAttachment(SessionAttachment attachment) {
-        attachments.add(Objects.requireNonNull(attachment, "attachment"));
+        Objects.requireNonNull(attachment, "attachment");
+        int at = attachments.size();
+        while (at > 0 && attachments.get(at - 1).order() > attachment.order()) {
+            at--;
+        }
+        attachments.add(at, attachment);
+    }
+
+    /**
+     * What the login read for this player, while the session lasts.
+     *
+     * <p>For the selection: it shows every character of the account with what each has reached, and
+     * those rows are in here. Reading them from the database instead would be a query per menu build,
+     * and the menu is rebuilt every time a player tries to close it.
+     */
+    public Optional<SessionBundle> loadedBundle(UUID playerId) {
+        return Optional.ofNullable(loaded.get(playerId));
+    }
+
+    /**
+     * Drops the session and everything held alongside it.
+     *
+     * <p>One method rather than two calls at five sites: the bundle outlives the load on purpose, so
+     * the one place it must not outlive is the session, and a site that forgot it would leak a bundle
+     * per login without anything failing.
+     */
+    private void forget(UUID playerId) {
+        registry.remove(playerId);
+        loaded.remove(playerId);
+    }
+
+    /**
+     * The attachments in teardown order - the reverse of build-up.
+     *
+     * <p>So nothing is calculated from state that was already released: B04 hands over its resources
+     * while the level and the class it computed them from are still there.
+     */
+    private java.util.List<SessionAttachment> teardownOrder() {
+        java.util.List<SessionAttachment> reversed = new java.util.ArrayList<>(attachments);
+        java.util.Collections.reverse(reversed);
+        return reversed;
     }
 
     public DefaultSessionLifecycle(
@@ -128,6 +183,58 @@ public final class DefaultSessionLifecycle implements SessionLifecycle {
     }
 
     @Override
+    public boolean activateCharacter(UUID playerId, PlayerCharacter character) {
+        Objects.requireNonNull(playerId, "playerId");
+        Objects.requireNonNull(character, "character");
+
+        Optional<PlayerSession> held = registry.peek(playerId);
+        if (held.isEmpty()) {
+            // The player left between creating the character and this call. The character is stored and
+            // will be picked up by the next login; there is nothing here to attach it to.
+            logger.fine(
+                    () -> "[session] no session left to activate " + character.characterId() + " in");
+            return false;
+        }
+        PlayerSession session = held.get();
+        if (!session.activate(character)) {
+            // Already playing someone. Not this block's business to decide what went wrong - the
+            // caller is told it lost, and B07 keeps its menu open.
+            logger.warning(
+                    "[session] "
+                            + playerId
+                            + " already has an active character; refused to activate "
+                            + character.characterId());
+            return false;
+        }
+
+        // What the login read. Empty only if the session was opened without going through the load -
+        // the attachments then get an empty bundle and start the character from scratch, which is the
+        // right answer for a character that was created a moment ago anyway.
+        SessionBundle bundle =
+                loaded.getOrDefault(playerId, SessionBundle.empty(playerId));
+
+        // Same confinement as the open path: a broken attachment must not cost the player the
+        // character they just chose.
+        for (SessionAttachment attachment : attachments) {
+            try {
+                attachment.onCharacterActivated(session, character, bundle);
+            } catch (RuntimeException failure) {
+                logger.log(
+                        Level.WARNING,
+                        "[session] attachment '"
+                                + attachment.id()
+                                + "' failed while activating the character of "
+                                + playerId
+                                + "; continuing without it",
+                        failure);
+            }
+        }
+        logger.fine(
+                () -> "[session] " + playerId + " entered play as " + character.characterId());
+        return true;
+    }
+
+    @Override
     public CompletableFuture<Void> endSession(UUID playerId, SessionEndReason reason) {
         Objects.requireNonNull(playerId, "playerId");
         Objects.requireNonNull(reason, "reason");
@@ -147,14 +254,15 @@ public final class DefaultSessionLifecycle implements SessionLifecycle {
             // FAILED: the load never produced a usable state, so there is nothing to write and no
             // transition left to make (FR-012). Normally such a session is already gone; this is
             // the guard for the case where it is not.
-            registry.remove(playerId);
+            forget(playerId);
             return CompletableFuture.completedFuture(null);
         }
 
         session.transitionTo(SessionState.UNLOADING, clock.instant());
 
-        // Before the final write, so an attachment can hand over anything still to be persisted.
-        for (SessionAttachment attachment : attachments) {
+        // Before the final write, so an attachment can hand over anything still to be persisted, and in
+        // teardown order, so nobody hands over a value computed from state that is already gone.
+        for (SessionAttachment attachment : teardownOrder()) {
             try {
                 attachment.onSessionClosing(playerId);
             } catch (RuntimeException failure) {
@@ -170,7 +278,7 @@ public final class DefaultSessionLifecycle implements SessionLifecycle {
         }
 
         if (!session.mayBeWritten()) {
-            registry.remove(playerId);
+            forget(playerId);
             return CompletableFuture.completedFuture(null);
         }
 
@@ -188,7 +296,7 @@ public final class DefaultSessionLifecycle implements SessionLifecycle {
                                         failure);
                                 return;
                             }
-                            registry.remove(playerId);
+                            forget(playerId);
                             logger.fine("[session] " + playerId + " unloaded (" + reason + ")");
                         });
     }
@@ -207,7 +315,7 @@ public final class DefaultSessionLifecycle implements SessionLifecycle {
                 .ifPresent(
                         session -> {
                             session.transitionTo(SessionState.UNLOADING, clock.instant());
-                            registry.remove(playerId);
+                            forget(playerId);
                         });
     }
 
@@ -229,8 +337,10 @@ public final class DefaultSessionLifecycle implements SessionLifecycle {
         }
 
         SessionBundle migrated = migrator.migrate(bundle);
-        PlayerCharacter active = migrated.preferredCharacter().orElse(null);
-        PlayerSession session = new PlayerSession(playerId, active, migrated.characters());
+        // No character is picked here, not even when the account has exactly one. Which character is
+        // played is the selection's decision on every join (ADR-020), and choosing one in advance would
+        // mean the menu had to undo a character that four blocks had already built state for.
+        PlayerSession session = new PlayerSession(playerId, null, migrated.characters());
 
         if (abandoned.remove(playerId) != null) {
             // The player disconnected while this load ran. Do not publish it and do not write it.
@@ -244,6 +354,12 @@ public final class DefaultSessionLifecycle implements SessionLifecycle {
         if (migrator.migratedAnything(bundle, migrated)) {
             writer.markCharactersDirty(migrated.characters());
         }
+
+        // Kept until a character is chosen. Since the session no longer picks one, everything a block
+        // needs to build that character's state - resources, level, tiers - is read at selection time,
+        // and it was all in this one read (FR-005). Fetching it again then would be a second query on
+        // the player's tick for rows that are already in hand.
+        loaded.put(playerId, migrated);
 
         // Later blocks build their per-session state here, while the player is still held. B04
         // needs this: a stat holder has to be calculated before release (FR-019b).
@@ -272,7 +388,7 @@ public final class DefaultSessionLifecycle implements SessionLifecycle {
                                 session.transitionTo(SessionState.FAILED, clock.instant());
                             }
                             // Removed without ever being written - the guarantee of FR-012.
-                            registry.remove(playerId);
+                            forget(playerId);
                         });
         logger.log(Level.WARNING, "[session] load for " + playerId + " failed", failure);
     }

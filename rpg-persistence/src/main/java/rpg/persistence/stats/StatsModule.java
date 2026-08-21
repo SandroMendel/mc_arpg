@@ -46,6 +46,14 @@ public final class StatsModule implements Module {
     /** Stable identifier, independent of this class's name (B01/FR-001a). */
     public static final String ID = "stats";
 
+    /**
+     * The attachment order of this block: after every supplier of base values.
+     *
+     * <p>A number rather than a position in a list, so a later block declares "before stats" by leaving
+     * {@link SessionAttachment#order()} at its default and nobody has to edit this file.
+     */
+    private static final int LATE = 100;
+
     private static final String CONFIG_FILE = "stats.yml";
 
     private final PersistenceModule persistence;
@@ -142,6 +150,20 @@ public final class StatsModule implements Module {
             return ID;
         }
 
+        /**
+         * Last of all, because this is the one that calculates.
+         *
+         * <p>B06 supplies the level and B07 the class and the equipment tiers, and both attach with the
+         * default order - but their modules start <em>after</em> this one, so registration order alone
+         * would run the calculation before its inputs were loaded. {@code restoreResources} clamps
+         * against that snapshot, so a level 60 warrior would come back at the bare value from
+         * {@code stats.yml}. See {@link SessionAttachment#order()}.
+         */
+        @Override
+        public int order() {
+            return LATE;
+        }
+
         @Override
         public void onSessionOpened(PlayerSession session, SessionBundle bundle) {
             Optional<PlayerCharacter> active = session.activeCharacter();
@@ -152,12 +174,7 @@ public final class StatsModule implements Module {
             UUID characterId = active.get().characterId();
             UUID playerId = session.playerId();
 
-            engine.createForCharacter(playerId, characterId, new ResourcePool(0.0, 0.0));
-            characterOfHolder.put(playerId, characterId);
-
-            // Immediate, not bundled: the player is released right after this, and FR-019b forbids
-            // releasing anyone with an outstanding recalculation mark.
-            StatSnapshot snapshot = engine.recalculateNow(playerId);
+            StatSnapshot snapshot = build(playerId, characterId);
 
             ResourcePool restored =
                     bundle.resourcesOf(characterId)
@@ -169,6 +186,45 @@ public final class StatsModule implements Module {
                                                     snapshot.get(rpg.core.stats.Attribute.HEALTH),
                                                     snapshot.get(rpg.core.stats.Attribute.MANA)));
             engine.restoreResources(playerId, restored);
+        }
+
+        /**
+         * A character entered play, so its holder is built now (FR-027).
+         *
+         * <p>The same work {@code onSessionOpened} used to do, at the moment that now has a character.
+         * Stored resources come out of the bundle; a character created moments ago has none and starts
+         * full.
+         *
+         * <p>Runs before B07 lets the player into the world, which is the same guarantee the open path
+         * gives before the release: nobody is ever in play without values.
+         */
+        @Override
+        public void onCharacterActivated(
+                PlayerSession session, PlayerCharacter character, SessionBundle bundle) {
+            UUID playerId = session.playerId();
+            UUID characterId = character.characterId();
+            StatSnapshot snapshot = build(playerId, characterId);
+            ResourcePool restored =
+                    bundle.resourcesOf(characterId)
+                            .map(CharacterResources::toPool)
+                            .orElseGet(
+                                    () ->
+                                            ResourcePool.full(
+                                                    snapshot.get(rpg.core.stats.Attribute.HEALTH),
+                                                    snapshot.get(rpg.core.stats.Attribute.MANA)));
+            engine.restoreResources(playerId, restored);
+        }
+
+        /**
+         * Creates the holder and calculates it once.
+         *
+         * <p>The recalculation is immediate rather than bundled: on the open path the player is
+         * released right afterwards, and FR-019b forbids releasing anyone with an outstanding mark.
+         */
+        private StatSnapshot build(UUID playerId, UUID characterId) {
+            engine.createForCharacter(playerId, characterId, new ResourcePool(0.0, 0.0));
+            characterOfHolder.put(playerId, characterId);
+            return engine.recalculateNow(playerId);
         }
 
         @Override
@@ -207,6 +263,18 @@ public final class StatsModule implements Module {
     /** The engine, for the plugin's wiring. Other blocks use the registered {@link StatEngine}. */
     public DefaultStatEngine engine() {
         return engine;
+    }
+
+    /**
+     * The validated configuration, for blocks that need to check their own values against the caps.
+     *
+     * <p>B07 does: its top equipment tier must not push an attribute past the cap, because everything
+     * above it would be unreachable and nothing at runtime would report it. Reading the definitions
+     * through {@link StatEngine} is not possible on purpose - the engine exposes calculated values, not
+     * the ranges they are calculated within.
+     */
+    public StatConfig config() {
+        return configHandle.get();
     }
 
     /**

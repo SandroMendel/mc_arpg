@@ -43,6 +43,7 @@ import rpg.persistence.support.PostgresContainer;
 class SessionLoadIntegrationTest {
 
     private static final Logger QUIET = Logger.getLogger("session-load-integration-test");
+    private static final java.time.Clock CLOCK = java.time.Clock.systemUTC();
 
     private PersistenceHarness harness;
 
@@ -67,7 +68,8 @@ class SessionLoadIntegrationTest {
         UUID playerId = storedPlayerWithCharacterAndItems();
         CountingDataSource counting = new CountingDataSource(harness.pools.loginPool());
         SessionBundleLoader loader =
-                new SessionBundleLoader(counting, harness.characters, QUIET);
+                new SessionBundleLoader(
+                        counting, harness.characters, harness.playerStates, CLOCK, QUIET);
 
         SessionBundle bundle = loader.load(playerId);
 
@@ -81,7 +83,8 @@ class SessionLoadIntegrationTest {
     void aFirstTimePlayerIsReportedAsNewWithoutRunningTheRemainingQueries() {
         CountingDataSource counting = new CountingDataSource(harness.pools.loginPool());
         SessionBundleLoader loader =
-                new SessionBundleLoader(counting, harness.characters, QUIET);
+                new SessionBundleLoader(
+                        counting, harness.characters, harness.playerStates, CLOCK, QUIET);
 
         SessionBundle bundle = loader.load(UUID.randomUUID());
 
@@ -92,12 +95,63 @@ class SessionLoadIntegrationTest {
     }
 
     @Test
+    void aFirstTimePlayerCanCreateACharacterBeforeAnythingIsFlushed() {
+        // The bug this is here for, seen on a live server: the account row was left to the write-behind
+        // buffer, but rpg.character.player_id is a foreign key onto it and B07 opens the class
+        // selection seconds after the login. Every first class choice of every new player failed with
+        // "could not create character", for all three classes, and the menu reopened forever.
+        //
+        // Nothing is flushed anywhere in this test - that is the point.
+        UUID playerId = UUID.randomUUID();
+        SessionBundleLoader loader =
+                new SessionBundleLoader(
+                        harness.pools.loginPool(),
+                        harness.characters,
+                        harness.playerStates,
+                        CLOCK,
+                        QUIET);
+        loader.load(playerId);
+
+        PlayerCharacter created =
+                harness.characters.create(playerId, CharacterClass.WARRIOR).join();
+
+        assertThat(created.playerId()).isEqualTo(playerId);
+        assertThat(created.characterClass()).isEqualTo(CharacterClass.WARRIOR);
+    }
+
+    @Test
+    void aSecondLoginOfTheSameNewAccountDoesNotFailOnItsOwnRow() {
+        // The insert is ON CONFLICT DO NOTHING, because two logins racing here is an ordinary outcome.
+        UUID playerId = UUID.randomUUID();
+        SessionBundleLoader loader =
+                new SessionBundleLoader(
+                        harness.pools.loginPool(),
+                        harness.characters,
+                        harness.playerStates,
+                        CLOCK,
+                        QUIET);
+
+        loader.load(playerId);
+        SessionBundle second = loader.load(playerId);
+
+        assertThat(second.accountState())
+                .as("the second login finds the row the first one wrote")
+                .isPresent();
+        assertThat(second.isNewAccount()).isFalse();
+    }
+
+    @Test
     void anUnreadableStoreFailsRatherThanReturningAnEmptyBundle() {
         // FR-005a. "Never seen before" and "could not be read" must stay distinguishable: the first
         // is a normal first login, the second must refuse the login. Collapsing them is precisely
         // how an empty profile ends up overwriting a real one.
         SessionBundleLoader loader =
-                new SessionBundleLoader(new FailingDataSource(), harness.characters, QUIET);
+                new SessionBundleLoader(
+                        new FailingDataSource(),
+                        harness.characters,
+                        harness.playerStates,
+                        CLOCK,
+                        QUIET);
 
         assertThatThrownBy(() -> loader.load(UUID.randomUUID()))
                 .isInstanceOf(PersistenceException.class);
@@ -116,7 +170,12 @@ class SessionLoadIntegrationTest {
         harness.flushCycle.flushNow(FlushReason.INTERVAL).get();
 
         SessionBundle bundle =
-                new SessionBundleLoader(harness.pools.loginPool(), harness.characters, QUIET)
+                new SessionBundleLoader(
+                                harness.pools.loginPool(),
+                                harness.characters,
+                                harness.playerStates,
+                                CLOCK,
+                                QUIET)
                         .load(playerId);
 
         assertThat(bundle.characters()).hasSize(2);
@@ -201,7 +260,12 @@ class SessionLoadIntegrationTest {
 
         // The load fails; nothing may reach storage as a result.
         SessionBundleLoader loader =
-                new SessionBundleLoader(new FailingDataSource(), harness.characters, QUIET);
+                new SessionBundleLoader(
+                        new FailingDataSource(),
+                        harness.characters,
+                        harness.playerStates,
+                        CLOCK,
+                        QUIET);
         assertThatThrownBy(() -> loader.load(playerId)).isInstanceOf(PersistenceException.class);
         harness.flushCycle.flushNow(FlushReason.INTERVAL).get();
 

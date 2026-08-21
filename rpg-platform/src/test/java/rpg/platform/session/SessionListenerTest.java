@@ -305,6 +305,7 @@ class SessionListenerTest {
         private final List<UUID> readied = new ArrayList<>();
         private final List<UUID> ended = new ArrayList<>();
         private final List<UUID> abandoned = new ArrayList<>();
+        private final List<UUID> activated = new ArrayList<>();
         private RuntimeException loadFailure;
         private boolean unloadFails;
 
@@ -328,6 +329,12 @@ class SessionListenerTest {
         @Override
         public void markReady(UUID playerId) {
             readied.add(playerId);
+        }
+
+        @Override
+        public boolean activateCharacter(UUID playerId, rpg.core.session.PlayerCharacter character) {
+            activated.add(playerId);
+            return true;
         }
 
         @Override

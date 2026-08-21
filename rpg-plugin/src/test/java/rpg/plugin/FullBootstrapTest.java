@@ -102,7 +102,13 @@ class FullBootstrapTest {
         assertThat(handlerCount(PlayerJoinEvent.getHandlerList())).isEqualTo(1);
         assertThat(handlerCount(PlayerQuitEvent.getHandlerList())).isEqualTo(1);
         assertThat(handlerCount(PlayerConnectionCloseEvent.getHandlerList())).isEqualTo(1);
-        assertThat(handlerCount(PlayerMoveEvent.getHandlerList())).isEqualTo(1);
+        // Two, and both are meant: B03 freezes a player while their session loads, B07 freezes one who
+        // has not chosen a class (ADR-020). Different reasons, different lifetimes - and neither is a
+        // lifecycle entry, so the invariant this test protects is the two assertions above. Both handlers
+        // return on a counter before touching the event, which is what keeps a hot event affordable.
+        assertThat(handlerCount(PlayerMoveEvent.getHandlerList()))
+                .as("B03's safe-state hold and B07's no-character hold")
+                .isEqualTo(2);
     }
 
     @Test
@@ -113,6 +119,8 @@ class FullBootstrapTest {
         assertThat(dataFolder.resolve("session.yml")).exists();
         assertThat(dataFolder.resolve("stats.yml")).exists();
         assertThat(dataFolder.resolve("combat.yml")).exists();
+        assertThat(dataFolder.resolve("progression.yml")).exists();
+        assertThat(dataFolder.resolve("classes.yml")).exists();
         assertThat(dataFolder.resolve("messages.yml")).exists();
     }
 
@@ -256,6 +264,120 @@ class FullBootstrapTest {
         for (var cause : EntityDamageEvent.DamageCause.values()) {
             assertThat(mapping.resolve(cause)).as(cause.name()).isNotNull();
         }
+    }
+
+    // --- B07 --------------------------------------------------------------
+    //
+    // T127, and the same trap as B06 one layer along: the block has a session attachment, four
+    // listeners and a contributor, and every one of them is dead code until the plugin registers it.
+    // ADR-012 exists because that has happened before.
+
+    @Test
+    void theClassRegistryIsResolvableThroughTheRegistry() {
+        assertThat(plugin.registry().findService(rpg.core.classes.ClassRegistry.class))
+                .as("B08 binds abilities against this, B11 and B13 read the ladders")
+                .isPresent();
+    }
+
+    @Test
+    void theClassProgressTableExistsBecauseB07sMigrationRanToo() {
+        assertThat(PostgresContainer.tableExists("character_class_progress")).isTrue();
+    }
+
+    @Test
+    void classesHookIntoTheSessionLifecycle() {
+        assertThat(plugin.sessionLifecycle().attachmentIds())
+                .as("the reached tiers are loaded on session open and released on close")
+                .contains("classes");
+    }
+
+    @Test
+    void theCalculationAttachesAfterEverySupplierOfBaseValues() {
+        // The ordering bug this asserts against is silent and expensive: B04 calculates, B06 and B07
+        // supply, and restoreResources clamps the stored health against whatever B04 computed. Run in
+        // module start order, B04 would go first and a level 60 warrior would come back at the bare
+        // value from stats.yml. See SessionAttachment.order().
+        java.util.List<String> ids = plugin.sessionLifecycle().attachmentIds();
+
+        assertThat(ids).contains("stats", "progression", "classes");
+        assertThat(ids.indexOf("stats"))
+                .as("B04 calculates from what B06 and B07 loaded, so it attaches after both")
+                .isGreaterThan(ids.indexOf("progression"))
+                .isGreaterThan(ids.indexOf("classes"));
+    }
+
+    @Test
+    void theClassReplacesTheLevelGrowthRatherThanAddingToIt() {
+        // FR-003, and the failure mode is the reason this is asserted at the bootstrap rather than in a
+        // unit test: B06 registers a class-neutral level growth, B07 registers a per-class one, and both
+        // modules start. If B07 stopped removing B06's, every character would simply be too strong -
+        // nothing throws, and every unit test in both blocks stays green.
+        assertThat(plugin.statEngine().baseContributorIds())
+                .as("B07 supplies the growth per class")
+                .contains("class")
+                .as("so B06's class-neutral growth must be gone")
+                .doesNotContain(rpg.core.progression.LevelStatContributor.ID);
+    }
+
+    @Test
+    void theClassLoadedItsShippedConfigurationRatherThanADefault() {
+        rpg.core.classes.ClassRegistry classes =
+                plugin.registry().getService(rpg.core.classes.ClassRegistry.class);
+
+        // Ladder lengths differ per class and are configuration, not code (ADR-017). Reading them back
+        // proves classes.yml was written out, parsed and validated - the caps check in the module runs
+        // against these very values.
+        assertThat(
+                        classes.ladder(
+                                        rpg.core.session.CharacterClass.WARRIOR,
+                                        rpg.core.classes.LadderSlot.ARMOR)
+                                .length())
+                .isEqualTo(5);
+        assertThat(
+                        classes.ladder(
+                                        rpg.core.session.CharacterClass.MAGE,
+                                        rpg.core.classes.LadderSlot.WEAPON)
+                                .length())
+                .isEqualTo(7);
+    }
+
+    @Test
+    void everyClassEventHasItsHandler() {
+        // The inventory lock and the selection both sit on InventoryClickEvent: the lock refuses to move
+        // a bound item, the selection refuses everything while the menu is open. Two handlers, two
+        // jobs - and if either is missing, bound equipment becomes removable (ADR-018).
+        assertThat(handlerCount(org.bukkit.event.inventory.InventoryClickEvent.getHandlerList()))
+                .as("the equipment lock and the selection menu")
+                .isEqualTo(2);
+        assertThat(handlerCount(org.bukkit.event.player.PlayerDropItemEvent.getHandlerList()))
+                .as("dropping is off for every item, bound or not (ADR-018)")
+                .isEqualTo(1);
+        assertThat(handlerCount(org.bukkit.event.inventory.InventoryCloseEvent.getHandlerList()))
+                .as("every route out of the selection leads back into it")
+                .isEqualTo(1);
+    }
+
+    // --- character inventory (B07 groundwork for B11) ---------------------
+
+    @Test
+    void theInventoryTableExistsBecauseItsMigrationRanToo() {
+        assertThat(PostgresContainer.tableExists("character_inventory")).isTrue();
+    }
+
+    @Test
+    void theInventoryHooksIntoTheSessionLifecycle() {
+        // Without the attachment nothing is loaded on entry and nothing is marked on the way out - the
+        // table would stay empty and every logout would look like an empty inventory.
+        assertThat(plugin.sessionLifecycle().attachmentIds())
+                .as("stored contents are loaded on entry and marked on close")
+                .contains("inventory");
+    }
+
+    @Test
+    void theInventoryRepositoryIsResolvableThroughTheRegistry() {
+        assertThat(plugin.registry().findService(rpg.core.inventory.CharacterInventoryRepository.class))
+                .as("B11 takes this over")
+                .isPresent();
     }
 
     @Test

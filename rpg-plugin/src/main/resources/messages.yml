@@ -60,3 +60,67 @@ progression:
       target-not-ready: 'That player is not ready yet.'
       self-invite: 'You cannot invite yourself.'
       not-a-member: 'That player is not in your party.'
+
+combat:
+  status:
+    # The player's own health and defence, on the action bar. Redrawn on every change and once a
+    # second while in combat, because Minecraft fades an action bar after about two seconds.
+    action-bar: '{health}/{max} HP ({percent}%)   DEF {defense}'
+  target:
+    # One line per half-second window, not per hit - B05 aggregates, so a fast weapon does not
+    # write a wall of text. {damage} is the sum of that window, {hits} how many blows it took.
+    report: '{target}  {health}/{max} ({percent}%)  DEF {defense}   -{damage}'
+    slain: '{target} slain   -{damage}'
+
+class:
+  # Display names. The enum constant stays WARRIOR; "Berserker" is a value here, never in code
+  # (ADR-019). This is also where a later translation would land without touching a class file.
+  warrior:
+    name: 'Berserker'
+  mage:
+    name: 'Mage'
+  rogue:
+    name: 'Rogue'
+
+  selection:
+    title: 'Choose your class'
+    chosen: 'You are now a {class}.'
+    # Shown when a player tries to leave the selection. Before the choice there is no game state
+    # at all (ADR-020), so there is nothing to go back to.
+    locked: 'Choose a class first.'
+    error:
+      class-taken: 'You already have a {class} on this account.'
+      unknown-class: 'That class does not exist.'
+      already-has-character: 'You already have a character in play.'
+    # The selection is shown on every join, so it cannot be waited out: a player parked in the menu
+    # holds a session and a server slot without ever entering the world.
+    timeout:
+      warning: 'Choose a character within {seconds} seconds or you will be disconnected.'
+      kick: 'Disconnected: no character was chosen.'
+
+  # Lore of one slot in the selection. Shown on every join, so it has to answer "which of my
+  # characters is this" at a glance.
+  slot:
+    level: 'Level {level}'
+    tiers: 'Armour {armor}/{armor_max}   Weapon {weapon}/{weapon_max}'
+    last-played: 'Last played {when} ago'
+    resume: 'Click to play'
+    empty: 'No character yet'
+    create: 'Click to create one'
+
+  tier:
+    advanced: 'Your {slot} advanced to tier {tier}.'
+    error:
+      below-required-level: 'That tier requires level {level}.'
+      already-at-top: 'That is already the highest tier.'
+      unknown-character: 'No character found.'
+
+  equipment:
+    # The class armour and weapon are part of the character, not contents of its inventory
+    # (ADR-018).
+    bound: 'That is part of your character and cannot be moved.'
+    drop-disabled: 'Items cannot be thrown. Use your ender chest, a vendor, or the bin.'
+
+  inventory:
+    # No automatic cleanup, no background bank, no silent discard - the player makes room.
+    full: 'Your inventory is full. Make room before more loot arrives.'
