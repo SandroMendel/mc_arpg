@@ -30,6 +30,22 @@ import rpg.core.persistence.PersistenceStartupException;
  */
 public final class ConnectionPools implements AutoCloseable {
 
+    /**
+     * The driver is named explicitly instead of being left to {@link java.sql.DriverManager}.
+     *
+     * <p>Paper resolves the driver from the {@code libraries:} section of plugin.yml into a
+     * classloader of its own (ADR-010). {@code DriverManager} scans for drivers exactly once,
+     * through the system classloader, long before that classloader exists - so the driver never
+     * registers itself there. Hikari's fallback is {@code DriverManager.getDriver(url)}, which then
+     * fails with "No suitable driver" although the jar is present and Hikari itself loaded from the
+     * very classloader that holds it. Naming the class makes Hikari load it through that
+     * classloader instead of asking a registry that cannot see it.
+     *
+     * <p>Deliberately not configurable: the project is PostgreSQL-only, and a wrong value must fail
+     * the start rather than silently pick something else.
+     */
+    static final String DRIVER_CLASS = "org.postgresql.Driver";
+
     private final HikariDataSource writePool;
     private final HikariDataSource loginPool;
     private final Logger logger;
@@ -86,9 +102,20 @@ public final class ConnectionPools implements AutoCloseable {
 
     private static HikariDataSource createPool(
             PersistenceConfig config, String poolName, int size) {
+        return new HikariDataSource(poolConfig(config, poolName, size));
+    }
+
+    /**
+     * Visible for testing: the pool settings can be asserted without opening a connection, which is
+     * the only way to guard the driver decision above in a unit test. On the test classpath the
+     * driver sits on the system classloader, so a test that actually connects would pass either
+     * way - and did.
+     */
+    static HikariConfig poolConfig(PersistenceConfig config, String poolName, int size) {
         HikariConfig hikari = new HikariConfig();
         hikari.setPoolName(poolName);
         hikari.setJdbcUrl(config.jdbcUrl());
+        hikari.setDriverClassName(DRIVER_CLASS);
         hikari.setUsername(config.user());
         hikari.setPassword(config.password());
         hikari.setMaximumPoolSize(size);
@@ -99,6 +126,6 @@ public final class ConnectionPools implements AutoCloseable {
         hikari.setConnectionTimeout(5_000L);
         hikari.setInitializationFailTimeout(10_000L);
         hikari.setAutoCommit(false); // writes are batched inside explicit transactions
-        return new HikariDataSource(hikari);
+        return hikari;
     }
 }
