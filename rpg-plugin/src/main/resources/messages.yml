@@ -60,3 +60,41 @@ progression:
       target-not-ready: 'That player is not ready yet.'
       self-invite: 'You cannot invite yourself.'
       not-a-member: 'That player is not in your party.'
+
+class:
+  # Display names. The enum constant stays WARRIOR; "Berserker" is a value here, never in code
+  # (ADR-019). This is also where a later translation would land without touching a class file.
+  warrior:
+    name: 'Berserker'
+  mage:
+    name: 'Mage'
+  rogue:
+    name: 'Rogue'
+
+  selection:
+    title: 'Choose your class'
+    chosen: 'You are now a {class}.'
+    # Shown when a player tries to leave the selection. Before the choice there is no game state
+    # at all (ADR-020), so there is nothing to go back to.
+    locked: 'Choose a class first.'
+    error:
+      class-taken: 'You already have a {class} on this account.'
+      unknown-class: 'That class does not exist.'
+      already-has-character: 'You already have a character in play.'
+
+  tier:
+    advanced: 'Your {slot} advanced to tier {tier}.'
+    error:
+      below-required-level: 'That tier requires level {level}.'
+      already-at-top: 'That is already the highest tier.'
+      unknown-character: 'No character found.'
+
+  equipment:
+    # The class armour and weapon are part of the character, not contents of its inventory
+    # (ADR-018).
+    bound: 'That is part of your character and cannot be moved.'
+    drop-disabled: 'Items cannot be thrown. Use your ender chest, a vendor, or the bin.'
+
+  inventory:
+    # No automatic cleanup, no background bank, no silent discard - the player makes room.
+    full: 'Your inventory is full. Make room before more loot arrives.'

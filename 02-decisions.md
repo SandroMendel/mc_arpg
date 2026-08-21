@@ -50,7 +50,7 @@ Prozentanzeige.
 
 ## ADR-004 · Ausrüstung ist Stat-Quelle
 
-**Status:** Entschieden
+**Status:** Für Rüstung und Waffe revidiert durch ADR-017; für alle übrigen Items in Kraft
 
 Spielerwerte setzen sich zusammen aus Klasse + Level + **Ausrüstung** (später
 zusätzlich Buffs/Auren).
@@ -143,6 +143,9 @@ verbindlicher Vertrag für B04–B08, B10, B11, B13.
 - **Skalierungsverhältnis Level vs. Ausrüstung:** Ausrüstung dominant. Level
   liefert nur einen kleinen festen Stat-Zuwachs pro Level (siehe B06); der
   Großteil der Endpower kommt aus Ausrüstung, konsistent mit ADR-004.
+  *Seit ADR-017 gilt: die Höhe der Endpower und alle Wertebereiche bleiben
+  unverändert, aber ihre Quelle ist die klassengebundene Ausrüstungsleiter
+  (`SourceKind.CLASS`) statt erbeuteter Items (`EQUIPMENT`).*
 - **attackSpeed / movementSpeed:** Beide laufen über Vanilla-Attribute
   (`GENERIC_ATTACK_SPEED`, `GENERIC_MOVEMENT_SPEED`), gesteuert durch
   B04-Modifikatoren.
@@ -709,3 +712,188 @@ genau die, die eine fehlende Testdatei jahrelang verdeckt.
 **Nebenbefund, als Invariante festgehalten:** `NoDatabaseAccessPerGameEventTest` prüft jetzt, dass
 jeder Wert von `AggregateType` in `FlushCycle.WRITE_ORDER` steht und jedes Kind nach seinem Elternteil
 kommt. Der erste Teil hätte den B06-Fehler aus ADR-015 Punkt 7 sofort gezeigt.
+
+---
+
+## ADR-017 · Rüstung und Waffe sind Klassenprogression, nicht Beute
+
+**Status:** Entschieden *(2026-08-21)*
+
+**Revidiert:** ADR-004 für die Slots Rüstung und Waffe.
+
+Jede Klasse besitzt genau **einen** Rüstungs- und **einen** Waffenpfad. Beide sind feste Leitern
+entlang der Vanilla-Materialien. Die Werte je Stufe stehen in der Config und sind **fest, nicht
+gewürfelt**.
+
+**Die Länge ist je Leiter konfiguriert, nicht global fünf** *(präzisiert 2026-08-21)*. Rüstung und
+Waffe einer Klasse dürfen unterschiedlich lang sein:
+
+| Klasse | Rüstung | Waffe |
+|---|---|---|
+| Warrior | 5 Stufen — Leder, Kupfer, Eisen, Diamant, Netherite | 6 Stufen — Schwert, Holz bis Netherite |
+| Rogue | 6 Stufen — Leder, Gold, Kettenhemd, darüber Trims | 6 Stufen — Schwert, mit Gold statt Kupfer |
+| Mage | 7 Stufen — durchgehend Leder, je Stufe eine Farbe | 7 Stufen — Speer, Holz bis Netherite |
+
+Alle Leitern erreichen denselben Endwert; nur die Schrittweite unterscheidet sich. Wertekurve und
+Levelanforderungen werden auf die eigene Länge der Leiter normiert.
+
+**Sichtbarkeit ist Teil der Entscheidung, nicht Kosmetik.** Weil der Mage durchgehend Leder trägt und
+der Rogue ab Stufe 4 durchgehend Kettenhemd, tragen dort **Färbung** beziehungsweise **Trim** die
+Stufe — nicht das Material. Damit sind Farbe und Trim für zwei der drei Klassen Pflichtfelder und
+nicht das ursprünglich vorgesehene Addon. Nebenbedingung aus Vanilla: Leder ist färbbar, Gold und
+Kettenhemd sind es nicht, weshalb der Rogue oberhalb des Kettenhemds nur den Trim als Marker hat.
+
+**Warum überhaupt eine Revision:** ADR-004 machte Ausrüstung zur dominanten Stat-Quelle und stützte
+darauf gewürfelte Roll-Werte, acht Raritätsstufen und Beutetabellen je Mob und Zone. Wenn Rüstung und
+Waffe klassenfest und linear sind — und B11 als Ausrüstungsslots ausdrücklich „nur Vanilla-Armor +
+Waffe" festlegt —, dann hat dieser Apparat nichts mehr, woran er hängen könnte. Beide Modelle
+gleichzeitig zu behaupten hätte eine Spec erzeugt, die sich selbst widerspricht.
+
+**Konsequenzen:**
+
+- **Die dominante Stat-Quelle ist `SourceKind.CLASS`**, nicht mehr `EQUIPMENT`. Die Klasse trägt
+  Basiswerte, Rüstungsstufe und Waffenstufe. Die Summationsreihenfolge in `SourceKind` bleibt
+  unverändert — `EQUIPMENT` verliert nur seine Beiträge, nicht seinen Platz.
+- **Die Wertebereiche und Caps je Attribut aus ADR-008 bleiben gültig.** Nur die Quelle der Endpower
+  wechselt, nicht ihre Höhe. B04 braucht keine Codeänderung.
+- **B11 verliert** gewürfelte Roll-Werte, die acht Raritätsstufen und Beutetabellen für Ausrüstung.
+  **B11 behält** Aufstiegsmaterial, Verbrauchbares, Durability und Reparatur sowie Kosmetik. Der
+  Steckbrief B11 ist entsprechend zu korrigieren, bevor B11 spezifiziert wird.
+- **B07 hält die erreichte Stufe je Charakter persistent** (Migration `V7_1`) und liefert die
+  Schnittstelle zum Weiterschalten. **Wer den Aufstieg bezahlt** — Coins, Level, Material — gehört zu
+  B11/B16 und bleibt hier offen; das Stufen-Schema trägt dafür einen undurchsichtigen `cost`-Block,
+  den B07 nicht auslegt (Workflow-Regel 5).
+- **Kosmetik ist für zwei Klassen Pflicht, nicht Addon** *(korrigiert 2026-08-21)*. Ursprünglich war
+  vorgesehen, Trims und Färbung als reines Addon später nachzurüsten und im Schema nur ein Feld
+  vorzuhalten. Das gilt nur noch für den Warrior. Beim Mage und beim Rogue trägt Färbung
+  beziehungsweise Trim die Stufe, weil das Material sie nicht mehr unterscheidet — ohne sie wäre
+  deren Progression unsichtbar. Das Feld ist dort Pflicht, und eine Konfiguration ohne es ist ein
+  Startfehler.
+
+---
+
+## ADR-018 · Charaktergebundene Items sind unbeweglich, alle anderen nicht
+
+**Status:** Entschieden *(2026-08-21)*
+
+Zwei getrennte Regeln, die nicht verwechselt werden dürfen:
+
+1. **Charaktergebundene Items** — die Klassenrüstung und die Klassenwaffe aus ADR-017 — können
+   **nie** abgelegt, verschoben, verkauft, weggeworfen oder auf sonstige Weise vom Charakter gelöst
+   werden. Sie sind Bestandteil des Charakters, nicht Inhalt seines Inventars.
+2. **Die Spieler-Drop-Aktion ist abgeschaltet.** Kein Spieler kann Items in die Welt werfen — auch
+   keine ungebundenen. Entsorgung läuft ausschließlich über die drei erlaubten Wege unten.
+
+**Was ausdrücklich *nicht* gesperrt ist:** ungebundene Items sind frei beweglich, und **Mob-Loot ist
+unberührt**. Mobs lassen über ihre Loot-Table Items fallen wie geplant (B10, B11); die Sperre ist
+rein spielerseitig. Kämpfen bleibt damit Beutequelle, nicht nur XP-Quelle.
+
+**Warum die Bindung eine Klassenregel ist und keine Item-Eigenschaft:** Die Rüstung gehört nach
+ADR-017 der Klasse, nicht dem Fundstück. Ein Item kann nicht wissen, ob es gebunden ist — die Klasse
+weiß es. Deshalb liegt das Prädikat bei B07.
+
+**Konsequenzen:**
+
+- **B07 besitzt das Prädikat, B11 erzwingt es.** B07 beantwortet „ist dieses Item Bestandteil des
+  Charakters?" — es kennt die Stufenleitern. Jede Bewegungs-, Verkaufs- und Wegwerfroute in B11 fragt
+  dieses Prädikat, statt eigene Annahmen über Materialien zu treffen.
+- **Die Sperre kommt mit B07, nicht erst mit B11.** Sie braucht kein Item-System, nur Event-Abbruch,
+  und ist damit ab M3 wirksam statt ab M4. Die Alternative hätte bedeutet, dass zwischen M3 und M4
+  jeder Test dazu rot oder übersprungen ist.
+- **Modulschnitt wie bei B05:** die Regel liegt in `rpg-core`, der Listener in `rpg-platform` — genau
+  das Muster von `VanillaDamageListener`. B07 bleibt damit Schicht 1, obwohl es einen Bukkit-Listener
+  mitbringt.
+- **Abzuweisende Ereignisse:** Klick auf einen Rüstungsslot, Slot-Tausch und Offhand-Swap für
+  gebundene Items; die Drop-Aktion für **alle** Items. Die Liste ist in der B07-Spec vollständig
+  aufzuführen und je Ereignis zu testen — eine vergessene Route ist ein Loch in einer Regel, die als
+  absolut gilt.
+- **Volles Inventar ist Sache des Spielers.** Fällt Beute an und es ist kein Platz, bekommt er eine
+  Warnung als Title plus Sound. Es gibt **kein** automatisches Aufräumen, keine Bank im Hintergrund
+  und kein stilles Verwerfen — der Spieler schafft selbst Platz. Drei erlaubte Wege:
+
+  | Weg | Zweck | Zuständig |
+  |---|---|---|
+  | Enderchest | Lagern | B11 (Lagerplatz) |
+  | Verkauf an NPC | Coins gewinnen | offen, siehe unten |
+  | Mülleimer-Befehl | Endgültig vernichten | B14 (Befehle) |
+
+  Alle drei prüfen das Bindungsprädikat und weisen gebundene Items ab.
+- **Der Warnhinweis braucht B13.** Title und Sound sind HUD-Ausgaben; bis B13 existiert, ist eine
+  vorläufige Ausgabe zulässig, aber hinter der B13-Schnittstelle zu kapseln (ADR-005).
+- **B11s Todesstrafe bleibt tragfähig.** „Kein Item-Verlust, aber Durability-Verlust" funktioniert auf
+  gebundener Rüstung unverändert.
+- **Admin-Ausnahmen sind hier nicht vorgesehen.** Falls Admins die Sperre umgehen sollen, gehört das
+  als Permission zu B14 und ist dort zu ergänzen.
+
+**Offen, weil kein Block ihn besitzt:** der **NPC-Händler**. Kein Blocksteckbrief B01–B17 deckt NPCs
+ab — B10 beschreibt Mobs und Spawning, nicht Händler. Zudem führt `00-vision-scope.md` „kein
+Crafting-/Wirtschafts-/Handelssystem" als Nicht-Ziel, während Coins seit dem 19.08. als Währung
+feststehen und der NPC-Verkauf eine Coin-Quelle wäre. Beides ist vor `/specify` B11 zu klären: das
+Nicht-Ziel ist zu präzisieren, und der Händler braucht einen Block.
+
+---
+
+## ADR-019 · Drei Klassen sind im Code festgeschrieben, ihr Inhalt ist Config
+
+**Status:** Entschieden *(2026-08-21)*
+
+Die **Menge** der Klassen bleibt im Code: `CharacterClass` und die Constraint
+`CHECK (character_class IN ('WARRIOR','MAGE','ROGUE'))` aus `V3_1__player_characters.sql` bleiben
+unangetastet. Der **Inhalt** jeder Klasse ist vollständig datengetrieben — Basiswerte,
+Wachstumskurven, Ausrüstungsleitern, GUI-Material, Anzeigename und Fähigkeitsbindung kommen je
+Klassen-ID aus der Config. Kein Warrior-Sonderfall im Code.
+
+Eine vierte Klasse ist ein späteres Upgrade und kostet dann genau zwei Zeilen an zwei bekannten
+Stellen: einen Enum-Wert und eine Migration.
+
+**Konsequenzen:**
+
+- **Das Akzeptanzkriterium in `blocks/B07-class-system.md` war falsch.** Dort stand „eine vierte
+  Klasse lässt sich rein über Konfiguration ergänzen; der Test weist das nach". Das ist mit dieser
+  Entscheidung nicht mehr wahr und wird im Steckbrief korrigiert, statt einen Test zu bauen, der
+  etwas anderes behauptet.
+- **Getestet wird stattdessen die Gegenrichtung:** der Klassenlader weist eine unbekannte Klassen-ID
+  ausdrücklich ab, statt sie stillschweigend zu überspringen. Damit ist belegt, dass keine dritte
+  Stelle über die Klassenmenge mitentscheidet — der Upgradepfad bleibt auf zwei Stellen begrenzt.
+- **„Berserker" ist Anzeigename, nicht Klassen-ID.** Der Enum-Wert bleibt `WARRIOR`; der im Spiel
+  gezeigte Name kommt wie jeder andere Klasseninhalt aus der Config. Das deckt sich mit B08, wo die
+  Unique Ability des Warrior „Call of the Berserker" heißt.
+
+---
+
+## ADR-020 · Vor der Klassenwahl gibt es keinen Spielzustand
+
+**Status:** Entschieden *(2026-08-21)*
+
+Ein Spieler ohne Charakter ist **nicht spielbar**. Nach dem Laden der Sitzung (B03) öffnet sich die
+Klassenauswahl und lässt sich nicht schließen; bis zur Wahl gibt es keinen Stat-Snapshot, keinen
+Schaden und keine Bewegung.
+
+```
+Join
+  -> Sitzung laden (B03)
+  -> hat Charakter?  ja   -> normaler Spielzustand
+                     nein -> GUI offen, nicht schliessbar
+                             kein Stat-Snapshot
+                             kein Schaden (B05 weist ab)
+                             Bewegung eingefroren
+  -> Wahl getroffen -> Charakter anlegen -> Spielzustand
+```
+
+**Warum nicht der Tutorialbereich:** ADR-006 sieht eine separate Tutorial-/Startwelt vor, sie wäre
+also architektonisch gedeckt. Sie hätte aber einen **spielbaren Zustand ohne Charakter** verlangt —
+also temporäre Stats quer durch B04, B05 und B06. Der Aufwand entsteht in jedem Block, und der Nutzen
+liegt in Weltinhalten, die erst B09 liefert.
+
+**Konsequenzen:**
+
+- **B04 und B05 brauchen keinen „kein Charakter"-Fall.** Der Zustand ist per Konstruktion nicht
+  spielbar, statt an jeder Stelle abgefragt zu werden. Das ist der eigentliche Gewinn dieser
+  Entscheidung.
+- **Die Tutorialwelt bleibt nachrüstbar.** Sie kann später vor die Auswahl gesetzt werden, ohne B07
+  anzufassen — die Auswahl bleibt der Übergang in den Spielzustand, egal wo der Spieler vorher stand.
+- **Kein Spieler kann ohne Charakter online verweilen.** Damit entfällt die Frage, ob ein solcher
+  Spieler gegen das Spielerlimit aus ADR-002 zählt.
+- **Zu testen ist die Nichtschließbarkeit selbst**, nicht nur der glückliche Pfad: jeder Weg aus der
+  GUI heraus — Escape, Inventarwechsel, Befehl, Weltwechsel — muss zurück in die GUI führen. Dieselbe
+  Vollständigkeitspflicht wie bei der Inventarsperre in ADR-018.

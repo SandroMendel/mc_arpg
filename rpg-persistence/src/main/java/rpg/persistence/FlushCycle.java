@@ -65,6 +65,9 @@ public final class FlushCycle implements WriteBehindCoordinator {
                     // B06's progress row references a character, so it follows CHARACTER for the
                     // same reason CHARACTER_STATS does.
                     AggregateType.CHARACTER_PROGRESS,
+                    // B07 stores the reached armour and weapon tier per character and references it,
+                    // so it follows CHARACTER for the same reason the two rows above do (ADR-015).
+                    AggregateType.CHARACTER_CLASS_PROGRESS,
                     AggregateType.ITEM_INSTANCE,
                     AggregateType.STATISTICS,
                     AggregateType.AUDIT_LOG);

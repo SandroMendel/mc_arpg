@@ -32,5 +32,17 @@ public enum AggregateType {
      * <p>Own table for the same reason as {@link #CHARACTER_STATS}: one owner, one writer, one
      * position in the flush order. Additive, so no existing contract changes.
      */
-    CHARACTER_PROGRESS
+    CHARACTER_PROGRESS,
+    /**
+     * The reached armour and weapon tier of one character (B07).
+     *
+     * <p>Own table for the same reason as the two above. The class itself is <b>not</b> stored here -
+     * it already lives in {@code rpg.character} from B03, and a second copy would be a second truth.
+     *
+     * <p>Registration 1 of 3 (ADR-015): adding this value is not enough. It also has to appear in
+     * {@code FlushCycle.WRITE_ORDER} after {@code CHARACTER}, and a repository has to be wired for
+     * it. A type missing from the write order has its marks counted as failed on every flush and is
+     * never written - which looks like a database problem and is none.
+     */
+    CHARACTER_CLASS_PROGRESS
 }

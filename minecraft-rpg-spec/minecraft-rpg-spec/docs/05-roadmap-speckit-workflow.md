@@ -79,9 +79,15 @@ Anschließend `/constitution` mit dem Inhalt von `constitution.md` ausführen.
 
 ## Empfohlener nächster Schritt
 
-Die offenen Fragen zu **B04** beantworten (`docs/06-open-questions.md`,
-Abschnitt „Blockierend für B04"). Ohne Stacking-Reihenfolge, Defense-Formel und
-Skalierungsverhältnis lassen sich B05, B07 und B11 nicht sinnvoll spezifizieren.
+*(Stand 2026-08-21)* B01 bis B06 sind implementiert und verdrahtet. Offen sind
+dort nur noch Validierungsläufe und Lasttests, die einen echten Paper-Server
+brauchen — kein Code.
 
-Parallel dazu **ADR-006 bestätigen oder ablehnen** — die Welt-Topologie bestimmt
-den Zuschnitt von B09 und B10.
+Als nächstes **`/specify` für B07 (Klassen-System)**. ADR-017 bis ADR-020 haben
+alle dafür blockierenden Fragen geklärt. Offen bleiben nur Basiswerte und
+Wachstumskurven je Klasse — Content, der laut Workflow bei `/specify` selbst
+ausgearbeitet wird.
+
+Danach ist **B11 neu zuzuschneiden, bevor es spezifiziert wird**: ADR-017 hat
+Rüstung und Waffe zu Klassenprogression gemacht und damit Rolls, Raritätsstufen
+und Ausrüstungs-Beute aus dem Block gezogen.

@@ -1,0 +1,343 @@
+# B07 - the three playable classes. Every balancing number lives here, never in code (Principle V).
+#
+# The SET of classes lives in code: the enum CharacterClass and the check constraint in
+# V3_1__player_characters.sql. The CONTENT of each class lives here (ADR-019). A fourth class is a
+# later upgrade and costs one enum value plus one migration - nothing in this file.
+#
+# Startup refuses to continue on any of these (a violation names class, ladder and tier):
+#   - an unknown class id, or one of the three missing
+#   - a missing base-stat or growth rate (all eight are required, including the zeros)
+#   - a ladder with fewer than two tiers
+#   - a carried attribute that does not strictly increase across tiers
+#   - level requirements that do not strictly increase, or a first tier not wearable at level 1
+#   - two consecutive tiers that look identical in material, colour AND trim
+#   - a colour on a material that cannot be dyed
+#   - the same armour set in two classes (the shared entry material is exempt)
+#   - a value above the caps from ADR-008
+#
+# LADDER LENGTHS ARE NOT UNIFORM and that is deliberate: warrior 5/6, rogue 6/6, mage 7/7. All of
+# them reach the same end value; only the step size differs. The mage advances more often in smaller
+# steps.
+#
+# HOW A TIER BECOMES VISIBLE differs per class, because vanilla has only seven armour sets:
+#   warrior - the material changes on every step
+#   rogue   - material up to chainmail, then the TRIM carries the tier (gold and chainmail are not
+#             dyeable, so a colour is not available here)
+#   mage    - leather all the way, the COLOUR carries the tier
+# Colour and trim are therefore required fields for two of the three classes, not cosmetics for
+# later (ADR-017).
+#
+# THE cost BLOCK IS NOT INTERPRETED by B07. It is passed through to B11, which decides who pays for
+# an advance and with what. B07 checks that it is a map and nothing else (Workflow rule 5).
+#
+# ARMOUR carries health, defense, mana, movement-speed.
+# WEAPON carries physical-damage, magic-damage, attack-speed, ability-cooldown.
+# Each attribute therefore has exactly one ladder as its source; on a single ladder the second
+# would be meaningless.
+#
+# UNITS - read this before changing a number. Every value here is added to the BASE of its
+# attribute (BaseStatContributor), so it is expressed in that attribute's OWN units, never as a
+# percentage. Three of the eight have a base that is not zero, and that is where the trap is:
+#
+#   attribute        base in stats.yml   a value of 0.30 here means
+#   ---------------- ------------------- --------------------------------------------------
+#   health etc.      0                   +0.30 health - what it looks like
+#   attack-speed     4.0                 +0.30 on 4.0, i.e. +7.5% - NOT +30%
+#   movement-speed   0.1                 +0.30 on 0.1, i.e. +300% - almost certainly a mistake
+#   ability-cooldown 0.0                 30% cooldown reduction, capped at 0.40
+#
+# So the role targets from the spec translate as follows:
+#   attack-speed   +15% -> 0.60   +50% -> 2.00   +6%  -> 0.24   (of base 4.0)
+#   movement-speed +5%  -> 0.005  +30% -> 0.030  +15% -> 0.015  (of base 0.1)
+#
+# The modifier band from ADR-008 does not bound these values: it bounds MODIFIERS around the
+# effective base, and the class moves the base itself. AttributeDefinition says so explicitly -
+# the band takes the base as a parameter so that it moves with it.
+
+classes:
+
+  # ---------------------------------------------------------------------------------------------
+  # WARRIOR - melee tank. Displayed as "Berserker"; the enum constant stays WARRIOR (ADR-019).
+  # Maxes health, defense and physical damage. Heavy armour is exclusive to this class.
+  # ---------------------------------------------------------------------------------------------
+  WARRIOR:
+    display-name-key: 'class.warrior.name'
+    menu-material: 'NETHERITE_SWORD'
+
+    base-stats:
+      health: 40.0
+      defense: 4.0
+      mana: 12.0
+      physicalDamage: 2.0
+      magicDamage: 0.5
+      attackSpeed: 0.0
+      movementSpeed: 0.0
+      abilityCooldown: 0.0
+
+    # Replaces the class-neutral level-growth from progression.yml for this class - it does not add
+    # to it. The three percent attributes stay at zero and come entirely from the ladder, which
+    # keeps them inside their bands without checking 59 levels one by one.
+    growth:
+      health: 9.7
+      defense: 1.5
+      mana: 0.9
+      physicalDamage: 0.7
+      magicDamage: 0.1
+      attackSpeed: 0.0
+      movementSpeed: 0.0
+      abilityCooldown: 0.0
+
+    armor-ladder:
+      - material: 'LEATHER'
+        required-level: 1
+        values: { health: 60.0, defense: 6.0, mana: 18.0, movementSpeed: 0.000 }
+        cost: {}
+      - material: 'COPPER'
+        required-level: 15
+        values: { health: 280.0, defense: 40.0, mana: 35.0, movementSpeed: 0.001 }
+        cost: { coins: 500 }
+      - material: 'IRON'
+        required-level: 29
+        values: { health: 600.0, defense: 90.0, mana: 65.0, movementSpeed: 0.002 }
+        cost: { coins: 2500 }
+      - material: 'DIAMOND'
+        required-level: 42
+        values: { health: 975.0, defense: 150.0, mana: 95.0, movementSpeed: 0.004 }
+        cost: { coins: 10000 }
+      - material: 'NETHERITE'
+        required-level: 55
+        values: { health: 1385.0, defense: 205.0, mana: 130.0, movementSpeed: 0.005 }
+        cost: { coins: 40000 }
+
+    # Six tiers - one more than the armour. Lengths may differ within a class.
+    weapon-ladder:
+      - material: 'WOODEN_SWORD'
+        required-level: 1
+        values: { physicalDamage: 3.0, magicDamage: 0.5, attackSpeed: 0.00, abilityCooldown: 0.00 }
+        cost: {}
+      - material: 'STONE_SWORD'
+        required-level: 13
+        values: { physicalDamage: 16.0, magicDamage: 3.0, attackSpeed: 0.12, abilityCooldown: 0.04 }
+        cost: { coins: 400 }
+      - material: 'COPPER_SWORD'
+        required-level: 24
+        values: { physicalDamage: 35.0, magicDamage: 6.0, attackSpeed: 0.24, abilityCooldown: 0.08 }
+        cost: { coins: 1800 }
+      - material: 'IRON_SWORD'
+        required-level: 34
+        values: { physicalDamage: 60.0, magicDamage: 10.0, attackSpeed: 0.36, abilityCooldown: 0.12 }
+        cost: { coins: 6000 }
+      - material: 'DIAMOND_SWORD'
+        required-level: 45
+        values: { physicalDamage: 85.0, magicDamage: 14.0, attackSpeed: 0.48, abilityCooldown: 0.16 }
+        cost: { coins: 20000 }
+      - material: 'NETHERITE_SWORD'
+        required-level: 55
+        values: { physicalDamage: 105.0, magicDamage: 19.0, attackSpeed: 0.60, abilityCooldown: 0.20 }
+        cost: { coins: 60000 }
+
+    # Four active INCLUDING the unique, two passive - six in total. B07 only names the ids and the
+    # unlock levels; what an ability does is B08 (FR-044).
+    abilities:
+      - { id: 'warrior.rage', kind: 'PASSIVE', unlock-level: 1 }
+      - { id: 'warrior.shield', kind: 'ACTIVE', unlock-level: 5 }
+      - { id: 'warrior.leap', kind: 'ACTIVE', unlock-level: 15 }
+      - { id: 'warrior.lifesteal', kind: 'PASSIVE', unlock-level: 25 }
+      - { id: 'warrior.whirl', kind: 'ACTIVE', unlock-level: 35 }
+      - { id: 'warrior.call-of-the-berserker', kind: 'ACTIVE', unique: true, unlock-level: 45 }
+
+  # ---------------------------------------------------------------------------------------------
+  # ROGUE - agile melee. Maxes attack speed and movement speed. Gold and chainmail are exclusive
+  # to this class; from tier four the trim carries the tier, because neither is dyeable.
+  # Carries a sword like the warrior - distinguished by GOLDEN on tier three instead of COPPER.
+  # ---------------------------------------------------------------------------------------------
+  ROGUE:
+    display-name-key: 'class.rogue.name'
+    menu-material: 'GOLDEN_SWORD'
+
+    base-stats:
+      health: 35.0
+      defense: 2.0
+      mana: 16.0
+      physicalDamage: 2.0
+      magicDamage: 1.0
+      attackSpeed: 0.0
+      movementSpeed: 0.0
+      abilityCooldown: 0.0
+
+    growth:
+      health: 7.2
+      defense: 0.9
+      mana: 1.4
+      physicalDamage: 0.6
+      magicDamage: 0.2
+      attackSpeed: 0.0
+      movementSpeed: 0.0
+      abilityCooldown: 0.0
+
+    armor-ladder:
+      - material: 'LEATHER'
+        required-level: 1
+        values: { health: 50.0, defense: 3.0, mana: 24.0, movementSpeed: 0.000 }
+        cost: {}
+      - material: 'GOLDEN'
+        required-level: 13
+        values: { health: 170.0, defense: 19.0, mana: 50.0, movementSpeed: 0.006 }
+        cost: { coins: 500 }
+      - material: 'CHAINMAIL'
+        required-level: 24
+        values: { health: 350.0, defense: 40.0, mana: 85.0, movementSpeed: 0.012 }
+        cost: { coins: 2000 }
+      # From here the material stays CHAINMAIL. Without a trim these three tiers would be
+      # indistinguishable and the progression would be a bare number - startup would refuse.
+      - material: 'CHAINMAIL'
+        trim-material: 'COPPER'
+        trim-pattern: 'RIB'
+        required-level: 34
+        values: { health: 575.0, defense: 70.0, mana: 120.0, movementSpeed: 0.018 }
+        cost: { coins: 7000 }
+      - material: 'CHAINMAIL'
+        trim-material: 'AMETHYST'
+        trim-pattern: 'SILENCE'
+        required-level: 45
+        values: { health: 800.0, defense: 100.0, mana: 170.0, movementSpeed: 0.024 }
+        cost: { coins: 22000 }
+      - material: 'CHAINMAIL'
+        trim-material: 'NETHERITE'
+        trim-pattern: 'VEX'
+        required-level: 55
+        values: { health: 1050.0, defense: 130.0, mana: 220.0, movementSpeed: 0.030 }
+        cost: { coins: 60000 }
+
+    weapon-ladder:
+      - material: 'WOODEN_SWORD'
+        required-level: 1
+        values: { physicalDamage: 3.0, magicDamage: 1.0, attackSpeed: 0.00, abilityCooldown: 0.00 }
+        cost: {}
+      - material: 'STONE_SWORD'
+        required-level: 13
+        values: { physicalDamage: 13.0, magicDamage: 5.0, attackSpeed: 0.40, abilityCooldown: 0.06 }
+        cost: { coins: 400 }
+      - material: 'GOLDEN_SWORD'
+        required-level: 24
+        values: { physicalDamage: 30.0, magicDamage: 10.0, attackSpeed: 0.80, abilityCooldown: 0.12 }
+        cost: { coins: 1800 }
+      - material: 'IRON_SWORD'
+        required-level: 34
+        values: { physicalDamage: 45.0, magicDamage: 17.0, attackSpeed: 1.20, abilityCooldown: 0.18 }
+        cost: { coins: 6000 }
+      - material: 'DIAMOND_SWORD'
+        required-level: 45
+        values: { physicalDamage: 65.0, magicDamage: 25.0, attackSpeed: 1.60, abilityCooldown: 0.24 }
+        cost: { coins: 20000 }
+      - material: 'NETHERITE_SWORD'
+        required-level: 55
+        values: { physicalDamage: 85.0, magicDamage: 32.0, attackSpeed: 2.00, abilityCooldown: 0.30 }
+        cost: { coins: 60000 }
+
+    # Empty is allowed while B08 does not exist. A PARTIALLY filled loadout is not - otherwise a
+    # forgotten line could not be told from a deliberate omission (FR-045).
+    abilities: []
+
+  # ---------------------------------------------------------------------------------------------
+  # MAGE - magic damage and mobility. Maxes mana, magic damage and cooldown reduction.
+  # Stays on LEATHER the whole way; the COLOUR carries the tier. Carries a spear, which separates
+  # the class by shape rather than material.
+  # ---------------------------------------------------------------------------------------------
+  MAGE:
+    display-name-key: 'class.mage.name'
+    menu-material: 'NETHERITE_SPEAR'
+
+    base-stats:
+      health: 30.0
+      defense: 2.0
+      mana: 20.0
+      physicalDamage: 1.0
+      magicDamage: 2.0
+      attackSpeed: 0.0
+      movementSpeed: 0.0
+      abilityCooldown: 0.0
+
+    growth:
+      health: 6.0
+      defense: 0.8
+      mana: 2.3
+      physicalDamage: 0.2
+      magicDamage: 0.7
+      attackSpeed: 0.0
+      movementSpeed: 0.0
+      abilityCooldown: 0.0
+
+    # Seven tiers, all leather. The colour is a REQUIRED field here: without it every tier would
+    # look identical and startup would refuse.
+    armor-ladder:
+      - material: 'LEATHER'
+        color: 0x4a4a52
+        required-level: 1
+        values: { health: 40.0, defense: 3.0, mana: 30.0, movementSpeed: 0.000 }
+        cost: {}
+      - material: 'LEATHER'
+        color: 0x1f3a93
+        required-level: 11
+        values: { health: 120.0, defense: 13.0, mana: 60.0, movementSpeed: 0.002 }
+        cost: { coins: 400 }
+      - material: 'LEATHER'
+        color: 0x6b3fa0
+        required-level: 20
+        values: { health: 240.0, defense: 30.0, mana: 100.0, movementSpeed: 0.005 }
+        cost: { coins: 1500 }
+      - material: 'LEATHER'
+        color: 0xb5299b
+        required-level: 29
+        values: { health: 380.0, defense: 45.0, mana: 160.0, movementSpeed: 0.007 }
+        cost: { coins: 4500 }
+      - material: 'LEATHER'
+        color: 0xe8952f
+        required-level: 38
+        values: { health: 525.0, defense: 65.0, mana: 210.0, movementSpeed: 0.010 }
+        cost: { coins: 12000 }
+      - material: 'LEATHER'
+        color: 0x21d4c4
+        required-level: 46
+        values: { health: 700.0, defense: 85.0, mana: 270.0, movementSpeed: 0.012 }
+        cost: { coins: 28000 }
+      - material: 'LEATHER'
+        color: 0xf5f2e8
+        required-level: 55
+        values: { health: 875.0, defense: 110.0, mana: 340.0, movementSpeed: 0.015 }
+        cost: { coins: 60000 }
+
+    # Seven tiers. attack-speed ends at 0.06 rather than 0.05: over seven tiers at two decimal
+    # places, 0.05 would have put two consecutive tiers on the same value, and a ladder that does
+    # not strictly increase is a startup error.
+    weapon-ladder:
+      - material: 'WOODEN_SPEAR'
+        required-level: 1
+        values: { physicalDamage: 2.0, magicDamage: 3.0, attackSpeed: 0.00, abilityCooldown: 0.00 }
+        cost: {}
+      - material: 'STONE_SPEAR'
+        required-level: 11
+        values: { physicalDamage: 5.0, magicDamage: 13.0, attackSpeed: 0.04, abilityCooldown: 0.07 }
+        cost: { coins: 400 }
+      - material: 'COPPER_SPEAR'
+        required-level: 20
+        values: { physicalDamage: 9.0, magicDamage: 30.0, attackSpeed: 0.08, abilityCooldown: 0.13 }
+        cost: { coins: 1500 }
+      - material: 'GOLDEN_SPEAR'
+        required-level: 29
+        values: { physicalDamage: 14.0, magicDamage: 45.0, attackSpeed: 0.12, abilityCooldown: 0.20 }
+        cost: { coins: 4500 }
+      - material: 'IRON_SPEAR'
+        required-level: 38
+        values: { physicalDamage: 20.0, magicDamage: 65.0, attackSpeed: 0.16, abilityCooldown: 0.27 }
+        cost: { coins: 12000 }
+      - material: 'DIAMOND_SPEAR'
+        required-level: 46
+        values: { physicalDamage: 25.0, magicDamage: 85.0, attackSpeed: 0.20, abilityCooldown: 0.33 }
+        cost: { coins: 28000 }
+      - material: 'NETHERITE_SPEAR'
+        required-level: 55
+        values: { physicalDamage: 32.0, magicDamage: 105.0, attackSpeed: 0.24, abilityCooldown: 0.40 }
+        cost: { coins: 60000 }
+
+    abilities: []
