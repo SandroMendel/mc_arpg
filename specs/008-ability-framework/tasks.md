@@ -48,18 +48,18 @@ Vier Module aus B01, unverändert: `rpg-core` (Regeln, bukkitfrei), `rpg-persist
 
 ### Die Scheduler-Erweiterung (ADR-024)
 
-- [ ] T007 `runSyncOnEntityDelayed(EntityRef, Duration, Runnable)` in `rpg-core/src/main/java/rpg/core/scheduler/Scheduler.java` ergänzen — Javadoc mit der Begründung aus ADR-024: entity-gebunden und einmalig, kein Weg zu einer wiederkehrenden Aufgabe, Folia-Pfad bleibt offen
-- [ ] T008 Umsetzung in der Paper-Anbindung `rpg-platform/src/main/java/rpg/platform/scheduler/` über `EntityScheduler.runDelayed` — dieselbe Behandlung der nicht auflösbaren Entity wie in `runSyncOnEntity` (bereits abgebrochener Handle)
-- [ ] T009 [P] Die Testscheduler in `rpg-core/src/test/.../support/` und `rpg-persistence/src/test/java/rpg/persistence/support/DirectScheduler.java` um die neue Methode erweitern — mit steuerbarer Zeit, damit ein Cast im Test ohne Warten fällig wird
-- [ ] T010 [P] `SchedulerContractTest` in `rpg-core/src/test/java/rpg/core/scheduler/` um die neue Methode erweitern: läuft nach der Verzögerung, läuft nicht vorher, ein abgebrochener Handle verhindert den Lauf
+- [X] T007 `runSyncOnEntityDelayed(EntityRef, Duration, Runnable)` in `rpg-core/src/main/java/rpg/core/scheduler/Scheduler.java` ergänzen — Javadoc mit der Begründung aus ADR-024: entity-gebunden und einmalig, kein Weg zu einer wiederkehrenden Aufgabe, Folia-Pfad bleibt offen
+- [X] T008 Umsetzung in der Paper-Anbindung `rpg-platform/src/main/java/rpg/platform/scheduler/` über `EntityScheduler.runDelayed` — dieselbe Behandlung der nicht auflösbaren Entity wie in `runSyncOnEntity` (bereits abgebrochener Handle)
+- [X] T009 [P] Die Testscheduler in `rpg-core/src/test/.../support/` und `rpg-persistence/src/test/java/rpg/persistence/support/DirectScheduler.java` um die neue Methode erweitern — mit steuerbarer Zeit, damit ein Cast im Test ohne Warten fällig wird
+- [X] T010 [P] `SchedulerContractTest` in `rpg-core/src/test/java/rpg/core/scheduler/` um die neue Methode erweitern: läuft nach der Verzögerung, läuft nicht vorher, ein abgebrochener Handle verhindert den Lauf
 
 ### Der Widerruf der B07-Invariante (ADR-022)
 
-- [ ] T011 Die Prüfung `unique && kind != ACTIVE` in `rpg-core/src/main/java/rpg/core/classes/AbilityBinding.java` entfernen und das Javadoc auf ADR-022 umschreiben — die Unique ist eine der sechs, ihre Art hängt an der Klasse
-- [ ] T012 `validateAbilities` in `rpg-core/src/main/java/rpg/core/classes/CharacterClassDefinition.java` entkoppeln: **kein** Zusammenhang mehr zwischen `unique` und `kind` (T013a nimmt anschliessend die Zählung nach Art heraus)
-- [ ] T013 [P] `AbilityBindingTest` in `rpg-core/src/test/java/rpg/core/classes/` anpassen: der Test „die Unique ist aktiv" wird zu „die Unique darf passiv sein"; ein Loadout mit passiver Unique lädt
-- [ ] T013a `ACTIVE_ABILITIES` und `PASSIVE_ABILITIES` aus `rpg-core/src/main/java/rpg/core/classes/CharacterClassDefinition.java` **entfernen** — geprüft wird nur noch „genau sechs, höchstens eine Unique, keine doppelte ID". Die Aufteilung aktiv/passiv ist Inhalt: Warrior und Mage sind 4+2, der Rogue 3+3 (ADR-025)
-- [ ] T013b [P] `AbilityBindingTest` und `ClassConfigValidationTest`: ein Loadout mit drei aktiven und drei passiven lädt; eines mit fünf oder sieben Einträgen wird weiterhin abgewiesen
+- [X] T011 Die Prüfung `unique && kind != ACTIVE` in `rpg-core/src/main/java/rpg/core/classes/AbilityBinding.java` entfernen und das Javadoc auf ADR-022 umschreiben — die Unique ist eine der sechs, ihre Art hängt an der Klasse
+- [X] T012 `validateAbilities` in `rpg-core/src/main/java/rpg/core/classes/CharacterClassDefinition.java` entkoppeln: **kein** Zusammenhang mehr zwischen `unique` und `kind` (T013a nimmt anschliessend die Zählung nach Art heraus)
+- [X] T013 [P] `AbilityBindingTest` in `rpg-core/src/test/java/rpg/core/classes/` anpassen: der Test „die Unique ist aktiv" wird zu „die Unique darf passiv sein"; ein Loadout mit passiver Unique lädt
+- [X] T013a `ACTIVE_ABILITIES` und `PASSIVE_ABILITIES` aus `rpg-core/src/main/java/rpg/core/classes/CharacterClassDefinition.java` **entfernen** — geprüft wird nur noch „genau sechs, höchstens eine Unique, keine doppelte ID". Die Aufteilung aktiv/passiv ist Inhalt: Warrior und Mage sind 4+2, der Rogue 3+3 (ADR-025)
+- [X] T013b [P] `AbilityBindingTest` und `ClassConfigValidationTest`: ein Loadout mit drei aktiven und drei passiven lädt; eines mit fünf oder sieben Einträgen wird weiterhin abgewiesen
 
 ### Wertetypen der Definition
 

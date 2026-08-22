@@ -144,6 +144,96 @@ class PaperSchedulerAdapterTest {
         assertThat(runs.get()).isZero();
     }
 
+    // --- ADR-024: das verzoegerte synchrone Einzelstueck ------------------------------------------
+    //
+    // Ohne diese Methode laesst sich eine Wirkzeit nicht ausdruecken: sie muss zu einem bestimmten
+    // spaeteren Zeitpunkt IM Tick wirken. Geprueft wird deshalb dreierlei - sie laeuft nicht zu frueh,
+    // sie laeuft ueberhaupt, und ein Abbruch verhindert sie.
+
+    @Test
+    void aDelayedEntityBoundTaskDoesNotRunBeforeItsTime() {
+        Entity entity = world.spawn(world.getSpawnLocation(), org.bukkit.entity.Zombie.class);
+        AtomicInteger runs = new AtomicInteger();
+
+        scheduler.runSyncOnEntityDelayed(
+                new EntityRef(entity.getUniqueId()), Duration.ofMillis(500), runs::incrementAndGet);
+        server.getScheduler().performTicks(5);
+
+        assertThat(runs.get()).as("500 ms sind zehn Ticks - nach fuenf ist nichts faellig").isZero();
+    }
+
+    @Test
+    void aDelayedEntityBoundTaskRunsOnceItsTimeHasCome() {
+        Entity entity = world.spawn(world.getSpawnLocation(), org.bukkit.entity.Zombie.class);
+        AtomicInteger runs = new AtomicInteger();
+
+        scheduler.runSyncOnEntityDelayed(
+                new EntityRef(entity.getUniqueId()), Duration.ofMillis(500), runs::incrementAndGet);
+        server.getScheduler().performTicks(12);
+
+        assertThat(runs.get()).isEqualTo(1);
+    }
+
+    @Test
+    void cancellingADelayedEntityBoundTaskPreventsItFromRunning() {
+        Entity entity = world.spawn(world.getSpawnLocation(), org.bukkit.entity.Zombie.class);
+        AtomicInteger runs = new AtomicInteger();
+
+        TaskHandle handle =
+                scheduler.runSyncOnEntityDelayed(
+                        new EntityRef(entity.getUniqueId()),
+                        Duration.ofMillis(500),
+                        runs::incrementAndGet);
+        handle.cancel();
+        server.getScheduler().performTicks(20);
+
+        assertThat(handle.isCancelled()).isTrue();
+        assertThat(runs.get()).isZero();
+    }
+
+    @Test
+    void aZeroDelayRunsOnTheNextTickInsteadOfBeingRoundedUp() {
+        // Paper lehnt eine Verzoegerung unter einem Tick ab. Stillschweigend aufzurunden haette
+        // jedes `cast-time: 0` ueberall einen Tick zu spaet ankommen lassen.
+        Entity entity = world.spawn(world.getSpawnLocation(), org.bukkit.entity.Zombie.class);
+        AtomicInteger runs = new AtomicInteger();
+
+        scheduler.runSyncOnEntityDelayed(
+                new EntityRef(entity.getUniqueId()), Duration.ZERO, runs::incrementAndGet);
+        server.getScheduler().performTicks(2);
+
+        assertThat(runs.get()).isEqualTo(1);
+    }
+
+    @Test
+    void aDelayedTaskBoundToAnUnknownEntityIsDropped() {
+        AtomicInteger runs = new AtomicInteger();
+
+        TaskHandle handle =
+                scheduler.runSyncOnEntityDelayed(
+                        new EntityRef(UUID.randomUUID()),
+                        Duration.ofMillis(500),
+                        runs::incrementAndGet);
+        server.getScheduler().performTicks(20);
+
+        assertThat(handle.isCancelled())
+                .as("dieselbe Antwort wie beim sofortigen: ein bereits abgebrochener Handle")
+                .isTrue();
+        assertThat(runs.get()).isZero();
+    }
+
+    @Test
+    void aNegativeDelayIsRefused() {
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () ->
+                                scheduler.runSyncOnEntityDelayed(
+                                        new EntityRef(UUID.randomUUID()),
+                                        Duration.ofSeconds(-1),
+                                        () -> {}))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("negative");
+    }
+
     @Test
     void anAsyncTaskRunsOffTheTick() {
         AtomicInteger runs = new AtomicInteger();

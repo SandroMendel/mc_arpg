@@ -409,28 +409,43 @@ class ClassConfigValidationTest {
         }
 
         @Test
-        @DisplayName("V15: drei Passive statt zwei brechen ab")
-        void wrongActivePassiveSplitIsRejected() {
+        @DisplayName("ADR-025: drei Passive statt zwei laden - die Aufteilung ist Inhalt")
+        void anotherActivePassiveSplitIsAccepted() throws Exception {
+            // Umgekehrt zur früheren Fassung. Der ausgearbeitete Rogue ist 3+3, und eine Regel, die das
+            // abweist, hätte einen durchdachten Loadout verbogen, um eine frühe Schätzung zu retten.
             Map<String, Object> classes = ClassConfigFixture.valid();
             List<Object> abilities = ClassConfigFixture.warriorAbilities();
             abilities.set(1, ClassConfigFixture.ability("warrior.shield", "PASSIVE", false, 5));
             ClassConfigFixture.blockOf(classes, CharacterClass.WARRIOR).put("abilities", abilities);
 
-            assertThatThrownBy(() -> ClassConfigFixture.bind(classes))
-                    .hasMessageContaining("expected 4 active abilities including the unique");
+            ClassConfig config = ClassConfigFixture.bind(classes);
+
+            assertThat(config.definition(CharacterClass.WARRIOR).abilities())
+                    .hasSize(CharacterClassDefinition.TOTAL_ABILITIES);
+            assertThat(
+                            config.definition(CharacterClass.WARRIOR).abilities().stream()
+                                    .filter(AbilityBinding::isActive)
+                                    .count())
+                    .isEqualTo(3);
         }
 
         @Test
-        @DisplayName("V16: eine passive Unique bricht ab (FR-041)")
-        void passiveUniqueIsRejected() {
+        @DisplayName("ADR-022: eine passive Unique lädt - Rogue und Mage haben eine")
+        void passiveUniqueIsAccepted() throws Exception {
             Map<String, Object> classes = ClassConfigFixture.valid();
             List<Object> abilities = ClassConfigFixture.warriorAbilities();
             abilities.set(
                     5, ClassConfigFixture.ability("warrior.call-of-the-berserker", "PASSIVE", true, 45));
             ClassConfigFixture.blockOf(classes, CharacterClass.WARRIOR).put("abilities", abilities);
 
-            assertThatThrownBy(() -> ClassConfigFixture.bind(classes))
-                    .hasMessageContaining("must be ACTIVE");
+            ClassConfig config = ClassConfigFixture.bind(classes);
+
+            AbilityBinding unique =
+                    config.definition(CharacterClass.WARRIOR).abilities().stream()
+                            .filter(AbilityBinding::unique)
+                            .findFirst()
+                            .orElseThrow();
+            assertThat(unique.isActive()).isFalse();
         }
 
         @Test

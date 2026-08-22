@@ -108,6 +108,66 @@ public final class PaperSchedulerAdapter implements Scheduler {
     }
 
     /**
+     * The delayed sibling of {@link #runSyncOnEntity} (ADR-024).
+     *
+     * <p>Maps straight onto {@code EntityScheduler#runDelayed}, which Paper offers natively - the
+     * abstraction is not emulating anything here, it is exposing what the platform already does.
+     *
+     * <p>A zero delay is routed to {@link #runSyncOnEntity}: Paper's entity scheduler rejects a delay
+     * below one tick, and rounding it up silently would make {@code cast-time: 0} arrive a tick late
+     * everywhere.
+     */
+    @Override
+    public TaskHandle runSyncOnEntityDelayed(EntityRef entityRef, Duration delay, Runnable task) {
+        Objects.requireNonNull(entityRef, "entityRef");
+        Objects.requireNonNull(delay, "delay");
+        Objects.requireNonNull(task, "task");
+        if (delay.isNegative()) {
+            throw new IllegalArgumentException("delay must not be negative, was " + delay);
+        }
+        if (delay.isZero()) {
+            return runSyncOnEntity(entityRef, task);
+        }
+
+        PaperTaskHandle handle = new PaperTaskHandle(logger);
+        if (cancelledBecauseDisabled(handle, "a delayed entity-bound task")) {
+            return handle;
+        }
+        Entity entity = resolve(entityRef.entityId());
+        if (entity == null) {
+            logger.fine(
+                    () ->
+                            "[scheduler] no entity "
+                                    + entityRef.entityId()
+                                    + " to bind a delayed task to - returning a cancelled handle");
+            handle.cancel();
+            return handle;
+        }
+        handle.bind(
+                entity.getScheduler()
+                        .runDelayed(
+                                plugin,
+                                scheduled -> runUnlessCancelled(handle, task),
+                                () ->
+                                        logger.fine(
+                                                "[scheduler] entity "
+                                                        + entityRef.entityId()
+                                                        + " was removed before its delayed task ran"),
+                                toTicks(delay)));
+        return handle;
+    }
+
+    /**
+     * Paper counts entity-scheduler delays in ticks, not milliseconds.
+     *
+     * <p>Rounded to the nearest tick rather than down: a 75 ms global cooldown would otherwise become
+     * one tick instead of two, and every cast time would come out systematically short.
+     */
+    private static long toTicks(Duration delay) {
+        return Math.max(1L, Math.round(delay.toMillis() / 50.0));
+    }
+
+    /**
      * Runs work off the tick - and keeps running it while the plugin is being disabled.
      *
      * <p><b>The shutdown case is the one that matters.</b> Paper refuses to register a task for a

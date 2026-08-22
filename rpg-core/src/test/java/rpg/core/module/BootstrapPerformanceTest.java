@@ -177,6 +177,12 @@ class BootstrapPerformanceTest {
             throw new UnsupportedOperationException();
         }
 
+        /** ADR-024: verzoegert, aber im Test genauso behandelt wie sofort. */
+        @Override
+        public TaskHandle runSyncOnEntityDelayed(EntityRef entity, Duration delay, Runnable task) {
+            throw new UnsupportedOperationException();
+        }
+
         @Override
         public TaskHandle runAsync(Runnable task) {
             throw new UnsupportedOperationException();

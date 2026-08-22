@@ -47,6 +47,31 @@ public interface Scheduler {
     TaskHandle runSyncOnEntity(EntityRef entity, Runnable task);
 
     /**
+     * Runs {@code task} on the tick that owns {@code entity}, once, after {@code delay} has elapsed.
+     *
+     * <p>Added for B08 (ADR-024). An ability with a cast time has to <em>take effect</em> at a
+     * definite later moment, in the tick, touching the Paper API - and none of the four methods above
+     * expresses that: the two sync ones run immediately, the two async ones must not touch the API.
+     *
+     * <p><strong>This does not weaken the rules this interface exists for.</strong> It is
+     * entity-bound, so the Folia path stays open, and it is a one-shot, so Constitution II.2 is
+     * untouched. It is the synchronous counterpart of {@link #runAsyncDelayed}, which ADR-010 added
+     * for the same reason.
+     *
+     * <p><b>Why not lazy, like a cooldown?</b> The difference is fundamental and worth stating,
+     * because it comes back with every "why not evaluate that lazily too": a cooldown is evaluated
+     * <em>when somebody asks</em>. A cast has to take effect <em>even when nobody asks</em>.
+     * Timestamp arithmetic answers questions; it does not perform actions.
+     *
+     * <p>Everything {@link #runSyncOnEntity} says about an unresolvable entity applies here too: an
+     * already-cancelled handle comes back and the task will not run, and a caller holding state the
+     * task was meant to settle has to check for it.
+     *
+     * @param delay how long to wait before running; must not be negative
+     */
+    TaskHandle runSyncOnEntityDelayed(EntityRef entity, java.time.Duration delay, Runnable task);
+
+    /**
      * Runs {@code task} off the server tick.
      *
      * <p>Async work is not location-bound on purpose: it must never touch the Paper/Bukkit API
