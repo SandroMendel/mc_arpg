@@ -332,7 +332,7 @@ class FullBootstrapTest {
                                         rpg.core.session.CharacterClass.WARRIOR,
                                         rpg.core.classes.LadderSlot.ARMOR)
                                 .length())
-                .isEqualTo(5);
+                .isEqualTo(6);
         assertThat(
                         classes.ladder(
                                         rpg.core.session.CharacterClass.MAGE,

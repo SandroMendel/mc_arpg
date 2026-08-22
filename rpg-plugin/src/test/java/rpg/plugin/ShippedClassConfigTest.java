@@ -54,11 +54,11 @@ class ShippedClassConfigTest {
     }
 
     @Test
-    @DisplayName("die Leiterlängen sind 5/6, 6/6 und 7/7 - nicht überall fünf (FR-013)")
+    @DisplayName("die Leiterlängen sind 6/6, 6/6 und 7/7 - nicht überall gleich (FR-013)")
     void ladderLengthsAreNotUniform() throws Exception {
         ClassConfig config = shipped();
 
-        assertThat(lengths(config, CharacterClass.WARRIOR)).containsExactly(5, 6);
+        assertThat(lengths(config, CharacterClass.WARRIOR)).containsExactly(6, 6);
         assertThat(lengths(config, CharacterClass.ROGUE)).containsExactly(6, 6);
         assertThat(lengths(config, CharacterClass.MAGE)).containsExactly(7, 7);
     }

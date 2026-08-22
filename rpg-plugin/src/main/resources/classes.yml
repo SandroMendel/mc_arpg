@@ -15,12 +15,13 @@
 #   - the same armour set in two classes (the shared entry material is exempt)
 #   - a value above the caps from ADR-008
 #
-# LADDER LENGTHS ARE NOT UNIFORM and that is deliberate: warrior 5/6, rogue 6/6, mage 7/7. All of
+# LADDER LENGTHS ARE NOT UNIFORM and that is deliberate: warrior 6/6, rogue 6/6, mage 7/7. All of
 # them reach the same end value; only the step size differs. The mage advances more often in smaller
 # steps.
 #
 # HOW A TIER BECOMES VISIBLE differs per class, because vanilla has only seven armour sets:
-#   warrior - the material changes on every step
+#   warrior - the material changes on every step; on the LAST step it cannot change any more, so
+#             the trim carries it - vanilla has nothing above netherite
 #   rogue   - material up to chainmail, then the TRIM carries the tier (gold and chainmail are not
 #             dyeable, so a colour is not available here)
 #   mage    - leather all the way, the COLOUR carries the tier
@@ -103,21 +104,30 @@ classes:
         values: { health: 60.0, defense: 6.0, mana: 18.0, movementSpeed: 0.000 }
         cost: {}
       - material: 'COPPER'
-        required-level: 15
-        values: { health: 280.0, defense: 40.0, mana: 35.0, movementSpeed: 0.001 }
+        required-level: 10
+        values: { health: 240.0, defense: 34.0, mana: 33.0, movementSpeed: 0.001 }
         cost: { coins: 500 }
       - material: 'IRON'
-        required-level: 29
-        values: { health: 600.0, defense: 90.0, mana: 65.0, movementSpeed: 0.002 }
+        required-level: 20
+        values: { health: 500.0, defense: 74.0, mana: 55.0, movementSpeed: 0.002 }
         cost: { coins: 2500 }
       - material: 'DIAMOND'
-        required-level: 42
-        values: { health: 975.0, defense: 150.0, mana: 95.0, movementSpeed: 0.004 }
+        required-level: 35
+        values: { health: 900.0, defense: 135.0, mana: 88.0, movementSpeed: 0.003 }
         cost: { coins: 10000 }
       - material: 'NETHERITE'
-        required-level: 55
-        values: { health: 1385.0, defense: 205.0, mana: 130.0, movementSpeed: 0.005 }
+        required-level: 50
+        values: { health: 1270.0, defense: 188.0, mana: 118.0, movementSpeed: 0.004 }
         cost: { coins: 40000 }
+      # Sixth tier: the material cannot change any further, so the TRIM carries this step - the same
+      # device the rogue uses from its fourth tier on. Netherite is not dyeable, but a trim has a
+      # pattern AND a material, and the material carries the colour.
+      - material: 'NETHERITE'
+        trim-material: 'GOLD'
+        trim-pattern: 'SENTRY'
+        required-level: 60
+        values: { health: 1385.0, defense: 205.0, mana: 130.0, movementSpeed: 0.005 }
+        cost: { coins: 90000 }
 
     # Six tiers - one more than the armour. Lengths may differ within a class.
     weapon-ladder:
@@ -126,23 +136,23 @@ classes:
         values: { physicalDamage: 3.0, magicDamage: 0.5, attackSpeed: 0.00, abilityCooldown: 0.00 }
         cost: {}
       - material: 'STONE_SWORD'
-        required-level: 13
+        required-level: 5
         values: { physicalDamage: 16.0, magicDamage: 3.0, attackSpeed: 0.12, abilityCooldown: 0.04 }
         cost: { coins: 400 }
       - material: 'COPPER_SWORD'
-        required-level: 24
+        required-level: 10
         values: { physicalDamage: 35.0, magicDamage: 6.0, attackSpeed: 0.24, abilityCooldown: 0.08 }
         cost: { coins: 1800 }
       - material: 'IRON_SWORD'
-        required-level: 34
+        required-level: 20
         values: { physicalDamage: 60.0, magicDamage: 10.0, attackSpeed: 0.36, abilityCooldown: 0.12 }
         cost: { coins: 6000 }
       - material: 'DIAMOND_SWORD'
-        required-level: 45
+        required-level: 35
         values: { physicalDamage: 85.0, magicDamage: 14.0, attackSpeed: 0.48, abilityCooldown: 0.16 }
         cost: { coins: 20000 }
       - material: 'NETHERITE_SWORD'
-        required-level: 55
+        required-level: 50
         values: { physicalDamage: 105.0, magicDamage: 19.0, attackSpeed: 0.60, abilityCooldown: 0.20 }
         cost: { coins: 60000 }
 
@@ -195,11 +205,11 @@ classes:
         values: { health: 50.0, defense: 3.0, mana: 24.0, movementSpeed: 0.000 }
         cost: {}
       - material: 'GOLDEN'
-        required-level: 13
+        required-level: 10
         values: { health: 170.0, defense: 19.0, mana: 50.0, movementSpeed: 0.006 }
         cost: { coins: 500 }
       - material: 'CHAINMAIL'
-        required-level: 24
+        required-level: 20
         values: { health: 350.0, defense: 40.0, mana: 85.0, movementSpeed: 0.012 }
         cost: { coins: 2000 }
       # From here the material stays CHAINMAIL. Without a trim these three tiers would be
@@ -207,19 +217,19 @@ classes:
       - material: 'CHAINMAIL'
         trim-material: 'COPPER'
         trim-pattern: 'RIB'
-        required-level: 34
+        required-level: 35
         values: { health: 575.0, defense: 70.0, mana: 120.0, movementSpeed: 0.018 }
         cost: { coins: 7000 }
       - material: 'CHAINMAIL'
         trim-material: 'AMETHYST'
         trim-pattern: 'SILENCE'
-        required-level: 45
+        required-level: 50
         values: { health: 800.0, defense: 100.0, mana: 170.0, movementSpeed: 0.024 }
         cost: { coins: 22000 }
       - material: 'CHAINMAIL'
         trim-material: 'NETHERITE'
         trim-pattern: 'VEX'
-        required-level: 55
+        required-level: 60
         values: { health: 1050.0, defense: 130.0, mana: 220.0, movementSpeed: 0.030 }
         cost: { coins: 60000 }
 
@@ -229,23 +239,23 @@ classes:
         values: { physicalDamage: 3.0, magicDamage: 1.0, attackSpeed: 0.00, abilityCooldown: 0.00 }
         cost: {}
       - material: 'STONE_SWORD'
-        required-level: 13
+        required-level: 5
         values: { physicalDamage: 13.0, magicDamage: 5.0, attackSpeed: 0.40, abilityCooldown: 0.06 }
         cost: { coins: 400 }
       - material: 'GOLDEN_SWORD'
-        required-level: 24
+        required-level: 10
         values: { physicalDamage: 30.0, magicDamage: 10.0, attackSpeed: 0.80, abilityCooldown: 0.12 }
         cost: { coins: 1800 }
       - material: 'IRON_SWORD'
-        required-level: 34
+        required-level: 20
         values: { physicalDamage: 45.0, magicDamage: 17.0, attackSpeed: 1.20, abilityCooldown: 0.18 }
         cost: { coins: 6000 }
       - material: 'DIAMOND_SWORD'
-        required-level: 45
+        required-level: 35
         values: { physicalDamage: 65.0, magicDamage: 25.0, attackSpeed: 1.60, abilityCooldown: 0.24 }
         cost: { coins: 20000 }
       - material: 'NETHERITE_SWORD'
-        required-level: 55
+        required-level: 50
         values: { physicalDamage: 85.0, magicDamage: 32.0, attackSpeed: 2.00, abilityCooldown: 0.30 }
         cost: { coins: 60000 }
 
@@ -296,32 +306,32 @@ classes:
         cost: {}
       - material: 'LEATHER'
         color: 0x1f3a93
-        required-level: 11
+        required-level: 5
         values: { health: 120.0, defense: 13.0, mana: 60.0, movementSpeed: 0.002 }
         cost: { coins: 400 }
       - material: 'LEATHER'
         color: 0x6b3fa0
-        required-level: 20
+        required-level: 10
         values: { health: 240.0, defense: 30.0, mana: 100.0, movementSpeed: 0.005 }
         cost: { coins: 1500 }
       - material: 'LEATHER'
         color: 0xb5299b
-        required-level: 29
+        required-level: 20
         values: { health: 380.0, defense: 45.0, mana: 160.0, movementSpeed: 0.007 }
         cost: { coins: 4500 }
       - material: 'LEATHER'
         color: 0xe8952f
-        required-level: 38
+        required-level: 30
         values: { health: 525.0, defense: 65.0, mana: 210.0, movementSpeed: 0.010 }
         cost: { coins: 12000 }
       - material: 'LEATHER'
         color: 0x21d4c4
-        required-level: 46
+        required-level: 40
         values: { health: 700.0, defense: 85.0, mana: 270.0, movementSpeed: 0.012 }
         cost: { coins: 28000 }
       - material: 'LEATHER'
         color: 0xf5f2e8
-        required-level: 55
+        required-level: 50
         values: { health: 875.0, defense: 110.0, mana: 340.0, movementSpeed: 0.015 }
         cost: { coins: 60000 }
 
@@ -334,27 +344,27 @@ classes:
         values: { physicalDamage: 2.0, magicDamage: 3.0, attackSpeed: 0.00, abilityCooldown: 0.00 }
         cost: {}
       - material: 'STONE_SPEAR'
-        required-level: 11
+        required-level: 5
         values: { physicalDamage: 5.0, magicDamage: 13.0, attackSpeed: 0.04, abilityCooldown: 0.07 }
         cost: { coins: 400 }
       - material: 'COPPER_SPEAR'
-        required-level: 20
+        required-level: 10
         values: { physicalDamage: 9.0, magicDamage: 30.0, attackSpeed: 0.08, abilityCooldown: 0.13 }
         cost: { coins: 1500 }
       - material: 'GOLDEN_SPEAR'
-        required-level: 29
+        required-level: 20
         values: { physicalDamage: 14.0, magicDamage: 45.0, attackSpeed: 0.12, abilityCooldown: 0.20 }
         cost: { coins: 4500 }
       - material: 'IRON_SPEAR'
-        required-level: 38
+        required-level: 30
         values: { physicalDamage: 20.0, magicDamage: 65.0, attackSpeed: 0.16, abilityCooldown: 0.27 }
         cost: { coins: 12000 }
       - material: 'DIAMOND_SPEAR'
-        required-level: 46
+        required-level: 40
         values: { physicalDamage: 25.0, magicDamage: 85.0, attackSpeed: 0.20, abilityCooldown: 0.33 }
         cost: { coins: 28000 }
       - material: 'NETHERITE_SPEAR'
-        required-level: 55
+        required-level: 50
         values: { physicalDamage: 32.0, magicDamage: 105.0, attackSpeed: 0.24, abilityCooldown: 0.40 }
         cost: { coins: 60000 }
 
