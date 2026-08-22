@@ -21,6 +21,13 @@ ganzen Server — nicht je Spieler.
 | `manaCost` | double | ≥ 0; bei `PASSIVE` zwingend 0 (FR-047) |
 | `cooldown` | Duration | ≥ 0 |
 | `castTime` | Duration | ≥ 0; bei `PASSIVE` zwingend 0 |
+| `sustained` | boolean | ob die Fähigkeit über eine Dauer wirkt und per zweitem Rechtsklick endbar ist (FR-045a) |
+| `duration` | Duration \| null | Pflicht bei `sustained` |
+| `charges` | int | Vorgabe 1; > 1 heißt, der Cooldown beginnt erst nach der letzten (FR-045i) |
+| `chargeWindow` | Duration \| null | Pflicht bei `charges` > 1 — danach springt der Vorrat zurück (FR-045j) |
+| `requiresBehindTarget` | boolean | Positionsbedingung, nur bei `PASSIVE` sinnvoll (FR-052a) |
+| `openWorldOnly` | boolean | Weltbedingung; **bis B09 ungeprüft** (FR-052b) |
+| `playerToggle` | boolean | ob der Spieler die Fähigkeit abschalten darf (FR-052d) |
 | `interruptOnMove` | boolean | Vorgabe `false` (FR-043) |
 | `trigger` | `AbilityTrigger` | Pflicht bei `PASSIVE`, verboten bei `ACTIVE` |
 | `chance` | double | in `[0, 1]`, Vorgabe 1.0 (FR-049) |
@@ -38,18 +45,24 @@ Ein Baustein innerhalb einer Fähigkeit.
 
 | Feld | Typ | Regel |
 |---|---|---|
-| `type` | `EffectType` | eines der zwölf Primitives |
+| `type` | `EffectType` | eines der sechzehn Primitives |
 | `amount` | double | Wert auf Rang 1 |
 | `perRank` | double | Zuwachs je weiterem Rang; ≥ 0 |
 | `duration` | Duration \| null | nur bei zeitlich wirkenden Primitives |
-| `attribute` | `Attribute` \| null | Pflicht bei `BUFF` und `DEBUFF` |
-| `damageType` | `DamageType` \| null | Pflicht bei `DAMAGE` |
+| `interval` | Duration \| null | gesetzt heißt: wirkt **wiederholt** über die Dauer statt einmalig (FR-010a) |
+| `maxStacks` | int | Vorgabe 1; > 1 nur mit `interval` (FR-010c) |
+| `stackCap` | double \| null | Obergrenze der Gesamtwirkung je Intervall über alle Stapel |
+| `attribute` | `Attribute` \| null | Pflicht bei `BUFF`, `DEBUFF` und `METER` |
+| `damageType` | `DamageType` \| null | Pflicht bei `DAMAGE`; bei `SHIELD` und `EVADE` **optional** als Filter (FR-015a, FR-016a) |
 | `statusEffect` | String \| null | Pflicht bei `STATUS_EFFECT` |
+| `buildPerHit` | double \| null | Pflicht bei `METER` — wie stark ein Treffer den Zähler hebt |
+| `idleBefore` | Duration \| null | Pflicht bei `METER` — Ruhefrist, bevor er zu fallen beginnt |
+| `decayPerSecond` | double \| null | Pflicht bei `METER` |
 
 Der Wert auf Rang *r* ist `amount + perRank × (r − 1)`. Eine Multiplikation beim Auslesen, kein
 zweiter Satz Definitionen (FR-063).
 
-### `EffectType` — die zwölf Primitives
+### `EffectType` — die sechzehn Primitives
 
 | Primitive | Wirkung | Anmerkung |
 |---|---|---|
@@ -65,19 +78,32 @@ zweiter Satz Definitionen (FR-063).
 | `KNOCKBACK` | Impuls vom Auslöser weg | |
 | `TELEPORT` | augenblickliche Versetzung | Reichweite aus `TargetSpec` |
 | `PROJECTILE` | ein Geschoss, das die übrigen Effekte beim Treffer anwendet | trägt die Werte vom Abwurf (wie B05s `projectileDamage`) |
+| `EVADE` | Wahrscheinlichkeit, eingehenden Schaden vollständig zu vermeiden | mit Typfilter — Mages Magic Life weicht nur magischem aus |
+| `METER` | Zähler 0–100, steigt bei Schaden, fällt nach Ruhefrist, skaliert Attribute | Warriors Wut. **Lazy** aus letztem Stand plus Zeit; keine Aufgabe, keine Tabelle |
+| `SUMMON` | ein Wesen mit den Werten des Auslösers, das nicht angreift und beim Ende einen Effekt auslöst | Rogues Klon. **Aggro-Umlenkung bis B10 wirkungslos** (ADR-025) |
+| `INVISIBILITY` | unsichtbar und unverwundbar für eine Dauer, endet bei ausgeteiltem Schaden | **Dass Mobs ihn nicht angreifen und Bosse ihn dennoch sehen, folgt mit B10** |
 
-`SUMMON` fehlt und ist als Nachtrag vorgesehen — Beschworenes gehört zu B10 (Workflow-Regel 5).
+**Kein eigenes Primitive für Schaden über Zeit.** Das `interval`-Feld macht jeden Effekt periodisch:
+`DAMAGE` mit Intervall ist ein DoT, `MANA_RESTORE` mit Intervall ist der Manatrank. Vier Fähigkeiten
+brauchen das, und vier Primitives dafür wären vier Wege, dasselbe zu tun.
 
 ### `TargetSpec`
 
 | Feld | Typ | Regel |
 |---|---|---|
-| `mode` | `TargetMode` | eine der sieben |
+| `mode` | `TargetMode` | eine der neun |
 | `range` | double | > 0, außer bei `SELF` |
 | `angle` | double \| null | Pflicht bei `CONE` |
 | `maxTargets` | int | **Pflichtfeld** bei jedem Modus, der mehr als ein Ziel liefern kann (FR-020) |
+| `hopRange` | double \| null | Pflicht bei `CHAIN` — Umkreis, in dem vom zuletzt getroffenen Ziel weitergesprungen wird |
+| `areaRadius` | double \| null | Pflicht bei `GROUND_AREA` — Radius der verankerten Fläche |
 
-`TargetMode`: `SELF`, `LOOK_DIRECTION`, `CURSOR`, `RADIUS`, `CONE`, `LINE`, `NEAREST`.
+`TargetMode`: `SELF`, `LOOK_DIRECTION`, `CURSOR`, `RADIUS`, `CONE`, `LINE`, `NEAREST`, **`CHAIN`**,
+**`GROUND_AREA`**.
+
+`CHAIN` sucht jedes weitere Ziel im Umkreis des **zuletzt getroffenen**, nicht des Auslösers, und
+trifft keines zweimal (FR-019a). `GROUND_AREA` verankert sich an einem Punkt und bleibt dort, auch
+wenn der Auslöser weggeht; `range` ist dort die Höchstentfernung vom Auslöser (FR-019b).
 
 ### `AbilityConfig`
 
@@ -99,6 +125,7 @@ Was einem Charakter je Fähigkeit gehört. Gehört dem **Charakter**, nicht dem 
 | `abilityId` | String | |
 | `rank` | int | `1 ≤ rank ≤ ability.maxRank` |
 | `cooldownUntil` | Instant \| null | `null`, sobald abgelaufen |
+| `toggleState` | `ToggleState` \| null | nur bei abschaltbaren Fähigkeiten; Vorgabe `ON` (FR-052d) |
 | `dataVersion` | int | Format der Zeile, damit eine alte beim Laden wandern kann |
 | `revision` | long | bei jedem Schreiben erhöht, wie in den übrigen Tabellen |
 
@@ -114,6 +141,7 @@ Wahrheiten erzeugt, sobald jemand eine Freischaltstufe in der Konfiguration änd
 | `ability_id` | text | |
 | `rank` | integer | `NOT NULL`, `CHECK (rank >= 1)` |
 | `cooldown_until` | timestamptz | `NULL`, wenn kein Cooldown läuft |
+| `toggle_state` | text | `NULL` = Vorgabe; sonst `ON`, `OFF` oder ein fähigkeitseigener Zwischenwert |
 | `data_version` | integer | |
 | `revision` | bigint | |
 
@@ -180,6 +208,77 @@ Prüfung zweimal gebraucht.
 **Die globale Sperre greift beim Beginn** (FR-029), der Einzel-Cooldown bei der **Wirkung** (FR-030).
 Ohne diese Trennung wäre die Sperre durch Fähigkeiten mit Wirkzeit umgehbar.
 
+### `SustainedState`
+
+Eine laufende haltende Fähigkeit. **Höchstens eine je Spieler** (FR-045b). Sieben der achtzehn
+Fähigkeiten erzeugen sie.
+
+| Feld | Typ |
+|---|---|
+| `characterId` | UUID |
+| `abilityId` | String |
+| `startedAt` | Instant |
+| `endsAt` | Instant |
+| `spentMana` | double |
+| `endTask` | `TaskHandle` |
+
+**Zustandsübergänge — die zweiphasige Abbruchregel (FR-045d, FR-045e):**
+
+```
+                auslösen
+kein Zustand ─────────────► VORBEREITUNG (Wirkzeit oder Zielphase)
+                                 │
+        ┌────────────────────────┼────────────────────────┐
+        │ zweiter Rechtsklick    │ Wirkzeit abgelaufen     │
+        │ Schaden, Slotwechsel   │                         │
+        ▼                        ▼                         │
+   abgebrochen              LAUFENDE WIRKUNG ◄──────────────┘
+   ├─ Mana zurück                │
+   └─ KEIN Cooldown              ├──────────────┬──────────────┐
+                                 │ Dauer aus    │ zweiter      │ Tod,
+                                 │              │ Rechtsklick  │ Trennung
+                                 ▼              ▼              ▼
+                              beendet ── Mana verbraucht, Cooldown läuft
+```
+
+Ab dem Eintritt in die laufende Wirkung gibt es **keinen Weg zurück** (FR-045f). Der Sprung ist ab
+dem Absprung unabbrechbar, Blitz, Blitzsturm und Klon sind es ab der Auslösung — sie haben gar keine
+Vorbereitung.
+
+### `MeterState`
+
+Warriors Wut. Sieht aus wie eine dritte Ressource, ist aber keine.
+
+| Feld | Typ | Bedeutung |
+|---|---|---|
+| `value` | double | Stand bei der letzten Berührung, in `[0, 100]` |
+| `lastHitAt` | Instant | letzter aus- oder eingeteilter Schaden |
+
+Der Stand jetzt ergibt sich aus beidem:
+
+```
+untätig = max(0, jetzt − lastHitAt − ruhefrist)
+stand   = max(0, value − untätig × zerfallProSekunde)
+```
+
+**Lazy, ohne Aufgabe.** Der Beitrag zu den Attributen wird bei jedem Schadensereignis neu gesetzt —
+das ist ohnehin der einzige Moment, in dem er zählt, und es macht die kontinuierliche Abnahme zu
+einer ereignisgesteuerten Neuberechnung (ADR-013). **Wird nicht persistiert**: wer sich abmeldet,
+beginnt bei 0.
+
+### `ChargeState`
+
+Rogues Teleport. Je Charakter und Fähigkeit.
+
+| Feld | Typ |
+|---|---|
+| `remaining` | int |
+| `lastUsedAt` | Instant |
+
+Ist `jetzt − lastUsedAt` größer als das Nachfüllfenster, steht der Vorrat wieder auf seinem Maximum,
+ohne dass ein Cooldown lief (FR-045j). Der Cooldown startet erst, wenn die letzte Ladung fällt.
+Wieder reine Zeitstempelarithmetik.
+
 ### `RegenerationState`
 
 Je Charakter zwei Zeitstempel — das ist alles, was die Regeneration braucht.
@@ -221,6 +320,20 @@ Herunterzählen (FR-026).
 | `AbilityState` (Rang) | dauerhaft | `rpg.character_abilities` |
 | `AbilityState` (Cooldown) | bis zum Ablauf, überlebt Neustart | dieselbe Tabelle |
 | `CastState` | Sekunden | Speicher, nur bei laufendem Cast |
+| `SustainedState` | Sekunden | Speicher, nur bei laufender haltender Fähigkeit |
+| `MeterState` (Wut) | Sitzung | Speicher — **nicht** persistiert, beginnt beim Anmelden bei 0 |
+| `ChargeState` | Sekunden bis Minuten | Speicher; der Cooldown darunter liegt in der Tabelle |
 | `RegenerationState` | Sitzung | Speicher |
+| Spielereinstellung (Rise & Fall) | dauerhaft | `rpg.character_abilities`, eigene Spalte |
 | Globale Sperre | Sekundenbruchteile | Speicher |
 | Freischaltung | — | **nirgends**, wird abgeleitet |
+
+**Die Tabelle wächst um eine Spalte, nicht um eine zweite Tabelle.** Mages Rise & Fall ist die
+einzige Fähigkeit mit einer Spielereinstellung; `toggle_state` in `rpg.character_abilities` reicht
+dafür und bleibt für weitere abschaltbare Fähigkeiten frei.
+
+**Drei laufende Zustände, kein einziger davon eine wiederkehrende Aufgabe.** `CastState` und
+`SustainedState` planen je einen einmaligen Ablauf. `MeterState`, `ChargeState`,
+`RegenerationState`, Cooldowns und die globale Sperre sind reine Zeitstempelarithmetik. Die
+Intervall-Effekte laufen über **eine** gemeinsame serverweite Auswertung (FR-010b) — nicht über eine
+je Effekt und schon gar nicht über eine je Ziel.

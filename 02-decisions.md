@@ -1095,3 +1095,74 @@ niemand fragt**. Zeitstempelarithmetik beantwortet Fragen; sie löst keine Handl
 **Folge:** Prinzip II bleibt erfüllt und wird messbar geprüft — die Zahl der geplanten Aufgaben
 entspricht der Zahl der gerade laufenden Casts und sonst nichts (B08 SC-005). Ein Spieler ohne
 laufenden Cast hat keine Aufgabe.
+
+---
+
+## ADR-025 · Die ausgearbeiteten Loadouts und was sie am Framework ändern
+
+**Status:** Entschieden *(2026-08-22)* — nach der detaillierten Beschreibung aller achtzehn
+Fähigkeiten durch den Auftraggeber. Ergänzt ADR-022.
+
+**1. Die Aufteilung aktiv/passiv wird Inhalt, nicht Struktur.** Bisher galt „vier aktiv, zwei passiv"
+als harte Startprüfung. Der ausgearbeitete Rogue ist **drei und drei** — Vergiftete Klinge,
+Hinterhältiger Angriff und Zweites Leben sind alle passiv. Künftig prüft der Start nur noch: genau
+sechs Fähigkeiten je Klasse, höchstens eine Unique.
+
+Die Alternative wäre gewesen, eine der drei Rogue-Passiven zu einer aktiven umzubauen. Das hätte
+einen durchdachten Entwurf verbogen, um eine Zahl zu retten, die nie ein Ziel war, sondern eine
+frühe Schätzung. Und sie passt zum Rollenprofil: ein Assassine lebt von Zuständen — Gift, Position,
+ein zweites Leben — nicht von Knopfdrücken. `CharacterClassDefinition.ACTIVE_ABILITIES` und
+`PASSIVE_ABILITIES` entfallen; `TOTAL_ABILITIES` bleibt.
+
+**2. Haltende Fähigkeiten sind ein dritter Laufzeitzustand.** Sieben der achtzehn wirken über eine
+Dauer und enden per zweitem Rechtsklick: Wutschrei, Sprung, Wirbel, Block, Unsichtbarkeit, Magisches
+Schild, Manatrank. Das ist keine Randerscheinung, sondern das häufigste Bedienmuster des Blocks —
+neben Cooldown und Cast braucht es einen Zustand „wirkt gerade und lässt sich beenden".
+
+**Der Abbruch ist zweiphasig, und das ist die eigentliche Entscheidung.** Ein Abbruch in der
+*Vorbereitung* erstattet die Kosten und startet keinen Cooldown; das vorzeitige *Beenden einer
+bereits laufenden Wirkung* behält beides. Ohne diese Trennung wäre Sofort-Abbrechen ein kostenloses
+Werkzeug: ein Wirbel liesse sich beliebig oft für Sekundenbruchteile zünden. Mit ihr ist ein
+Fehlklick beim Sprung folgenlos und ein taktisch früh beendeter Wirbel trotzdem bezahlt.
+
+**3. Wirkung je Sekunde entsteht aus einem Intervallfeld, nicht aus neuen Primitives.** Wirbel,
+Vergiftete Klinge, Blitzsturm und Manatrank brauchen alle „X je Sekunde über Y Sekunden". Statt vier
+Primitives bekommt ein Effekt ein optionales Intervall — `DAMAGE` mit Intervall ist ein DoT,
+`MANA_RESTORE` mit Intervall ist der Manatrank.
+
+**Das nimmt die frühere Ablehnung von Schaden über Zeit zurück, aber nur zur Hälfte.** Abgelehnt war
+die *Umsetzung* mit einer Auswertung je Ziel, die Prinzip II verletzt hätte. **Alle** laufenden
+Intervall-Effekte laufen deshalb über **eine gemeinsame Auswertung** — ein serverweiter Durchlauf,
+keine Aufgabe je Entity. Debuffs ohne Intervall bleiben ablaufende Modifikatoren wie bisher.
+
+**4. Vier Primitives kommen dazu: Evade, Meter, Summon, Invisibility.** Die ersten beiden sind
+gewöhnlich. Die beiden anderen sind es nicht:
+
+- **Meter** ist Warriors Wut: ein Zähler von 0 bis 100, der bei Schaden steigt und nach einer
+  Ruhefrist fällt, und aus dessen Stand sich eine Attributskalierung ergibt. Er sieht aus wie eine
+  dritte Ressource neben Gesundheit und Mana, ist aber keine: er wird nicht gespeichert, überlebt das
+  Abmelden nicht und ist aus dem letzten Stand plus verstrichener Zeit **lazy** rechenbar. Deshalb
+  kostet er keine Aufgabe und keine Tabelle.
+- **Summon** war ausdrücklich auf B10 vertagt und kommt durch den Klon zurück. Es wird hier gebaut,
+  **aber ohne Aggro-Umlenkung** — die braucht Mob-KI.
+
+**5. Drei Mechaniken bekommen jetzt ihre Schnittstelle und später ihr Verhalten.** Der Klon zieht
+keine Mobs, die Unsichtbarkeit hält Mobs nicht ab und macht keine Ausnahme für Bosse, und Zweites
+Leben prüft nicht, ob der Spieler in einer Instanz steht. Alle drei brauchen B10 beziehungsweise B09.
+B08 definiert die Einhängepunkte und benutzt eine Vanilla-Näherung, wo eine existiert — der
+Unsichtbarkeitseffekt und die Unverwundbarkeit wirken sofort.
+
+Das ist dasselbe Muster, mit dem B07 die Fähigkeits-IDs an B08 abgegeben hat: **benennen, was ein
+späterer Block auflöst, statt ihn vorwegzunehmen** (Workflow-Regel 5). Der Preis ist, dass drei
+Fähigkeiten bis B10 unvollständig wirken — und das ist bewusst dokumentiert statt stillschweigend.
+
+**6. Zwei Zielbestimmungen kommen dazu.** Die **Kette** springt vom zuletzt getroffenen Ziel weiter,
+nicht vom Auslöser — das ist Mages Blitz und lässt sich mit „nächstes Ziel" nicht ausdrücken. Die
+**Bodenfläche** verankert sich an einem Punkt und bleibt dort, auch wenn der Auslöser weggeht — das
+ist der Blitzsturm.
+
+**7. Ladungen.** Rogues Teleport hat zwei, und der Cooldown beginnt erst nach der zweiten; wird sie
+nicht binnen zehn Sekunden benutzt, springt der Vorrat zurück. Zeitstempelarithmetik wie alles andere.
+
+**Nicht geändert:** ADR-008 bleibt bei zehn Attributen. Evade und Meter sind Fähigkeitseffekte, keine
+Sekundärwerte — dieselbe Grenze, die ADR-022 für Lifesteal gezogen hat.

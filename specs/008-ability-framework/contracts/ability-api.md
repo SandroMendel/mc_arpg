@@ -31,6 +31,18 @@ Optional<Duration> remainingGlobalLock(UUID characterId);
 
 /** Der laufende Cast, oder leer. Für den Cast-Balken in B13. */
 Optional<CastView> activeCast(UUID characterId);
+
+/** Die laufende haltende Fähigkeit, oder leer. Höchstens eine (FR-045b). */
+Optional<SustainedView> activeSustained(UUID characterId);
+
+/** Verfügbare Ladungen, für Fähigkeiten mit mehr als einer (FR-045i). */
+int chargesAvailable(UUID characterId, String abilityId);
+
+/** Der Stand von Warriors Wut in [0, 100] - lazy gerechnet, nicht gespeichert (FR-016b). */
+double meterValue(UUID characterId, String abilityId);
+
+/** Die Spielereinstellung einer abschaltbaren Fähigkeit (FR-052d). */
+ToggleState toggleOf(UUID characterId, String abilityId);
 ```
 
 **Keine dieser Methoden rechnet** (FR-067). Sie lesen, was ohnehin da ist, oder vergleichen zwei
@@ -56,6 +68,18 @@ AbilityResult trigger(UUID characterId, String abilityId);
 
 /** Bricht einen laufenden Cast ab. Mana wird vollständig erstattet (FR-041). */
 void interrupt(UUID characterId, InterruptCause cause);
+
+/**
+ * Beendet eine laufende haltende Fähigkeit (ADR-025).
+ *
+ * <p><b>Zweiphasig.</b> Ist die Fähigkeit noch in der Vorbereitung, wird das Mana erstattet und kein
+ * Cooldown gestartet. Wirkt sie bereits, bleiben die Kosten verbraucht und der Cooldown beginnt in
+ * diesem Moment (FR-045d, FR-045e). Der Aufrufer entscheidet das nicht - der Zustand tut es.
+ */
+AbilityResult end(UUID characterId, EndCause cause);
+
+/** Setzt die Spielereinstellung einer abschaltbaren passiven Fähigkeit (FR-052d). */
+void setToggle(UUID characterId, String abilityId, ToggleState state);
 
 /** Erhöht den Rang um eins und setzt den Höchstrang durch. */
 RankResult advanceRank(UUID characterId, String abilityId);

@@ -62,6 +62,41 @@ validierter Konfiguration).
   ist der Ort dafür, weil die Regeneration den Kampfzustand aus B05 braucht: B04 dürfte ihn nicht
   lesen, ohne die Abhängigkeitsrichtung umzudrehen.
 
+### Session 2026-08-22 — die ausgearbeiteten Loadouts, festgehalten in ADR-025
+
+Der Auftraggeber hat alle achtzehn Fähigkeiten im Detail beschrieben. Vier Punkte waren zu
+entscheiden, und die Beschreibungen haben den Vorrat an Bausteinen deutlich erweitert.
+
+- Q: Der Rogue hat **drei aktive und drei passive** Fähigkeiten; der Start erzwingt hart vier und
+  zwei. Was gilt? → A: **Die Regel wird gelockert.** Künftig gilt nur noch: genau sechs Fähigkeiten
+  je Klasse, höchstens eine Unique. Die Aufteilung zwischen aktiv und passiv ist Inhalt, nicht
+  Struktur. Warrior und Mage bleiben faktisch bei 4+2, der Rogue ist 3+3 — und das passt zu seinem
+  Rollenprofil, weil ein Assassine mehr Dauerwirkung als Knopfdruck hat.
+
+- Q: Clone braucht Beschwörung und Aggro-Umlenkung, Invisibility braucht Aggro und eine
+  Boss-Unterscheidung, Second Life braucht „nur Open World" — alles drei gehört zu B09 und B10, die
+  es nicht gibt. → A: **Schnittstelle jetzt, Verhalten mit B10.** B08 definiert die Einhängepunkte
+  und benutzt eine Vanilla-Näherung, wo eine existiert; wo keine existiert, bleibt die Wirkung bis
+  B10 aus. Dasselbe Muster, mit dem B07 die Fähigkeits-IDs an B08 abgegeben hat (Workflow-Regel 5).
+
+- Q: Sieben der achtzehn Fähigkeiten lassen sich per zweitem Rechtsklick abbrechen. Was passiert
+  dabei mit Mana und Cooldown? → A: **Zweiphasig.** Ein Abbruch in der *Vorbereitung* — der Sprung
+  vor dem Absprung, die Unsichtbarkeit bevor sie eintritt — ist kostenlos: Mana zurück, kein
+  Cooldown. Ein vorzeitiges *Beenden einer bereits laufenden Wirkung* — der Wirbel dreht schon, das
+  Schild absorbiert schon — behält die Kosten und startet den Cooldown. Ohne diese Trennung wäre
+  Sofort-Abbrechen ein kostenloses Werkzeug. Damit ist auch die Rückfrage zum Sprung beantwortet:
+  abgebrochen, bevor er springt, ist er sofort wieder auslösbar.
+
+- Q: Was bedeutet „ab hier nur noch Cosmetic" bei den Ausrüstungsleitern? → A: **Alle gelisteten
+  Stufen tragen Werte**; der Hinweis meint künftige Stufen jenseits der Liste. Beim Warrior-Schwert
+  steht er hinter der letzten Zeile und ergäbe sonst keinen Sinn.
+
+  **Dazu eine Korrektur einer falschen Annahme dieser Spezifikation:** „Template+Color" auf
+  Kettenhemd und Netherite ist kein Widerspruch zur Startprüfung. Ein Rüstungs-Trim hat ein *Muster*
+  und ein *Material*, und das Material trägt die Farbe — `classes.yml` führt beides bereits getrennt
+  von der Lederfärbung. Warrior Stufe 6 und Rogue Stufe 4 bis 6 sind damit genau so baubar wie
+  beschrieben.
+
 ### Abgeleitete Entscheidungen
 
 Diese vier Antworten ziehen Folgen nach sich, die hier festgehalten werden, weil sie den Zuschnitt des
@@ -73,7 +108,7 @@ Blocks bestimmen:
   Dauermodifikator ist der Sonderfall `ALWAYS` — nicht umgekehrt.
 
 - **Der globale Cooldown macht das Hotbar-Schema zur Pflicht in diesem Block.** B07 hat den festen
-  Slot der gebundenen Waffe ausdrücklich an B08 abgegeben. Da vier aktive Fähigkeiten ebenfalls Slots
+  Slot der gebundenen Waffe ausdrücklich an B08 abgegeben. Da die aktiven Fähigkeiten ebenfalls Slots
   belegen und passive Uniques Item-Marker tragen, wird die Belegung aller neun Slots hier festgelegt.
 
 - **Der Cast-Zustand ist der erste Spielerzustand mit Ablaufzeit im Tick.** Cooldowns lassen sich rein
@@ -243,22 +278,22 @@ Quelldatei angefasst wurde.
 
 ### User Story 6 - Jede Klasse hat ihr vollständiges Loadout (Priority: P2)
 
-Warrior, Rogue und Mage haben je sechs Fähigkeiten: vier aktive und zwei passive, darunter genau eine
-Unique. Die Freischaltstufen liegen auf 1, 5, 15, 25, 35 und 45; die Unique ist die letzte. Damit sind
-die in B07 leer gelassenen Bindungen gefüllt und die Prüfung „leer oder genau sechs" fällt zum ersten
-Mal auf die zweite Seite.
+Warrior, Rogue und Mage haben je sechs Fähigkeiten, darunter genau eine Unique. Die Aufteilung
+zwischen aktiv und passiv ist Inhalt, nicht Struktur: Warrior und Mage sind 4+2, der Rogue 3+3
+(ADR-025). Die Freischaltstufen liegen auf 1, 5, 15, 25, 35 und 45; die Unique ist die letzte. Damit
+sind die in B07 leer gelassenen Bindungen gefüllt und die Prüfung „leer oder genau sechs" fällt zum
+ersten Mal auf die zweite Seite.
 
 **Why this priority**: Ohne Loadouts hat der Block eine Maschine, aber keinen Inhalt. Er ist erst
 spielbar, wenn alle drei Klassen bestückt sind.
 
-**Independent Test**: Für jede der drei Klassen liefert die Bindungsauskunft sechs Einträge, vier
-davon aktiv, genau einer als Unique markiert; auf Stufe 1 ist genau einer freigeschaltet, auf Stufe 45
-alle sechs.
+**Independent Test**: Für jede der drei Klassen liefert die Bindungsauskunft sechs Einträge, genau
+einer als Unique markiert; auf Stufe 1 ist genau einer freigeschaltet, auf Stufe 45 alle sechs.
 
 **Acceptance Scenarios**:
 
 1. **Given** die ausgelieferte Konfiguration, **When** der Server startet, **Then** hat jede der drei
-   Klassen genau sechs Fähigkeiten, vier aktiv, zwei passiv, genau eine Unique.
+   Klassen genau sechs Fähigkeiten und genau eine Unique — Warrior und Mage 4+2, Rogue 3+3.
 2. **Given** ein Charakter auf Stufe 1, **When** die freigeschalteten Fähigkeiten abgefragt werden,
    **Then** ist es genau die passive Fähigkeit der Stufe 1.
 3. **Given** ein Charakter, der Stufe 5 erreicht, **When** der Aufstieg verarbeitet ist, **Then**
@@ -362,6 +397,9 @@ Wert, ohne dass eine Quelldatei angefasst wurde.
 - **FR-006**: Das System MUSS beim Start prüfen, dass jede in einer Klassenbindung genannte
   Fähigkeits-ID definiert ist, und andernfalls den Start verweigern. Damit erfüllt B08 die Zusage, die
   B07 offen gelassen hat: dort reist die ID als undurchsichtige Zeichenkette.
+- **FR-006a**: Das System MUSS beim Start prüfen, dass jede Klasse **genau sechs** Fähigkeiten und
+  **höchstens eine** Unique führt. Es DARF **nicht** prüfen, wie sich die sechs auf aktiv und passiv
+  verteilen — das ist Inhalt und je Klasse verschieden (ADR-025).
 - **FR-007**: Das System MUSS beim Start prüfen, dass die Art in der Definition mit der Art in der
   Klassenbindung übereinstimmt, und andernfalls den Start verweigern.
 - **FR-008**: Das System MUSS jede Zahl der Definitionen aus Konfiguration beziehen. Im Code steht
@@ -370,9 +408,19 @@ Wert, ohne dass eine Quelldatei angefasst wurde.
 
 ### Functional Requirements — Effect-Primitives
 
-- **FR-010**: Das System MUSS die folgenden Primitives bereitstellen: **Damage**, **Heal**,
-  **ManaRestore**, **Lifesteal**, **Shield**, **Buff**, **Debuff**, **StatusEffect**, **Dash**,
-  **Knockback**, **Teleport**, **Projectile**.
+- **FR-010**: Das System MUSS die folgenden **sechzehn** Primitives bereitstellen: **Damage**,
+  **Heal**, **ManaRestore**, **Lifesteal**, **Shield**, **Buff**, **Debuff**, **StatusEffect**,
+  **Dash**, **Knockback**, **Teleport**, **Projectile**, **Evade**, **Meter**, **Summon**,
+  **Invisibility**.
+- **FR-010a**: Ein Effekt MUSS ein optionales **Intervall** tragen können. Mit Intervall wirkt er
+  wiederholt über seine Dauer statt einmalig — damit entstehen Wirbel, Vergiftete Klinge, Blitzsturm
+  und Manatrank aus denselben Primitives wie ihre einmaligen Geschwister, ohne vier weitere.
+- **FR-010b**: Alle laufenden Intervall-Effekte MÜSSEN über **eine gemeinsame Auswertung** laufen.
+  Eine Auswertung je Ziel oder je Effekt wäre eine wiederkehrende Aufgabe je Entity und damit ein
+  Verstoß gegen Prinzip II.
+- **FR-010c**: Ein Intervall-Effekt MUSS **stapelbar** sein können, mit konfigurierter Höchstzahl an
+  Stapeln und einer Obergrenze für die Gesamtwirkung je Sekunde. Ein weiterer Stapel auf dem
+  Höchststand erneuert die Laufzeit, erhöht die Wirkung aber nicht.
 - **FR-011**: Ein Primitive MUSS aus seiner Definition heraus konfigurierbar sein und ohne
   Codeänderung in beliebiger Kombination mit anderen in einer Fähigkeit stehen können.
 - **FR-012**: Schaden aus Fähigkeiten MUSS über die reguläre Kampf-Pipeline laufen und dabei den
@@ -384,8 +432,27 @@ Wert, ohne dass eine Quelldatei angefasst wurde.
   wirken und über einen Zeitstempel ablaufen, nicht über eine mitlaufende Zählung.
 - **FR-015**: Das Shield-Primitive MUSS eine Menge Schadens absorbieren, bevor Gesundheit sinkt, und
   nach Ablauf oder Verbrauch von selbst enden.
+- **FR-015a**: Das Shield-Primitive MUSS einen **Schadenstyp-Filter** tragen können. Warriors Block
+  absorbiert ausschließlich physischen Schaden, Mages Magisches Schild jeden.
 - **FR-016**: Das Lifesteal-Primitive MUSS einen Anteil des **nach Mitigation tatsächlich zugefügten**
   Schadens als Heilung zurückgeben und dafür KEIN neues Attribut einführen (ADR-008, ADR-022).
+- **FR-016a**: Das Evade-Primitive MUSS eingehenden Schaden mit einer Wahrscheinlichkeit vollständig
+  vermeiden und dabei denselben Schadenstyp-Filter tragen. Mages Magic Life weicht nur magischem
+  Schaden aus, auf physischen wirkt es nicht.
+- **FR-016b**: Das Meter-Primitive MUSS einen **Zähler von 0 bis 100 je Charakter** führen, der bei
+  aus- oder eingeteiltem Schaden steigt und nach einer konfigurierten Ruhefrist je Sekunde fällt. Aus
+  seinem Stand ergibt sich eine Skalierung auf konfigurierte Attribute. Er MUSS
+  **zeitstempelbasiert lazy** gerechnet werden — Aufbau und Zerfall sind aus dem letzten Stand und
+  der verstrichenen Zeit ableitbar und brauchen keine Aufgabe (Prinzip II). Der Zähler ist Warriors
+  Wut; er ist **keine** dritte gespeicherte Ressource und überlebt das Abmelden nicht.
+- **FR-016c**: Das Summon-Primitive MUSS ein Wesen mit den Werten des Auslösers erzeugen, das nicht
+  angreift und nach Ablauf oder bei null Gesundheit einen Effekt an seiner Position auslöst. **Die
+  Aggro-Umlenkung bleibt bis B10 wirkungslos**, die Schnittstelle dafür wird hier definiert
+  (ADR-025).
+- **FR-016d**: Das Invisibility-Primitive MUSS den Auslöser für eine Dauer unsichtbar und unverwundbar
+  machen und bei ausgeteiltem Schaden vorzeitig enden. **Dass Mobs ihn nicht mehr angreifen und Bosse
+  ihn dennoch sehen, bleibt bis B10 offen**; der Vanilla-Unsichtbarkeitseffekt und die
+  Unverwundbarkeit wirken sofort. Das Void bleibt tödlich.
 - **FR-017**: Ein Effekt, der eine Ausnahme wirft, MUSS abgefangen, mit der Kennung seiner Fähigkeit
   protokolliert und auf dieses eine Ereignis begrenzt werden; die übrigen Effekte laufen weiter.
 - **FR-018**: Eine ausgelöste Fähigkeit MUSS mit dem Wertestand vom Auslösezeitpunkt arbeiten. Spätere
@@ -393,9 +460,15 @@ Wert, ohne dass eine Quelldatei angefasst wurde.
 
 ### Functional Requirements — Targeting
 
-- **FR-019**: Das System MUSS die folgenden Zielbestimmungen bereitstellen: **Selbst**,
+- **FR-019**: Das System MUSS die folgenden **neun** Zielbestimmungen bereitstellen: **Selbst**,
   **Blickrichtung**, **Cursor-Ziel**, **Radius um den Auslöser**, **Kegel in Blickrichtung**,
-  **Linie in Blickrichtung**, **nächstes Ziel**.
+  **Linie in Blickrichtung**, **nächstes Ziel**, **Kette** und **Bodenfläche**.
+- **FR-019a**: Die Kette MUSS vom ersten Ziel aus weiterspringen — jedes weitere Ziel wird im Umkreis
+  des **zuletzt getroffenen** gesucht, nicht des Auslösers, bis zur Zielobergrenze. Kein Ziel wird
+  zweimal getroffen. Das ist Mages Blitz.
+- **FR-019b**: Die Bodenfläche MUSS an einem vom Cursor bestimmten Punkt verankert werden, mit
+  eigenem Radius und einer eigenen Höchstentfernung vom Auslöser. Sie bleibt an ihrem Ort, auch wenn
+  der Auslöser sich bewegt. Das ist Mages Blitzsturm.
 - **FR-020**: Jede Zielbestimmung, die mehr als ein Ziel liefern kann, MUSS eine Obergrenze für die
   Zielanzahl tragen. Eine fehlende Obergrenze verhindert den Start (FR-001).
 - **FR-021**: Bei mehr Kandidaten als erlaubt MUSS nach aufsteigendem Abstand ausgewählt werden, damit
@@ -467,6 +540,42 @@ Wert, ohne dass eine Quelldatei angefasst wurde.
 - **FR-045**: Der Cast-Zustand DARF NICHT an eine wiederkehrende Aufgabe je Spieler gebunden sein. Ein
   Spieler ohne laufenden Cast hat keine geplante Arbeit.
 
+### Functional Requirements — Runtime: haltende Fähigkeiten und zweiphasiger Abbruch
+
+Sieben der achtzehn Fähigkeiten wirken über eine Dauer und lassen sich per zweitem Rechtsklick
+beenden: Wutschrei, Sprung, Wirbel, Block, Invisibility, Magisches Schild und Manatrank. Das ist ein
+eigener Laufzeitzustand neben Cooldown und Cast (ADR-025).
+
+- **FR-045a**: Eine Definition MUSS als **haltend** gekennzeichnet werden können. Eine haltende
+  Fähigkeit wirkt bis zum Ablauf ihrer Dauer oder bis sie beendet wird.
+- **FR-045b**: Ein Spieler MUSS höchstens **eine** haltende Fähigkeit gleichzeitig führen. Eine
+  zweite Auslösung während einer laufenden wird abgewiesen.
+- **FR-045c**: Ein **zweiter Rechtsklick auf demselben Slot** MUSS eine laufende haltende Fähigkeit
+  beenden.
+- **FR-045d**: **Vorbereitung**: Wird eine Fähigkeit abgebrochen, **bevor** ihre Wirkung eingetreten
+  ist — während der Wirkzeit oder in der Zielphase —, werden die Kosten **vollständig erstattet** und
+  **kein Cooldown** gestartet. Sie ist sofort wieder auslösbar.
+- **FR-045e**: **Laufende Wirkung**: Wird eine bereits wirkende Fähigkeit vorzeitig beendet, bleiben
+  die Kosten verbraucht und der Cooldown startet in diesem Moment. Ohne diese Trennung wäre
+  Sofort-Abbrechen ein kostenloses Werkzeug.
+- **FR-045f**: Ist eine Fähigkeit in ihre Wirkung eingetreten, DARF sie nicht mehr in die
+  Vorbereitung zurückfallen. Der Sprung ist ab dem Absprung unabbrechbar, Blitz, Blitzsturm und Klon
+  sind es ab der Auslösung.
+- **FR-045g**: Eine haltende Fähigkeit MUSS bei Tod, Charakterwechsel und Verbindungsverlust enden;
+  Manatrank endet zusätzlich bei erlittenem Schaden, Invisibility bei ausgeteiltem.
+- **FR-045h**: Der Ablauf einer haltenden Fähigkeit DARF NICHT über eine wiederkehrende Aufgabe je
+  Spieler laufen. Ihr Ende ist ein einmaliger geplanter Ablauf wie der eines Casts; ihre
+  Intervall-Wirkung läuft über die gemeinsame Auswertung aus FR-010b.
+
+### Functional Requirements — Runtime: Ladungen
+
+- **FR-045i**: Eine Definition MUSS mehrere **Ladungen** tragen können. Der Cooldown beginnt erst,
+  wenn die letzte verbraucht ist.
+- **FR-045j**: Wird die nächste Ladung nicht innerhalb eines konfigurierten **Nachfüllfensters**
+  benutzt, MUSS der Vorrat auf sein Maximum zurückspringen, ohne dass ein Cooldown lief.
+- **FR-045k**: Ladungsstand und Fenster MÜSSEN zeitstempelbasiert lazy gerechnet werden. Das ist
+  Rogues Teleport: zwei Ladungen, zehn Sekunden Fenster.
+
 ### Functional Requirements — Passive und Trigger
 
 - **FR-046**: Das System MUSS die folgenden Trigger bereitstellen: **ALWAYS** (Dauerwirkung),
@@ -481,6 +590,19 @@ Wert, ohne dass eine Quelldatei angefasst wurde.
 - **FR-051**: **ON_DEATH** DARF NICHT gegen die administrative Tötung greifen.
 - **FR-052**: Eine passive Fähigkeit mit Dauerwirkung MUSS ihren Beitrag als Modifikatorquelle
   anmelden und ihn bei Verlust der Freischaltung oder beim Charakterwechsel wieder entfernen.
+- **FR-052a**: Eine passive Fähigkeit MUSS eine **Positionsbedingung** tragen können: sie wirkt nur,
+  wenn der Treffer den Gegner **von hinten** traf. Das ist Rogues Sneaky Backstab; die Wirkung hält
+  danach für eine konfigurierte Frist und wird von jedem weiteren Treffer von hinten erneuert.
+- **FR-052b**: Eine passive Fähigkeit MUSS eine **Weltbedingung** tragen können — wirksam nur in der
+  offenen Welt, nicht in Instanzen. Das ist Rogues Second Life. **Bis B09 die Zonen liefert, bleibt
+  die Bedingung ungeprüft und die Fähigkeit überall wirksam**; die Schnittstelle wird hier definiert
+  (ADR-025, Workflow-Regel 5).
+- **FR-052c**: Second Life MUSS den Spieler statt zu sterben an seine **letzte Position vor dem Tod**
+  zurückversetzen, begleitet von Titel und Ton. Es gibt keinen Respawn und keinen Todesbildschirm.
+- **FR-052d**: Eine passive Fähigkeit MUSS vom Spieler **abschaltbar** sein können, wenn ihre
+  Definition das vorsieht — mit den Stufen *an*, *aus* und einer fähigkeitseigenen Zwischenstufe. Das
+  ist Mages Rise & Fall: an, aus, oder nur der Sprung ohne Slow Fall. Die Einstellung gehört dem
+  Charakter und überlebt das Abmelden.
 
 ### Functional Requirements — Eingabe und Hotbar
 
@@ -489,9 +611,12 @@ Wert, ohne dass eine Quelldatei angefasst wurde.
 - **FR-054**: Ein Linksklick mit einem Fähigkeits-Item DARF weder die Fähigkeit noch einen
   Nahkampfangriff auslösen.
 - **FR-055**: Das System MUSS die Belegung der Hotbar festlegen: **Slot 0** trägt die gebundene Waffe
-  aus B07, **Slots 1 bis 4** tragen die vier aktiven Fähigkeiten in der Reihenfolge ihrer
-  Freischaltstufe, **Slots 5 aufwärts** tragen die Marker-Items passiver Fähigkeiten, sofern sie
-  welche haben. Die übrigen Slots gehören dem Spieler.
+  aus B07, **ab Slot 1** folgt je eine aktive Fähigkeit in der Reihenfolge ihrer Freischaltstufe,
+  **unmittelbar danach** die Marker-Items passiver Fähigkeiten, sofern sie welche tragen. Die übrigen
+  Slots gehören dem Spieler. Die Zahl der aktiven Fähigkeiten ist je Klasse verschieden (ADR-025),
+  deshalb ist die Belegung eine Regel und keine feste Tabelle.
+- **FR-055a**: Ein zweiter Rechtsklick auf dem Slot einer laufenden haltenden Fähigkeit MUSS sie
+  beenden (FR-045c) — derselbe Slot, dieselbe Taste, kein zweites Bedienelement.
 - **FR-056**: Ein Slot einer noch nicht freigeschalteten Fähigkeit MUSS leer bleiben und darf sich
   nicht befüllen lassen.
 - **FR-057**: Fähigkeits- und Marker-Items MÜSSEN charaktergebunden sein: nicht bewegbar, nicht
@@ -566,8 +691,8 @@ Wert, ohne dass eine Quelldatei angefasst wurde.
 - **SC-005**: Über eine Stunde Spielbetrieb mit 150 Spielern läuft **keine** wiederkehrende Aufgabe je
   Spieler für Cooldowns oder Regeneration; die Zahl der geplanten Aufgaben entspricht der Zahl der gerade
   laufenden Casts.
-- **SC-006**: Jede der drei Klassen hat genau sechs Fähigkeiten, vier aktiv, zwei passiv, genau eine
-  Unique — durchgesetzt beim Start, nicht bloß dokumentiert.
+- **SC-006**: Jede der drei Klassen hat genau sechs Fähigkeiten und genau eine Unique — durchgesetzt
+  beim Start, nicht bloß dokumentiert. Die Aufteilung aktiv/passiv wird NICHT erzwungen (ADR-025).
 - **SC-007**: Ein Flächeneffekt trifft nie mehr Ziele als seine Obergrenze, auch nicht bei 200
   Kandidaten im Radius.
 - **SC-008**: Eine fehlerhafte Konfiguration verhindert den Start in 100 % der geprüften Fälle und
@@ -589,58 +714,68 @@ Alle drei Klassen folgen demselben Raster: **1, 5, 15, 25, 35, 45**. Die Unique 
 Damit steht das vollständige Loadout deutlich vor Maximallevel 60 zur Verfügung, und die
 Ausrüstungsleitern aus B07 bleiben der Teil der Progression, der bis 55 weiterläuft.
 
-### Warrior — festgelegt in B07
+### Warrior — Nahkampf, Zähigkeit, Aufbau durch Kampf
 
-| Stufe | Fähigkeit | Art | Zielbestimmung | Kern |
+| Stufe | Fähigkeit | Art | Ziel | Kern |
 |---|---|---|---|---|
-| 1 | Wut | passiv, `ON_DAMAGE_TAKEN` | Selbst | Buff auf physischen Schaden, der mit sinkender Gesundheit steigt |
-| 5 | Schild | aktiv | Selbst | Shield — absorbiert eine Menge Schaden für eine Dauer |
-| 15 | Sprung | aktiv | Blickrichtung | Dash nach vorn, Knockback am Landepunkt |
-| 25 | Lifesteal | passiv, `ON_DAMAGE_DEALT` | Selbst | Lifesteal — Anteil des zugefügten Schadens als Heilung |
-| 35 | Wirbel | aktiv | Radius um den Auslöser | Damage physisch, Zielobergrenze, Knockback |
-| 45 | **Call of the Berserker** | aktiv, **Unique** | Selbst | Buff auf physischen Schaden **und** Verteidigung für eine Dauer. Item: Goat Horn |
+| 1 | **Wut** (Rage) | passiv, `ON_DAMAGE_DEALT` + `ON_DAMAGE_TAKEN` | Selbst | Meter 0–100. Steigt bei aus- oder eingeteiltem physischem Schaden, fällt nach einer Ruhefrist je Sekunde bis 0. Skaliert physischen Schaden und Verteidigung mit seinem Stand |
+| 5 | **Block** (Blocker) | aktiv, **haltend** | Selbst | Shield mit Filter auf **physisch**; magischer Schaden geht hindurch. Vorzeitig beendbar |
+| 15 | **Sprung** (Jump) | aktiv, **haltend in der Vorbereitung** | Blickrichtung | Weiter Sprung zum Cursor, beim Aufprall Flächenschaden. Vor dem Absprung abbrechbar und dann kostenlos; ab dem Absprung nicht mehr |
+| 25 | **Lebensraub** (Lifesteal) | passiv, `ON_DAMAGE_DEALT` | Selbst | Anteil des tatsächlich zugefügten Schadens als Heilung |
+| 35 | **Wirbel** (Whirl) | aktiv, **haltend**, Intervall | Radius um den Auslöser | Physischer Flächenschaden je Sekunde über eine Dauer. Vorzeitig beendbar — der Wirbel hört sofort auf |
+| 45 | **Wutschrei** (Call of the Warrior) | aktiv, **Unique**, **haltend** | Selbst | Buff auf Bewegungs- **und** Angriffsgeschwindigkeit für eine Dauer. Vorzeitig beendbar; danach keine weitere Steigerung |
 
-### Rogue — hier ausgearbeitet
+Vier aktive, zwei passive. Item der Unique: Goat Horn.
 
-Die Unique steht fest: Second Life, Totem, passiv, prozentuale Wiederbelebungschance. Die übrigen fünf
-sind aus dem Rollenprofil abgeleitet — Beweglichkeit, Einzelziel, kein Flächenschaden.
+### Rogue — Beweglichkeit, Einzelziel, Dauerwirkung
 
-| Stufe | Fähigkeit | Art | Zielbestimmung | Kern |
+**Drei aktive, drei passive.** Das ist die Ausnahme, für die die Zählregel gelockert wurde (ADR-025):
+ein Assassine lebt mehr von Zuständen als von Knopfdrücken.
+
+| Stufe | Fähigkeit | Art | Ziel | Kern |
 |---|---|---|---|---|
-| 1 | Ausweichen | passiv, `ON_DAMAGE_TAKEN` | Selbst | Wahrscheinlichkeit, den Schaden vollständig zu vermeiden |
-| 5 | Schattenschritt | aktiv | Blickrichtung | Teleport über eine kurze Strecke, Wirkzeit 0 |
-| 15 | Wurfmesser | aktiv | Blickrichtung | Projectile mit physischem Damage auf Trefferziel |
-| 25 | Schwächender Schnitt | aktiv | Cursor-Ziel | Debuff auf die Verteidigung des Ziels für eine Dauer |
-| 35 | Hinterhalt | aktiv | Selbst | Buff auf physischen Schaden und Angriffsgeschwindigkeit, kurze Wirkzeit |
-| 45 | **Second Life** | passiv, **Unique**, `ON_DEATH` | Selbst | Wahrscheinlichkeit, statt zu sterben mit einem Anteil der Gesundheit wieder aufzustehen. Eigener langer Cooldown. Marker: Totem |
+| 1 | **Vergiftete Klinge** (Poisoned Blade) | passiv, `ON_DAMAGE_DEALT` | getroffenes Ziel | Chance, Gift zu setzen: physischer Schaden je Sekunde über eine Dauer, **bis dreifach stapelbar**, Gesamtwirkung je Sekunde gedeckelt |
+| 5 | **Teleport** | aktiv, **zwei Ladungen** | Cursor-Ziel | Versetzt den Spieler unverzüglich zum anvisierten Mob. Nicht abbrechbar. Cooldown erst nach der zweiten Ladung; wird sie nicht binnen zehn Sekunden benutzt, springt der Vorrat auf zwei zurück |
+| 15 | **Hinterhältiger Angriff** (Sneaky Backstab) | passiv, `ON_DAMAGE_DEALT` **von hinten** | Selbst | Buff auf Angriffsgeschwindigkeit und physischen Schaden, solange binnen 60 s ein Treffer von hinten landete |
+| 25 | **Unsichtbarkeit** (Invisibility) | aktiv, **haltend** | Selbst | Unsichtbar und unverwundbar für eine Dauer. Endet bei ausgeteiltem Schaden und per zweitem Rechtsklick. *Das Void bleibt tödlich. Dass Mobs ihn nicht angreifen und Bosse ihn dennoch sehen, folgt mit B10* |
+| 35 | **Klon** (Clone) | aktiv | Selbst | Erzeugt einen Klon mit den eigenen Werten für eine Dauer. Er greift nicht an; bei Ablauf oder null Gesundheit explodiert er mit physischem Flächenschaden. Nicht abbrechbar. *Die Aggro-Umlenkung folgt mit B10* |
+| 45 | **Zweites Leben** (Second Life) | passiv, **Unique**, `ON_DEATH` | Selbst | Chance, statt zu sterben an die **letzte Position vor dem Tod** zurückversetzt zu werden, mit Titel und Ton. Eigener langer Cooldown. *Nur in der offenen Welt — die Bedingung greift, sobald B09 die Zonen liefert* |
 
-### Mage — hier ausgearbeitet
+Marker: Totem für Zweites Leben.
 
-Die Unique steht fest: Magic Boost & Fall, Wind Charge und Slow Fall Potion, passiv, Doppelsprung und
-Slow Fall. Die übrigen fünf spielen das Rollenprofil aus: viel Mana, viel Magieschaden, hohe
-Cooldown-Reduktion, Fläche statt Einzelziel.
+### Mage — Mana, Magieschaden, Fläche
 
-| Stufe | Fähigkeit | Art | Zielbestimmung | Kern |
+| Stufe | Fähigkeit | Art | Ziel | Kern |
 |---|---|---|---|---|
-| 1 | Arkane Sammlung | passiv, `ON_KILL` | Selbst | ManaRestore bei jedem Tötungsbeitrag |
-| 5 | Feuerball | aktiv | Blickrichtung | Projectile mit magischem Damage, kleiner Radius am Einschlag |
-| 15 | Frostnova | aktiv | Radius um den Auslöser | Damage magisch plus Debuff auf Bewegungsgeschwindigkeit, Zielobergrenze |
-| 25 | Kettenblitz | aktiv | Nächstes Ziel, wiederholt | Damage magisch, springt bis zur Zielobergrenze weiter, je Sprung abnehmend |
-| 35 | Manaschild | aktiv | Selbst | Shield, dessen Absorption sich aus dem Mana speist, Wirkzeit größer null |
-| 45 | **Magic Boost & Fall** | passiv, **Unique**, `ALWAYS` | Selbst | Zweiter Sprung in der Luft und verlangsamter Fall. Marker: Wind Charge und Slow Fall Potion |
+| 1 | **Magisches Leben** (Magic Life) | passiv, `ON_DAMAGE_TAKEN` | Selbst | Evade mit Filter auf **magisch**: eingehender magischer Schaden verfehlt mit einer Wahrscheinlichkeit. Auf physischen wirkt es nicht |
+| 5 | **Blitz** (Lightning) | aktiv | **Kette** | Magischer Schaden auf das anvisierte Ziel, springt von dort zum nächsten im Umkreis weiter, bis zu acht Mobs. Nicht abbrechbar |
+| 15 | **Magisches Schild** (Magic Shield) | aktiv, **haltend** | Selbst | Shield **ohne** Typfilter — physischer wie magischer Schaden wird absorbiert. Vorzeitig beendbar |
+| 25 | **Manatrank** (Mana Potion) | aktiv, **haltend**, Intervall | Selbst | Mana je Sekunde über eine Dauer. Auch im Kampf auslösbar, endet aber bei jedem erlittenen Schaden und per zweitem Rechtsklick |
+| 35 | **Blitzsturm** (Lightning Storm) | aktiv, Intervall | **Bodenfläche** | Sturm auf einen Bodenpunkt in Cursor-Richtung, eigener Radius und eigene Höchstentfernung. Magischer Flächenschaden je Sekunde über eine Dauer. Nicht abbrechbar |
+| 45 | **Aufstieg & Fall** (Rise & Fall) | passiv, **Unique**, `ALWAYS`, **abschaltbar** | Selbst | Doppelsprung wie eine Wind Charge, danach Slow Fall. Eigener Cooldown auf den Doppelsprung. Ein einfacher Sprung und jeder Sturz bleiben normal — Slow Fall gibt es **nur** nach einem Doppelsprung. Drei Einstellungen: *an*, *aus*, *nur Sprung ohne Slow Fall* |
+
+Marker: Wind Charge und Slow Fall Potion für Aufstieg & Fall.
 
 ### Hotbar-Belegung
 
 | Slot | Inhalt |
 |---|---|
 | 0 | gebundene Waffe aus B07 |
-| 1–4 | die vier aktiven Fähigkeiten, aufsteigend nach Freischaltstufe; leer, solange nicht freigeschaltet |
-| 5 | erstes Marker-Item einer passiven Fähigkeit, sofern vorhanden — Rogue: Totem; Mage: Wind Charge |
-| 6 | zweites Marker-Item — Mage: Slow Fall Potion |
-| 7–8 | frei für den Spieler |
+| 1 aufwärts | **je eine aktive Fähigkeit**, aufsteigend nach Freischaltstufe; leer, solange nicht freigeschaltet |
+| direkt danach | die Marker-Items passiver Fähigkeiten, sofern sie welche tragen |
+| Rest | frei für den Spieler |
 
-Der Warrior belegt damit fünf Slots, der Rogue sechs, der Mage sieben. Keine Klasse verliert ihre
-Hotbar vollständig; die restlichen 27 Inventarplätze sind ohnehin unberührt.
+Die Zahl der aktiven Fähigkeiten ist **nicht** je Klasse gleich (ADR-025), deshalb steht hier eine
+Regel und keine feste Tabelle:
+
+| Klasse | Waffe | aktive Fähigkeiten | Marker | belegt |
+|---|---|---|---|---|
+| Warrior | Slot 0 | Slots 1–4 (Block, Sprung, Wirbel, Wutschrei) | — | **5** |
+| Rogue | Slot 0 | Slots 1–3 (Teleport, Unsichtbarkeit, Klon) | Slot 4: Totem | **5** |
+| Mage | Slot 0 | Slots 1–4 (Blitz, Magisches Schild, Manatrank, Blitzsturm) | Slots 5–6: Wind Charge, Slow Fall Potion | **7** |
+
+Keine Klasse verliert ihre Hotbar vollständig; die restlichen 27 Inventarplätze sind ohnehin
+unberührt.
 
 ### Globale Sperre und Kampf-Faktoren — Ausgangswerte
 

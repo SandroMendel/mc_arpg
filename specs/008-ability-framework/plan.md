@@ -7,7 +7,7 @@
 ## Summary
 
 B08 ist der umfangreichste Block des Projekts, und er ist es aus einem bestimmten Grund: er hat **vier
-Ebenen statt einer** — Definition, Effekt-Primitives, Zielbestimmung und Laufzeit. Sieben
+Ebenen statt einer** — Definition, Effekt-Primitives, Zielbestimmung und Laufzeit. Zehn
 Entscheidungen prägen die Umsetzung.
 
 1. **Eine Fähigkeit ist Daten, kein Objekt mit Verhalten.** Es gibt genau eine `Ability`-Klasse und je
@@ -55,10 +55,30 @@ Entscheidungen prägen die Umsetzung.
    zweiten Satz Definitionen. Wer ihn bezahlt, bleibt draußen (FR-065): es gibt im Projekt keine
    Währung, und eine zu erfinden wäre der Vorgriff, den Workflow-Regel 5 verbietet.
 
-**Was diesen Block groß macht, ist nicht die Laufzeit, sondern die Breite.** Zwölf Primitives, sieben
+8. **Haltende Fähigkeiten sind der dritte Laufzeitzustand, und der zweiphasige Abbruch ist der Kern
+   daran.** Sieben der achtzehn Fähigkeiten wirken über eine Dauer und enden per zweitem Rechtsklick
+   (ADR-025). Ein Abbruch in der *Vorbereitung* erstattet und startet keinen Cooldown; das Beenden
+   einer *laufenden* Wirkung behält beides. Ohne diese Trennung wäre Sofort-Abbrechen ein kostenloses
+   Werkzeug. Der Zustand entscheidet das, nicht der Aufrufer.
+
+9. **Wirkung je Sekunde entsteht aus einem Feld, nicht aus vier Primitives.** Ein Effekt bekommt ein
+   optionales `interval`; damit ist `DAMAGE` mit Intervall ein DoT und `MANA_RESTORE` mit Intervall
+   der Manatrank. **Alle** laufenden Intervall-Effekte laufen über **eine** serverweite Auswertung —
+   nie eine je Ziel, was Prinzip II verletzt hätte und der Grund war, DoT ursprünglich abzulehnen.
+
+10. **Warriors Wut ist ein Zähler, keine Ressource.** 0 bis 100, Aufbau bei Schaden, Zerfall nach
+    Ruhefrist — und trotzdem ohne Tabelle und ohne Aufgabe, weil sich der Stand aus dem letzten Wert
+    plus verstrichener Zeit ergibt. Der Attributbeitrag wird bei jedem Schadensereignis neu gesetzt;
+    das ist ohnehin der einzige Moment, in dem er zählt.
+
+**Was diesen Block groß macht, ist nicht die Laufzeit, sondern die Breite.** Sechzehn Primitives, neun
 Zielbestimmungen, fünf Trigger und achtzehn Fähigkeiten sind je für sich klein. Die Reihenfolge in
 Phase 2 muss das ausnutzen: erst die Maschine mit *einem* Primitive und *einer* Zielbestimmung
 lauffähig machen, dann die übrigen als parallelisierbare Einzelstücke.
+
+**Drei Mechaniken bleiben bis B10 und B09 unvollständig** und das ist bewusst so: der Klon zieht keine
+Mobs, die Unsichtbarkeit hält keine ab, und Zweites Leben prüft nicht auf Instanzen. B08 definiert die
+Einhängepunkte — dasselbe Muster, mit dem B07 die Fähigkeits-IDs an B08 abgegeben hat.
 
 ## Technical Context
 
@@ -87,8 +107,8 @@ in `rpg-plugin` für die Verdrahtung (ADR-012).
 Multi-Modul-Gradle-Projekts aus B01.
 
 **Performance Goals**: Tick-Budget ≤ 5 ms (Prinzip II). 100 gleichzeitig wirkende Flächenfähigkeiten
-im Budget (SC-002). Die Zahl der geplanten Aufgaben entspricht der Zahl der **laufenden Casts** und
-sonst nichts (SC-005) — kein Cooldown und keine Regeneration erzeugt eine Aufgabe. Die Zielsuche liegt
+im Budget (SC-002). Die Zahl der geplanten Aufgaben entspricht der Zahl der **laufenden Casts und haltenden Fähigkeiten** und
+sonst nichts (SC-005) — weder Cooldown noch Regeneration, Wut oder Ladungen erzeugen eine; alle Intervall-Effekte teilen sich **eine** Auswertung. Die Zielsuche liegt
 im Hot Path und muss allokationsfrei antworten.
 
 **Constraints**: Die Fähigkeitsdefinitionen liegen genau **einmal** im Speicher, nicht je Spieler.
@@ -96,8 +116,8 @@ Cooldowns und Regeneration sind reine Zeitstempelarithmetik. Der einzige Tick-ge
 der Cast, und er existiert nur, solange gecastet wird. Kein Datenbankzugriff je Auslösung — Ränge und
 Cooldowns gehen über den Write-Behind-Puffer.
 
-**Scale/Scope**: 12 Primitives, 7 Zielbestimmungen, 5 Trigger, 18 Fähigkeiten über drei Klassen.
-73 funktionale Anforderungen, 10 Erfolgskriterien.
+**Scale/Scope**: 16 Primitives, 9 Zielbestimmungen, 5 Trigger, 18 Fähigkeiten über drei Klassen.
+Rund 100 funktionale Anforderungen, 10 Erfolgskriterien.
 
 **Eine Erweiterung an B01**: `Scheduler.runSyncOnEntityDelayed(EntityRef, Duration, Runnable)`. Ohne
 sie lässt sich eine Wirkzeit nicht ausdrücken, die zu einem bestimmten Zeitpunkt im Tick wirkt. Siehe
@@ -212,6 +232,7 @@ absichtlich kurz:
 |---|---|---|
 | `Scheduler` (B01) | `runSyncOnEntityDelayed` ergänzen | Wirkzeit ist verzögerte Tick-Arbeit; es gibt keine Methode dafür (R2) |
 | `AbilityBinding` (B07) | Invariante `unique ⇒ ACTIVE` entfernen | ADR-022 — die Unique darf passiv sein |
+| `CharacterClassDefinition` (B07) | `ACTIVE_ABILITIES` und `PASSIVE_ABILITIES` entfernen | ADR-025 — der Rogue ist 3+3; geprüft wird nur noch „genau sechs, höchstens eine Unique" |
 | `CharacterClassDefinition` (B07) | Zählregel auf „4 aktiv, 2 passiv, höchstens eine Unique" ohne Kopplung an `kind` | dieselbe Entscheidung |
 | `classes.yml` | Loadouts für Rogue und Mage füllen | FR-045 aus B07 war ausdrücklich auf B08 vertagt |
 | `AggregateType`, `FlushCycle.WRITE_ORDER`, Repository-Verdrahtung (B02) | `CHARACTER_ABILITIES` in allen dreien | ADR-015 |

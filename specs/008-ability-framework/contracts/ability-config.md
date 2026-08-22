@@ -116,6 +116,28 @@ abilities:
 | **V23** | **jeder Modus, der mehr als ein Ziel liefern kann, trägt `max-targets` ≥ 1** (FR-020) | **Pflichtfeld, kein Vorgabewert.** Ein Standardwert machte eine vergessene Zeile von einer bewussten Entscheidung ununterscheidbar — dieselbe Begründung, aus der B07 alle Attributfelder verlangt, auch die mit Null |
 | **V24** | `SELF` trägt **kein** `max-targets` | siehe V7 |
 
+### Haltende Fähigkeiten, Ladungen und Bedingungen *(ADR-025)*
+
+| | Prüfung | Begründung |
+|---|---|---|
+| **V31** | `sustained: true` trägt eine `duration-ms` > 0 | eine haltende Fähigkeit ohne Dauer endet nie |
+| **V32** | `sustained` nur bei `ACTIVE` | eine passive Fähigkeit hat keinen Slot, auf dem ein zweiter Rechtsklick sie beenden könnte |
+| **V33** | `charges` ≥ 1; bei `charges` > 1 ist `charge-window-ms` > 0 Pflicht | ohne Fenster käme der Vorrat nie zurück |
+| **V34** | `requires-behind-target` nur bei `PASSIVE` mit `ON_DAMAGE_DEALT` | die Bedingung ist nur im Moment des Treffers prüfbar |
+| **V35** | `player-toggle` nur bei `PASSIVE` | eine aktive Fähigkeit schaltet man ab, indem man sie nicht auslöst |
+| **V36** | `open-world-only` lädt, wird aber **nicht durchgesetzt**, solange B09 fehlt | der Start meldet das einmal als Hinweis, nicht als Fehler — sonst wäre eine korrekte Konfiguration ein Startabbruch |
+
+### Intervall, Stapel und Filter *(ADR-025)*
+
+| | Prüfung | Begründung |
+|---|---|---|
+| **V37** | `interval-ms` > 0 nur zusammen mit `duration-ms` > 0 | ein Intervall ohne Dauer wäre unendlich |
+| **V38** | `interval-ms` ≤ `duration-ms` | sonst wirkt der Effekt kein einziges Mal |
+| **V39** | `max-stacks` > 1 nur mit `interval-ms` | ein einmaliger Effekt stapelt nicht, er wirkt zweimal |
+| **V40** | bei `max-stacks` > 1 ist `stack-cap` Pflicht | ohne Deckel wäre die Vergiftete Klinge bei genug Treffern unbegrenzt |
+| **V41** | `damage-type` als **Filter** nur bei `SHIELD` und `EVADE`; bei `DAMAGE` ist er Pflichtangabe und kein Filter | zwei Bedeutungen desselben Feldes gehören auseinandergehalten |
+| **V42** | `METER` trägt `build-per-hit`, `idle-before-ms`, `decay-per-second` und ein `attribute` | ein Zähler ohne Aufbau oder ohne Zerfall ist keiner |
+
 ### Abgleich mit den Klassenbindungen
 
 Diese vier laufen **nach** dem Laden von `classes.yml` und sind der Grund, warum B07 die IDs als
@@ -125,7 +147,7 @@ undurchsichtige Zeichenketten reisen lässt: dort gibt es B08 noch nicht, hier g
 |---|---|---|
 | **V25** | jede in einer Klassenbindung genannte ID ist definiert (FR-006) | Meldung nennt Klasse und ID |
 | **V26** | die `kind` der Definition stimmt mit der der Bindung überein (FR-007) | zwei Wahrheiten über dieselbe Fähigkeit sind schlimmer als eine falsche |
-| **V27** | jede Klasse hat genau vier aktive und zwei passive Fähigkeiten (FR-006) | |
+| **V27** | jede Klasse hat **genau sechs** Fähigkeiten (FR-006a) | Die Aufteilung aktiv/passiv wird **nicht** geprüft: Warrior und Mage sind 4+2, der Rogue 3+3, und das ist Inhalt statt Struktur (ADR-025) |
 | **V28** | genau eine Fähigkeit je Klasse trägt `unique`; ihre `kind` ist **nicht** eingeschränkt (ADR-022) | |
 
 ### Hotbar
