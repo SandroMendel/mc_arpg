@@ -612,6 +612,10 @@ public class RpgPlugin extends JavaPlugin {
                         abilityModule.repository(),
                         Clock.systemUTC(),
                         Math::random);
+        // ON_KILL is the one trigger that is not an interceptor: killing is not a stage of the damage
+        // pipeline, it is what the pipeline concludes, and B05 announces it.
+        new rpg.core.ability.OnKillSubscriber(passives).subscribeTo(eventBus);
+
         pipeline.registerInterceptor(rpg.core.ability.PassiveInterceptors.damageTaken(passives));
         pipeline.registerInterceptor(rpg.core.ability.PassiveInterceptors.damageDealt(passives));
         pipeline.registerInterceptor(

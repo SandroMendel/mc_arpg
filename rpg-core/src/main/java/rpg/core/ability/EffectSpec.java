@@ -28,6 +28,9 @@ import rpg.core.stats.Attribute;
  * @param buildPerHit required for {@code METER} - how far one hit raises the counter
  * @param idleBefore required for {@code METER} - how long without damage before it starts falling
  * @param decayPerSecond required for {@code METER}
+ * @param asFraction for {@code HEAL} and {@code MANA_RESTORE}: the amount is a share of the maximum
+ *     rather than an absolute value. Second Life is written as "a share of maximum health", and 0.35
+ *     health would be a rounding error where 35 percent of a warrior's 1997 is a rescue
  */
 public record EffectSpec(
         EffectType type,
@@ -42,7 +45,8 @@ public record EffectSpec(
         String statusEffect,
         Double buildPerHit,
         Duration idleBefore,
-        Double decayPerSecond) {
+        Double decayPerSecond,
+        boolean asFraction) {
 
     /** The counter runs from 0 to this - the warrior's Rage is spoken of in percent. */
     public static final double METER_MAXIMUM = 100.0;
@@ -67,6 +71,10 @@ public record EffectSpec(
         validateInterval(type, duration, interval, maxStacks, stackCap);
         validateParameters(type, attribute, damageType, statusEffect);
         validateMeter(type, attribute, buildPerHit, idleBefore, decayPerSecond);
+        if (asFraction && type != EffectType.HEAL && type != EffectType.MANA_RESTORE) {
+            throw new IllegalArgumentException(
+                    type + ": as-fraction only means something on HEAL and MANA_RESTORE");
+        }
     }
 
     /** V37 to V40 - what an interval means and what stacking requires. */

@@ -143,7 +143,8 @@ public final class AbilityConfigSchema {
                 optionalString(block, "status-effect", at + ".status-effect"),
                 optionalBoxedDouble(block, "build-per-hit", at + ".build-per-hit"),
                 optionalMillis(block, "idle-before-ms", at + ".idle-before-ms"),
-                optionalBoxedDouble(block, "decay-per-second", at + ".decay-per-second"));
+                optionalBoxedDouble(block, "decay-per-second", at + ".decay-per-second"),
+                optionalBoolean(block, "as-fraction"));
     }
 
     private static Attribute readAttribute(Map<?, ?> block, String at) {

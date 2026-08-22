@@ -27,7 +27,15 @@ public final class HealEffect implements AbilityEffect {
             return;
         }
         for (UUID target : context.targets()) {
-            stats.changeHealth(target, amount);
+            // "A share of maximum health" is what Second Life is written as, and a share is a
+            // different thing from an amount: 0.35 health would be a rounding error where 35% of a
+            // warrior's 1997 is a rescue. The flag says which was meant, rather than a rule that
+            // guesses from the size of the number.
+            double healed =
+                    context.spec().asFraction()
+                            ? amount * stats.resources(target).maxHealth()
+                            : amount;
+            stats.changeHealth(target, healed);
         }
     }
 }
