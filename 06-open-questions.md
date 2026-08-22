@@ -198,3 +198,18 @@ Bei zwei /clarify-Runden zusätzlich geklärt (siehe ADR-014):
       - **Netzwerk**: ≥ 1 Gbit/s Uplink für 100–200 gleichzeitige Spieler.
       - Anbieter mit garantiert dedizierten Kernen bevorzugen, keine
         Burst-/Shared-vCPU-Billig-Angebote.
+
+## B05 (Kampf-Pipeline) — Nachtrag aus der B08-Planung
+
+- [ ] **Die verlassende Flanke des Kampfzustands wird nie veröffentlicht.**
+      `DefaultCombatPipeline.publishExpiredCombatStates()` existiert, ist
+      dokumentiert und wird in der Produktion von niemandem aufgerufen — die
+      einzigen Aufrufer stehen in `CombatStateTest`. `isInCombat()` antwortet
+      weiterhin richtig, weil es lazy rechnet; nur `CombatStateChangedEvent`
+      mit `inCombat=false` fehlt. Das ist derselbe Fehler, der für die
+      Schadensfenster mit `startDamageWindowSweep` bereits behoben wurde, und
+      die Behebung ist absehbar klein: ein Aufruf im vorhandenen Sweep.
+      **B08 ist davon nicht betroffen** — seine Regeneration rechnet aus zwei
+      Zeitstempeln und braucht das Ereignis nicht. B12 und B13 werden es
+      erwarten, weil B05 es zusagt. *(gefunden 2026-08-22, siehe
+      `specs/008-ability-framework/research.md` R3)*

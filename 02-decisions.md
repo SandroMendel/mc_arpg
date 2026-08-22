@@ -1057,3 +1057,41 @@ benennen B08 namentlich als den Ort, an dem Mana-Regeneration stattfindet.
 
 **Folge:** Bis B08 umgesetzt ist, werden beide Werte berechnet, geführt und angezeigt — aber von
 niemandem verbraucht. Das ist derselbe Zustand, in dem B07 die Fähigkeitsbindungen hinterlassen hat.
+
+---
+
+## ADR-024 · Der Scheduler bekommt ein verzögertes synchrones Einzelstück
+
+**Status:** Entschieden *(2026-08-22)* — bei der Planung von B08. Erweitert ADR-010, das
+`runAsyncDelayed` ergänzt hat, um den synchronen Gegenpart.
+
+`Scheduler` bekommt `runSyncOnEntityDelayed(EntityRef, Duration, Runnable)`.
+
+**Der Anlass.** B08s Fähigkeiten dürfen eine Wirkzeit haben (ADR-022). Eine Wirkzeit ist einmalige
+Arbeit **im Tick**, zu einem bestimmten späteren Zeitpunkt, mit Berührung der Paper-API. Keine der
+vier vorhandenen Methoden drückt das aus: `runSyncAtLocation` und `runSyncOnEntity` laufen sofort,
+`runAsync` und `runAsyncDelayed` dürfen die API nicht berühren.
+
+**Warum das die Abstraktion nicht aufweicht.** Ihr Javadoc verbietet zwei Dinge namentlich:
+synchrone Arbeit ohne Orts- oder Entity-Bindung, und *wiederkehrende* Aufgaben. Die neue Methode ist
+entity-gebunden und einmalig und verletzt keines von beiden. Sie öffnet keinen Weg zu einer
+periodischen Aufgabe je Spieler, und sie hält den Folia-Pfad offen (ADR-007), weil sie wie ihre
+Geschwister an eine Entity gebunden ist. `EntityScheduler.runDelayed` gibt es in Paper nativ — die
+Methode bildet ab, was die Plattform ohnehin kann, statt es nachzubauen.
+
+**Verworfen: `runAsyncDelayed`, das am Ende `runSyncOnEntity` aufruft.** Läuft mit der heutigen
+Schnittstelle und war der erste Entwurf. Er kostet einen Threadwechsel für Arbeit, die den Tick nie
+verlässt, macht die Wirkzeit um bis zu einen weiteren Tick ungenau und braucht zwei
+Scheduler-Aufrufe je Cast. Der Ausschlag gab der dritte Punkt: `runSyncOnEntity` darf einen bereits
+abgebrochenen Handle zurückgeben, wenn die Entity gerade nicht auflösbar ist — der Cast müsste diesen
+Fall dann *nach* dem Warten behandeln statt vorher, also zu einem Zeitpunkt, zu dem das Mana längst
+gebucht ist.
+
+**Verworfen: den Cast lazy auswerten wie einen Cooldown.** Der Unterschied ist grundsätzlich und
+lohnt, festgehalten zu werden, weil er bei jeder künftigen „warum nicht auch das lazy"-Frage
+wiederkommt: ein Cooldown wird ausgewertet, **wenn jemand fragt**. Ein Cast muss wirken, **auch wenn
+niemand fragt**. Zeitstempelarithmetik beantwortet Fragen; sie löst keine Handlungen aus.
+
+**Folge:** Prinzip II bleibt erfüllt und wird messbar geprüft — die Zahl der geplanten Aufgaben
+entspricht der Zahl der gerade laufenden Casts und sonst nichts (B08 SC-005). Ein Spieler ohne
+laufenden Cast hat keine Aufgabe.
