@@ -32,6 +32,20 @@ final class AbilityFixture {
 
     final UUID character = UUID.randomUUID();
 
+    /**
+     * Der HALTER hinter diesem Charakter - eine ANDERE UUID, so wie auf einem echten Server.
+     *
+     * <p>Vorher gab es nur eine. Der Block ist nach Charakter verschluesselt, der Stat-Engine nach
+     * Halter, und weil die Fixtur beide gleichsetzte, konnte kein Test die Verwechslung sehen: das
+     * Double beantwortete jede Frage unabhaengig davon, welche der beiden Ids ankam. Auf dem Server
+     * warf dieselbe Frage {@code NoSuchElementException}, der Listener fing sie ab wie vorgesehen, und
+     * das Ergebnis war ein Server, auf dem keine Faehigkeit etwas tat und niemand regenerierte.
+     *
+     * <p>Zwei verschiedene Werte sind deshalb keine Genauigkeit um ihrer selbst willen, sondern die
+     * einzige Art, wie ein Test diesen Fehler ueberhaupt bemerken kann.
+     */
+    final UUID holder = UUID.randomUUID();
+
     /** Moves only when a test moves it - a cooldown test that slept would take as long as a cooldown. */
     final MovableClock clock = new MovableClock(Instant.parse("2026-08-22T12:00:00Z"));
 
@@ -64,6 +78,9 @@ final class AbilityFixture {
     final CountingScheduling scheduling = new CountingScheduling();
 
     private AbilityFixture(AbilityConfig config, Logger logger) {
+        // Das Paar, das ein echter Server haette: Halter und Charakter sind zwei Werte.
+        this.stats.holderId = this.holder;
+        this.stats.characterId = this.character;
         this.dispatcher = new EffectDispatcher(logger);
         this.dispatcher.register(
                 rpg.core.ability.EffectType.DAMAGE,
@@ -376,8 +393,21 @@ final class AbilityFixture {
         }
     }
 
-    /** Only what B08 actually reads: mana, one attribute and a snapshot. */
+    /**
+     * Only what B08 actually reads: mana, one attribute and a snapshot.
+     *
+     * <p><b>Aber id-genau.</b> Jede Methode hier nimmt eine HALTER-Id, genau wie die echte
+     * Schnittstelle, und eine unbekannte beantwortet sie so wie der echte Engine: mit
+     * {@link NoSuchElementException}. Ein Aufrufer, der wieder eine Charakter-Id herueberreicht, faellt
+     * damit im Test auf - vorher war das unsichtbar, weil dieses Double die Id ignorierte.
+     */
     static final class FakeStats implements rpg.core.stats.StatEngine {
+
+        /** Das Paar, das ein echter Server haette. Von der Fixtur gesetzt. */
+        UUID holderId;
+
+        UUID characterId;
+
         double mana = 100.0;
         double maxMana = 100.0;
         double health = 1000.0;
@@ -386,8 +416,16 @@ final class AbilityFixture {
 
         final Map<rpg.core.stats.Attribute, Double> values = new HashMap<>();
 
+        /** Wie {@code DefaultStatEngine.require}: wer nicht Halter ist, existiert hier nicht. */
+        private void requireHolder(UUID id) {
+            if (this.holderId != null && !this.holderId.equals(id)) {
+                throw new java.util.NoSuchElementException("no stat holder for " + id);
+            }
+        }
+
         @Override
         public rpg.core.stats.StatSnapshot snapshot(UUID holderId) {
+            requireHolder(holderId);
             return new rpg.core.stats.StatSnapshot(
                     new double[rpg.core.stats.Attribute.count()], 1L);
         }
@@ -399,6 +437,7 @@ final class AbilityFixture {
 
         @Override
         public double value(UUID holderId, rpg.core.stats.Attribute attribute) {
+            requireHolder(holderId);
             if (attribute == rpg.core.stats.Attribute.ABILITY_COOLDOWN) {
                 return cooldownReduction;
             }
@@ -407,11 +446,13 @@ final class AbilityFixture {
 
         @Override
         public rpg.core.stats.ResourceView resources(UUID holderId) {
+            requireHolder(holderId);
             return new rpg.core.stats.ResourceView(health, maxHealth, mana, maxMana);
         }
 
         @Override
         public double changeMana(UUID holderId, double delta) {
+            requireHolder(holderId);
             mana = Math.max(0.0, Math.min(maxMana, mana + delta));
             return mana;
         }
@@ -449,7 +490,23 @@ final class AbilityFixture {
 
         @Override
         public java.util.Optional<UUID> characterIdOf(UUID holderId) {
-            return java.util.Optional.of(holderId);
+            if (this.holderId == null) {
+                return java.util.Optional.of(holderId);
+            }
+            return this.holderId.equals(holderId)
+                    ? java.util.Optional.ofNullable(this.characterId)
+                    // Kein Charakter dahinter - im Spiel ein Mob.
+                    : java.util.Optional.empty();
+        }
+
+        @Override
+        public java.util.Optional<UUID> holderOf(UUID characterId) {
+            if (this.characterId == null) {
+                return java.util.Optional.of(characterId);
+            }
+            return this.characterId.equals(characterId)
+                    ? java.util.Optional.of(this.holderId)
+                    : java.util.Optional.empty();
         }
 
         @Override
@@ -462,6 +519,7 @@ final class AbilityFixture {
 
         @Override
         public double changeHealth(UUID holderId, double delta) {
+            requireHolder(holderId);
             health = Math.max(0.0, Math.min(maxHealth, health + delta));
             return health;
         }

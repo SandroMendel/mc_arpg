@@ -128,6 +128,12 @@ public class RpgPlugin extends JavaPlugin {
 
     private final BootstrapState bootstrapState = new BootstrapState();
 
+    /**
+     * Puts a character into play. Held as a field because two callers need it: the class selection,
+     * and {@link #enterCharacter} - see there for why the second one exists.
+     */
+    private rpg.platform.classes.CharacterEntry characterEntry;
+
     private DefaultModuleRegistry registry;
     private EventBus eventBus;
     private Scheduler scheduler;
@@ -731,9 +737,9 @@ public class RpgPlugin extends JavaPlugin {
         // The one place in this block that schedules anything: entity-bound, single-shot (ADR-024).
         // A character with nothing running has no task, which is what SC-005 asserts.
         abilityRuntime.setScheduling(
-                (characterId, delay, task) ->
+                (holderId, delay, task) ->
                         scheduler.runSyncOnEntityDelayed(
-                                new rpg.core.scheduler.EntityRef(characterId), delay, task));
+                                new rpg.core.scheduler.EntityRef(holderId), delay, task));
 
         abilityHotbar = new rpg.platform.ability.AbilityHotbar(messages, getLogger());
 
@@ -891,13 +897,15 @@ public class RpgPlugin extends JavaPlugin {
                 new ClassEquipmentApplier(
                         classesModule.boundEquipment(), new BoundItemFactory(messages), getLogger());
 
+        characterEntry = (player, character) -> enterGameState(player, character, equipment);
+
         ClassSelectionListener selection =
                 new ClassSelectionListener(
                         classesModule.selection(),
                         new ClassSelectionMenu(classes, messages),
                         sessionModule.registry(),
                         guard,
-                        (player, character) -> enterGameState(player, character, equipment),
+                        characterEntry,
                         // The one place that sees all three blocks: B03 owns the characters, B06 the
                         // levels, B07 the tiers, and a menu entry needs all of it.
                         classesModule::slotsFor,
@@ -1427,6 +1435,31 @@ public class RpgPlugin extends JavaPlugin {
      */
     public rpg.core.combat.DefaultCombatPipeline combatPipeline() {
         return combatModule == null ? null : combatModule.pipeline();
+    }
+
+    /**
+     * The regeneration as it was assembled, for the bootstrap test.
+     *
+     * <p>Same reason as {@link #statEngine()}, plus one of its own: this is the piece that rides the
+     * ability sweep, and whether a wounded player standing still actually heals is a property of the
+     * WIRED server - it rode the right sweep with the wrong ids for a whole release and looked fine
+     * in every unit test.
+     */
+    public rpg.core.ability.ResourceRegeneration abilityRegeneration() {
+        return abilityModule == null ? null : abilityModule.regeneration();
+    }
+
+    /**
+     * Puts a character into play exactly as choosing one in the menu does, for the bootstrap test.
+     *
+     * <p><b>Not a shortcut, the real path</b> - session activation, inventory, class equipment,
+     * ability hotbar, experience bar, in that order. A test that assembled a character by hand would
+     * prove only that its own assembly works, and this is the one thing that has to be proven about
+     * the wired server: that a player who joins can actually use what the blocks built.
+     */
+    public boolean enterCharacter(
+            org.bukkit.entity.Player player, rpg.core.session.PlayerCharacter character) {
+        return characterEntry != null && characterEntry.enter(player, character);
     }
 
     /** The bootstrap phase, which decides whether the server accepts player sessions (FR-013). */

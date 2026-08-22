@@ -79,6 +79,23 @@ public interface StatEngine {
      */
     Optional<UUID> characterIdOf(UUID holderId);
 
+    /**
+     * The holder of a character, or empty when that character is not in play.
+     *
+     * <p><b>The counterpart of {@link #characterIdOf}, and the reason it had to exist.</b> Every
+     * method on this interface takes a <em>holder</em> id, and the note on {@link #createForCharacter}
+     * calls a second identifier "an opportunity to pass the wrong one". B08 took that opportunity: it
+     * is keyed by character throughout - unlocks, ranks, cooldowns all belong to the character
+     * (ADR-011) - and handed those character ids straight to this engine, which had never heard of
+     * them. Every call threw, every exception was contained by a listener doing its job, and the
+     * result was a server on which no ability did anything and nobody healed.
+     *
+     * <p>So the translation belongs here, at the one place that owns the relation, rather than as a
+     * seam each caller wires up differently. Backed by a reverse index, because the sweep asks this
+     * once per player per pass and a scan would make that quadratic.
+     */
+    Optional<UUID> holderOf(UUID characterId);
+
     /** Drops a holder with everything attached to it (FR-036). Idempotent; never throws. */
     void remove(UUID holderId);
 

@@ -49,7 +49,18 @@ public final class AbilityTriggerListener implements Listener {
         this.logger = Objects.requireNonNull(logger, "logger");
     }
 
-    @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
+    /**
+     * <b>Ohne {@code ignoreCancelled}</b>, und das ist keine Nachlaessigkeit.
+     *
+     * <p>Ein {@link PlayerInteractEvent} auf LUFT ist von Geburt an abgebrochen: ohne Block setzt
+     * Bukkit {@code useInteractedBlock} auf DENY, und genau daran misst sich {@code isCancelled()}.
+     * Mit {@code ignoreCancelled = true} lief dieser Handler deshalb nur, wenn der Spieler auf einen
+     * BLOCK zeigte - ein Rechtsklick in die Luft, also der Normalfall im Kampf, erreichte ihn nie.
+     *
+     * <p>Die Bedingung, die hier wirklich gilt, steht unten und ist enger als "nicht abgebrochen":
+     * Haupthand, Faehigkeitsgegenstand, Rechtsklick.
+     */
+    @EventHandler(priority = EventPriority.NORMAL)
     public void onInteract(PlayerInteractEvent event) {
         // Off-hand fires a second event for the same click. Ignoring it here is what keeps one press
         // from triggering an ability twice.

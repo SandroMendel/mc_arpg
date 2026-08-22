@@ -117,6 +117,34 @@ class AbilityRuntimeTest {
         }
 
         @Test
+        @DisplayName("Halter und Charakter sind zwei Ids - der Block übersetzt an der Grenze")
+        void theBlockTranslatesBetweenTheTwoIds() {
+            // Der Block ist nach CHARAKTER verschlüsselt (ADR-011), der Stat-Engine nach HALTER. Bis
+            // diese Übersetzung existierte, ging die Charakter-Id direkt an den Engine, jeder Aufruf
+            // warf, der Trigger-Listener fing es ab wie vorgesehen - und auf dem Server tat keine
+            // Fähigkeit etwas und kein Mana wurde je abgezogen. Kein Test sah es, weil die Fixtur
+            // beide Ids gleichsetzte.
+            double before = fixture.stats.mana;
+
+            assertThat(fixture.runtime.trigger(fixture.character, "probe.strike"))
+                    .isEqualTo(AbilityResult.TRIGGERED);
+
+            assertThat(fixture.stats.mana)
+                    .as("abgezogen wurde beim HALTER - sonst hätte das Double geworfen")
+                    .isLessThan(before);
+        }
+
+        @Test
+        @DisplayName("mit der Halter-Id kennt der Block den Charakter nicht - die Gegenprobe")
+        void aHolderIdIsNotACharacterId() {
+            // Die andere Richtung derselben Verwechslung, und der Grund, warum die Übersetzung an der
+            // Grenze sitzt statt im Aufrufer: der Block darf NUR Charakter-Ids annehmen.
+            assertThat(fixture.runtime.trigger(fixture.holder, "probe.strike"))
+                    .isEqualTo(AbilityResult.NO_CHARACTER);
+            assertThat(fixture.stats.mana).as("und nichts angefasst").isEqualTo(100.0);
+        }
+
+        @Test
         @DisplayName("eine noch nicht freigeschaltete Fähigkeit wird abgewiesen")
         void aLockedAbilityIsRefused() {
             fixture.unlocked.clear();

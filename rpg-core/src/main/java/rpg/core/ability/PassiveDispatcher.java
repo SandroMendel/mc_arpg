@@ -86,12 +86,25 @@ public final class PassiveDispatcher {
      *     event still stands
      */
     public boolean fire(
-            UUID characterId,
+            UUID holderId,
             AbilityTrigger trigger,
             DamageType damageType,
             EffectContext.TriggerData data) {
-        Objects.requireNonNull(characterId, "characterId");
+        Objects.requireNonNull(holderId, "holderId");
         Objects.requireNonNull(trigger, "trigger");
+
+        // A HOLDER comes in, because that is what the damage pipeline deals in - it has to, since the
+        // same pipeline carries mobs, and a mob has no character. The registry below is keyed by
+        // character (ADR-011), so the translation happens once, here, and both ids are then used for
+        // what they actually name.
+        //
+        // This used to be missing, and the holder id went straight into unlockedFor. That never
+        // threw: it simply returned an empty list, so every passive in the game silently did nothing.
+        UUID characterId = stats.characterIdOf(holderId).orElse(null);
+        if (characterId == null) {
+            // A mob. It takes damage and deals it, and it has no passives to fire.
+            return false;
+        }
 
         Instant now = clock.instant();
         boolean anyFired = false;
@@ -103,10 +116,10 @@ public final class PassiveDispatcher {
             if (!takesHold(characterId, ability, damageType, now)) {
                 continue;
             }
-            if (!conditionsMet(characterId, ability, data)) {
+            if (!conditionsMet(holderId, ability, data)) {
                 continue;
             }
-            run(characterId, ability, data);
+            run(holderId, characterId, ability, data);
             startCooldown(characterId, ability, now);
             anyFired = true;
         }
@@ -144,15 +157,19 @@ public final class PassiveDispatcher {
      * effect, so a rejection here costs exactly as much as a rejection there.
      */
     private boolean conditionsMet(
-            UUID characterId, Ability ability, EffectContext.TriggerData data) {
+            UUID holderId, Ability ability, EffectContext.TriggerData data) {
+        // Beide Fragen gehen an die WELT, nicht an gespeicherten Zustand: die eine schlaegt zwei
+        // Entitaeten nach, die andere den Ort, an dem jemand steht. Eine Entitaet wird mit der
+        // Halter-Id adressiert - mit der Charakter-Id fand der Hinterhalt nie einen Angreifer und
+        // war damit lautlos wirkungslos.
         if (ability.requiresBehindTarget()) {
             UUID counterpart = data == null ? null : data.counterpart();
-            if (counterpart == null || !behindTarget.test(characterId, counterpart)) {
+            if (counterpart == null || !behindTarget.test(holderId, counterpart)) {
                 return false;
             }
         }
         // Read but not enforced while B09 is missing - the default condition says yes to everything.
-        return !ability.openWorldOnly() || worldCondition.isOpenWorld(characterId);
+        return !ability.openWorldOnly() || worldCondition.isOpenWorld(holderId);
     }
 
     /**
@@ -173,12 +190,16 @@ public final class PassiveDispatcher {
         return true;
     }
 
-    private void run(UUID characterId, Ability ability, EffectContext.TriggerData data) {
+    private void run(
+            UUID holderId, UUID characterId, Ability ability, EffectContext.TriggerData data) {
         int rank = registry.stateOf(characterId, ability.id()).rank();
         // A passive acts on its holder. Nothing here resolves targets: the event already decided who
         // is involved, and asking the resolver would find a second, unrelated set.
-        List<UUID> self = List.of(characterId);
-        effects.run(ability, characterId, self, rank, stats.snapshot(characterId), data);
+        //
+        // The rank comes from the CHARACTER, everything below addresses the HOLDER. Two ids, two
+        // jobs - the line above is what the character earned, the line below is who it happens to.
+        List<UUID> self = List.of(holderId);
+        effects.run(ability, holderId, self, rank, stats.snapshot(holderId), data);
     }
 
     private void startCooldown(UUID characterId, Ability ability, Instant now) {

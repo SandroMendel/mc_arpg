@@ -4,20 +4,27 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.UUID;
 
+import org.bukkit.block.BlockFace;
 import org.bukkit.event.HandlerList;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityRegainHealthEvent;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.player.AsyncPlayerPreLoginEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.ItemStack;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
+import org.mockbukkit.mockbukkit.entity.PlayerMock;
 
 import com.destroystokyo.paper.event.player.PlayerConnectionCloseEvent;
 
@@ -532,6 +539,120 @@ class FullBootstrapTest {
 
         assertThat(plugin.bootstrapState().phase()).isEqualTo(BootstrapState.Phase.SHUTTING_DOWN);
         assertThat(plugin.bootstrapState().acceptsPlayers()).isFalse();
+    }
+
+    // --- B08: eine Fähigkeit, ausgelöst wie ein Spieler sie auslöst ---
+
+    @Test
+    void aRightClickInThinAirTriggersTheAbilityAndSpendsMana() {
+        // DER TEST, DEN ES NICHT GAB - und dessen Fehlen drei Fehlerberichte gekostet hat.
+        //
+        // Jeder Baustein von B08 war einzeln geprüft und grün. Was niemand fuhr, war die KETTE:
+        // Klick -> Listener -> Naht im Plugin -> Runtime -> Stat-Engine. In dieser Kette saßen zwei
+        // Fehler übereinander, und jeder allein hätte gereicht, damit auf dem Server nichts passiert:
+        //
+        //   1. Das Plugin reichte die CHARAKTER-Id in den Runtime, der Engine ist nach HALTER
+        //      verschlüsselt. Jeder Aufruf warf, der Listener fing es ab wie vorgesehen.
+        //   2. Der Listener hörte mit ignoreCancelled zu. Ein Rechtsklick in die LUFT ist von Geburt
+        //      an abgebrochen - ohne Block ist useInteractedBlock DENY -, also erreichte ihn genau
+        //      der Klick nie, den ein Spieler im Kampf macht.
+        //
+        // Deshalb steht dieser Test hier und nicht in rpg-core: nur hier ist die Verdrahtung echt,
+        // und nur hier ist der Klick ein echtes Bukkit-Ereignis statt eines Methodenaufrufs.
+        PlayerMock player = enterWarrior();
+        double before = plugin.statEngine().resources(player.getUniqueId()).currentMana();
+        assertThat(before).as("ein Charakter startet mit Mana").isGreaterThan(0.0);
+
+        ItemStack ability = firstAbilityItem(player);
+        assertThat(ability).as("die Hotbar wurde beim Eintritt belegt (FR-055)").isNotNull();
+
+        PlayerInteractEvent click =
+                new PlayerInteractEvent(
+                        player,
+                        Action.RIGHT_CLICK_AIR,
+                        ability,
+                        // KEIN Block - das ist der Punkt. Genau dieser Fall kam nie an.
+                        null,
+                        BlockFace.SELF,
+                        EquipmentSlot.HAND);
+        assertThat(click.isCancelled())
+                .as("Bukkit hält einen Luftklick von Anfang an für abgebrochen - hier bewiesen, "
+                        + "nicht behauptet")
+                .isTrue();
+
+        server.getPluginManager().callEvent(click);
+
+        assertThat(plugin.statEngine().resources(player.getUniqueId()).currentMana())
+                .as("der Klick hat gekostet - er ist also angekommen")
+                .isLessThan(before);
+        assertThat(player.nextMessage())
+                .as("und wurde nicht abgelehnt - eine Ablehnung würde einen Text schicken")
+                .isNull();
+    }
+
+    @Test
+    void aWoundedCharacterHealsWithoutDoingAnything() {
+        // Die zweite Hälfte desselben Fehlers. Die Regeneration ritt auf dem richtigen Sweep, bekam
+        // aber Charakter-Ids, warf bei jedem Charakter und wurde stumm geschluckt - ein Sweep, der
+        // sauber lief und nichts tat.
+        PlayerMock player = enterWarrior();
+        rpg.core.ability.ResourceRegeneration regeneration =
+                plugin.abilityRegeneration();
+        UUID characterId =
+                plugin.statEngine().characterIdOf(player.getUniqueId()).orElseThrow();
+
+        plugin.statEngine().changeHealth(player.getUniqueId(), -100.0);
+        double wounded = plugin.statEngine().resources(player.getUniqueId()).currentHealth();
+
+        // Zweimal: der erste Aufruf lernt den Charakter kennen (Erstkontakt schreibt nur den
+        // Zeitstempel), der zweite rechnet die verstrichene Zeit gut.
+        regeneration.settleAll(java.util.List.of(characterId));
+        regeneration.settleAll(java.util.List.of(characterId));
+
+        assertThat(plugin.statEngine().resources(player.getUniqueId()).currentHealth())
+                .as("ohne einen einzigen Klick")
+                .isGreaterThan(wounded);
+    }
+
+    /** Ein Spieler mit einem Berserker im Spiel - der Weg, den B03 auch im Betrieb geht. */
+    private PlayerMock enterWarrior() {
+        PlayerMock player = server.addPlayer();
+        UUID playerId = player.getUniqueId();
+        // Der Beitritt selbst hat die Sitzung schon geoeffnet - B03 erlaubt genau einen Join-Handler
+        // und der laeuft hier echt mit. Ein zweites beginLoad waere eine DuplicateSessionException,
+        // und zwar zu Recht.
+        rpg.core.session.SessionRegistry sessions =
+                plugin.registry().getService(rpg.core.session.SessionRegistry.class);
+        if (sessions.find(playerId).isEmpty()) {
+            plugin.sessionLifecycle().beginLoad(playerId, java.time.Duration.ofSeconds(5)).join();
+            // Nur dann: eine Sitzung, die der Beitritt geoeffnet hat, ist bereits READY, und
+            // READY -> READY ist ein verbotener Uebergang - zu Recht, sonst liesse sich ein
+            // Ladevorgang unbemerkt zweimal abschliessen.
+            plugin.sessionLifecycle().markReady(playerId);
+        }
+        // Der ECHTE Eintritt, nicht nur die Aktivierung: er belegt auch die Hotbar, und genau die
+        // Kette vom Gegenstand bis zum Mana ist hier der Prüfgegenstand.
+        assertThat(
+                        plugin.enterCharacter(
+                                player,
+                                rpg.core.session.PlayerCharacter.create(
+                                        playerId,
+                                        rpg.core.session.CharacterClass.WARRIOR,
+                                        java.time.Instant.now())))
+                .as("der Charakter ist im Spiel")
+                .isTrue();
+        return player;
+    }
+
+    /** Der erste belegte Fähigkeitsslot - Slot 0 gehört der Waffe aus B07. */
+    private static ItemStack firstAbilityItem(PlayerMock player) {
+        for (int slot = 1; slot < 9; slot++) {
+            ItemStack item = player.getInventory().getItem(slot);
+            if (rpg.platform.ability.AbilityItemTag.isAbilityItem(item)) {
+                return item;
+            }
+        }
+        return null;
     }
 
     // --- fixtures ---

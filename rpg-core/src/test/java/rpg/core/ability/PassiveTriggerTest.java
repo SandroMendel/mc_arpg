@@ -144,12 +144,12 @@ class PassiveTriggerTest {
                             () -> rolls[index[0]++]);
 
             // Erster Wurf 0.9 gegen eine Chance von 0.5: verfehlt, KEIN Effekt.
-            dispatcher.fire(chancy.character, AbilityTrigger.ON_KILL, null, null);
+            dispatcher.fire(chancy.holder, AbilityTrigger.ON_KILL, null, null);
             assertThat(applied).isEmpty();
             assertThat(index[0]).as("genau ein Wurf, obwohl es zwei Effekte sind").isEqualTo(1);
 
             // Zweiter Wurf 0.1: trifft, BEIDE Effekte.
-            dispatcher.fire(chancy.character, AbilityTrigger.ON_KILL, null, null);
+            dispatcher.fire(chancy.holder, AbilityTrigger.ON_KILL, null, null);
             assertThat(applied).containsExactly("heal", "mana");
             assertThat(index[0]).isEqualTo(2);
         }
@@ -170,15 +170,15 @@ class PassiveTriggerTest {
                             guarded.clock,
                             () -> 0.0);
 
-            assertThat(dispatcher.fire(guarded.character, AbilityTrigger.ON_DEATH, null, null))
+            assertThat(dispatcher.fire(guarded.holder, AbilityTrigger.ON_DEATH, null, null))
                     .isTrue();
-            assertThat(dispatcher.fire(guarded.character, AbilityTrigger.ON_DEATH, null, null))
+            assertThat(dispatcher.fire(guarded.holder, AbilityTrigger.ON_DEATH, null, null))
                     .as("innerhalb des Cooldowns stirbt er regulär")
                     .isFalse();
 
             guarded.clock.advance(Duration.ofMinutes(11));
 
-            assertThat(dispatcher.fire(guarded.character, AbilityTrigger.ON_DEATH, null, null))
+            assertThat(dispatcher.fire(guarded.holder, AbilityTrigger.ON_DEATH, null, null))
                     .as("danach wieder")
                     .isTrue();
             assertThat(applied).hasSize(2);
@@ -206,7 +206,7 @@ class PassiveTriggerTest {
                             .stateOf(togglable.character, "probe.toggle")
                             .withToggle(ToggleState.OFF));
 
-            assertThat(dispatcher.fire(togglable.character, AbilityTrigger.ON_KILL, null, null))
+            assertThat(dispatcher.fire(togglable.holder, AbilityTrigger.ON_KILL, null, null))
                     .isFalse();
             assertThat(applied).isEmpty();
         }
@@ -234,7 +234,7 @@ class PassiveTriggerTest {
 
             assertThat(
                             dispatcher.fire(
-                                    evasive.character,
+                                    evasive.holder,
                                     AbilityTrigger.ON_DAMAGE_TAKEN,
                                     DamageType.PHYSICAL,
                                     null))
@@ -244,7 +244,7 @@ class PassiveTriggerTest {
 
             assertThat(
                             dispatcher.fire(
-                                    evasive.character,
+                                    evasive.holder,
                                     AbilityTrigger.ON_DAMAGE_TAKEN,
                                     DamageType.MAGIC,
                                     null))
@@ -263,7 +263,7 @@ class PassiveTriggerTest {
 
     private void fire(AbilityTrigger trigger, double damage) {
         passives.fire(
-                fixture.character,
+                fixture.holder,
                 trigger,
                 DamageType.PHYSICAL,
                 new EffectContext.TriggerData(damage, () -> {}));
