@@ -103,6 +103,32 @@ public final class AbilityRuntime {
         return AbilityResult.TRIGGERED;
     }
 
+    /**
+     * Sets the player's setting on a switchable passive (FR-052d).
+     *
+     * <p>Belongs to the character, not the account, and outlives the session - it is the one piece of
+     * ability state a player edits directly, and having it reset on every logout would make the
+     * setting useless.
+     *
+     * @throws IllegalArgumentException if the ability does not offer a setting. A silent no-op would
+     *     leave a command reporting success while nothing changed
+     */
+    public void setToggle(UUID characterId, String abilityId, ToggleState state) {
+        Objects.requireNonNull(characterId, "characterId");
+        Objects.requireNonNull(state, "state");
+        Ability ability = registry.config().require(abilityId);
+        if (!ability.playerToggle()) {
+            throw new IllegalArgumentException(abilityId + " has no player setting to change");
+        }
+        registry.put(registry.stateOf(characterId, abilityId).withToggle(state));
+        repository.markDirty(characterId);
+    }
+
+    /** The player's setting, or {@link ToggleState#ON} when they never changed it. */
+    public ToggleState toggleOf(UUID characterId, String abilityId) {
+        return registry.toggleOf(characterId, abilityId);
+    }
+
     /** Whether the character's level has reached this ability's unlock level (FR-061). */
     public boolean isUnlocked(UUID characterId, String abilityId) {
         return registry.unlockedFor(characterId).stream()

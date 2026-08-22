@@ -56,29 +56,34 @@ public final class DoubleJumpListener implements Listener {
     }
 
     /**
-     * Hands the ability back on landing.
+     * Hands the jump back on landing.
      *
-     * <p>On {@code PlayerMoveEvent}, which is one of the busiest events the server has - so the very
-     * first thing is a check that returns for everybody who is not a mage with this unlocked, and the
-     * second is a check that returns for everybody who is already able to jump again. Both are field
-     * reads, no allocation.
+     * <p><b>{@code PlayerMoveEvent} is one of the busiest events a server has</b>, so everything here
+     * is ordered by cost. Three field reads decide it for almost every call: the game mode, whether
+     * the player is on the ground, and whether they already hold the permission. Only the landing
+     * transition - on the ground <em>and</em> without the permission - gets as far as
+     * {@link #enabled}, which reaches into the session and the ability registry.
+     *
+     * <p>The first version asked {@code enabled} first and paid that lookup on every movement tick of
+     * every player. That is exactly the allocation in a hot path Principle II is about.
+     *
+     * <p><b>Nothing revokes the permission here</b>, and that is not an oversight: a player who lost
+     * the ability keeps a set {@code allowFlight} until they next land, and cannot do anything with it
+     * because {@link #onToggleFlight} asks {@code enabled} again. One authority, checked where it
+     * costs nothing.
      */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onMove(PlayerMoveEvent event) {
         Player player = event.getPlayer();
+        if (!player.isOnGround() || player.getAllowFlight()) {
+            // The overwhelmingly common case: mid-air, or standing with the jump already available.
+            return;
+        }
         if (player.getGameMode() == GameMode.CREATIVE || player.getGameMode() == GameMode.SPECTATOR) {
-            // Creative flight is theirs, not ours - taking allowFlight away would ground an admin.
+            // Creative flight is theirs, not ours - touching allowFlight would ground an admin.
             return;
         }
-        if (!enabled.test(player)) {
-            if (player.getAllowFlight()) {
-                // Lost the ability while airborne - take the permission back rather than leaving a
-                // player able to toggle flight forever.
-                player.setAllowFlight(false);
-            }
-            return;
-        }
-        if (player.isOnGround() && !player.getAllowFlight()) {
+        if (enabled.test(player)) {
             player.setAllowFlight(true);
         }
     }

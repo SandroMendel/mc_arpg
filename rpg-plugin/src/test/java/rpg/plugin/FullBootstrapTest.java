@@ -102,13 +102,16 @@ class FullBootstrapTest {
         assertThat(handlerCount(PlayerJoinEvent.getHandlerList())).isEqualTo(1);
         assertThat(handlerCount(PlayerQuitEvent.getHandlerList())).isEqualTo(1);
         assertThat(handlerCount(PlayerConnectionCloseEvent.getHandlerList())).isEqualTo(1);
-        // Two, and both are meant: B03 freezes a player while their session loads, B07 freezes one who
-        // has not chosen a class (ADR-020). Different reasons, different lifetimes - and neither is a
-        // lifecycle entry, so the invariant this test protects is the two assertions above. Both handlers
-        // return on a counter before touching the event, which is what keeps a hot event affordable.
+        // THREE, and every one is meant: B03 freezes a player while their session loads, B07 freezes
+        // one who has not chosen a class (ADR-020), and B08 hands the mage his second jump back on
+        // landing. Different reasons, different lifetimes - and none of them is a lifecycle entry, so
+        // the invariant this test protects is the assertions above.
+        //
+        // What matters on the busiest event the server has is that each returns on field reads before
+        // doing anything: a counter for the first two, ground state and a permission flag for B08.
         assertThat(handlerCount(PlayerMoveEvent.getHandlerList()))
-                .as("B03's safe-state hold and B07's no-character hold")
-                .isEqualTo(2);
+                .as("B03's safe-state hold, B07's no-character hold, B08's double jump")
+                .isEqualTo(3);
     }
 
     @Test

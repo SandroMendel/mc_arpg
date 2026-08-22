@@ -41,8 +41,17 @@ public record EffectContext(
      * @param damage the amount at this point in the pipeline - after mitigation on the application
      *     stage, before it on the modifier stage
      * @param cancel refuses the damage event; only meaningful before it has been applied
+     * @param counterpart the other party in the event - the target when the holder dealt the damage,
+     *     the attacker when they took it, and {@code null} when there is nobody (a fall, a kill with
+     *     no attributable killer). The positional condition needs it and nothing else does
      */
-    public record TriggerData(double damage, Runnable cancel) {}
+    public record TriggerData(double damage, Runnable cancel, UUID counterpart) {
+
+        /** Without a counterpart - for triggers where there is no second party. */
+        public TriggerData(double damage, Runnable cancel) {
+            this(damage, cancel, null);
+        }
+    }
 
     /** An actively triggered ability - no damage event behind it. */
     public EffectContext(

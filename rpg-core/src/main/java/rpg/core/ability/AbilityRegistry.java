@@ -104,6 +104,28 @@ public final class AbilityRegistry {
         return stateOf(characterId, abilityId).effectiveToggle();
     }
 
+    /**
+     * The unlocked, switched-on ability granting a capability, or empty.
+     *
+     * <p>How the platform asks "may this character double jump" without naming an ability id in code.
+     * A capability is a primitive that is read rather than applied - see {@link EffectType#DOUBLE_JUMP}.
+     */
+    public Optional<Ability> capability(UUID characterId, EffectType capability) {
+        for (Ability ability : unlockedFor(characterId)) {
+            boolean grants =
+                    ability.effects().stream().anyMatch(spec -> spec.type() == capability);
+            if (!grants) {
+                continue;
+            }
+            if (ability.playerToggle()
+                    && stateOf(characterId, ability.id()).effectiveToggle() == ToggleState.OFF) {
+                continue;
+            }
+            return Optional.of(ability);
+        }
+        return Optional.empty();
+    }
+
     /** The class of a character, as B07 knows it. */
     public Optional<CharacterClass> classOf(UUID characterId) {
         return Optional.ofNullable(classOf.apply(characterId));

@@ -107,5 +107,20 @@ public enum EffectType {
      * now; that mobs turn away and that bosses still see him do not. The void stays lethal either
      * way (FR-016d).
      */
-    INVISIBILITY
+    INVISIBILITY,
+
+    /**
+     * A second jump in mid-air, followed by a slowed fall - the mage's Rise &amp; Fall.
+     *
+     * <p><b>A primitive rather than a hardcoded ability id.</b> The platform listener has to know
+     * which character may double jump, and the only honest way to ask that without naming
+     * {@code mage.rise-and-fall} in code is for the ability to say so itself. Naming the id would put
+     * one piece of content into the source and quietly break the promise that abilities are
+     * configuration (SC-001).
+     *
+     * <p>Unlike every other primitive this one is not <em>applied</em> - it is a capability the
+     * platform reads. It therefore has no application class, and the dispatcher skipping it is
+     * correct rather than a gap.
+     */
+    DOUBLE_JUMP
 }

@@ -62,7 +62,22 @@ public final class JdbcAbilityStateRepository implements AbilityStateRepository,
                     + "   updated_at = excluded.updated_at";
 
     /**
-     * Removes what carries nothing.
+     * Removes the row of an ability whose live state fell back to the default.
+     *
+     * <p><b>Needed next to the sweep below, not instead of it.</b> A state that is default is skipped
+     * by the upsert - there is nothing worth writing - and the sweep only matches rows that are
+     * <em>stored</em> as default. Without this statement a rank-4 row whose ability was reset to rank
+     * 1 would match neither and sit there forever with the old value, which is exactly what the
+     * persistence test caught.
+     */
+    private static final String DELETE_ONE =
+            "DELETE FROM rpg.character_abilities WHERE character_id = ? AND ability_id = ?";
+
+    /**
+     * Removes rows that carry nothing any more, whether or not the character still holds them.
+     *
+     * <p>Catches the case the statement above cannot: a cooldown that expired while the character was
+     * offline is dropped on load, so it never appears in the live set at all.
      *
      * <p>Deliberately expressed as a condition rather than by listing ids: the set of abilities is
      * configuration, so a delete statement that names them would go stale the moment one is added.
@@ -153,6 +168,7 @@ public final class JdbcAbilityStateRepository implements AbilityStateRepository,
         try (Connection connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
             try (PreparedStatement upsert = connection.prepareStatement(UPSERT);
+                    PreparedStatement deleteOne = connection.prepareStatement(DELETE_ONE);
                     PreparedStatement deleteDefaults =
                             connection.prepareStatement(DELETE_DEFAULTS)) {
                 for (DirtyMark mark : marks) {
@@ -161,8 +177,11 @@ public final class JdbcAbilityStateRepository implements AbilityStateRepository,
                     long revision = revisions.getOrDefault(characterId, 0L) + 1;
                     for (AbilityState state : states) {
                         if (state.isDefault(now)) {
-                            // Nothing worth a row. The delete below takes care of one that already
-                            // exists; adding it here would write a default and remove it again.
+                            // Nothing worth a row - and if one exists from earlier, it has to go.
+                            // Merely skipping the upsert would leave the old rank standing.
+                            deleteOne.setObject(1, characterId);
+                            deleteOne.setString(2, state.abilityId());
+                            deleteOne.addBatch();
                             continue;
                         }
                         upsert.setObject(1, characterId);
@@ -182,6 +201,7 @@ public final class JdbcAbilityStateRepository implements AbilityStateRepository,
                     persisted.add(mark);
                 }
                 upsert.executeBatch();
+                deleteOne.executeBatch();
                 deleteDefaults.executeBatch();
                 connection.commit();
             } catch (SQLException failure) {

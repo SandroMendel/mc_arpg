@@ -174,13 +174,13 @@ tatsächlich zugefügten Schadens.
 - [X] T070 [US2] `ON_DEATH` fängt den tödlichen Schaden ab und setzt stattdessen einen Anteil der Maximalgesundheit (FR-050)
 - [X] T071 [P] [US2] `DoubleJumpListener` in `rpg-platform/src/main/java/rpg/platform/ability/DoubleJumpListener.java` — `PlayerToggleFlightEvent` abbrechen, Aufwärtsimpuls geben, `allowFlight` beim Bodenkontakt zurücksetzen (research.md R7)
 - [X] T072 [P] [US2] `StatusEffectEffect` in `rpg-core/src/main/java/rpg/core/ability/effect/` — trägt Slow Fall und Verlangsamung über Vanilla-Statuseffekte
-- [ ] T072a [US2] **Positionsbedingung** in `PassiveDispatcher` — eine Passive kann verlangen, dass der Treffer den Gegner von hinten traf; die Wirkung hält danach für eine Frist und wird von jedem weiteren Rückentreffer erneuert (FR-052a). Das ist Rogues Hinterhältiger Angriff
+- [X] T072a [US2] **Positionsbedingung** in `PassiveDispatcher` — eine Passive kann verlangen, dass der Treffer den Gegner von hinten traf; die Wirkung hält danach für eine Frist und wird von jedem weiteren Rückentreffer erneuert (FR-052a). Das ist Rogues Hinterhältiger Angriff
 - [X] T072b [P] [US2] `BackstabConditionTest` in `rpg-core/src/test/java/rpg/core/ability/` — der Winkel zwischen Blickrichtung des Ziels und Angriffsrichtung entscheidet; frontal wirkt nichts
-- [ ] T072c [US2] **Weltbedingung** als Schnittstelle in `rpg-core/src/main/java/rpg/core/ability/WorldCondition.java` — `openWorldOnly` wird gelesen, aber **bis B09 nicht durchgesetzt**; der Start meldet das einmal als Hinweis, nicht als Fehler (FR-052b, V36)
-- [ ] T072d [US2] Second Life versetzt an die **letzte Position vor dem Tod** statt zu respawnen, mit Titel und Ton (FR-052c) — kein Todesbildschirm
-- [ ] T072e [US2] **Spielereinstellung** für abschaltbare Passive: `setToggle`, `toggleOf` und die Spalte `toggle_state`; Rise & Fall kennt an, aus und nur-Sprung (FR-052d)
-- [ ] T072f [P] [US2] `AbilityToggleTest` in `rpg-persistence/src/test/java/rpg/persistence/ability/` — die Einstellung überlebt den Neustart und gehört dem Charakter, nicht dem Konto
-- [ ] T073 [US2] Verdrahtung der Interceptoren und des Doppelsprung-Listeners in `rpg-plugin/src/main/java/rpg/plugin/RpgPlugin.java`
+- [X] T072c [US2] **Weltbedingung** als Schnittstelle in `rpg-core/src/main/java/rpg/core/ability/WorldCondition.java` — `openWorldOnly` wird gelesen, aber **bis B09 nicht durchgesetzt**; der Start meldet das einmal als Hinweis, nicht als Fehler (FR-052b, V36)
+- [X] T072d [US2] Second Life versetzt an die **letzte Position vor dem Tod** statt zu respawnen, mit Titel und Ton (FR-052c) — kein Todesbildschirm
+- [X] T072e [US2] **Spielereinstellung** für abschaltbare Passive: `setToggle`, `toggleOf` und die Spalte `toggle_state`; Rise & Fall kennt an, aus und nur-Sprung (FR-052d)
+- [X] T072f [P] [US2] `AbilityToggleTest` in `rpg-persistence/src/test/java/rpg/persistence/ability/` — die Einstellung überlebt den Neustart und gehört dem Charakter, nicht dem Konto
+- [X] T073 [US2] Verdrahtung der Interceptoren und des Doppelsprung-Listeners in `rpg-plugin/src/main/java/rpg/plugin/RpgPlugin.java`
 
 **Checkpoint**: Passive wirken. Zwei der drei Uniques sind damit möglich.
 

@@ -408,10 +408,14 @@ Wert, ohne dass eine Quelldatei angefasst wurde.
 
 ### Functional Requirements — Effect-Primitives
 
-- **FR-010**: Das System MUSS die folgenden **sechzehn** Primitives bereitstellen: **Damage**,
+- **FR-010**: Das System MUSS die folgenden **siebzehn** Primitives bereitstellen: **Damage**,
   **Heal**, **ManaRestore**, **Lifesteal**, **Shield**, **Buff**, **Debuff**, **StatusEffect**,
   **Dash**, **Knockback**, **Teleport**, **Projectile**, **Evade**, **Meter**, **Summon**,
-  **Invisibility**.
+  **Invisibility**, **DoubleJump**.
+- **FR-010d**: **DoubleJump** ist eine *gelesene* Fähigkeit, keine angewandte: die Plattform fragt die
+  Auskunft, wer springen darf, statt dass ein Effekt etwas ausloest. Es ist ein Primitive und keine
+  fest verdrahtete Faehigkeits-ID, weil sonst ein Stueck Inhalt im Quelltext staende und SC-001 damit
+  nicht mehr waehr waere.
 - **FR-010a**: Ein Effekt MUSS ein optionales **Intervall** tragen können. Mit Intervall wirkt er
   wiederholt über seine Dauer statt einmalig — damit entstehen Wirbel, Vergiftete Klinge, Blitzsturm
   und Manatrank aus denselben Primitives wie ihre einmaligen Geschwister, ohne vier weitere.

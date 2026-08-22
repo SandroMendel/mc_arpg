@@ -36,6 +36,12 @@ public final class PassiveDispatcher {
     /** Injected so a test can nail it down; {@code Math::random} in production (FR-049). */
     private final DoubleSupplier random;
 
+    /** Whether a hit came from behind - the rogue's Sneaky Backstab (FR-052a). */
+    private volatile BehindTargetCheck behindTarget = BehindTargetCheck.never();
+
+    /** Whether the holder is somewhere the ability works at all (FR-052b). */
+    private volatile WorldCondition worldCondition = WorldCondition.everywhere();
+
     public PassiveDispatcher(
             AbilityRegistry registry,
             EffectDispatcher effects,
@@ -49,6 +55,25 @@ public final class PassiveDispatcher {
         this.repository = Objects.requireNonNull(repository, "repository");
         this.clock = Objects.requireNonNull(clock, "clock");
         this.random = Objects.requireNonNull(random, "random");
+    }
+
+    /**
+     * Installs the positional check. The platform does this at startup; without it no ability with
+     * {@code requires-behind-target} ever fires, which is the safe direction.
+     */
+    public void setBehindTargetCheck(BehindTargetCheck check) {
+        this.behindTarget = Objects.requireNonNull(check, "check");
+    }
+
+    /**
+     * Installs the world check.
+     *
+     * <p><b>Until B09 exists nothing calls this</b>, and the default lets everything through: Second
+     * Life works in an instance too, which is wrong but harmless, where the opposite default would
+     * silently disable it everywhere (FR-052b, ADR-025).
+     */
+    public void setWorldCondition(WorldCondition condition) {
+        this.worldCondition = Objects.requireNonNull(condition, "condition");
     }
 
     /**
@@ -78,6 +103,9 @@ public final class PassiveDispatcher {
             if (!takesHold(characterId, ability, damageType, now)) {
                 continue;
             }
+            if (!conditionsMet(characterId, ability, data)) {
+                continue;
+            }
             run(characterId, ability, data);
             startCooldown(characterId, ability, now);
             anyFired = true;
@@ -104,6 +132,27 @@ public final class PassiveDispatcher {
         }
         // FR-049. Once, here, for the whole ability.
         return ability.chance() >= 1.0 || random.getAsDouble() < ability.chance();
+    }
+
+    /**
+     * The two conditions that depend on where the holder is standing rather than on the ability's own
+     * state.
+     *
+     * <p>Separate from {@code takesHold} because they are the expensive half: both reach into the
+     * world, where a toggle, a cooldown and a random number are field reads. Which of the two runs
+     * first does not change the outcome - nothing before the cooldown in {@code fire} has a side
+     * effect, so a rejection here costs exactly as much as a rejection there.
+     */
+    private boolean conditionsMet(
+            UUID characterId, Ability ability, EffectContext.TriggerData data) {
+        if (ability.requiresBehindTarget()) {
+            UUID counterpart = data == null ? null : data.counterpart();
+            if (counterpart == null || !behindTarget.test(characterId, counterpart)) {
+                return false;
+            }
+        }
+        // Read but not enforced while B09 is missing - the default condition says yes to everything.
+        return !ability.openWorldOnly() || worldCondition.isOpenWorld(characterId);
     }
 
     /**

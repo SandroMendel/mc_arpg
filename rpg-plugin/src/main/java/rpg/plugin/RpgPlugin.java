@@ -612,6 +612,17 @@ public class RpgPlugin extends JavaPlugin {
                         abilityModule.repository(),
                         Clock.systemUTC(),
                         Math::random);
+        // The three things the passive rules describe but cannot do themselves.
+        rpg.platform.ability.PaperPassiveHooks hooks =
+                new rpg.platform.ability.PaperPassiveHooks(getServer(), messages, getLogger());
+        passives.setBehindTargetCheck(hooks.behindTarget());
+        // No setWorldCondition: B09 owns that distinction and does not exist. The default lets
+        // everything through, which makes Second Life work inside an instance too - wrong, visible,
+        // and better than the opposite default, where the unique would silently do nothing (ADR-025).
+        effects.register(
+                rpg.core.ability.EffectType.STATUS_EFFECT,
+                new rpg.core.ability.effect.StatusEffectEffect(hooks.statusEffects()));
+
         // ON_KILL is the one trigger that is not an interceptor: killing is not a stage of the damage
         // pipeline, it is what the pipeline concludes, and B05 announces it.
         new rpg.core.ability.OnKillSubscriber(passives).subscribeTo(eventBus);
@@ -622,9 +633,7 @@ public class RpgPlugin extends JavaPlugin {
                 rpg.core.ability.PassiveInterceptors.lethalBlow(
                         passives,
                         statsModule.engine(),
-                        // The title, the sound and the teleport back are B13's to draw properly; until
-                        // then the save works and simply looks like nothing (FR-052c).
-                        rpg.core.ability.PassiveInterceptors.SecondLifeHandler.none()));
+                        hooks.secondLife()));
 
         getServer()
                 .getPluginManager()
@@ -638,7 +647,41 @@ public class RpgPlugin extends JavaPlugin {
                                 getLogger()),
                         this);
 
-        getLogger().info("[abilities] listeners registered - trigger and left-click guard");
+        // The double jump asks the registry which ability grants it, rather than naming one in code -
+        // otherwise a piece of content would live in the source (EffectType.DOUBLE_JUMP).
+        getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new rpg.platform.ability.DoubleJumpListener(
+                                player -> doubleJumpOf(abilities, player).isPresent(),
+                                player ->
+                                        doubleJumpOf(abilities, player)
+                                                .map(
+                                                        ability ->
+                                                                abilities.toggleOf(
+                                                                                characterIdOf(player)
+                                                                                        .orElse(
+                                                                                                player.getUniqueId()),
+                                                                                ability.id())
+                                                                        != rpg.core.ability.ToggleState
+                                                                                .PARTIAL)
+                                        .orElse(false),
+                                () -> 0.8,
+                                () -> 60),
+                        this);
+
+        getLogger()
+                .info("[abilities] listeners registered - trigger, left-click guard, double jump");
+    }
+
+    /** The ability granting this player a double jump, if any is unlocked and switched on. */
+    private java.util.Optional<rpg.core.ability.Ability> doubleJumpOf(
+            rpg.core.ability.AbilityRegistry abilities, org.bukkit.entity.Player player) {
+        return characterIdOf(player)
+                .flatMap(
+                        characterId ->
+                                abilities.capability(
+                                        characterId, rpg.core.ability.EffectType.DOUBLE_JUMP));
     }
 
     /** The character a player is currently playing, for the trigger path. */

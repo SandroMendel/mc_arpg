@@ -48,7 +48,10 @@ public final class PassiveInterceptors {
                         damage.targetId(),
                         AbilityTrigger.ON_DAMAGE_TAKEN,
                         damage.type(),
-                        new EffectContext.TriggerData(damage.rawDamage(), damage::cancel));
+                        new EffectContext.TriggerData(
+                                damage.rawDamage(),
+                                damage::cancel,
+                                damage.attackerId().orElse(null)));
             }
         };
     }
@@ -78,7 +81,9 @@ public final class PassiveInterceptors {
                                                 AbilityTrigger.ON_DAMAGE_DEALT,
                                                 damage.type(),
                                                 new EffectContext.TriggerData(
-                                                        damage.finalDamage(), damage::cancel)));
+                                                        damage.finalDamage(),
+                                                        damage::cancel,
+                                                        damage.targetId())));
             }
         };
     }
