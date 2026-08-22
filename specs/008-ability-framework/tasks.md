@@ -74,10 +74,10 @@ Vier Module aus B01, unverändert: `rpg-core` (Regeln, bukkitfrei), `rpg-persist
 
 ### Konfigurationsschema
 
-- [ ] T021 `AbilityConfigSchema` in `rpg-core/src/main/java/rpg/core/ability/AbilityConfigSchema.java` — Bindung von `abilities.yml` über B01s `ConfigSchema`; die Fähigkeiten als Kartenfeld, wie B06 seine XP-Kurve gebunden hat
-- [ ] T022 Prüfungen V1 bis V4 sowie V31 bis V42 in `AbilityConfigSchema` — globale Sperre, Kampf-Faktoren, doppelte IDs, Pflichtfelder; jede Meldung nennt Fähigkeit und Feld
-- [ ] T023 [P] `AbilityConfigValidationTest` in `rpg-core/src/test/java/rpg/core/ability/` — je Prüfung V1 bis V24 und V31 bis V42 ein Fall, geprüft wird die **Meldung**, nicht der Ausnahmetyp
-- [ ] T024 [P] `AbilityConfigFixture` in `rpg-core/src/test/java/rpg/core/ability/` — baut die rohe verschachtelte Karte, die `abilities.yml` erzeugt, nach dem Muster von `ClassConfigFixture`
+- [X] T021 `AbilityConfigSchema` in `rpg-core/src/main/java/rpg/core/ability/AbilityConfigSchema.java` — Bindung von `abilities.yml` über B01s `ConfigSchema`; die Fähigkeiten als Kartenfeld, wie B06 seine XP-Kurve gebunden hat
+- [X] T022 Prüfungen V1 bis V4 sowie V31 bis V42 in `AbilityConfigSchema` — globale Sperre, Kampf-Faktoren, doppelte IDs, Pflichtfelder; jede Meldung nennt Fähigkeit und Feld
+- [X] T023 [P] `AbilityConfigValidationTest` in `rpg-core/src/test/java/rpg/core/ability/` — je Prüfung V1 bis V24 und V31 bis V42 ein Fall, geprüft wird die **Meldung**, nicht der Ausnahmetyp
+- [X] T024 [P] `AbilityConfigFixture` in `rpg-core/src/test/java/rpg/core/ability/` — baut die rohe verschachtelte Karte, die `abilities.yml` erzeugt, nach dem Muster von `ClassConfigFixture`
 
 ### Persistenz — die drei Registrierungen (ADR-015)
 

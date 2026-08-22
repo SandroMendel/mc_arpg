@@ -43,9 +43,10 @@ public record TargetSpec(
             throw new IllegalArgumentException(mode + ": angle means nothing outside CONE");
         }
 
-        // V23 - the important one. No default on purpose: a default would make a forgotten line
-        // indistinguishable from a decision, which is the same reasoning B07 uses for demanding every
-        // attribute field including the zeros.
+        // V23 - the important one, and the one a default quietly defeats. Zero means "not given": the
+        // binder passes it through instead of substituting 1, because a substituted 1 would satisfy
+        // this check and make a forgotten line indistinguishable from a decision. Same reasoning B07
+        // uses for demanding every attribute field including the zeros.
         if (mode.multiTarget()) {
             if (maxTargets < 1) {
                 throw new IllegalArgumentException(
@@ -53,6 +54,8 @@ public record TargetSpec(
                                 + ": max-targets is required and must be at least 1 - without a ceiling"
                                 + " one ability in a horde blows the tick budget");
             }
+        } else if (maxTargets == 0) {
+            maxTargets = 1;
         } else if (maxTargets != 1) {
             // V24
             throw new IllegalArgumentException(
