@@ -37,6 +37,7 @@ import rpg.core.stats.StatConfig;
 import rpg.core.stats.StatEngine;
 import rpg.persistence.PersistenceMessageKeys;
 import rpg.persistence.PersistenceModule;
+import rpg.persistence.ability.AbilityModule;
 import rpg.persistence.classes.ClassesModule;
 import rpg.persistence.inventory.InventoryModule;
 import rpg.persistence.progression.ProgressionModule;
@@ -118,7 +119,8 @@ public class RpgPlugin extends JavaPlugin {
                     "stats.yml",
                     "combat.yml",
                     "progression.yml",
-                    "classes.yml");
+                    "classes.yml",
+                    "abilities.yml");
 
     private final BootstrapState bootstrapState = new BootstrapState();
 
@@ -134,6 +136,7 @@ public class RpgPlugin extends JavaPlugin {
     private CombatModule combatModule;
     private ProgressionModule progressionModule;
     private ClassesModule classesModule;
+    private AbilityModule abilityModule;
     private InventoryModule inventoryModule;
     private ExperienceBar experienceBar;
 
@@ -321,6 +324,16 @@ public class RpgPlugin extends JavaPlugin {
         inventoryModule =
                 new InventoryModule(
                         persistenceModule, sessionModule, getLogger(), Clock.systemUTC());
+        // After the classes: the cross-check between the loadouts and the ability definitions needs
+        // both configurations, and it is the promise B07 could not keep - there an ability id travels
+        // as an opaque string because this block did not exist yet.
+        abilityModule =
+                new AbilityModule(
+                        persistenceModule,
+                        sessionModule,
+                        classesModule,
+                        getLogger(),
+                        Clock.systemUTC());
         return List.of(
                 persistenceModule,
                 sessionModule,
@@ -328,7 +341,8 @@ public class RpgPlugin extends JavaPlugin {
                 combatModule,
                 progressionModule,
                 classesModule,
-                inventoryModule);
+                inventoryModule,
+                abilityModule);
     }
 
     /**

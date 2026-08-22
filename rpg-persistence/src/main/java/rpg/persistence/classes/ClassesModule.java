@@ -282,7 +282,13 @@ public final class ClassesModule implements Module {
 
     // --- what the rules read -----------------------------------------------------------------
 
-    Optional<CharacterClass> classOf(UUID characterId) {
+    /**
+     * The class of a character currently online, or empty.
+     *
+     * <p>Public since B08: the ability registry needs it to resolve a loadout, and it sits in another
+     * package. Still a read of live session state, not a query.
+     */
+    public Optional<CharacterClass> classOf(UUID characterId) {
         return Optional.ofNullable(live.get(characterId)).map(Live::characterClass);
     }
 

@@ -284,6 +284,48 @@ class FullBootstrapTest {
         assertThat(PostgresContainer.tableExists("character_class_progress")).isTrue();
     }
 
+    // --- B08 --------------------------------------------------------------
+    //
+    // T032, T135: the same trap one block along. B08 owns a configuration, a repository, a place in
+    // the flush order, a session attachment and a read facade - and every one of them is dead code
+    // until the plugin wires it. ADR-012 exists because that has happened before.
+
+    @Test
+    void theAbilityRegistryIsResolvableThroughTheRegistry() {
+        assertThat(plugin.registry().findService(rpg.core.ability.AbilityRegistry.class))
+                .as("B12 counts through this and B13 draws from it")
+                .isPresent();
+    }
+
+    @Test
+    void theAbilityTableExistsBecauseB08sMigrationRanToo() {
+        assertThat(PostgresContainer.tableExists("character_abilities")).isTrue();
+    }
+
+    @Test
+    void theAbilityConfigurationWasLoadedRatherThanDefaulted() {
+        rpg.core.ability.AbilityRegistry abilities =
+                plugin.registry().getService(rpg.core.ability.AbilityRegistry.class);
+
+        // Reading the two values B08 owns itself proves abilities.yml was written out, parsed and
+        // validated. The rates are deliberately NOT here - they are attributes and live in
+        // classes.yml (ADR-023).
+        assertThat(abilities.config().globalCooldown()).isEqualTo(java.time.Duration.ofMillis(750));
+        assertThat(abilities.config().healthCombatFactor()).isEqualTo(0.20);
+        assertThat(abilities.config().manaCombatFactor()).isEqualTo(0.35);
+    }
+
+    @Test
+    void abilitiesDeclareTheDependencyThatKeepsThemAfterTheClasses() {
+        // The order is not cosmetic: resolving a class binding needs both files, and it is the promise
+        // B07 could not keep - there an ability id travels as an opaque string. Asserting the declared
+        // dependency rather than the resulting list tests the mechanism that enforces it; a list that
+        // happens to be in the right order would still break the day somebody reshuffles it.
+        assertThat(rpg.persistence.ability.AbilityModule.DEPENDENCIES)
+                .as("the cross-check runs at startup and needs classes.yml already loaded")
+                .contains("classes");
+    }
+
     @Test
     void classesHookIntoTheSessionLifecycle() {
         assertThat(plugin.sessionLifecycle().attachmentIds())
