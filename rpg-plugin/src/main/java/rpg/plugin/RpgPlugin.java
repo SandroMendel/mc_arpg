@@ -137,6 +137,8 @@ public class RpgPlugin extends JavaPlugin {
     private ProgressionModule progressionModule;
     private ClassesModule classesModule;
     private AbilityModule abilityModule;
+    private rpg.core.ability.AbilityRuntime abilityRuntime;
+    private rpg.platform.ability.AbilityHotbar abilityHotbar;
     private InventoryModule inventoryModule;
     private ExperienceBar experienceBar;
 
@@ -549,6 +551,70 @@ public class RpgPlugin extends JavaPlugin {
      * every attachment - B04's holder, B06's level, B07's tiers - and the equipment goes on afterwards,
      * because it is built from those tiers.
      */
+    /**
+     * Assembles the Paper-facing half of B08 (T056).
+     *
+     * <p>Runs from inside the class layer, because it needs what that one built: the ability items are
+     * placed <em>after</em> B07's bound weapon in slot 0, and the trigger path asks B05 whether a
+     * target may be attacked rather than deciding that itself.
+     *
+     * <p>Without this the whole block is inert however green its own tests are (ADR-012).
+     */
+    private void assembleAbilityLayer() {
+        rpg.core.ability.AbilityRegistry abilities = abilityModule.registry();
+        rpg.core.combat.CombatPipeline pipeline = combatModule.pipeline();
+
+        // The rules live in rpg-core, the lookup here - the same split as MobStatProvider in B05.
+        //
+        // The permission predicate lets everything through for now, and that is a stated gap rather
+        // than an oversight: B05 owns the rule but exposes no "may A attack B" read, only enforcement
+        // inside the pipeline. Damage is therefore still refused correctly - abilityDamage checks it -
+        // but a cone can currently NAME a target it may not hit. The pre-filter goes in when B05
+        // exposes the query, which B09 needs anyway to make the rule per-zone (FR-023).
+        rpg.platform.ability.PaperTargetResolver resolver =
+                new rpg.platform.ability.PaperTargetResolver(getServer(), (caster, target) -> true);
+
+        rpg.core.ability.effect.EffectDispatcher effects =
+                new rpg.core.ability.effect.EffectDispatcher(getLogger());
+        effects.register(
+                rpg.core.ability.EffectType.DAMAGE,
+                new rpg.core.ability.effect.DamageEffect(pipeline));
+
+        abilityRuntime =
+                new rpg.core.ability.AbilityRuntime(
+                        abilities,
+                        statsModule.engine(),
+                        resolver,
+                        effects,
+                        abilityModule.repository(),
+                        Clock.systemUTC());
+
+        abilityHotbar = new rpg.platform.ability.AbilityHotbar(messages, getLogger());
+
+        getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new rpg.platform.ability.AbilityTriggerListener(
+                                (player, abilityId) ->
+                                        abilityRuntime.trigger(
+                                                characterIdOf(player).orElse(player.getUniqueId()),
+                                                abilityId),
+                                (player, key) -> player.sendMessage(messages.get(key)),
+                                getLogger()),
+                        this);
+
+        getLogger().info("[abilities] listeners registered - trigger and left-click guard");
+    }
+
+    /** The character a player is currently playing, for the trigger path. */
+    private java.util.Optional<java.util.UUID> characterIdOf(org.bukkit.entity.Player player) {
+        return sessionModule
+                .registry()
+                .find(player.getUniqueId())
+                .flatMap(rpg.core.session.PlayerSession::activeCharacter)
+                .map(rpg.core.session.PlayerCharacter::characterId);
+    }
+
     private SessionObserver assembleClassLayer() {
         ClassRegistry classes = classesModule.registry();
         NoCharacterGuardListener guard = new NoCharacterGuardListener(getLogger());
@@ -588,6 +654,8 @@ public class RpgPlugin extends JavaPlugin {
                 .info(
                         "[classes] listeners registered - selection, guard, equipment lock, "
                                 + "inventory notice");
+
+        assembleAbilityLayer();
 
         return new SessionObserver() {
             @Override

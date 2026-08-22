@@ -121,6 +121,7 @@ class FullBootstrapTest {
         assertThat(dataFolder.resolve("combat.yml")).exists();
         assertThat(dataFolder.resolve("progression.yml")).exists();
         assertThat(dataFolder.resolve("classes.yml")).exists();
+        assertThat(dataFolder.resolve("abilities.yml")).exists();
         assertThat(dataFolder.resolve("messages.yml")).exists();
     }
 
@@ -147,9 +148,13 @@ class FullBootstrapTest {
         // Damage is handled - by B05, since it exists. That B04 is not the one doing it is asserted
         // where it can actually be told apart: NoDamageInterceptionTest scans the sources of
         // rpg/platform/stats and fails if a damage handler appears there (FR-030b). Counting
-        // handlers here cannot distinguish owners, so this only checks that exactly one block took
-        // the job.
-        assertThat(handlerCount(EntityDamageEvent.getHandlerList())).isEqualTo(1);
+        // handlers here cannot distinguish owners, so this only checks how many blocks took the job.
+        //
+        // TWO since B08. EntityDamageByEntityEvent declares no HandlerList of its own and therefore
+        // SHARES this one: B05 prices the hit, and B08 refuses it outright when the player is holding
+        // an ability item (FR-054). Without the second one a left click with the goat horn would deal
+        // weapon damage.
+        assertThat(handlerCount(EntityDamageEvent.getHandlerList())).isEqualTo(2);
     }
 
     @Test
@@ -229,8 +234,8 @@ class FullBootstrapTest {
     @Test
     void everyCombatEventHasExactlyOneHandler() {
         assertThat(handlerCount(EntityDamageEvent.getHandlerList()))
-                .as("B05 intercepts damage; B04 must not")
-                .isEqualTo(1);
+                .as("B05 prices the hit, B08 refuses it for an ability item - B04 must not be here")
+                .isEqualTo(2);
         // ProjectileLaunchEvent extends EntitySpawnEvent and declares no HandlerList of its own, so
         // it SHARES one with CreatureSpawnEvent. The two cannot be counted separately - what this
         // asserts is that exactly two handlers sit on that shared list: projectile pricing and mob

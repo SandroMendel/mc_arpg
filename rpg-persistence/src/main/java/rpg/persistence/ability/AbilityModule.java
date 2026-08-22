@@ -15,6 +15,7 @@ import rpg.core.ability.AbilityConfig;
 import rpg.core.ability.AbilityConfigSchema;
 import rpg.core.ability.AbilityRegistry;
 import rpg.core.ability.AbilityState;
+import rpg.core.ability.AbilityStateRepository;
 import rpg.core.classes.AbilityBinding;
 import rpg.core.classes.ClassRegistry;
 import rpg.core.config.ConfigHandle;
@@ -150,6 +151,11 @@ public final class AbilityModule implements Module {
     /** The read facade other blocks are built against - see {@code contracts/ability-api.md}. */
     public AbilityRegistry registry() {
         return registry;
+    }
+
+    /** The write path the runtime marks through - never a direct database access (FR-032). */
+    public AbilityStateRepository repository() {
+        return repository;
     }
 
     public AbilityConfig config() {

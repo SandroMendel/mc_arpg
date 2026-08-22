@@ -121,7 +121,7 @@ wirkt, ein zweiter Klick wird abgewiesen.
 - [X] T038 [P] [US1] `AbilityRuntimeTest` in `rpg-core/src/test/java/rpg/core/ability/` — die sechs Akzeptanzfälle aus US1: Auslösung wirkt, zweite Auslösung abgewiesen, zu wenig Mana, globale Sperre, Linksklick wirkungslos, kein aktiver Charakter
 - [X] T039 [P] [US1] `AbilityRuntimeTest`: SC-003 — drei Ablehnungsgründe mal 1000 Versuche, null Durchbrüche, und **kein** Verbrauch bei Ablehnung
 - [ ] T040 [P] [US1] `TargetResolutionTest` in `rpg-core/src/test/java/rpg/core/ability/` — `SELF` liefert genau den Auslöser; `RADIUS` respektiert die Obergrenze und wählt nach aufsteigendem Abstand (FR-021)
-- [ ] T041 [P] [US1] `AbilityTriggerListenerTest` in `rpg-platform/src/test/java/rpg/platform/ability/` mit MockBukkit — Rechtsklick löst aus, Linksklick löst weder Fähigkeit noch Nahkampf aus
+- [X] T041 [P] [US1] `AbilityTriggerListenerTest` in `rpg-platform/src/test/java/rpg/platform/ability/` mit MockBukkit — Rechtsklick löst aus, Linksklick löst weder Fähigkeit noch Nahkampf aus
 
 ### Umsetzung für User Story 1
 
@@ -132,14 +132,14 @@ wirkt, ein zweiter Klick wird abgewiesen.
 - [X] T046 [P] [US1] `DamageEffect` in `rpg-core/src/main/java/rpg/core/ability/effect/DamageEffect.java` — über `CombatPipeline.abilityDamage`, `amount` als **Faktor** auf das Schadensattribut (FR-012, FR-013)
 - [X] T047 [US1] Fehlerbarriere je Effekt in `rpg-core/src/main/java/rpg/core/ability/effect/EffectDispatcher.java` — eine Ausnahme wird abgefangen, mit der Kennung der Fähigkeit protokolliert und auf das eine Ereignis begrenzt; die übrigen Effekte laufen weiter (FR-017)
 - [X] T048 [US1] Der Wertestand wird **einmal beim Auslösen** gezogen und bis zum Ende der Handlung gehalten (FR-018) — dieselbe Regel, die ADR-013 für `StatSnapshot` festgehalten hat
-- [ ] T049 [P] [US1] `PaperTargetResolver` in `rpg-platform/src/main/java/rpg/platform/ability/PaperTargetResolver.java` mit `SELF` und `RADIUS` über `World.getNearbyEntities` — räumlicher Index statt linearer Iteration (FR-022)
-- [ ] T050 [US1] Zielberechtigung im Resolver: kein Ziel, das nach B05s Regel nicht angegriffen werden darf (FR-023)
-- [ ] T051 [P] [US1] `AbilityItemTag` in `rpg-platform/src/main/java/rpg/platform/ability/AbilityItemTag.java` — zweite Marke im `PersistentDataContainer` mit der Fähigkeits-ID, neben B07s `BoundItemTag`; die Fähigkeit wird **nie** aus dem Material abgeleitet (FR-058)
-- [ ] T052 [US1] `AbilityHotbar` in `rpg-platform/src/main/java/rpg/platform/ability/AbilityHotbar.java` — Belegung nach FR-055: Slot 0 Waffe, 1 bis 4 aktive Fähigkeiten nach Freischaltstufe, 5 aufwärts Marker; nicht freigeschaltete Slots bleiben leer (FR-056)
-- [ ] T053 [US1] Die Fähigkeits-Items tragen `BoundItemTag` und erben damit die Sperre aus B07s `EquipmentLockListener` (FR-057) — **kein neuer Sperrcode**, nachgewiesen durch Test statt behauptet
-- [ ] T054 [US1] `AbilityTriggerListener` in `rpg-platform/src/main/java/rpg/platform/ability/AbilityTriggerListener.java` — `PlayerInteractEvent`, Auslösung bei `RIGHT_CLICK_AIR` und `RIGHT_CLICK_BLOCK`
-- [ ] T055 [US1] Linksklick-Sperre, **beide Wege**: `PlayerInteractEvent` bei `LEFT_CLICK_*` abbrechen **und** den Schlag auf eine Entity abweisen, bevor B05s `VanillaDamageListener` ihn als Nahkampf nimmt (FR-054, research.md R4)
-- [ ] T056 [US1] Verdrahtung in `rpg-plugin/src/main/java/rpg/plugin/RpgPlugin.java` — Listener registrieren, `AbilityRuntime` in die Registry
+- [X] T049 [P] [US1] `PaperTargetResolver` in `rpg-platform/src/main/java/rpg/platform/ability/PaperTargetResolver.java` mit `SELF` und `RADIUS` über `World.getNearbyEntities` — räumlicher Index statt linearer Iteration (FR-022)
+- [X] T050 [US1] Zielberechtigung im Resolver: kein Ziel, das nach B05s Regel nicht angegriffen werden darf (FR-023)
+- [X] T051 [P] [US1] `AbilityItemTag` in `rpg-platform/src/main/java/rpg/platform/ability/AbilityItemTag.java` — zweite Marke im `PersistentDataContainer` mit der Fähigkeits-ID, neben B07s `BoundItemTag`; die Fähigkeit wird **nie** aus dem Material abgeleitet (FR-058)
+- [X] T052 [US1] `AbilityHotbar` in `rpg-platform/src/main/java/rpg/platform/ability/AbilityHotbar.java` — Belegung nach FR-055: Slot 0 Waffe, 1 bis 4 aktive Fähigkeiten nach Freischaltstufe, 5 aufwärts Marker; nicht freigeschaltete Slots bleiben leer (FR-056)
+- [X] T053 [US1] Die Fähigkeits-Items tragen `BoundItemTag` und erben damit die Sperre aus B07s `EquipmentLockListener` (FR-057) — **kein neuer Sperrcode**, nachgewiesen durch Test statt behauptet
+- [X] T054 [US1] `AbilityTriggerListener` in `rpg-platform/src/main/java/rpg/platform/ability/AbilityTriggerListener.java` — `PlayerInteractEvent`, Auslösung bei `RIGHT_CLICK_AIR` und `RIGHT_CLICK_BLOCK`
+- [X] T055 [US1] Linksklick-Sperre, **beide Wege**: `PlayerInteractEvent` bei `LEFT_CLICK_*` abbrechen **und** den Schlag auf eine Entity abweisen, bevor B05s `VanillaDamageListener` ihn als Nahkampf nimmt (FR-054, research.md R4)
+- [X] T056 [US1] Verdrahtung in `rpg-plugin/src/main/java/rpg/plugin/RpgPlugin.java` — Listener registrieren, `AbilityRuntime` in die Registry
 
 **Checkpoint**: Eine Fähigkeit lässt sich auslösen. Kosten, Cooldown und Sperre greifen serverseitig.
 
