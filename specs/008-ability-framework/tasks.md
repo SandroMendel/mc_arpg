@@ -1,0 +1,459 @@
+---
+
+description: "Aufgabenliste B08 · Fähigkeiten-Framework"
+---
+
+# Tasks: B08 · Fähigkeiten-Framework
+
+**Input**: Design-Dokumente aus `/specs/008-ability-framework/`
+
+**Prerequisites**: [plan.md](./plan.md), [spec.md](./spec.md), [research.md](./research.md),
+[data-model.md](./data-model.md), [contracts/](./contracts/)
+
+**Tests**: Enthalten. Prinzip VII der Constitution verlangt Unit-Tests ohne laufenden Server für jede
+Formel und jede Regel sowie echte PostgreSQL-Instanzen für die Persistenz — Tests sind hier keine
+Option, sondern Vorgabe.
+
+**Organisation**: Nach User Story gruppiert, damit jede für sich umsetzbar und prüfbar ist.
+
+## Format: `[ID] [P?] [Story] Beschreibung`
+
+- **[P]**: parallelisierbar — andere Datei, keine offene Abhängigkeit
+- **[Story]**: die User Story aus [spec.md](./spec.md)
+- Jede Aufgabe nennt ihren Pfad
+
+## Pfade
+
+Vier Module aus B01, unverändert: `rpg-core` (Regeln, bukkitfrei), `rpg-persistence`,
+`rpg-platform` (Paper), `rpg-plugin` (Verdrahtung und Konfiguration).
+
+---
+
+## Phase 1: Setup
+
+**Zweck**: Die Pakete anlegen, in denen alles Weitere entsteht.
+
+- [ ] T001 [P] Paket `rpg-core/src/main/java/rpg/core/ability/` mit `package-info.java` anlegen — die vier Ebenen benennen (Definition, Primitives, Targeting, Runtime) und die Blockgrenze zu B04/B05/B07 beschreiben, nach dem Muster von `rpg/core/classes/package-info.java`
+- [ ] T002 [P] Paket `rpg-core/src/main/java/rpg/core/ability/effect/` mit `package-info.java` anlegen — je Primitive eine zustandslose Anwendung, keine Fähigkeitslogik
+- [ ] T003 [P] Paket `rpg-platform/src/main/java/rpg/platform/ability/` mit `package-info.java` anlegen
+- [ ] T004 [P] Paket `rpg-persistence/src/main/java/rpg/persistence/ability/` anlegen
+- [ ] T005 [P] `rpg-plugin/src/main/resources/abilities.yml` als Gerüst anlegen: `runtime.global-cooldown-ms`, `runtime.regeneration.health-combat-factor`, `runtime.regeneration.mana-combat-factor`, leerer `abilities:`-Block, Kopfkommentar mit dem Verweis auf ADR-022 und ADR-023
+- [ ] T006 [P] `AbilityMessageKeys` in `rpg-core/src/main/java/rpg/core/ability/AbilityMessageKeys.java` anlegen und die Schlüssel in `rpg-plugin/src/main/resources/messages.yml` eintragen — Ablehnungsgründe, Freischaltmeldung, Cooldown-Restzeit (FR-009)
+
+---
+
+## Phase 2: Foundational (blockierende Voraussetzungen)
+
+**Zweck**: Alles, was jede User Story braucht. **⚠️ Vor dieser Phase kann keine Story beginnen.**
+
+### Die Scheduler-Erweiterung (ADR-024)
+
+- [ ] T007 `runSyncOnEntityDelayed(EntityRef, Duration, Runnable)` in `rpg-core/src/main/java/rpg/core/scheduler/Scheduler.java` ergänzen — Javadoc mit der Begründung aus ADR-024: entity-gebunden und einmalig, kein Weg zu einer wiederkehrenden Aufgabe, Folia-Pfad bleibt offen
+- [ ] T008 Umsetzung in der Paper-Anbindung `rpg-platform/src/main/java/rpg/platform/scheduler/` über `EntityScheduler.runDelayed` — dieselbe Behandlung der nicht auflösbaren Entity wie in `runSyncOnEntity` (bereits abgebrochener Handle)
+- [ ] T009 [P] Die Testscheduler in `rpg-core/src/test/.../support/` und `rpg-persistence/src/test/java/rpg/persistence/support/DirectScheduler.java` um die neue Methode erweitern — mit steuerbarer Zeit, damit ein Cast im Test ohne Warten fällig wird
+- [ ] T010 [P] `SchedulerContractTest` in `rpg-core/src/test/java/rpg/core/scheduler/` um die neue Methode erweitern: läuft nach der Verzögerung, läuft nicht vorher, ein abgebrochener Handle verhindert den Lauf
+
+### Der Widerruf der B07-Invariante (ADR-022)
+
+- [ ] T011 Die Prüfung `unique && kind != ACTIVE` in `rpg-core/src/main/java/rpg/core/classes/AbilityBinding.java` entfernen und das Javadoc auf ADR-022 umschreiben — die Unique ist eine der sechs, ihre Art hängt an der Klasse
+- [ ] T012 `validateAbilities` in `rpg-core/src/main/java/rpg/core/classes/CharacterClassDefinition.java` entkoppeln: weiterhin vier aktive, zwei passive und höchstens eine Unique, aber **kein** Zusammenhang zwischen `unique` und `kind`
+- [ ] T013 [P] `AbilityBindingTest` in `rpg-core/src/test/java/rpg/core/classes/` anpassen: der Test „die Unique ist aktiv" wird zu „die Unique darf passiv sein"; ein Loadout mit passiver Unique lädt, eines mit fünf aktiven wird weiterhin abgewiesen
+
+### Wertetypen der Definition
+
+- [ ] T014 [P] `EffectType` in `rpg-core/src/main/java/rpg/core/ability/EffectType.java` — die zwölf Primitives aus [data-model.md](./data-model.md), je mit Javadoc; `SUMMON` fehlt ausdrücklich und der Grund steht dabei
+- [ ] T015 [P] `TargetMode` in `rpg-core/src/main/java/rpg/core/ability/TargetMode.java` — die sieben Zielbestimmungen, je mit dem Hinweis, ob sie mehr als ein Ziel liefern kann
+- [ ] T016 [P] `AbilityTrigger` in `rpg-core/src/main/java/rpg/core/ability/AbilityTrigger.java` — die fünf Trigger mit ihrem Einhängepunkt im Javadoc (research.md R6)
+- [ ] T017 [P] `EffectSpec` als Record in `rpg-core/src/main/java/rpg/core/ability/EffectSpec.java` mit Prüfungen V15 bis V19 im Konstruktor und `valueAtRank(int)`
+- [ ] T018 [P] `TargetSpec` als Record in `rpg-core/src/main/java/rpg/core/ability/TargetSpec.java` mit Prüfungen V21 bis V24 — `maxTargets` ist **Pflichtfeld** für jeden Mehrfachmodus, kein Vorgabewert
+- [ ] T019 `Ability` als Record in `rpg-core/src/main/java/rpg/core/ability/Ability.java` mit Prüfungen V5 bis V13; Listen werden kopiert, nicht übernommen (hängt an T014 bis T018)
+- [ ] T020 `AbilityConfig` in `rpg-core/src/main/java/rpg/core/ability/AbilityConfig.java` — alle Definitionen, globale Sperre, beide Kampf-Faktoren; Nachschlagen über eine unveränderliche Karte
+
+### Konfigurationsschema
+
+- [ ] T021 `AbilityConfigSchema` in `rpg-core/src/main/java/rpg/core/ability/AbilityConfigSchema.java` — Bindung von `abilities.yml` über B01s `ConfigSchema`; die Fähigkeiten als Kartenfeld, wie B06 seine XP-Kurve gebunden hat
+- [ ] T022 Prüfungen V1 bis V4 in `AbilityConfigSchema` — globale Sperre, Kampf-Faktoren, doppelte IDs, Pflichtfelder; jede Meldung nennt Fähigkeit und Feld
+- [ ] T023 [P] `AbilityConfigValidationTest` in `rpg-core/src/test/java/rpg/core/ability/` — je Prüfung V1 bis V24 ein Fall, geprüft wird die **Meldung**, nicht der Ausnahmetyp
+- [ ] T024 [P] `AbilityConfigFixture` in `rpg-core/src/test/java/rpg/core/ability/` — baut die rohe verschachtelte Karte, die `abilities.yml` erzeugt, nach dem Muster von `ClassConfigFixture`
+
+### Persistenz — die drei Registrierungen (ADR-015)
+
+- [ ] T025 Migration `rpg-persistence/src/main/resources/db/migration/V8_1__character_abilities.sql` — Tabelle nach [data-model.md](./data-model.md), Primärschlüssel `(character_id, ability_id)`, Fremdschlüssel kaskadierend
+- [ ] T026 [P] `AbilityState` als Record in `rpg-core/src/main/java/rpg/core/ability/AbilityState.java` mit Prüfungen im Konstruktor, nach dem Muster von `CharacterProgress`
+- [ ] T027 [P] `AbilityStateRepository` als Schnittstelle in `rpg-core/src/main/java/rpg/core/ability/AbilityStateRepository.java`
+- [ ] T028 `JdbcAbilityStateRepository` in `rpg-persistence/src/main/java/rpg/persistence/ability/JdbcAbilityStateRepository.java` — Laden je Charakter, Schreiben über den Write-Behind-Puffer, JDBC-Treiber ausdrücklich benannt
+- [ ] T029 **Registrierung 1 von 3**: `AggregateType.CHARACTER_ABILITIES` in `rpg-core/src/main/java/rpg/core/persistence/AggregateType.java`
+- [ ] T030 **Registrierung 2 von 3**: Position in `FlushCycle.WRITE_ORDER` — **nach** `CHARACTER`, wie jedes Kind
+- [ ] T031 **Registrierung 3 von 3**: `AbilityModule` in `rpg-persistence/src/main/java/rpg/persistence/ability/AbilityModule.java` und Verdrahtung des Repositories
+- [ ] T032 `NoDatabaseAccessPerGameEventTest` in `rpg-persistence/src/test/` läuft gegen den neuen Aggregattyp — der Test, der T029 bis T031 als Gruppe absichert. **Gehört unmittelbar hinter sie, nicht in die Polish-Phase** (ADR-015 ist aus genau diesem Vergessen entstanden)
+- [ ] T033 [P] `ClassAbilityMigrationTest` in `rpg-persistence/src/test/java/rpg/persistence/ability/` — Testcontainers, die Migration legt die Tabelle mit den erwarteten Spalten und Bedingungen an
+
+### Auskunft und Verdrahtung
+
+- [ ] T034 `AbilityRegistry` in `rpg-core/src/main/java/rpg/core/ability/AbilityRegistry.java` — die Lesemethoden aus [contracts/ability-api.md](./contracts/ability-api.md); keine davon rechnet (FR-067)
+- [ ] T035 `TargetResolver` als Schnittstelle in `rpg-core/src/main/java/rpg/core/ability/TargetResolver.java` — nimmt `TargetSpec` und Auslöser, liefert Ziel-IDs; die Auswahlregeln bleiben in `rpg-core`, das Nachschlagen in der Welt nicht
+- [ ] T036 Modul `AbilityModule` in `rpg-core` anlegen und in `rpg-plugin/src/main/java/rpg/plugin/RpgPlugin.java` starten — Laden und Prüfen von `abilities.yml` **nach** `classes.yml`, weil die Abgleichprüfungen beide brauchen
+- [ ] T037 `AbilitySessionAttachment` in `rpg-core/src/main/java/rpg/core/ability/` — hängt sich an B04s `SessionAttachment`-Naht; Ränge laden in `onCharacterActivated`, aufräumen in `onSessionClosing`
+
+**Checkpoint**: Das Fundament steht. Ab hier laufen die Stories.
+
+---
+
+## Phase 3: User Story 1 — Ein Spieler löst eine Fähigkeit aus (P1) 🎯 MVP
+
+**Ziel**: Rechtsklick auf einem Hotbar-Slot löst eine aktive Fähigkeit aus, kostet Mana und startet
+Cooldown und globale Sperre.
+
+**Independent Test**: Ein Warrior mit einer Testfähigkeit klickt rechts; das Mana sinkt, der Effekt
+wirkt, ein zweiter Klick wird abgewiesen.
+
+> **Bewusst mit *einem* Primitive und *einer* Zielbestimmung.** Wer zuerst zwölf Primitives baut,
+> prüft zwölfmal denselben ungeprüften Rahmen (plan.md, Phase-2-Hinweis 1). Die Fähigkeit für diese
+> Story existiert nur im Test — die ausgelieferten Loadouts kommen in US6.
+
+### Tests für User Story 1 ⚠️
+
+> Diese Tests werden **zuerst** geschrieben und müssen fehlschlagen, bevor implementiert wird.
+
+- [ ] T038 [P] [US1] `AbilityRuntimeTest` in `rpg-core/src/test/java/rpg/core/ability/` — die sechs Akzeptanzfälle aus US1: Auslösung wirkt, zweite Auslösung abgewiesen, zu wenig Mana, globale Sperre, Linksklick wirkungslos, kein aktiver Charakter
+- [ ] T039 [P] [US1] `AbilityRuntimeTest`: SC-003 — drei Ablehnungsgründe mal 1000 Versuche, null Durchbrüche, und **kein** Verbrauch bei Ablehnung
+- [ ] T040 [P] [US1] `TargetResolutionTest` in `rpg-core/src/test/java/rpg/core/ability/` — `SELF` liefert genau den Auslöser; `RADIUS` respektiert die Obergrenze und wählt nach aufsteigendem Abstand (FR-021)
+- [ ] T041 [P] [US1] `AbilityTriggerListenerTest` in `rpg-platform/src/test/java/rpg/platform/ability/` mit MockBukkit — Rechtsklick löst aus, Linksklick löst weder Fähigkeit noch Nahkampf aus
+
+### Umsetzung für User Story 1
+
+- [ ] T042 [P] [US1] `AbilityResult` in `rpg-core/src/main/java/rpg/core/ability/AbilityResult.java` — die acht Ergebnisse aus [contracts/ability-api.md](./contracts/ability-api.md), jedes mit seinem Message-Schlüssel; ausgeworfen wird nur, was ein Programmfehler ist
+- [ ] T043 [US1] `AbilityRuntime` in `rpg-core/src/main/java/rpg/core/ability/AbilityRuntime.java` mit `trigger` — Prüfreihenfolge: Charakter aktiv, freigeschaltet, kein laufender Cast, globale Sperre, Einzel-Cooldown, Mana (FR-024, FR-025)
+- [ ] T044 [US1] Cooldown-Arithmetik in `AbilityRuntime`: Vergleich zweier Zeitstempel, **kein** Herunterzählen (FR-026); Verkürzung um die Cooldown-Reduktion des Auslösers, hart gedeckelt bei 40 % (FR-027)
+- [ ] T045 [US1] Globale Sperre in `AbilityRuntime` — ein Zeitstempel je Charakter, gesetzt beim **Beginn** der Auslösung (FR-029)
+- [ ] T046 [P] [US1] `DamageEffect` in `rpg-core/src/main/java/rpg/core/ability/effect/DamageEffect.java` — über `CombatPipeline.abilityDamage`, `amount` als **Faktor** auf das Schadensattribut (FR-012, FR-013)
+- [ ] T047 [US1] Fehlerbarriere je Effekt in `rpg-core/src/main/java/rpg/core/ability/effect/EffectDispatcher.java` — eine Ausnahme wird abgefangen, mit der Kennung der Fähigkeit protokolliert und auf das eine Ereignis begrenzt; die übrigen Effekte laufen weiter (FR-017)
+- [ ] T048 [US1] Der Wertestand wird **einmal beim Auslösen** gezogen und bis zum Ende der Handlung gehalten (FR-018) — dieselbe Regel, die ADR-013 für `StatSnapshot` festgehalten hat
+- [ ] T049 [P] [US1] `PaperTargetResolver` in `rpg-platform/src/main/java/rpg/platform/ability/PaperTargetResolver.java` mit `SELF` und `RADIUS` über `World.getNearbyEntities` — räumlicher Index statt linearer Iteration (FR-022)
+- [ ] T050 [US1] Zielberechtigung im Resolver: kein Ziel, das nach B05s Regel nicht angegriffen werden darf (FR-023)
+- [ ] T051 [P] [US1] `AbilityItemTag` in `rpg-platform/src/main/java/rpg/platform/ability/AbilityItemTag.java` — zweite Marke im `PersistentDataContainer` mit der Fähigkeits-ID, neben B07s `BoundItemTag`; die Fähigkeit wird **nie** aus dem Material abgeleitet (FR-058)
+- [ ] T052 [US1] `AbilityHotbar` in `rpg-platform/src/main/java/rpg/platform/ability/AbilityHotbar.java` — Belegung nach FR-055: Slot 0 Waffe, 1 bis 4 aktive Fähigkeiten nach Freischaltstufe, 5 aufwärts Marker; nicht freigeschaltete Slots bleiben leer (FR-056)
+- [ ] T053 [US1] Die Fähigkeits-Items tragen `BoundItemTag` und erben damit die Sperre aus B07s `EquipmentLockListener` (FR-057) — **kein neuer Sperrcode**, nachgewiesen durch Test statt behauptet
+- [ ] T054 [US1] `AbilityTriggerListener` in `rpg-platform/src/main/java/rpg/platform/ability/AbilityTriggerListener.java` — `PlayerInteractEvent`, Auslösung bei `RIGHT_CLICK_AIR` und `RIGHT_CLICK_BLOCK`
+- [ ] T055 [US1] Linksklick-Sperre, **beide Wege**: `PlayerInteractEvent` bei `LEFT_CLICK_*` abbrechen **und** den Schlag auf eine Entity abweisen, bevor B05s `VanillaDamageListener` ihn als Nahkampf nimmt (FR-054, research.md R4)
+- [ ] T056 [US1] Verdrahtung in `rpg-plugin/src/main/java/rpg/plugin/RpgPlugin.java` — Listener registrieren, `AbilityRuntime` in die Registry
+
+**Checkpoint**: Eine Fähigkeit lässt sich auslösen. Kosten, Cooldown und Sperre greifen serverseitig.
+
+---
+
+## Phase 4: User Story 2 — Passive Fähigkeiten wirken von selbst (P1)
+
+**Ziel**: Die fünf Trigger arbeiten, damit Lifesteal, Ausweichen, Second Life und Arkane Sammlung
+möglich sind.
+
+**Independent Test**: Ein Warrior mit Lifesteal heilt beim Austeilen den konfigurierten Anteil des
+tatsächlich zugefügten Schadens.
+
+### Tests für User Story 2 ⚠️
+
+- [ ] T057 [P] [US2] `PassiveTriggerTest` in `rpg-core/src/test/java/rpg/core/ability/` — je Trigger ein Fall; Lifesteal heilt den **nach Mitigation** zugefügten Betrag, nicht den rohen
+- [ ] T058 [P] [US2] `PassiveTriggerTest`: Heilung über das Maximum verpufft ohne Fehler; eine noch nicht freigeschaltete Passive wirkt nicht
+- [ ] T059 [P] [US2] `OnDeathTriggerTest` in `rpg-core/src/test/java/rpg/core/ability/` — Wiederbelebung bei Chance 1.0, danach Cooldown; innerhalb des Cooldowns regulärer Tod; **`kill` ist nicht abfangbar** (FR-051)
+- [ ] T060 [P] [US2] `DoubleJumpListenerTest` in `rpg-platform/src/test/java/rpg/platform/ability/` mit MockBukkit — zweiter Sprung trägt, dritter vor Bodenkontakt nicht
+
+### Umsetzung für User Story 2
+
+- [ ] T061 [US2] `PassiveDispatcher` in `rpg-core/src/main/java/rpg/core/ability/PassiveDispatcher.java` — löst die passiven Fähigkeiten eines Charakters nach Trigger auf, ohne je Ereignis zu allokieren
+- [ ] T062 [US2] Interceptor auf `PipelineStage.MODIFIERS` für `ON_DAMAGE_TAKEN` — dort ist der Schaden noch abweisbar, was Ausweichen braucht (research.md R6)
+- [ ] T063 [US2] Interceptor auf `PipelineStage.APPLICATION` für `ON_DAMAGE_DEALT` und `ON_DEATH` — dort steht der tatsächlich zugefügte Betrag, was Lifesteal braucht
+- [ ] T064 [US2] `ON_KILL` an B05s Todesereignis hängen
+- [ ] T065 [US2] `ALWAYS` als Dauerwirkung: meldet einen `ModifierSet` über `StatEngine.apply` an und entfernt ihn beim Charakterwechsel oder Verlust der Freischaltung (FR-052)
+- [ ] T066 [US2] Wahrscheinlichkeit je Passive, geprüft bei **jedem** Auftreten des Triggers (FR-049); der Zufallsgenerator ist einspeisbar, damit der Test ihn festnageln kann
+- [ ] T067 [US2] Eigener Cooldown für Passive — geprüft wie bei aktiven, aber ohne Auslösung durch den Spieler (FR-048)
+- [ ] T068 [P] [US2] `LifestealEffect` in `rpg-core/src/main/java/rpg/core/ability/effect/LifestealEffect.java` — Anteil des zugefügten Schadens als Heilung, **kein neues Attribut** (FR-016, ADR-022)
+- [ ] T069 [P] [US2] `HealEffect` und `ManaRestoreEffect` in `rpg-core/src/main/java/rpg/core/ability/effect/` — beide klemmen am Maximum
+- [ ] T070 [US2] `ON_DEATH` fängt den tödlichen Schaden ab und setzt stattdessen einen Anteil der Maximalgesundheit (FR-050)
+- [ ] T071 [P] [US2] `DoubleJumpListener` in `rpg-platform/src/main/java/rpg/platform/ability/DoubleJumpListener.java` — `PlayerToggleFlightEvent` abbrechen, Aufwärtsimpuls geben, `allowFlight` beim Bodenkontakt zurücksetzen (research.md R7)
+- [ ] T072 [P] [US2] `StatusEffectEffect` in `rpg-core/src/main/java/rpg/core/ability/effect/` — trägt Slow Fall und Verlangsamung über Vanilla-Statuseffekte
+- [ ] T073 [US2] Verdrahtung der Interceptoren und des Doppelsprung-Listeners in `rpg-plugin/src/main/java/rpg/plugin/RpgPlugin.java`
+
+**Checkpoint**: Passive wirken. Zwei der drei Uniques sind damit möglich.
+
+---
+
+## Phase 5: User Story 3 — Cooldowns und Regeneration überleben das Ausloggen (P2)
+
+**Ziel**: Cooldowns laufen über die Abwesenheit weiter, beide Ressourcen regenerieren zeitstempelbasiert.
+
+**Independent Test**: Auslösen, ausloggen, nach 20 s einloggen — rund 40 s Restzeit auf einem
+60-s-Cooldown.
+
+> **Hier heilt ein Spieler zum ersten Mal überhaupt.** ADR-013 hatte die Vanilla-Regeneration
+> abgeschaltet, ohne Ersatz; ADR-023 hat das Attribut nachgeliefert, und dieser Phase gehört seine
+> Anwendung.
+
+### Tests für User Story 3 ⚠️
+
+- [ ] T074 [P] [US3] `ResourceRegenerationTest` in `rpg-core/src/test/java/rpg/core/ability/` — die Zerlegung eines Intervalls in Kampf- und Ruheanteil ist **exakt**, mit steuerbarer Uhr
+- [ ] T075 [P] [US3] `ResourceRegenerationTest`: die Zerlegung stimmt auch, wenn zwischen zwei Abrechnungen der Kampf endete und **kein Ereignis** eintraf (research.md R3)
+- [ ] T076 [P] [US3] `ResourceRegenerationTest`: beide Ressourcen klemmen am Maximum (FR-038a); ein toter Charakter und ein Halter ohne Klassenbeitrag regenerieren nicht (FR-038b)
+- [ ] T077 [P] [US3] `NoTaskPerPlayerTest` in `rpg-core/src/test/java/rpg/core/ability/` — SC-005: mit einem zählenden Scheduler ist die Zahl geplanter Aufgaben null, solange kein Cast läuft. Aufbau wie `AttackWindowTest` in B05
+- [ ] T078 [P] [US3] `AbilityStatePersistenceTest` in `rpg-persistence/src/test/java/rpg/persistence/ability/` mit Testcontainers — SC-004: Restzeit nach Neuladen; ein abgelaufener Cooldown wird **verworfen**, nicht geladen; eine Zeile auf Rang 1 ohne Cooldown wird gelöscht
+
+### Umsetzung für User Story 3
+
+- [ ] T079 [US3] `ResourceRegeneration` in `rpg-core/src/main/java/rpg/core/ability/ResourceRegeneration.java` mit `settle` und `forget` — je Charakter `lastSettledAt` und `combatEndsAt`, sonst nichts (data-model.md)
+- [ ] T080 [US3] `combatEndsAt` bei jeder Abrechnung aus `CombatPipeline.remainingCombatTime` nachführen, solange der Halter im Kampf ist — **kein zweiter Kampfzähler** (FR-036)
+- [ ] T081 [US3] Beide Raten aus den Attributen `healthRegen` und `manaRegen` lesen und im Kampf mit dem jeweiligen Faktor multiplizieren (FR-033, FR-033a, ADR-023)
+- [ ] T082 [US3] `settle` an den Stellen aufrufen, die FR-037 nennt: vor jeder Kostenprüfung, vor jeder Schadensanwendung, vor jedem Lesen einer Ressource — **nicht** periodisch
+- [ ] T083 [US3] Regeneration über die Abwesenheit hinweg: der Ladepfad rechnet einmal aus dem gespeicherten Abmeldezeitpunkt, den B03 ohnehin führt (FR-038)
+- [ ] T084 [US3] Cooldown-Zeitstempel je Charakter persistieren, über den Write-Behind-Puffer und **nicht** je Auslösung (FR-031, FR-032)
+- [ ] T085 [US3] Beim Laden abgelaufene Cooldowns verwerfen und Zeilen ohne Nutzinhalt löschen, damit die Tabelle nicht mit jedem Kampf wächst
+- [ ] T086 [US3] `ResourceRegeneration` und das Laden der Ränge in `AbilitySessionAttachment` einhängen (T037)
+
+**Checkpoint**: Ein verletzter Spieler heilt. Cooldowns überstehen einen Neustart.
+
+---
+
+## Phase 6: User Story 4 — Eine Fähigkeit mit Wirkzeit lässt sich unterbrechen (P2)
+
+**Ziel**: Casts wirken verzögert und brechen sauber ab.
+
+**Independent Test**: Fähigkeit mit 2 s Wirkzeit auslösen, nach 1 s Schaden nehmen — kein Effekt,
+Mana unverändert, sofort wieder auslösbar.
+
+### Tests für User Story 4 ⚠️
+
+- [ ] T087 [P] [US4] `CastStateTest` in `rpg-core/src/test/java/rpg/core/ability/` — Wirkzeit 0 wirkt im selben Tick ohne Cast-Zustand (FR-044); Wirkzeit > 0 erzeugt einen
+- [ ] T088 [P] [US4] `CastInterruptionTest` in `rpg-core/src/test/java/rpg/core/ability/` — SC-009: alle sechs Abbruchgründe, 1000 Versuche, keine Manadifferenz und kein Cooldown
+- [ ] T089 [P] [US4] `CastStateTest`: eine zweite Auslösung während eines Casts wird abgewiesen (FR-040); die globale Sperre greift beim **Beginn**, der Einzel-Cooldown bei der **Wirkung**
+
+### Umsetzung für User Story 4
+
+- [ ] T090 [US4] `CastState` in `rpg-core/src/main/java/rpg/core/ability/CastState.java` nach [data-model.md](./data-model.md) — höchstens einer je Spieler
+- [ ] T091 [US4] Cast planen über `runSyncOnEntityDelayed` (T007) — **nicht** über `runAsyncDelayed` mit Rücksprung; der Handle wird im `CastState` gehalten, damit ein Abbruch ihn stornieren kann
+- [ ] T092 [US4] Kosten beim **Beginn** buchen und bei Abbruch **vollständig** erstatten (FR-041)
+- [ ] T093 [US4] Einzel-Cooldown erst bei der Wirkung starten; ein abgebrochener Cast startet keinen (FR-030)
+- [ ] T094 [P] [US4] `CastInterruptListener` in `rpg-platform/src/main/java/rpg/platform/ability/CastInterruptListener.java` — Schaden > 0 nach Mitigation, Slotwechsel, Tod, Charakterwechsel, Verbindungsverlust (FR-042)
+- [ ] T095 [US4] `interruptOnMove` je Definition auswerten; ohne Angabe bricht Bewegung **nicht** ab (FR-043)
+- [ ] T096 [US4] `CastView` als Lesesicht in `rpg-core/src/main/java/rpg/core/ability/CastView.java` — Fähigkeits-ID, Beginn, Wirkzeitpunkt, Fortschritt; `TaskHandle` und gebuchtes Mana bleiben draußen
+- [ ] T097 [US4] `SHIELD` in `rpg-core/src/main/java/rpg/core/ability/effect/ShieldEffect.java` — absorbiert vor der Gesundheit, endet bei Ablauf oder Verbrauch (FR-015); die erste Fähigkeit mit Wirkzeit im Loadout ist das Manaschild
+
+**Checkpoint**: Wirkzeit und Unterbrechung stehen.
+
+---
+
+## Phase 7: User Story 5 — Eine neue Fähigkeit aus vorhandenen Bausteinen (P2)
+
+**Ziel**: Der vollständige Vorrat an Primitives und Zielbestimmungen, damit eine neue Fähigkeit rein
+per Konfiguration entsteht.
+
+**Independent Test**: Eine Fähigkeit, die **nur im Test existiert**, wird angelegt und wirkt — ohne
+dass eine Quelldatei angefasst wurde.
+
+### Tests für User Story 5 ⚠️
+
+- [ ] T098 [P] [US5] `ConfigOnlyAbilityTest` in `rpg-core/src/test/java/rpg/core/ability/` — SC-001, das Akzeptanzkriterium des Steckbriefs; die Fähigkeit steht ausschließlich in der Testkonfiguration
+- [ ] T099 [P] [US5] `TargetResolutionTest` um die übrigen fünf Modi erweitern — `LOOK_DIRECTION`, `CURSOR`, `CONE`, `LINE`, `NEAREST`, je mit Obergrenze und Abstandsreihenfolge
+- [ ] T100 [P] [US5] `AbilityBudgetTest` in `rpg-core/src/test/java/rpg/core/ability/` — SC-002: 100 gleichzeitig wirkende Flächenfähigkeiten im Tick-Budget; Aufbau wie `CombatBudgetTest` in B05
+- [ ] T101 [P] [US5] `AbilityBudgetTest`: SC-007 — ein Flächeneffekt trifft nie mehr Ziele als seine Obergrenze, auch nicht bei 200 Kandidaten
+- [ ] T102 [P] [US5] `EffectDispatcherTest` in `rpg-core/src/test/java/rpg/core/ability/effect/` — SC-010: eine Ausnahme in einem Effekt beendet weder die übrigen Effekte noch die Sitzung
+
+### Umsetzung für User Story 5
+
+- [ ] T103 [P] [US5] `BuffEffect` in `rpg-core/src/main/java/rpg/core/ability/effect/BuffEffect.java` — zeitlich begrenzter Modifikator auf eines der zehn Attribute, Ablauf über Zeitstempel (FR-014)
+- [ ] T104 [P] [US5] `DebuffEffect` in `rpg-core/src/main/java/rpg/core/ability/effect/DebuffEffect.java` — dasselbe auf ein feindliches Ziel; **kein Schaden über Zeit**, siehe die Begründung in spec.md
+- [ ] T105 [P] [US5] `DashEffect` in `rpg-core/src/main/java/rpg/core/ability/effect/DashEffect.java`
+- [ ] T106 [P] [US5] `KnockbackEffect` in `rpg-core/src/main/java/rpg/core/ability/effect/KnockbackEffect.java`
+- [ ] T107 [P] [US5] `TeleportEffect` in `rpg-core/src/main/java/rpg/core/ability/effect/TeleportEffect.java` — Reichweite aus `TargetSpec`, kein Versetzen in Blöcke
+- [ ] T108 [US5] `ProjectileEffect` in `rpg-core/src/main/java/rpg/core/ability/effect/ProjectileEffect.java` und `AbilityProjectile` in `rpg-platform/src/main/java/rpg/platform/ability/AbilityProjectile.java` — trägt die Werte **vom Abwurf**, wie B05s `projectileDamage`, und wirkt auch, wenn der Werfer nicht mehr da ist
+- [ ] T109 [US5] `PaperTargetResolver` um `LOOK_DIRECTION`, `CURSOR`, `CONE`, `LINE` und `NEAREST` erweitern — Nachfiltern einer bereits durch den räumlichen Index verkleinerten Menge
+- [ ] T110 [US5] Auswahl nach aufsteigendem Abstand bei mehr Kandidaten als erlaubt, damit dieselbe Lage dasselbe Ergebnis liefert (FR-021)
+- [ ] T111 [US5] Kosten und Cooldown fallen auch an, wenn ein Flächeneffekt **kein** Ziel findet — nur eine abgewiesene Auslösung ist kostenlos (Edge Case in spec.md)
+
+**Checkpoint**: Die Maschine ist vollständig. SC-001 ist bewiesen, nicht behauptet.
+
+---
+
+## Phase 8: User Story 6 — Jede Klasse hat ihr vollständiges Loadout (P2)
+
+**Ziel**: Achtzehn Fähigkeiten, drei gefüllte Klassenbindungen.
+
+**Independent Test**: Je Klasse sechs Einträge, vier aktiv, genau eine Unique; auf Stufe 1 ist genau
+eine freigeschaltet, auf Stufe 45 alle sechs.
+
+> **Setzt T011 bis T013 voraus.** Second Life ist passiv und unique — ohne den Widerruf der
+> Invariante weist `AbilityBinding` das Rogue-Loadout ab.
+
+### Tests für User Story 6 ⚠️
+
+- [ ] T112 [P] [US6] `ShippedAbilityConfigTest` in `rpg-plugin/src/test/java/rpg/plugin/` — gegen die **ausgelieferten** `abilities.yml` und `classes.yml`, nicht gegen eine Fixtur: SC-006, je Klasse vier aktiv, zwei passiv, genau eine Unique
+- [ ] T113 [P] [US6] `ShippedAbilityConfigTest`: die Freischaltstufen sind 1, 5, 15, 25, 35, 45 und die Unique ist die letzte; auf Stufe 1 ist genau eine Fähigkeit verfügbar
+- [ ] T114 [P] [US6] `AbilityConfigValidationTest` um V25 bis V30 erweitern — unbekannte ID in einer Bindung, Artenkonflikt, falsche Zahl aktiver Fähigkeiten, Slotkonflikt
+- [ ] T115 [P] [US6] `AbilityHotbarTest` in `rpg-platform/src/test/java/rpg/platform/ability/` — Warrior belegt fünf Slots, Rogue sechs, Mage sieben; Slot 0 trägt die Waffe
+
+### Umsetzung für User Story 6
+
+- [ ] T116 [US6] Abgleichprüfungen V25 bis V28 in `AbilityConfigSchema` — jede in einer Bindung genannte ID ist definiert, die Arten stimmen überein, vier aktiv und zwei passiv je Klasse, höchstens eine Unique **ohne** Einschränkung ihrer Art (FR-006, FR-007, ADR-022)
+- [ ] T117 [US6] Slotprüfungen V29 und V30 in `AbilityConfigSchema`
+- [ ] T118 [P] [US6] Warrior-Loadout in `rpg-plugin/src/main/resources/abilities.yml` — Wut, Schild, Sprung, Lifesteal, Wirbel, Call of the Berserker nach der Tabelle in [spec.md](./spec.md)
+- [ ] T119 [P] [US6] Rogue-Loadout in `abilities.yml` — Ausweichen, Schattenschritt, Wurfmesser, Schwächender Schnitt, Hinterhalt, Second Life
+- [ ] T120 [P] [US6] Mage-Loadout in `abilities.yml` — Arkane Sammlung, Feuerball, Frostnova, Kettenblitz, Manaschild, Magic Boost & Fall
+- [ ] T121 [US6] Die drei `abilities:`-Blöcke in `rpg-plugin/src/main/resources/classes.yml` füllen — ID, Art, Unique-Kennzeichen und Freischaltstufe je Fähigkeit; damit fällt B07s FR-045 auf die zweite Seite
+- [ ] T122 [P] [US6] Alle Anzeigenamen und Beschreibungen in `rpg-plugin/src/main/resources/messages.yml` eintragen
+- [ ] T123 [US6] Slots bei einem Levelaufstieg nachziehen und den Spieler unterrichten — an B06s `LevelUpEvent` (FR-059, FR-060)
+- [ ] T124 [US6] Slots beim Aktivieren eines Charakters gegen den Stand setzen, damit es keine übersprungene Freischaltung gibt
+
+**Checkpoint**: Alle drei Klassen sind spielbar. B08 ist ab hier vorzeigbar.
+
+---
+
+## Phase 9: User Story 7 — Fähigkeiten haben einen Rang (P3)
+
+**Ziel**: Der Rang skaliert die Zahlen und überlebt den Neustart.
+
+**Independent Test**: Rang erhöhen, Wirkung steigt entlang der Kurve, bleibt nach Neustart erhalten.
+
+### Tests für User Story 7 ⚠️
+
+- [ ] T125 [P] [US7] `AbilityRankTest` in `rpg-core/src/test/java/rpg/core/ability/` — `valueAtRank` folgt `amount + perRank × (r − 1)`; Höchstrang wird durchgesetzt
+- [ ] T126 [P] [US7] `AbilityRankTest`: der Rang gehört dem **Charakter**, nicht dem Konto — zwei Charaktere desselben Kontos bleiben unabhängig (ADR-011)
+
+### Umsetzung für User Story 7
+
+- [ ] T127 [US7] `advanceRank` in `AbilityRuntime` — erhöht um eins, setzt den Höchstrang durch, schreibt über den Puffer (FR-062, FR-065)
+- [ ] T128 [US7] Rangskalierung in allen Effekt-Anwendungen anwenden: eine Multiplikation beim Auslesen, kein zweiter Satz Definitionen (FR-063)
+- [ ] T129 [US7] `RankResult` in `rpg-core/src/main/java/rpg/core/ability/RankResult.java` — Erfolg oder Höchstrang erreicht; im Javadoc steht ausdrücklich, dass **niemand** den Aufstieg bezahlt, weil es im Projekt keine Währung gibt (Workflow-Regel 5)
+
+---
+
+## Phase 10: User Story 8 — Balancing ohne Codeänderung (P3)
+
+**Ziel**: Jede Zahl des Blocks steht in Konfiguration und wird beim Start geprüft.
+
+**Independent Test**: Einen Cooldown in `abilities.yml` halbieren; nach dem Neustart gilt er.
+
+### Tests für User Story 8 ⚠️
+
+- [ ] T130 [P] [US8] `AbilityConfigReloadTest` in `rpg-core/src/test/java/rpg/core/ability/` — je eine Kategorie geänderter Zahl wirkt: Kosten, Cooldown, Wirkzeit, Reichweite, Obergrenze, Rangkurve, globale Sperre, Kampf-Faktor
+- [ ] T131 [P] [US8] `AbilityConfigValidationTest`: SC-008 — jede fehlerhafte Konfiguration verhindert den Start **und** nennt Fähigkeit und Feld
+- [ ] T132 [P] [US8] `AbilityCooldownCapTest` in `rpg-core/src/test/java/rpg/core/ability/` — eine Cooldown-Reduktion über 40 % wird gekappt (ADR-008)
+
+### Umsetzung für User Story 8
+
+- [ ] T133 [US8] Prüfen, dass keine Kosten-, Cooldown-, Reichweiten- oder Wirkungszahl im Code steht (FR-008) — als Quellentest nach dem Muster von `ClassSourceInvariantsTest` in B07
+- [ ] T134 [US8] `AbilityMessageKeyResolutionTest` in `rpg-plugin/src/test/java/rpg/plugin/` — jeder Schlüssel des Blocks löst zu nicht-leerem Text auf und führt die Platzhalter, die der Code füllt
+
+---
+
+## Phase 11: Polish und Querschnitt
+
+**Zweck**: Verdrahtung beweisen, Dokumentation nachziehen, offene Serverläufe benennen.
+
+- [ ] T135 `FullBootstrapTest` in `rpg-plugin/src/test/java/rpg/plugin/` erweitern — `AbilityRuntime` und `AbilityRegistry` sind über die Registry auflösbar, alle Listener sind registriert, die Interceptoren hängen (ADR-012). **Keine Formalie**: ein Modul mit grünen eigenen Tests, das nicht verdrahtet ist, ist wirkungslos
+- [ ] T136 [P] `FullBootstrapTest`: `abilities.yml` wird **nach** `classes.yml` geladen, damit die Abgleichprüfungen beide sehen (T036)
+- [ ] T137 [P] `NoAbilityDamageBypassTest` in `rpg-core/src/test/java/rpg/core/ability/` — ein Quellentest, dass B08 Schaden ausschließlich über `CombatPipeline` erzeugt und nirgends daran vorbei (FR-068, Prinzip III)
+- [ ] T138 [P] `AbilityImmutabilityTest` in `rpg-core/src/test/java/rpg/core/ability/` — `Ability`, `EffectSpec` und `TargetSpec` sind unveränderlich; Listen werden kopiert, nicht übernommen
+- [ ] T139 [P] Javadoc-Durchgang über `rpg/core/ability/package-info.java` — die vier Ebenen, die Blockgrenzen und die Zusage „ab jetzt ist eine Änderung an `AbilityRegistry` ADR-pflichtig"
+- [ ] T140 [P] `blocks/B08-ability-framework.md` auf **Implementiert** setzen, mit Aufgabenzahl, Testzahl und den offenen Serverpunkten
+- [ ] T141 [P] `docs/05-roadmap-speckit-workflow.md`: „Empfohlener nächster Schritt" auf B11 stellen — der Block ist laut ADR-017 vor der Spezifikation neu zuzuschneiden
+- [ ] T142 [P] `06-open-questions.md`: den B08-Abschnitt schließen und die Loadout-Zeile abhaken
+- [ ] T143 Prüfen, dass ADR-024 den umgesetzten Stand beschreibt, und Abweichungen nachtragen (Workflow-Regel 4)
+- [ ] T144 Vollständiger Durchlauf `./gradlew test` — grün, keine übersprungenen Tests (die Erinnerung aus B02/B05: MockBukkit meldet Nicht-Implementiertes als „skipped", nicht als Fehler)
+
+### Validierungen am laufenden Paper-Server
+
+Diese fünf zeigt kein Test, weil sie einen echten Client brauchen. Sie bleiben offen, bis ein Server
+läuft — nach dem Muster, mit dem B07 seine vier Serverpunkte offengelassen hat.
+
+- [ ] T145 Rechtsklick löst aus; **Linksklick auf ein Monster mit einem Fähigkeits-Item macht keinen Nahkampfschaden** (FR-054)
+- [ ] T146 Die Hotbar sieht richtig aus: Waffe auf 0, freigeschaltete Fähigkeiten auf 1 bis 4, Marker ab 5, nicht freigeschaltete Slots leer und nicht befüllbar
+- [ ] T147 Der Doppelsprung des Mage trägt zweimal, nicht dreimal, und der Fall ist verlangsamt
+- [ ] T148 Die Regeneration ist spürbar und im Kampf schwächer — rund 50 s bis volle Gesundheit außerhalb des Kampfes. **Zugleich der erste Beweis überhaupt, dass ein Spieler heilt** (vor ADR-023 heilte er nicht)
+- [ ] T149 Ein unterbrochener Cast lässt das Mana unverändert und fühlt sich richtig an
+
+---
+
+## Abhängigkeiten und Ausführungsreihenfolge
+
+### Phasen
+
+- **Phase 1 Setup**: keine Abhängigkeit
+- **Phase 2 Foundational**: nach Setup — **blockiert alle Stories**
+- **Phase 3 bis 10**: nach Phase 2, in Prioritätsreihenfolge
+- **Phase 11 Polish**: nach den gewünschten Stories
+
+### Zwischen den Stories
+
+- **US1 (P1)**: direkt nach Phase 2. Keine Abhängigkeit zu anderen Stories
+- **US2 (P1)**: nach Phase 2. Nutzt den Effekt-Dispatcher aus US1 (T047), ist sonst unabhängig
+- **US3 (P2)**: nach Phase 2. Unabhängig von US1 und US2
+- **US4 (P2)**: **nach T007 bis T010** — ohne die Scheduler-Erweiterung entsteht ein Provisorium über `runAsyncDelayed`, also genau die im Plan verworfene Alternative
+- **US5 (P2)**: nach US1, weil sie dessen Rahmen erweitert
+- **US6 (P2)**: **nach T011 bis T013 und nach US5** — siehe unten
+- **US7 (P3)**: nach US5, weil der Rang alle Effekte skaliert
+- **US8 (P3)**: nach US6, weil es ausgelieferte Zahlen zu justieren geben muss
+
+### Reihenfolge, von der abzuweichen teuer wird
+
+**US1 mit genau einem Primitive.** Wer zuerst alle zwölf baut, prüft zwölfmal denselben ungeprüften
+Rahmen. Die Testfähigkeit aus US1 reicht, um Kosten, Cooldown, Sperre, Auslösung und Auskunft
+durchgängig zu beweisen.
+
+**T029 bis T032 gemeinsam.** ADR-015 ist aus dem Vergessen einer der drei Registrierungen entstanden.
+T032 ist der Test, der es zeigt — er gehört unmittelbar dahinter, nicht in die Polish-Phase.
+
+**T011 bis T013 vor T119.** Second Life ist passiv und unique. Ohne den Widerruf der Invariante weist
+`AbilityBinding` das Rogue-Loadout ab, und der Fehler sieht wie ein Konfigurationsfehler aus.
+
+**T007 bis T010 vor T091.** Ohne die Scheduler-Erweiterung entsteht der Cast über `runAsyncDelayed`
+mit Rücksprung — die Alternative, die ADR-024 ausdrücklich verworfen hat. Ein Provisorium hier wieder
+herauszuziehen fasst jeden Cast erneut an.
+
+**US6 nach US5.** Das ist der wichtigste Punkt der ganzen Liste. Entstehen die achtzehn Fähigkeiten
+**vor** der fertigen Maschine, beweist T098 nichts — SC-001 verlangt, dass eine neue Fähigkeit ohne
+Codeänderung entsteht, und das ist nur wahr, wenn der Code vorher fertig war.
+
+### Parallelisierbar
+
+- Phase 1 ist vollständig parallel
+- In Phase 2: T014 bis T018 (Wertetypen), T026/T027 und T033 laufen nebeneinander
+- Nach Phase 2 können US1, US2 und US3 von drei Leuten gleichzeitig bearbeitet werden
+- In US5 sind T103 bis T107 fünf unabhängige Dateien
+- In US6 sind die drei Loadouts T118 bis T120 unabhängig
+- Die Dokumentationsaufgaben T140 bis T142 sind unabhängig
+
+---
+
+## Umsetzungsstrategie
+
+### MVP zuerst
+
+1. Phase 1 Setup
+2. Phase 2 Foundational — **blockiert alles**, besonders die drei Registrierungen T029 bis T031
+3. Phase 3 US1
+4. **Anhalten und prüfen**: eine Fähigkeit lässt sich auslösen, kostet Mana und geht auf Cooldown
+
+Danach ist der Block belastbar, auch ohne Inhalt: die Maschine läuft, es fehlen nur Fähigkeiten.
+
+### Inkrementelle Lieferung
+
+1. Setup + Foundational → Fundament steht
+2. US1 → eine Fähigkeit wirkt → **MVP**
+3. US2 → passive Fähigkeiten wirken; zwei der drei Uniques werden möglich
+4. US3 → **ein verletzter Spieler heilt zum ersten Mal**, und Cooldowns überleben das Ausloggen
+5. US4 → Wirkzeit und Unterbrechung
+6. US5 → der Vorrat ist vollständig, SC-001 ist beweisbar
+7. US6 → alle drei Klassen sind spielbar; ab hier ist B08 vorzeigbar
+8. US7 → der Rang, ohne Zahlweg
+9. US8 → Balancing ohne Codeänderung
+
+---
+
+## Notes
+
+- `[P]` = andere Datei, keine offene Abhängigkeit
+- `[Story]` verweist auf die User Story aus [spec.md](./spec.md)
+- Jede User Story ist für sich prüfbar; die Checkpoints sind die Haltepunkte
+- Tests schlagen fehl, bevor implementiert wird
+- Nach jeder Aufgabe oder Gruppe committen
+- **Ein Block ist erst fertig, wenn er im Plugin verdrahtet und `FullBootstrapTest` grün ist**
+  (ADR-012) — T135 und T136 sind keine Formalie
+- Übersprungene Tests sind zu prüfen, nicht zu übergehen: MockBukkit meldet Nicht-Implementiertes als
+  „skipped", nicht als Fehler
