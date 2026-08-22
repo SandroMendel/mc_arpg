@@ -183,6 +183,7 @@ class IntervalAndMeterTest {
                     ability.target(),
                     List.of(periodic),
                     ability.maxRank(),
+                    ability.rankCost(),
                     ability.items());
         }
     }

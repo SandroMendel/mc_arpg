@@ -46,8 +46,10 @@ Auftraggeber abgeschlossen, Ergebnisse sind in den Blocksteckbriefen und in
 - [x] Vor der Klassenwahl: kein Spielzustand, GUI nicht schließbar, keine Stats,
       kein Schaden, keine Bewegung. Die Tutorialwelt aus ADR-006 bleibt
       nachrüstbar (ADR-020). *(2026-08-21)*
-- [ ] Wer bezahlt den Stufenaufstieg der Klassenausrüstung — Coins, Level,
-      Material? Gehört zu B11/B16; B07 liefert nur einen `cost`-Block.
+- [x] Wer bezahlt den Stufenaufstieg der Klassenausrüstung? **Coins.** Beantwortet
+      und umgesetzt in B08b: der `cost`-Block wird dort ausgelegt, nicht in B07 —
+      dessen Invariantentest verbietet die Vokabel und gab damit vor, wo die
+      Auslegung hingehört. *(2026-08-22, ADR-027)*
 
 In B06s `/clarify` beantwortet und umgesetzt:
 
@@ -115,10 +117,11 @@ mehrere hier als abgeschlossen geführte Punkte wieder offen — der Steckbrief
 - [ ] Zufällige Affixe/Suffixe zusätzlich zu Basiswerten?
 - [ ] **Wem gehört der NPC-Händler?** Kein Steckbrief B01–B17 deckt NPCs ab.
       Entweder Umfang von B11 oder ein eigener Block.
-- [ ] **Nicht-Ziel „kein Wirtschaftssystem" präzisieren.** `00-vision-scope.md`
-      schließt Wirtschaft und Handel aus, während Coins Währung sind und der
-      NPC-Verkauf eine Coin-Quelle wäre. Vermutlich gemeint: kein
-      Spieler-zu-Spieler-Handel, kein Crafting.
+- [x] **Nicht-Ziel „kein Wirtschaftssystem" präzisiert.** Gemeint ist **kein
+      Spieler-zu-Spieler-Handel und kein Crafting**. NPC-Verkauf gegen Coins war
+      davon immer gedeckt (ADR-027). B08b setzt das um: es gibt keinen Weg,
+      Coins zwischen Spielern zu bewegen, und keinen zentralen Preiskatalog —
+      ein Quelltest hält beides fest. *(2026-08-22)*
 
 ## B12 (Statistiken) — abgeschlossen, Details offen
 

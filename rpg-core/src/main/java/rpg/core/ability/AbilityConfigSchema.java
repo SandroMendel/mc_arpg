@@ -97,6 +97,7 @@ public final class AbilityConfigSchema {
                 readTarget(requireMap(block, "target", where + ".target"), where + ".target"),
                 readEffects(block, where),
                 (int) optionalDouble(block, "max-rank", where + ".max-rank", 1.0),
+                readRankCost(block, where),
                 readItems(block, where));
     }
 
@@ -127,6 +128,31 @@ public final class AbilityConfigSchema {
             return items;
         }
         return List.of(String.valueOf(raw));
+    }
+
+    /**
+     * Reads {@code rank-cost} without interpreting it (FR-053, FR-054).
+     *
+     * <p>Deliberately opaque, exactly like B07's {@code cost} block: what a rank costs is a price,
+     * and prices belong to whoever charges them - but reading them belongs to B08b, which is the only
+     * block that knows what a currency is (ADR-027). All that happens here is that the block has to
+     * <em>be</em> a mapping; the keys inside it are somebody else's business, and a wrong one is
+     * caught at startup by that somebody (FR-050).
+     *
+     * <p>A missing block means the rank is free.
+     */
+    private static Map<String, Object> readRankCost(Map<?, ?> block, String where) {
+        Object raw = block.get("rank-cost");
+        if (raw == null) {
+            return Map.of();
+        }
+        if (!(raw instanceof Map<?, ?> costs)) {
+            throw new IllegalArgumentException(
+                    where + ".rank-cost must be a mapping, but was " + raw);
+        }
+        Map<String, Object> cost = new java.util.LinkedHashMap<>();
+        costs.forEach((key, value) -> cost.put(String.valueOf(key), value));
+        return cost;
     }
 
     private static Set<AbilityTrigger> readTriggers(Map<?, ?> block, String where) {

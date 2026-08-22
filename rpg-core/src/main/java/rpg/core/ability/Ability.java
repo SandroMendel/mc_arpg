@@ -61,6 +61,16 @@ public record Ability(
         TargetSpec target,
         List<EffectSpec> effects,
         int maxRank,
+        /**
+         * What one rank costs, exactly as configured and <b>not interpreted here</b>.
+         *
+         * <p>The same arrangement B07 uses for its equipment tiers: the price lives with whoever
+         * charges it, and B08b reads it (ADR-027, FR-053). This block knows nothing about coins -
+         * it carries the map through and hands it over.
+         *
+         * <p>An empty map means the rank is free (FR-054).
+         */
+        java.util.Map<String, Object> rankCost,
         java.util.List<String> items) {
 
     public Ability {
@@ -90,6 +100,7 @@ public record Ability(
 
         // V13
         items = items == null ? List.of() : List.copyOf(items);
+        rankCost = rankCost == null ? java.util.Map.of() : java.util.Map.copyOf(rankCost);
         effects = List.copyOf(effects);
         if (effects.isEmpty()) {
             throw new IllegalArgumentException(

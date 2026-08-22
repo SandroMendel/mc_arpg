@@ -126,14 +126,30 @@ class AbilityRankTest {
         }
 
         @Test
-        @DisplayName("niemand bezahlt dafür - es gibt in diesem Projekt keine Währung")
-        void nobodyPaysForIt() {
-            // Kein NOT_ENOUGH_COINS, weil es keine Coins gibt. Eine Währung hier zu erfinden hiesse,
-            // eine Wirtschaft im Fähigkeitsblock anzulegen - und die könnte ein späterer Block nicht
-            // mehr übernehmen, sie stünde schon da, am falschen Ort (Workflow-Regel 5).
+        @DisplayName("seit B08b bezahlt jemand dafür - und der Preis wurde nie geraten")
+        void somebodyPaysForItNow() {
+            // UMGEKEHRT statt gelöscht (ADR-027). Vorher stand hier die Zusicherung, dass es KEIN
+            // NOT_ENOUGH_COINS gibt: eine Währung im Fähigkeitsblock zu erfinden hätte eine
+            // Wirtschaft am falschen Ort angelegt, die ein späterer Block nicht mehr übernehmen
+            // könnte (Workflow-Regel 5).
+            //
+            // Diese Überlegung war richtig, und ihr Ergebnis steht: der Preis kam aus dem Block, dem
+            // Währung gehört, und dieses Enum ist dabei um genau einen Wert gewachsen. Die Zeile
+            // umzudrehen statt sie zu löschen hält die Änderung im Diff sichtbar.
             assertThat(RankResult.values())
                     .extracting(Enum::name)
-                    .doesNotContain("NOT_ENOUGH_COINS", "TOO_EXPENSIVE");
+                    .contains("NOT_ENOUGH_COINS")
+                    .as("und weiterhin keine zweite Schreibweise desselben Ausgangs")
+                    .doesNotContain("TOO_EXPENSIVE");
+        }
+
+        @Test
+        @DisplayName("ohne installierte Kostenprüfung kostet ein Rang weiterhin nichts")
+        void withoutAnInstalledCostNothingIsCharged() {
+            // Der Auslieferungszustand von B08 allein: RankCost.free(). Damit bleibt dieser Block
+            // für sich genommen währungsfrei und ohne Abhängigkeit auf B08b.
+            assertThat(fixture.runtime.advanceRank(fixture.character, "probe.strike"))
+                    .isEqualTo(RankResult.ADVANCED);
         }
     }
 

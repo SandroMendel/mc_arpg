@@ -10,6 +10,7 @@ import java.util.logging.Level;
 
 import org.bukkit.plugin.java.JavaPlugin;
 
+import rpg.core.ability.AbilityMessageKeys;
 import rpg.core.classes.ClassMessageKeys;
 import rpg.core.classes.ClassRegistry;
 import rpg.core.combat.CombatMessageKeys;
@@ -17,6 +18,7 @@ import rpg.core.combat.CombatModule;
 import rpg.core.combat.CombatPipeline;
 import rpg.core.config.ConfigLoader;
 import rpg.core.config.ConfigValidationException;
+import rpg.core.currency.CurrencyMessageKeys;
 import rpg.core.event.DefaultEventBus;
 import rpg.core.event.EventBus;
 import rpg.core.message.MapMessages;
@@ -39,6 +41,7 @@ import rpg.persistence.PersistenceMessageKeys;
 import rpg.persistence.PersistenceModule;
 import rpg.persistence.ability.AbilityModule;
 import rpg.persistence.classes.ClassesModule;
+import rpg.persistence.currency.CurrencyModule;
 import rpg.persistence.inventory.InventoryModule;
 import rpg.persistence.progression.ProgressionModule;
 import rpg.persistence.session.SessionModule;
@@ -120,7 +123,8 @@ public class RpgPlugin extends JavaPlugin {
                     "combat.yml",
                     "progression.yml",
                     "classes.yml",
-                    "abilities.yml");
+                    "abilities.yml",
+                    "currency.yml");
 
     private final BootstrapState bootstrapState = new BootstrapState();
 
@@ -135,6 +139,7 @@ public class RpgPlugin extends JavaPlugin {
     private StatsModule statsModule;
     private CombatModule combatModule;
     private ProgressionModule progressionModule;
+    private CurrencyModule currencyModule;
     private ClassesModule classesModule;
     private AbilityModule abilityModule;
     private rpg.core.ability.AbilityRuntime abilityRuntime;
@@ -292,6 +297,8 @@ public class RpgPlugin extends JavaPlugin {
         declared.addAll(ProgressionMessageKeys.all());
         declared.addAll(ClassMessageKeys.all());
         declared.addAll(CombatMessageKeys.all());
+        declared.addAll(AbilityMessageKeys.all());
+        declared.addAll(CurrencyMessageKeys.all());
         MessageKeyValidator.verifyAllPresent(loaded, declared);
 
         getLogger().info("[messages] " + declared.size() + " declared key(s) resolved");
@@ -336,6 +343,10 @@ public class RpgPlugin extends JavaPlugin {
                         classesModule,
                         getLogger(),
                         Clock.systemUTC());
+        // Layer 1, and it depends on nothing but the session (ADR-027). That is what lets it close
+        // B07 and B08 instead of queueing behind them.
+        currencyModule =
+                new CurrencyModule(persistenceModule, sessionModule, getLogger(), Clock.systemUTC());
         return List.of(
                 persistenceModule,
                 sessionModule,
@@ -344,7 +355,8 @@ public class RpgPlugin extends JavaPlugin {
                 progressionModule,
                 classesModule,
                 inventoryModule,
-                abilityModule);
+                abilityModule,
+                currencyModule);
     }
 
     /**
@@ -1155,6 +1167,140 @@ public class RpgPlugin extends JavaPlugin {
                                 + ", party range "
                                 + progressionModule.config().partyRange()
                                 + " blocks");
+
+        registerCurrencyListeners(distributor, stats);
+    }
+
+    /**
+     * The Paper-facing half of B08b: coin piles fall, and picking one up books it.
+     *
+     * <p>Wired after B06's, and from its pieces: the entitlement rule is
+     * {@code XpDistributor}'s own {@code ShareCalculator} (ADR-029), so coins and experience value
+     * the same kill identically. A second implementation would have agreed only until somebody
+     * edited one.
+     */
+    private void registerCurrencyListeners(XpDistributor distributor, StatEngine stats) {
+        rpg.core.currency.CurrencyConfig config = currencyModule.config();
+        rpg.core.currency.DefaultCurrency currency = currencyModule.currency();
+
+        rpg.core.currency.CoinDropPlanner planner =
+                new rpg.core.currency.CoinDropPlanner(
+                        distributor.shareCalculator(),
+                        new rpg.core.currency.ConfigMobCoinProvider(config, getLogger()),
+                        config,
+                        // The one question this block asks B04, as a one-method interface rather
+                        // than a dependency on the whole engine.
+                        stats::characterIdOf);
+
+        rpg.platform.currency.CoinPileRegistry pileRegistry =
+                new rpg.platform.currency.CoinPileRegistry(
+                        config,
+                        // Through the admin path, not through Currency directly: the owner of the
+                        // oldest pile is very likely logged out - that is often why it is the oldest
+                        // - and they still have to be credited (FR-030c).
+                        (characterId, amount, reason) ->
+                                currencyModule
+                                        .admin()
+                                        .creditWhereverTheyAre(characterId, amount, reason)
+                                        .isSuccess(),
+                        Clock.systemUTC(),
+                        getLogger());
+
+        rpg.platform.currency.CoinPile piles =
+                new rpg.platform.currency.CoinPile(
+                        this, getServer(), config, Clock.systemUTC(), getLogger());
+
+        rpg.platform.currency.CoinDropListener coinDrops =
+                new rpg.platform.currency.CoinDropListener(
+                        getServer(), planner, piles, pileRegistry, currency, getLogger());
+        coinDrops.subscribeTo(eventBus);
+
+        getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new rpg.platform.currency.CoinPickupListener(
+                                currency, sessionModule.registry(), pileRegistry, messages),
+                        this);
+
+        registerCurrencyWindow(config, currency);
+        closeTheTwoShippedBlocks(currency);
+
+        getLogger()
+                .info(
+                        "[currency] listeners registered - piles despawn after "
+                                + config.pileDespawn().toSeconds()
+                                + "s, at most "
+                                + config.maxPiles()
+                                + " at once");
+    }
+
+    /**
+     * What this whole block was built for: B07 and B08 stop being unfinished.
+     *
+     * <p>Both shipped with a hole in them, named rather than filled (Workflow rule 5). B07 carries a
+     * {@code cost} block on every equipment tier and passes it through unread; B08's rank advance
+     * could not fail for want of money because there was no money. Neither guessed a price, and this
+     * is where the guessing would have shown - it does not, because there is nothing to reconcile.
+     *
+     * <p>Two lines, and they are the point of ADR-027.
+     */
+    private void closeTheTwoShippedBlocks(rpg.core.currency.DefaultCurrency currency) {
+        // FR-050: every configured price is checked now, not the first time somebody tries to pay
+        // one. A key nobody can charge would leave a tier quietly free.
+        rpg.core.currency.CostBlockValidator.validateClasses(classesModule.config());
+
+        // FR-051: the rank advance gets its price check - last, after unlock and maximum rank, so a
+        // refusal for any other reason still costs nothing (FR-052).
+        abilityRuntime.setRankCost(
+                new rpg.core.currency.AbilityRankCost(currency, getLogger()));
+
+        getLogger().info("[currency] B07 tier costs validated, B08 rank costs installed");
+    }
+
+    /**
+     * The window and the command, both provisional (ADR-028).
+     *
+     * <p>B14 replaces the command and B13 takes over the display; what stays is
+     * {@code CurrencyAdmin} and {@code CoinLedger} underneath. That is the whole point of keeping
+     * this method short: everything it builds is meant to be thrown away.
+     */
+    private void registerCurrencyWindow(
+            rpg.core.currency.CurrencyConfig config, rpg.core.currency.DefaultCurrency currency) {
+        rpg.platform.currency.CurrencyMenu menu =
+                new rpg.platform.currency.CurrencyMenu(messages, config.historyPageSize());
+        rpg.platform.currency.CurrencyMenuListener menuListener =
+                new rpg.platform.currency.CurrencyMenuListener(
+                        menu, currencyModule.ledger(), scheduler, getLogger());
+        getServer().getPluginManager().registerEvents(menuListener, this);
+
+        rpg.plugin.command.CoinsCommand coins =
+                new rpg.plugin.command.CoinsCommand(
+                        getServer(),
+                        sessionModule.registry(),
+                        currency,
+                        currencyModule.admin(),
+                        menuListener,
+                        messages,
+                        // A character who is not loaded still has a balance, and the window has to
+                        // show it (FR-042). The lookup is a database read - fine here, because a
+                        // command is not a game event.
+                        characterId ->
+                                currencyModule
+                                        .balances()
+                                        .find(characterId)
+                                        .join()
+                                        .map(rpg.core.currency.CharacterBalance::balance)
+                                        .orElse(0L));
+
+        var command = getCommand("coins");
+        if (command == null) {
+            // plugin.yml and this method have to agree; if they do not, saying so beats a command
+            // that silently does not exist.
+            getLogger().severe("[currency] /coins is not declared in plugin.yml - not registered");
+            return;
+        }
+        command.setExecutor(coins);
+        command.setTabCompleter(coins);
     }
 
     /**

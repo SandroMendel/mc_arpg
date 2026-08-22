@@ -37,6 +37,10 @@ public final class AbilityMessageKeys {
 
     public static final MessageKey RANK_AT_MAXIMUM = MessageKey.of("ability.rank.at-maximum");
 
+    /** Since B08b: a rank has a price, and it was not affordable (FR-051). */
+    public static final MessageKey RANK_NOT_ENOUGH_COINS =
+            MessageKey.of("ability.rank.not-enough-coins");
+
     public static final MessageKey TOGGLE_CHANGED = MessageKey.of("ability.toggle.changed");
 
     /** Second Life: no respawn, a title and a sound instead (FR-052c). */
@@ -65,6 +69,7 @@ public final class AbilityMessageKeys {
                 UNLOCKED,
                 RANK_ADVANCED,
                 RANK_AT_MAXIMUM,
+                RANK_NOT_ENOUGH_COINS,
                 TOGGLE_CHANGED,
                 SECOND_LIFE_TITLE,
                 SECOND_LIFE_SUBTITLE);

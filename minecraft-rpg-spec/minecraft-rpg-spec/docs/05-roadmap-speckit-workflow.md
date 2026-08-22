@@ -79,24 +79,30 @@ Anschließend `/constitution` mit dem Inhalt von `constitution.md` ausführen.
 
 ## Empfohlener nächster Schritt
 
-*(Stand 2026-08-22)* B01 bis B08 sind implementiert und verdrahtet. Offen sind
-dort nur noch Validierungsläufe und Lasttests, die einen echten Paper-Server
-brauchen — kein Code.
+*(Stand 2026-08-22)* B01 bis **B08b** sind implementiert und verdrahtet. Offen
+sind dort nur noch Validierungsläufe und Lasttests, die einen echten
+Paper-Server brauchen — kein Code.
 
-Als nächstes **`/specify` für B08b (Währung & Konto)**. Der Block ist durch
-ADR-027 neu entstanden und eingeschoben: Coins stehen seit dem 19.08. in der
-Vision, drei Blöcke setzen sie voraus, und keiner besass sie. B07 reicht heute
-`cost: { coins: 500 }` undurchsichtig durch, B08s Rangaufstieg kostet nichts,
-und B11 könnte weder verkaufen noch reparieren. Beide fertigen Blöcke haben die
-Lücke benannt statt gefüllt (Regel 5) — jetzt wird sie gefüllt.
+**B08b hat zwei ausgelieferte Blöcke abgeschlossen**, und das war sein Zweck:
+B07 reichte `cost: { coins: 500 }` undurchsichtig durch, B08s Rangaufstieg
+konnte an nichts scheitern. Beide hatten die Lücke benannt statt gefüllt
+(Regel 5). Jetzt liest B07s Kostenblock jemand — **ohne dass B07 angefasst
+wurde**, weil `ClassSourceInvariantsTest` die Vokabel dort verbietet und damit
+vorgab, wo die Auslegung hingehört. `RankResult` hat sein `NOT_ENOUGH_COINS`,
+und die Zusicherung im Test, dass es das *nicht* gibt, wurde umgedreht statt
+gelöscht.
 
-B08b hängt von B02, B03 und B06 ab, **nicht** von B09, B10 oder B11. Er ist
-damit sofort umsetzbar und schliesst zwei bereits ausgelieferte Blöcke ab.
+Zwei ADRs sind dabei entstanden: **ADR-028** (ein Kommando und ein Fenster in
+einem Schicht-1-Block, befristet bis B14 und B13) und **ADR-029** (Herauslösung
+des Anteilsrechners aus `XpDistributor`, damit Coins und Erfahrung denselben
+Kill nicht unterschiedlich bewerten).
 
-**Danach B11**, dessen Neuzuschnitt mit ADR-027 abgeschlossen ist: keine offene
-Frage mehr im Steckbrief. Raritätsstufen bleiben als reines Etikett, der
-Roll-Mechanismus entfällt — jedes Item hat feste Attributwerte —, und der
-NPC-Händler gehört hierher.
+Als nächstes **`/specify` für B11 (Items, Loot & Ausrüstung)**. Der Neuzuschnitt
+ist mit ADR-027 abgeschlossen: keine offene Frage mehr im Steckbrief.
+Raritätsstufen bleiben als reines Etikett, der Roll-Mechanismus entfällt — jedes
+Item hat feste Attributwerte —, und der NPC-Händler gehört hierher. Die
+Buchungsgründe `VENDOR_SALE`, `VENDOR_PURCHASE` und `REPAIR` stehen in B08b
+bereits bereit; B11 muss dafür kein fremdes Enum anfassen.
 
 **B09/B10 schulden B08 drei Verhaltensweisen** (Aggro auf den Klon, Mobs wenden
 sich von Unsichtbaren ab, Zonen für Zweites Leben). Die Schnittstellen stehen

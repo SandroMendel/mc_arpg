@@ -15,8 +15,9 @@ import java.util.logging.Logger;
 
 import javax.sql.DataSource;
 
-import rpg.core.classes.ClassProgress;
 import rpg.core.ability.AbilityState;
+import rpg.core.classes.ClassProgress;
+import rpg.core.currency.CharacterBalance;
 import rpg.core.inventory.CharacterInventory;
 import rpg.core.persistence.ItemInstance;
 import rpg.core.persistence.PersistenceException;
@@ -25,8 +26,9 @@ import rpg.core.progression.CharacterProgress;
 import rpg.core.session.PlayerCharacter;
 import rpg.core.session.SessionBundle;
 import rpg.core.stats.CharacterResources;
-import rpg.persistence.classes.JdbcClassProgressRepository;
 import rpg.persistence.ability.JdbcAbilityStateRepository;
+import rpg.persistence.classes.JdbcClassProgressRepository;
+import rpg.persistence.currency.JdbcCharacterBalanceRepository;
 import rpg.persistence.inventory.JdbcCharacterInventoryRepository;
 import rpg.persistence.progression.JdbcCharacterProgressRepository;
 import rpg.persistence.stats.JdbcCharacterResourcesRepository;
@@ -119,6 +121,8 @@ public final class SessionBundleLoader {
                 List<ClassProgress> classProgress = readClassProgress(connection, loaded);
                 List<CharacterInventory> inventories = readInventories(connection, loaded);
                 List<AbilityState> abilities = readAbilities(connection, loaded);
+                List<CharacterBalance> balances =
+                        JdbcCharacterBalanceRepository.readForPlayer(connection, playerId);
                 connection.commit();
                 return new SessionBundle(
                         playerId,
@@ -129,7 +133,8 @@ public final class SessionBundleLoader {
                         progress,
                         classProgress,
                         inventories,
-                        abilities);
+                        abilities,
+                        balances);
             } catch (SQLException failure) {
                 connection.rollback();
                 throw failure;

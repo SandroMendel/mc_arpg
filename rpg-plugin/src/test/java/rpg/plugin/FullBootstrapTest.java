@@ -449,18 +449,22 @@ class FullBootstrapTest {
 
     @Test
     void everyClassEventHasItsHandler() {
-        // The inventory lock and the selection both sit on InventoryClickEvent: the lock refuses to move
-        // a bound item, the selection refuses everything while the menu is open. Two handlers, two
-        // jobs - and if either is missing, bound equipment becomes removable (ADR-018).
+        // Three handlers sit on InventoryClickEvent, each with its own job: the equipment lock
+        // refuses to move a bound item (ADR-018), the class selection refuses everything while its
+        // menu is open, and B08b's currency window refuses everything while its own is - a ledger
+        // row is a fact, not an item somebody can pocket (ADR-028).
+        //
+        // Counted rather than merely "at least one": a handler that quietly disappears is how a
+        // bound item becomes removable, and nobody notices until it has happened in play.
         assertThat(handlerCount(org.bukkit.event.inventory.InventoryClickEvent.getHandlerList()))
-                .as("the equipment lock and the selection menu")
-                .isEqualTo(2);
+                .as("the equipment lock, the class selection and the currency window")
+                .isEqualTo(3);
         assertThat(handlerCount(org.bukkit.event.player.PlayerDropItemEvent.getHandlerList()))
                 .as("dropping is off for every item, bound or not (ADR-018)")
                 .isEqualTo(1);
         assertThat(handlerCount(org.bukkit.event.inventory.InventoryCloseEvent.getHandlerList()))
-                .as("every route out of the selection leads back into it")
-                .isEqualTo(1);
+                .as("the class selection reopens itself; the currency window just forgets its state")
+                .isEqualTo(2);
     }
 
     // --- character inventory (B07 groundwork for B11) ---------------------
@@ -484,6 +488,42 @@ class FullBootstrapTest {
         assertThat(plugin.registry().findService(rpg.core.inventory.CharacterInventoryRepository.class))
                 .as("B11 takes this over")
                 .isPresent();
+    }
+
+    // --- B08b: currency and account ---
+
+    @Test
+    void bothCurrencyTablesExistBecauseTheirMigrationsRan() {
+        assertThat(PostgresContainer.tableExists("character_balance")).isTrue();
+        assertThat(PostgresContainer.tableExists("coin_ledger")).isTrue();
+    }
+
+    @Test
+    void theCurrencyIsResolvableThroughTheRegistry() {
+        assertThat(plugin.registry().findService(rpg.core.currency.Currency.class))
+                .as("B07, B08, B11 and B12 are built against this")
+                .isPresent();
+        assertThat(plugin.registry().findService(rpg.core.currency.CurrencyAdmin.class))
+                .as("B14 takes the command over and keeps this")
+                .isPresent();
+    }
+
+    @Test
+    void theCoinsCommandIsRegistered() {
+        // The one place B08b reaches outside its layer (ADR-028). If plugin.yml and the wiring ever
+        // disagree, the command silently does not exist - so it is asserted rather than assumed.
+        assertThat(plugin.getCommand("coins")).isNotNull();
+        assertThat(plugin.getCommand("coins").getExecutor())
+                .isInstanceOf(rpg.plugin.command.CoinsCommand.class);
+    }
+
+    @Test
+    void thePickupAndWindowListenersAreRegistered() {
+        // Two handlers on InventoryClickEvent belong to the currency window and the class selection;
+        // what matters here is that the currency one is among them at all.
+        assertThat(handlerCount(org.bukkit.event.player.PlayerAttemptPickupItemEvent.getHandlerList()))
+                .as("without this a coin pile is an item a player can pocket")
+                .isGreaterThanOrEqualTo(1);
     }
 
     @Test

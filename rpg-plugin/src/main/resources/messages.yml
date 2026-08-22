@@ -143,6 +143,9 @@ ability:
   rank:
     advanced: '{ability} is now rank {rank}.'
     at-maximum: '{ability} is already at its highest rank.'
+    # Since B08b (ADR-027): a rank has a price. Checked last, after unlock and maximum rank, so
+    # seeing this means everything else was in order.
+    not-enough-coins: 'Not enough coins to raise that rank.'
 
   toggle:
     changed: '{ability} is now {state}.'
@@ -213,3 +216,32 @@ ability:
     rise-and-fall:
       name: 'Rise & Fall'
       description: 'A second jump in mid-air, then a slow fall. Switchable.'
+
+# B08b - currency and account.
+currency:
+  rejected:
+    not-enough: 'Not enough coins - {needed} needed, you have {balance}.'
+    invalid-amount: 'That is not a valid amount of coins.'
+    overflow: 'That would exceed the largest balance the server can hold.'
+    no-character: 'No such character.'
+  pile:
+    picked-up: 'Picked up {amount} coins.'
+    # The cap bit and an older pile was credited instead of dropped (FR-030a). Deliberately not
+    # worded as a pickup: the player did not pick anything up.
+    cashed-in: '{amount} coins from an earlier pile were added to your balance.'
+  starting-balance: 'You start with {amount} coins.'
+  balance:
+    current: '{character}: {amount} coins.'
+  admin:
+    applied: '{character} now has {amount} coins.'
+    denied: 'You are not allowed to do that.'
+    unknown-character: 'No such character for that player.'
+  # The window is provisional (ADR-028); B13 will own this wording.
+  menu:
+    title-characters: 'Coins'
+    title-history: 'Coins - {character}'
+    character-entry: '{character} - {amount} coins'
+    history-entry: '{direction}{amount} - {reason}'
+    page-next: 'Next page'
+    page-previous: 'Previous page'
+    empty: 'No bookings yet.'

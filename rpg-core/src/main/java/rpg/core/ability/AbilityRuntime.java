@@ -3,12 +3,12 @@ package rpg.core.ability;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import rpg.core.ability.effect.EffectDispatcher;
 import rpg.core.scheduler.TaskHandle;
@@ -34,6 +34,12 @@ public final class AbilityRuntime {
     private final TargetResolver targets;
     private final EffectDispatcher effects;
     private final AbilityStateRepository repository;
+
+    /**
+     * Who charges for a rank. Free until B08b installs itself - which is what this block did for its
+     * whole life before a currency existed.
+     */
+    private volatile RankCost rankCost = RankCost.free();
     private final Clock clock;
 
     /**
@@ -365,8 +371,15 @@ public final class AbilityRuntime {
      * the same player advance separately, and the state key says so: it is a pair of character and
      * ability, and no player id appears in it anywhere.
      *
-     * <p><b>Nothing is charged.</b> See {@link RankResult} - there is no currency in this project,
-     * and inventing one here would put an economy in the wrong block.
+     * <p><b>A rank costs coins</b> since B08b exists (ADR-027). The check runs <em>last</em>, after
+     * the unlock and the maximum rank, so an advance refused for any other reason leaves the balance
+     * untouched (FR-052). What it costs lives in the ability configuration and is read by B08b -
+     * this block still knows nothing about coins, and installs the check through {@link RankCost}.
+     *
+     * <p>The paragraph that used to stand here said nothing was charged because the project had no
+     * currency, and that inventing one in this block would put an economy in the wrong place. That
+     * was right: the price was never guessed, and when a currency arrived, this method grew by one
+     * {@code if}.
      *
      * <p>Written through the buffer like every other change: the cache is authoritative for the
      * session and the write-behind cycle carries it to the database (Principle IV).
@@ -381,9 +394,42 @@ public final class AbilityRuntime {
         if (state.rank() >= ability.maxRank()) {
             return RankResult.AT_MAXIMUM;
         }
+        // LAST, after everything that is not about money (FR-052). A character at the maximum rank
+        // must not be charged for an advance that was never going to happen.
+        if (!rankCost.charge(characterId, ability)) {
+            return RankResult.NOT_ENOUGH_COINS;
+        }
         registry.put(state.withRank(state.rank() + 1));
         repository.markDirty(characterId);
         return RankResult.ADVANCED;
+    }
+
+    /**
+     * Who takes the price of a rank, if anybody does.
+     *
+     * <p><b>A seam rather than a dependency.</b> This block owns what a rank <em>costs</em> only in
+     * the sense that the number sits in its configuration file; what a coin <em>is</em> belongs to
+     * B08b, and B08 pointing at it would be layer 1 depending on layer 1 in the wrong direction
+     * (ADR-027). B08b installs the real one at wiring time.
+     *
+     * <p>The default charges nothing, which is exactly what happened before B08b existed.
+     */
+    @FunctionalInterface
+    public interface RankCost {
+        /**
+         * @return whether the price was paid; false refuses the advance and must have taken nothing
+         */
+        boolean charge(java.util.UUID characterId, Ability ability);
+
+        /** What this block did before there was a currency: nobody pays. */
+        static RankCost free() {
+            return (characterId, ability) -> true;
+        }
+    }
+
+    /** Installs the price check. Called once at wiring time by B08b. */
+    public void setRankCost(RankCost rankCost) {
+        this.rankCost = java.util.Objects.requireNonNull(rankCost, "rankCost");
     }
 
     /** The player's setting, or {@link ToggleState#ON} when they never changed it. */

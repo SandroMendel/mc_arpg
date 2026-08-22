@@ -23,8 +23,6 @@ import org.mockbukkit.mockbukkit.entity.PlayerMock;
 import org.yaml.snakeyaml.Yaml;
 
 import rpg.core.ability.Ability;
-import rpg.platform.ability.AbilityHotbar;
-import rpg.platform.ability.AbilityItemTag;
 import rpg.core.ability.AbilityConfig;
 import rpg.core.ability.AbilityConfigSchema;
 import rpg.core.classes.AbilityBinding;
@@ -35,6 +33,8 @@ import rpg.core.config.SchemaValidator;
 import rpg.core.message.MessageKey;
 import rpg.core.message.Messages;
 import rpg.core.session.CharacterClass;
+import rpg.platform.ability.AbilityHotbar;
+import rpg.platform.ability.AbilityItemTag;
 
 /**
  * T115 - die Hotbar der drei <b>ausgelieferten</b> Loadouts (FR-055, FR-056).

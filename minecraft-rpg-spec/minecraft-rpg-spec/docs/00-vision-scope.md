@@ -52,12 +52,14 @@ einer zusammenhängenden Spielwelt im Stil von MMORPGs.
 
 - Kein Proxy-/Multi-Server-Netzwerk (Velocity, BungeeCord)
 - Kein Resource Pack, keine Client-Mods (Option bleibt architektonisch offen)
-- Kein Crafting-/Wirtschafts-/Handelssystem
-  — **zu präzisieren:** Coins sind seit dem 19.08. Währung (Fähigkeits- und
-  Ausrüstungsaufwertung), und ADR-018 sieht Verkauf an einen NPC als
-  Entsorgungsweg vor. Beides ist eine minimale Wirtschaft. Vermutlich gemeint:
-  kein **Spieler-zu-Spieler**-Handel und kein Crafting. Zu klären vor `/specify`
-  B11.
+- Kein Crafting-System und **kein Spieler-zu-Spieler-Handel**
+  — *(präzisiert 2026-08-22, ADR-027)*. Coins sind seit dem 19.08. Währung
+  (Fähigkeits- und Ausrüstungsaufwertung), und ADR-018 sieht Verkauf an einen
+  NPC als Entsorgungsweg vor. Beides war von diesem Nicht-Ziel immer gedeckt:
+  gemeint ist der Handel **zwischen Spielern**, nicht das Vorhandensein einer
+  Währung. B08b hat sie umgesetzt und hält die Grenze ein — es gibt keinen Weg,
+  Coins von einem Spieler zum anderen zu bewegen, und keinen zentralen
+  Preiskatalog.
 - Kein PvP als Kernmechanik
 - Keine Mehrsprachigkeit zum Start (Struktur wird aber vorbereitet)
 - Kein Bauen/Terraforming durch Spieler

@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Schicht** | 1 — Regel-Engine |
-| **Status** | Implementiert (2026-08-22) — 144 Aufgaben, davon 140 erledigt; 1162 Tests im Projekt, 0 Fehler, 0 übersprungen. Offen allein: vier Punkte, die einen laufenden Paper-Server brauchen. Spec unter `specs/007-class-system/` |
+| **Status** | Implementiert (2026-08-22) — 144 Aufgaben, davon 140 erledigt; 1162 Tests im Projekt, 0 Fehler, 0 übersprungen. Offen allein: vier Punkte, die einen laufenden Paper-Server brauchen. Spec unter `specs/007-class-system/`. **Durch B08b abgeschlossen** *(2026-08-22)*: der `cost`-Block jeder Ausrüstungsstufe wird ausgelesen und vor dem Aufstieg geprüft — ohne dass B07 angefasst wurde, weil `ClassSourceInvariantsTest` die Vokabel hier verbietet |
 | **Abhängig von** | B04, B06 |
 | **Benötigt von** | B08, B11, B13 |
 
