@@ -91,7 +91,7 @@ class StatCalculatorEdgeCaseTest {
     void snapshotRejectsWrongSize() {
         assertThatThrownBy(() -> new StatSnapshot(new double[3], 1L))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("8");
+                .hasMessageContaining(String.valueOf(Attribute.count()));
     }
 
     @Test

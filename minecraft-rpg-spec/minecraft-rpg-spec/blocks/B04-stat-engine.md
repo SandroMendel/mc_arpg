@@ -12,13 +12,15 @@
 Das zentrale Vertragswerk des Spiels: Wie entstehen aus Klasse, Level,
 Ausrüstung und Effekten die konkreten Werte eines Spielers oder Mobs?
 
-## Die acht Attribute
+## Die zehn Attribute
 
 | Code-Bezeichner | Deutsch | Kurzbeschreibung |
 |---|---|---|
 | `health` | Leben | Eigener HP-Wert (siehe ADR-003) |
+| `healthRegen` | Lebensregeneration | Leben je Sekunde, im Kampf reduziert (ADR-023) |
 | `defense` | Verteidigung | Mindert eingehenden Schaden |
 | `mana` | Mana | Ressource für aktive Fähigkeiten |
+| `manaRegen` | Manaregeneration | Mana je Sekunde, im Kampf reduziert (ADR-023) |
 | `physicalDamage` | Physischer Schaden | Basis für Waffenschaden |
 | `magicDamage` | Magischer Schaden | Basis für Fähigkeitsschaden |
 | `attackSpeed` | Angriffsgeschwindigkeit | Angriffe pro Zeiteinheit |
@@ -27,8 +29,9 @@ Ausrüstung und Effekten die konkreten Werte eines Spielers oder Mobs?
 
 ## Umfang
 
-- Generisches Attributmodell — **acht Instanzen eines Systems, keine acht
-  Sonderfälle**
+- Generisches Attributmodell — **zehn Instanzen eines Systems, keine zehn
+  Sonderfälle**. ADR-023 hat das eingelöst: zwei weitere Attribute kosteten zwei
+  Enum-Konstanten und zwei Konfigurationsblöcke, sonst nichts in der Engine.
 - Modifier-Modell mit Quellenverfolgung (Klasse, Level, Item, Buff, Aura, Zone)
 - Stacking- und Berechnungsreihenfolge inkl. Caps
 - Ereignisgesteuerte Neuberechnung mit unveränderlichem `StatSnapshot`

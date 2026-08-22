@@ -369,8 +369,10 @@ class ClassConfigValidationTest {
         private static AttributeDefinition definitionOf(Attribute attribute) {
             return switch (attribute) {
                 case HEALTH -> new AttributeDefinition(attribute, 100.0, 1.0, 2000.0, 0.0);
+                case HEALTH_REGEN -> new AttributeDefinition(attribute, 0.0, 0.0, 40.0, 0.0);
                 case DEFENSE -> new AttributeDefinition(attribute, 0.0, 0.0, 300.0, 0.0);
                 case MANA -> new AttributeDefinition(attribute, 50.0, 0.0, 500.0, 0.0);
+                case MANA_REGEN -> new AttributeDefinition(attribute, 0.0, 0.0, 20.0, 0.0);
                 case PHYSICAL_DAMAGE -> new AttributeDefinition(attribute, 5.0, 0.0, 150.0, 0.0);
                 case MAGIC_DAMAGE -> new AttributeDefinition(attribute, 5.0, 0.0, 150.0, 0.0);
                 case ATTACK_SPEED -> new AttributeDefinition(attribute, 4.0, 0.0, 1024.0, 0.50);

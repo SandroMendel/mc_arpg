@@ -997,3 +997,63 @@ ist ein Effekt-Primitive, das sich in B05 einhängt und einen Anteil des ausgete
 Heilung zurückgibt. Der Prozentsatz hängt an der Fähigkeitsstufe (Coin-Aufwertung), nicht an einem
 Attribut. Ein neuntes Attribut hätte Stat-Engine, Persistenz und HUD gleichzeitig geöffnet — und mit
 ihm die Tür für Crit-Chance und Resistenzen, die dieselbe Zurückstellung teilen.
+
+---
+
+## ADR-023 · Zwei Regenerationsraten als neuntes und zehntes Attribut
+
+**Status:** Entschieden *(2026-08-22)* — ergänzt ADR-008, hebt es nicht auf.
+
+`healthRegen` und `manaRegen`, beide in Punkten je Sekunde ausserhalb des Kampfes, im Kampf um einen
+konfigurierten Faktor reduziert. Damit sind es zehn Attribute statt acht.
+
+**1. Warum es überhaupt fehlte.** ADR-013 hat `NATURAL_HEALTH_REGENERATION` abgeschaltet und
+`VanillaRegenerationGuard` bricht `REGEN`, `SATIATED`, `EATING` und `MAGIC_REGEN` ab, damit
+ausschliesslich die Engine die Herzleiste schreibt. Das war richtig und hat eine Lücke hinterlassen,
+die bis jetzt niemand geschlossen hat: **ein verletzter Spieler heilt nicht.** `healthRegen` ist die
+Rückseite von ADR-013, kein Zusatzwunsch.
+
+**2. Warum ein Attribut und keine Konstante.** Eine Regenerationsrate ist genau das, was ADR-008 unter
+einem Attribut versteht: eine Zahl je Charakter, die aus Basis, Level und später Ausrüstung und Buffs
+entsteht und einen Cap hat. Als Konfigurationskonstante hätte sie für alle drei Klassen gleich sein
+müssen oder eine zweite, klassenabhängige Tabelle neben `classes.yml` gebraucht — eine zweite Stelle
+für dieselbe Art von Zahl. Als Attribut nimmt sie den vorhandenen Modifikatorpfad mit: ein Buff „+50 %
+Heilung" ist ein gewöhnlicher `ModifierSet` und braucht keine Sonderregel.
+
+**Dies ist keine Rücknahme der zurückgestellten Sekundärwerte.** Crit-Chance, Crit-Schaden, Lifesteal
+und Resistenzen bleiben zurückgestellt und bleiben Fähigkeitseffekte (ADR-022). Der Unterschied ist,
+dass jene Werte *im Schadensereignis* wirken, wo B05 bereits einen Einhängepunkt hat, während eine
+Regenerationsrate über die Zeit wirkt und ausser dem Attribut nirgends hingehört.
+
+**3. Punkte je Sekunde, nicht Anteil am Maximum.** Der Anteil wäre bequemer gewesen — eine Zahl für
+alle Klassen, obwohl der Mage 500 Mana hat und der Warrior 200. Er hätte aber ein Attribut geschaffen,
+dessen Wirkung von einem *anderen* Attribut abhängt, und ein Modifikator darauf hätte je nach Klasse
+etwas anderes bedeutet. Stattdessen unterscheiden sich die Zahlen je Klasse so, dass jede Klasse
+dieselbe Zeit braucht: **50 Sekunden auf volle Gesundheit, 25 Sekunden auf volles Mana**, auf Level 1
+wie auf Level 60. Dass der Warrior am schnellsten regeneriert, ist die Folge davon, dass er das
+grösste Gefäss füllt — nicht eine Bevorzugung.
+
+**4. Basiswert null, und das ist der wichtige Teil.** In `stats.yml` steht bei beiden `base: 0.0`,
+anders als bei Gesundheit (100) und Mana (50). Ein Träger ohne Klassenbeitrag ist ein Monster
+(`createForEntity`), und ein Basiswert ungleich null hätte still jedes Monster der Welt sich selbst
+heilen lassen. Der Wert auf Level 1 kommt aus `classes.yml`, das kein Monster hat.
+
+**5. Beide kommen aus dem Levelwachstum, nicht von einer Leiter.** Damit bleibt `LadderSlot` bei vier
+Attributen je Leiter, keine der 37 Stufen bekommt ein Feld, und die Prüfung „ein getragenes Attribut
+steigt streng über die Stufen" bleibt unberührt. Das ist der Grund, warum diese Änderung klein war:
+die teure Hälfte von B07 wurde nicht angefasst. Der Preis ist, dass `T067` — die Leiter trägt 60 bis
+80 % des Zuwachses — für diese beiden ausdrücklich nicht gilt; die Ausnahme steht im Test, damit sie
+gelesen wird und nicht als Lücke durchgeht.
+
+**6. Die Caps liegen auf dem Rollenziel, nicht darüber.** `healthRegen` 40, `manaRegen` 20 — der
+Warrior erreicht 39,97, der Mage 19,91. Das ist dasselbe Muster wie bei den anderen acht: je Attribut
+reizt genau eine Klasse den Cap aus, die anderen bleiben darunter, und `T066` prüft es.
+
+**7. Angewandt wird beides von B08, nicht von B04.** Die Regeneration braucht den Kampfzustand, und
+den kennt B05. B04 dürfte ihn nicht lesen, ohne die Abhängigkeitsrichtung umzudrehen (Prinzip III).
+B08 liegt über beiden, baut die zeitstempelbasierte Abrechnung ohnehin für Mana und rechnet die
+Gesundheit mit derselben Maschine ab. Der Bestand sagt das schon: `CombatState` und `ResourcePool`
+benennen B08 namentlich als den Ort, an dem Mana-Regeneration stattfindet.
+
+**Folge:** Bis B08 umgesetzt ist, werden beide Werte berechnet, geführt und angezeigt — aber von
+niemandem verbraucht. Das ist derselbe Zustand, in dem B07 die Fähigkeitsbindungen hinterlassen hat.

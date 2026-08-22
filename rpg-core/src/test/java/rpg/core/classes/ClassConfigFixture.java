@@ -48,8 +48,8 @@ final class ClassConfigFixture {
         Map<String, Object> block = new LinkedHashMap<>();
         block.put("display-name-key", "class.warrior.name");
         block.put("menu-material", "NETHERITE_SWORD");
-        block.put("base-stats", eight(40.0, 4.0, 12.0, 2.0, 0.5, 0.0, 0.0, 0.0));
-        block.put("growth", eight(9.7, 1.5, 0.9, 0.7, 0.1, 0.0, 0.0, 0.0));
+        block.put("base-stats", stats(40.0, 2.8, 4.0, 12.0, 2.5, 2.0, 0.5, 0.0, 0.0, 0.0));
+        block.put("growth", stats(9.7, 0.63, 1.5, 0.9, 0.09, 0.7, 0.1, 0.0, 0.0, 0.0));
         List<Object> armor = new ArrayList<>();
         armor.add(armorTier("LEATHER", null, 1, 60.0, 6.0, 18.0, 0.000));
         armor.add(armorTier("COPPER", null, 15, 280.0, 40.0, 35.0, 0.001));
@@ -84,8 +84,8 @@ final class ClassConfigFixture {
         Map<String, Object> block = new LinkedHashMap<>();
         block.put("display-name-key", "class.rogue.name");
         block.put("menu-material", "GOLDEN_SWORD");
-        block.put("base-stats", eight(35.0, 2.0, 16.0, 2.0, 1.0, 0.0, 0.0, 0.0));
-        block.put("growth", eight(7.2, 0.9, 1.4, 0.6, 0.2, 0.0, 0.0, 0.0));
+        block.put("base-stats", stats(35.0, 2.7, 2.0, 16.0, 2.6, 2.0, 1.0, 0.0, 0.0, 0.0));
+        block.put("growth", stats(7.2, 0.47, 0.9, 1.4, 0.17, 0.6, 0.2, 0.0, 0.0, 0.0));
         List<Object> armor = new ArrayList<>();
         armor.add(armorTier("LEATHER", null, 1, 50.0, 3.0, 24.0, 0.000));
         armor.add(armorTier("GOLDEN", null, 13, 170.0, 19.0, 50.0, 0.006));
@@ -110,8 +110,8 @@ final class ClassConfigFixture {
         Map<String, Object> block = new LinkedHashMap<>();
         block.put("display-name-key", "class.mage.name");
         block.put("menu-material", "NETHERITE_SPEAR");
-        block.put("base-stats", eight(30.0, 2.0, 20.0, 1.0, 2.0, 0.0, 0.0, 0.0));
-        block.put("growth", eight(6.0, 0.8, 2.3, 0.2, 0.7, 0.0, 0.0, 0.0));
+        block.put("base-stats", stats(30.0, 2.6, 2.0, 20.0, 2.8, 1.0, 2.0, 0.0, 0.0, 0.0));
+        block.put("growth", stats(6.0, 0.38, 0.8, 2.3, 0.29, 0.2, 0.7, 0.0, 0.0, 0.0));
         List<Object> armor = new ArrayList<>();
         armor.add(armorTier("LEATHER", 0x4a4a52, 1, 40.0, 3.0, 30.0, 0.000));
         armor.add(armorTier("LEATHER", 0x1f3a93, 11, 120.0, 13.0, 60.0, 0.002));
@@ -136,10 +136,19 @@ final class ClassConfigFixture {
 
     // ---- builders ------------------------------------------------------------------------------
 
-    static Map<String, Object> eight(
+    /**
+     * A complete stat block, in the declaration order of {@link Attribute}.
+     *
+     * <p>Complete on purpose: the schema requires every attribute, so a fixture that leaves one out
+     * would test the validator instead of the case at hand. The parameter list therefore grows with
+     * the enum - it did so once already, when ADR-023 added the two regeneration rates.
+     */
+    static Map<String, Object> stats(
             double health,
+            double healthRegen,
             double defense,
             double mana,
+            double manaRegen,
             double physical,
             double magic,
             double attackSpeed,
@@ -147,8 +156,10 @@ final class ClassConfigFixture {
             double cooldown) {
         Map<String, Object> map = new LinkedHashMap<>();
         map.put(Attribute.HEALTH.key(), health);
+        map.put(Attribute.HEALTH_REGEN.key(), healthRegen);
         map.put(Attribute.DEFENSE.key(), defense);
         map.put(Attribute.MANA.key(), mana);
+        map.put(Attribute.MANA_REGEN.key(), manaRegen);
         map.put(Attribute.PHYSICAL_DAMAGE.key(), physical);
         map.put(Attribute.MAGIC_DAMAGE.key(), magic);
         map.put(Attribute.ATTACK_SPEED.key(), attackSpeed);

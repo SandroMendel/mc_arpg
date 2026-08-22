@@ -4,7 +4,7 @@ import java.util.Arrays;
 import java.util.stream.Collectors;
 
 /**
- * An attribute key that does not name one of the eight attributes (FR-004a, FR-009).
+ * An attribute key that does not name one of the attributes (FR-004a, FR-009).
  *
  * <p>The message lists the permitted keys. A typo in a configuration file is the most likely way to
  * get here, and "unknown attribute 'phyiscalDamage'" without the list of correct spellings makes
@@ -21,7 +21,7 @@ public class UnknownAttributeException extends RuntimeException {
         super(
                 "unknown attribute '"
                         + key
-                        + "' - the eight attributes are: "
+                        + "' - the attributes are: "
                         + Arrays.stream(Attribute.values())
                                 .map(Attribute::key)
                                 .collect(Collectors.joining(", ")));

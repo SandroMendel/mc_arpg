@@ -32,8 +32,14 @@
 #
 # ARMOUR carries health, defense, mana, movement-speed.
 # WEAPON carries physical-damage, magic-damage, attack-speed, ability-cooldown.
-# Each attribute therefore has exactly one ladder as its source; on a single ladder the second
-# would be meaningless.
+# Each attribute on a ladder therefore has exactly one ladder as its source; on a single ladder the
+# second would be meaningless.
+#
+# THE TWO REGENERATION RATES ARE NOT ON A LADDER (ADR-023). health-regen and mana-regen come from
+# base-stats plus growth and nothing else, which is why the ladders still carry four attributes each
+# and no tier gained a field. The numbers are set so that every class takes about the same time to
+# recover at every level - 50 seconds to full health, 25 seconds to full mana - which is why the
+# rates differ per class: the warrior has to refill 1997 health where the mage refills 1259.
 #
 # UNITS - read this before changing a number. Every value here is added to the BASE of its
 # attribute (BaseStatContributor), so it is expressed in that attribute's OWN units, never as a
@@ -66,8 +72,10 @@ classes:
 
     base-stats:
       health: 40.0
+      healthRegen: 2.8
       defense: 4.0
       mana: 12.0
+      manaRegen: 2.5
       physicalDamage: 2.0
       magicDamage: 0.5
       attackSpeed: 0.0
@@ -79,8 +87,10 @@ classes:
     # keeps them inside their bands without checking 59 levels one by one.
     growth:
       health: 9.7
+      healthRegen: 0.63
       defense: 1.5
       mana: 0.9
+      manaRegen: 0.09
       physicalDamage: 0.7
       magicDamage: 0.1
       attackSpeed: 0.0
@@ -157,8 +167,10 @@ classes:
 
     base-stats:
       health: 35.0
+      healthRegen: 2.7
       defense: 2.0
       mana: 16.0
+      manaRegen: 2.6
       physicalDamage: 2.0
       magicDamage: 1.0
       attackSpeed: 0.0
@@ -167,8 +179,10 @@ classes:
 
     growth:
       health: 7.2
+      healthRegen: 0.47
       defense: 0.9
       mana: 1.4
+      manaRegen: 0.17
       physicalDamage: 0.6
       magicDamage: 0.2
       attackSpeed: 0.0
@@ -250,8 +264,10 @@ classes:
 
     base-stats:
       health: 30.0
+      healthRegen: 2.6
       defense: 2.0
       mana: 20.0
+      manaRegen: 2.8
       physicalDamage: 1.0
       magicDamage: 2.0
       attackSpeed: 0.0
@@ -260,8 +276,10 @@ classes:
 
     growth:
       health: 6.0
+      healthRegen: 0.38
       defense: 0.8
       mana: 2.3
+      manaRegen: 0.29
       physicalDamage: 0.2
       magicDamage: 0.7
       attackSpeed: 0.0

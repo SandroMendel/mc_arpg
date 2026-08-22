@@ -15,7 +15,13 @@ Auftraggeber abgeschlossen, Ergebnisse sind in den Blocksteckbriefen und in
 - [x] Wertebereiche und Caps je Attribut: siehe Tabelle in
       `blocks/B04-stat-engine.md`
 - [x] Sekundärwerte (Crit-Chance, Crit-Schaden, Lifesteal, Resistenzen):
-      vorerst nicht Teil von B04
+      vorerst nicht Teil von B04 — sie bleiben Fähigkeitseffekte (ADR-022)
+- [x] **Der Attributsatz umfasst zehn statt acht.** `healthRegen` und `manaRegen`
+      sind nachgetragen (ADR-023). Sie kommen aus dem Levelwachstum, liegen auf
+      keiner Ausrüstungsleiter und werden von B08 angewandt, weil die
+      Regeneration den Kampfzustand aus B05 braucht. Das ist **keine** Rücknahme
+      der zurückgestellten Sekundärwerte: jene wirken im Schadensereignis, eine
+      Regenerationsrate wirkt über die Zeit. *(2026-08-22)*
 
 Bei der Umsetzung zusätzlich geklärt (siehe ADR-013):
 

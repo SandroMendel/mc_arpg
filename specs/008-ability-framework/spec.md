@@ -13,9 +13,9 @@ Pipeline, Kampfzustand) und B07 (`AbilityBinding`, `AbilityKind`, `ClassRegistry
 `CharacterClassDefinition.unlockedAt`); wird benötigt von B13. Verbindlich: **ADR-022** (die Unique
 zählt zu den sechs und darf passiv sein, kurzer globaler Cooldown, Casting-Zeiten mit Unterbrechung,
 Lifesteal ist Kampf-Effekt statt neuntes Attribut), ADR-005 (Vanilla-Client, Auslösung nur über
-Hotbar-Slot und Rechtsklick, keine eigenen Keybinds), ADR-008 (nur die acht Attribute),
+Hotbar-Slot und Rechtsklick, keine eigenen Keybinds), ADR-008 mit ADR-023 (die zehn Attribute, darunter die beiden Regenerationsraten),
 ADR-018 (charaktergebundene Items sind unbeweglich), Prinzip II (kein Datenbankzugriff je
-Spielereignis, keine wiederkehrende Aufgabe je Spieler — Cooldowns und Mana-Regeneration
+Spielereignis, keine wiederkehrende Aufgabe je Spieler — Cooldowns und Regeneration
 zeitstempelbasiert lazy), Prinzip III (`rpg-core` ohne Bukkit), Prinzip V (alle Balancing-Zahlen in
 validierter Konfiguration).
 
@@ -46,6 +46,21 @@ validierter Konfiguration).
   **Effekt im Kampf-Hook**, nicht als neuntes Attribut. Der Prozentsatz hängt an der Fähigkeitsstufe,
   nicht an einem Attribut. ADR-008 bleibt unangetastet; ein neuntes Attribut hätte Stat-Engine,
   Persistenz und HUD gleichzeitig geöffnet und mit ihm die Tür für Crit und Resistenzen.
+
+### Session 2026-08-22 — nach `/specify`, festgehalten in ADR-023
+
+- Q: Es fehlen zwei Attribute — Lebens- und Manaregeneration je Sekunde, beide im Kampf schwächer,
+  beide aus dem Levelwachstum. Wie werden sie aufgenommen? → A: Als **neuntes und zehntes Attribut**
+  in B04, nicht als Konstanten in diesem Block. Damit ändert sich der Zuschnitt von B08 an einer
+  Stelle: der Block regeneriert nicht mehr nur Mana zu einer festen Rate, sondern **beide
+  Ressourcen** zu der Rate, die im jeweiligen Attribut des Charakters steht. B08 besitzt nur noch die
+  beiden Kampf-Faktoren.
+
+  **Warum das mehr als eine Zahl war:** ADR-013 hat die Vanilla-Regeneration abgeschaltet, damit
+  ausschliesslich die Engine die Herzleiste schreibt — und nie einen Ersatz nachgeliefert. Ein
+  verletzter Spieler heilte bis hierher überhaupt nicht. `healthRegen` schliesst diese Lücke, und B08
+  ist der Ort dafür, weil die Regeneration den Kampfzustand aus B05 braucht: B04 dürfte ihn nicht
+  lesen, ohne die Abhängigkeitsrichtung umzudrehen.
 
 ### Abgeleitete Entscheidungen
 
@@ -143,11 +158,11 @@ konfigurierten Anteil des tatsächlich zugefügten Schadens, gedeckelt auf sein 
 
 ---
 
-### User Story 3 - Cooldowns und Mana überleben das Ausloggen (Priority: P2)
+### User Story 3 - Cooldowns und Regeneration überleben das Ausloggen (Priority: P2)
 
 Wer sich mitten im Cooldown ausloggt, findet ihn beim Wiedereinloggen im richtigen Stand vor — es
 läuft weiter, während der Spieler weg ist, statt bei Null oder bei voller Dauer neu zu beginnen.
-Dasselbe gilt für Mana: es regeneriert über die Abwesenheit hinweg, ohne dass dafür etwas gelaufen
+Dasselbe gilt für Gesundheit und Mana: beide regenerieren über die Abwesenheit hinweg, ohne dass dafür etwas gelaufen
 wäre.
 
 **Why this priority**: Ohne diese Story ist Ausloggen der schnellste Weg, jeden Cooldown zu löschen —
@@ -283,7 +298,7 @@ Wirkung der Fähigkeit steigt entsprechend der Rangkurve und bleibt nach einem N
 ### User Story 8 - Der Betreiber justiert Fähigkeiten ohne Codeänderung (Priority: P3)
 
 Kosten, Cooldowns, Wirkzeiten, Reichweiten, Zielobergrenzen, Rangkurven, die globale Sperre und die
-Mana-Regeneration stehen in Konfiguration und werden beim Start gegen ein Schema geprüft. Ein Fehler
+die beiden Kampf-Faktoren der Regeneration stehen in Konfiguration und werden beim Start gegen ein Schema geprüft. Ein Fehler
 verhindert den Start mit einer Meldung, die Fähigkeit und Feld benennt.
 
 **Why this priority**: Prinzip V. P3, weil Balancing erst zählt, wenn es etwas zu balancieren gibt.
@@ -319,7 +334,7 @@ Wert, ohne dass eine Quelldatei angefasst wurde.
 - **Second Life und tödlicher Schaden aus `kill`.** Die administrative Tötung ist nicht abfangbar.
 - **Mana wird während eines Casts durch etwas anderes verbraucht.** Die Kosten sind beim Start
   abgebucht; ein zweiter Verbrauch kann nicht dieselben Punkte greifen.
-- **Der Kampfzustand wechselt mitten in einem Regenerationsintervall.** Die Mana-Regeneration wird
+- **Der Kampfzustand wechselt mitten in einem Regenerationsintervall.** Die Regeneration beider Ressourcen wird
   beim Wechsel abgerechnet, damit jedes Intervall genau eine Rate hat.
 - **Ein Fähigkeits-Item wird bewegt, geworfen oder abgelegt.** Nicht möglich — es ist
   charaktergebunden wie die Klassenausrüstung (ADR-018).
@@ -365,7 +380,7 @@ Wert, ohne dass eine Quelldatei angefasst wurde.
 - **FR-013**: Das Damage-Primitive MUSS seinen Wert als **Faktor** auf das passende Schadensattribut
   angeben, nicht als absolute Zahl. Damit skaliert es mit Ausrüstung und Level, ohne selbst ein
   Attribut zu lesen.
-- **FR-014**: Buff und Debuff MÜSSEN als zeitlich begrenzte Modifikatoren auf die acht Attribute
+- **FR-014**: Buff und Debuff MÜSSEN als zeitlich begrenzte Modifikatoren auf die zehn Attribute
   wirken und über einen Zeitstempel ablaufen, nicht über eine mitlaufende Zählung.
 - **FR-015**: Das Shield-Primitive MUSS eine Menge Schadens absorbieren, bevor Gesundheit sinkt, und
   nach Ablauf oder Verbrauch von selbst enden.
@@ -412,10 +427,13 @@ Wert, ohne dass eine Quelldatei angefasst wurde.
 - **FR-032**: Das System DARF NICHT je Spielereignis auf die Datenbank zugreifen. Cooldown-Änderungen
   laufen über denselben gepufferten Schreibweg wie der übrige Charakterzustand (Prinzip II).
 
-### Functional Requirements — Runtime: Mana
+### Functional Requirements — Runtime: Regeneration von Gesundheit und Mana
 
-- **FR-033**: Mana MUSS mit einer konstanten Rate regenerieren, im Kampf mit einer reduzierten Rate.
-  Beide Raten sind Konfiguration.
+- **FR-033**: Das System MUSS **beide Ressourcen** regenerieren: Gesundheit mit der Rate aus dem
+  Attribut `healthRegen`, Mana mit der Rate aus `manaRegen` (ADR-023). Beide Raten sind Punkte je
+  Sekunde und gehören dem Charakter, nicht der Konfiguration.
+- **FR-033a**: Im Kampf MUSS die jeweilige Rate mit einem konfigurierten Faktor multipliziert werden.
+  Es gibt einen Faktor je Ressource; beide sind Konfiguration und liegen zwischen 0 und 1.
 - **FR-034**: Die Regeneration MUSS zeitstempelbasiert lazy gerechnet werden: aus der verstrichenen
   Zeit seit der letzten Abrechnung, nicht aus einer periodischen Aufgabe.
 - **FR-035**: Bei einem Wechsel des Kampfzustands MUSS die bis dahin aufgelaufene Regeneration
@@ -423,9 +441,15 @@ Wert, ohne dass eine Quelldatei angefasst wurde.
 - **FR-036**: Ob ein Spieler im Kampf ist, MUSS aus dem Kampfzustand von B05 gelesen werden. Der Block
   führt keinen zweiten Zähler.
 - **FR-037**: Mana MUSS bei jedem Lesen und vor jeder Kostenprüfung abgerechnet sein, damit die Antwort
-  „zu wenig Mana" nie an einer ausstehenden Abrechnung liegt.
+  „zu wenig Mana" nie an einer ausstehenden Abrechnung liegt. Für Gesundheit gilt dasselbe vor jeder
+  Schadensanwendung.
 - **FR-038**: Die Regeneration MUSS über die Abwesenheit eines Spielers hinweg gelten, ohne dass
   währenddessen etwas gelaufen ist.
+- **FR-038a**: Beide Ressourcen MÜSSEN an ihrem Maximum klemmen. Ein Überschuss verfällt still und
+  ist kein Fehler.
+- **FR-038b**: Ein toter Charakter DARF NICHT regenerieren, und ein Träger ohne Klassenbeitrag — ein
+  Monster — DARF NICHT regenerieren. Letzteres folgt bereits aus dem Basiswert null (ADR-023) und
+  wird geprüft, statt darauf vertraut zu werden.
 
 ### Functional Requirements — Runtime: Casting und Unterbrechung
 
@@ -524,7 +548,8 @@ Wert, ohne dass eine Quelldatei angefasst wurde.
 - **CastState**: ein laufender Cast — Fähigkeit, Beginn, Wirkzeitpunkt, gebuchte Kosten,
   Unterbrechungsregeln. Existiert nur, solange gecastet wird.
 - **AbilityConfig**: die geladene und geprüfte Gesamtkonfiguration — alle Abilities, die globale
-  Sperre, die beiden Mana-Raten.
+  Sperre und die beiden Kampf-Faktoren der Regeneration. Die Raten selbst stehen nicht hier: sie sind
+  Attribute und gehören dem Charakter (ADR-023).
 
 ## Success Criteria *(mandatory)*
 
@@ -539,7 +564,7 @@ Wert, ohne dass eine Quelldatei angefasst wurde.
 - **SC-004**: Nach Abmelden und Wiederanmelden weicht ein laufender Cooldown um höchstens eine Sekunde
   von der tatsächlich verstrichenen Zeit ab.
 - **SC-005**: Über eine Stunde Spielbetrieb mit 150 Spielern läuft **keine** wiederkehrende Aufgabe je
-  Spieler für Cooldowns oder Mana; die Zahl der geplanten Aufgaben entspricht der Zahl der gerade
+  Spieler für Cooldowns oder Regeneration; die Zahl der geplanten Aufgaben entspricht der Zahl der gerade
   laufenden Casts.
 - **SC-006**: Jede der drei Klassen hat genau sechs Fähigkeiten, vier aktiv, zwei passiv, genau eine
   Unique — durchgesetzt beim Start, nicht bloß dokumentiert.
@@ -617,17 +642,25 @@ Cooldown-Reduktion, Fläche statt Einzelziel.
 Der Warrior belegt damit fünf Slots, der Rogue sechs, der Mage sieben. Keine Klasse verliert ihre
 Hotbar vollständig; die restlichen 27 Inventarplätze sind ohnehin unberührt.
 
-### Globale Sperre und Mana-Raten — Ausgangswerte
+### Globale Sperre und Kampf-Faktoren — Ausgangswerte
+
+Die Regenerationsraten selbst sind **keine** Werte dieses Blocks mehr: sie sind die Attribute
+`healthRegen` und `manaRegen` aus B04 und stehen in `classes.yml` (ADR-023). Hier steht nur, was B08
+selbst besitzt.
 
 | Wert | Vorschlag | Begründung |
 |---|---|---|
 | Globale Sperre | 0,75 s | Lang genug, dass „alle vier sofort" nicht funktioniert; kurz genug, dass eine geplante Abfolge aus zwei Fähigkeiten flüssig bleibt |
-| Mana-Regeneration außerhalb des Kampfes | 4 % des Maximums je Sekunde | Volles Mana in rund 25 s Ruhe, unabhängig von der Klasse |
-| Mana-Regeneration im Kampf | 1,5 % des Maximums je Sekunde | Deutlich spürbar reduziert, aber nicht null — sonst wäre ein langer Kampf allein durch Mana entschieden |
+| Kampf-Faktor Gesundheit | 0,20 | Ein spürbarer Tropfen, nie ein Ersatz für Heilung. Beim Warrior auf Level 60 sind das rund 8 Punkte je Sekunde gegen 40 ausserhalb des Kampfes |
+| Kampf-Faktor Mana | 0,35 | Deutlich reduziert, aber nicht null — sonst wäre ein langer Kampf allein durch Mana entschieden. Beim Mage rund 7 gegen 20 |
 
-Die Rate ist bewusst **prozentual zum Maximum** und nicht absolut: der Mage hat mit 500 Mana das
-Zweieinhalbfache des Warriors, und eine absolute Rate hätte ihm eine anteilig viel langsamere
-Erholung gegeben, obwohl Mana sein Rollenprofil ist.
+Der Kampf-Faktor ist für Gesundheit strenger als für Mana, und das ist Absicht: Mana zurückzuhalten
+verkürzt einen Kampf, Gesundheit zurückzuhalten entscheidet ihn.
+
+Ausserhalb des Kampfes ergeben die Zahlen aus `classes.yml` für **jede** Klasse dieselbe Erholzeit —
+50 Sekunden auf volle Gesundheit, 25 Sekunden auf volles Mana, auf Level 1 wie auf Level 60. Dass die
+Rate des Warriors höher ist als die des Mage, ist die Folge seines grösseren Gefässes, keine
+Bevorzugung.
 
 ## Assumptions
 
@@ -661,7 +694,7 @@ Erholung gegeben, obwohl Mana sein Rollenprofil ist.
 - **Die Kosten werden bei Castbeginn abgebucht und bei Abbruch erstattet.** Die Alternative — erst bei
   Wirkung abbuchen — hätte erlaubt, einen Cast ohne ausreichendes Mana zu starten und auf Nachschub zu
   hoffen, und hätte die Prüfung zweimal gebraucht.
-- **Die Mana-Regeneration liest den Kampfzustand von B05** und führt keinen zweiten. B05 sagt das
+- **Die Regeneration liest den Kampfzustand von B05** und führt keinen zweiten. B05 sagt das
   ausdrücklich zu.
 - **Das Angriffsfenster gilt nicht für Fähigkeiten** — B05 hat das bereits so entschieden und
   begründet: beides zu prüfen begrenzte sie doppelt.
@@ -675,9 +708,12 @@ Erholung gegeben, obwohl Mana sein Rollenprofil ist.
 
 ## Abhängigkeiten
 
-- **B04** liefert den Wertestand, den Mana-Pool und die Modifikatoren, über die Buff und Debuff
-  wirken. B08 fügt kein Attribut hinzu (ADR-008, ADR-022).
-- **B05** nimmt jeden Schaden entgegen, liefert den Kampfzustand für die Mana-Rate und die
+- **B04** liefert den Wertestand, beide Ressourcenpools, die Modifikatoren, über die Buff und Debuff
+  wirken, und seit ADR-023 die beiden Regenerationsraten als Attribute. **B08 fügt selbst kein
+  Attribut hinzu** — Lifesteal, Ausweichen und die Wiederbelebungschance bleiben Effekte im
+  Kampf-Hook (ADR-008, ADR-022). Die beiden Raten sind der Gegenfall und wurden in B04 angelegt, wo
+  Attribute hingehören; B08 wendet sie nur an.
+- **B05** nimmt jeden Schaden entgegen, liefert den Kampfzustand für beide Regenerationsraten und die
   Einhängepunkte, über die passive Trigger und Lifesteal arbeiten. B08 greift nicht daran vorbei.
 - **B06** liefert das Level, aus dem die Freischaltung abgeleitet wird, und das Ereignis beim
   Aufstieg, an dem die Slots nachgezogen werden.

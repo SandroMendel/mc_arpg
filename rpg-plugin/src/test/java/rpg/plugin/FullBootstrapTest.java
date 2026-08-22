@@ -165,11 +165,11 @@ class FullBootstrapTest {
     }
 
     @Test
-    void theStatEngineStartsWithEightAttributesAndNoHolders() {
+    void theStatEngineStartsWithTenAttributesAndNoHolders() {
         rpg.core.stats.StatEngine engine =
                 plugin.registry().getService(rpg.core.stats.StatEngine.class);
 
-        assertThat(rpg.core.stats.Attribute.count()).isEqualTo(8);
+        assertThat(rpg.core.stats.Attribute.count()).isEqualTo(10);
         assertThat(engine.holderCount()).isZero();
     }
 

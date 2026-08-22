@@ -121,7 +121,7 @@ class ProgressionConfigSchemaTest {
     }
 
     @Test
-    @DisplayName("every one of the eight growth fields is required")
+    @DisplayName("every one of the growth fields is required")
     void allEightGrowthFieldsAreRequired() {
         List<String> declared =
                 ProgressionConfigSchema.schema().fields().stream()
@@ -175,8 +175,10 @@ class ProgressionConfigSchemaTest {
 
         Map<String, Object> growth = new LinkedHashMap<>();
         growth.put("health", 8.0);
+        growth.put("healthRegen", 0.5);
         growth.put("defense", 2.0);
         growth.put("mana", 4.0);
+        growth.put("manaRegen", 0.2);
         growth.put("physicalDamage", 1.5);
         growth.put("magicDamage", 1.5);
         growth.put("attackSpeed", 0.0);

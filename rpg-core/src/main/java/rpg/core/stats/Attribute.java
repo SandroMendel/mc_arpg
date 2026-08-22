@@ -6,13 +6,20 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * The eight attributes, as one closed set (FR-001).
+ * The ten attributes, as one closed set (FR-001).
  *
- * <p>Closed on purpose. A ninth attribute is one constant here plus one configuration entry -
+ * <p>Closed on purpose. A further attribute is one constant here plus one configuration entry -
  * calculation, modifier model and snapshot never learn about it, because they all work over {@link
- * #values()}. What a closed set buys instead is the reason this block costs nothing at idle: every
- * holder keeps its values in a {@code double[]} indexed by {@link #ordinal()}. No map lookup, no
- * boxing, no allocation in the path that runs while 200 players are fighting.
+ * #values()}. That promise was collected on in ADR-023, which added the two regeneration rates:
+ * the enum and two configuration blocks were the whole of the engine-side change. What a closed set
+ * buys instead is the reason this block costs nothing at idle: every holder keeps its values in a
+ * {@code double[]} indexed by {@link #ordinal()}. No map lookup, no boxing, no allocation in the
+ * path that runs while 200 players are fighting.
+ *
+ * <p><b>Declaration order is free.</b> {@link #ordinal()} indexes the in-memory arrays and nothing
+ * else - persistence stores the two raw resource values, never a per-attribute row (ADR-013), and
+ * both configuration files address attributes by {@link #key()}. Each regeneration rate therefore
+ * stands next to the pool it fills rather than being appended at the end.
  *
  * <p>Runtime registration was considered and rejected (see research.md E1): it would make the
  * snapshot size dynamic and turn every access into a name lookup, to support a case - blocks
@@ -23,11 +30,26 @@ public enum Attribute {
     /** Maximum health. Own HP system per ADR-003; the vanilla bar is a percentage display. */
     HEALTH("health", AttributeKind.ABSOLUTE),
 
+    /**
+     * Health recovered per second out of combat, reduced by a factor while in combat (ADR-023).
+     *
+     * <p>Points per second, not a share of the maximum: it is an attribute like any other and takes
+     * flat and percent modifiers the same way. A base of zero is deliberate - a holder without a
+     * class contributor is a creature, and creatures do not heal themselves.
+     *
+     * <p>Applied by B08, which is the first block that can see both the pool and the combat state.
+     * Until then the value is computed and carried, and nothing reads it.
+     */
+    HEALTH_REGEN("healthRegen", AttributeKind.ABSOLUTE),
+
     /** Reduces incoming damage through the divisor model in {@link DamageMitigation}. */
     DEFENSE("defense", AttributeKind.ABSOLUTE),
 
     /** Maximum mana - the resource active abilities (B08) draw from. */
     MANA("mana", AttributeKind.ABSOLUTE),
+
+    /** Mana recovered per second out of combat, reduced while in combat. See {@link #HEALTH_REGEN}. */
+    MANA_REGEN("manaRegen", AttributeKind.ABSOLUTE),
 
     /** Base for weapon damage. */
     PHYSICAL_DAMAGE("physicalDamage", AttributeKind.ABSOLUTE),

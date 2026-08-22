@@ -9,14 +9,14 @@ import java.util.stream.Collectors;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-/** T010: the closed set of eight attributes (FR-001, FR-004, FR-004a). */
+/** T010: the closed set of attributes (FR-001, FR-004, FR-004a). */
 class AttributeTest {
 
     @Test
-    @DisplayName("there are exactly eight attributes")
-    void eightAttributes() {
-        assertThat(Attribute.count()).isEqualTo(8);
-        assertThat(Attribute.all()).hasSize(8);
+    @DisplayName("there are exactly ten attributes")
+    void tenAttributes() {
+        assertThat(Attribute.count()).isEqualTo(10);
+        assertThat(Attribute.all()).hasSize(10);
     }
 
     @Test
@@ -27,13 +27,15 @@ class AttributeTest {
     }
 
     @Test
-    @DisplayName("the keys are exactly the ones the block brief names")
+    @DisplayName("the keys are exactly the ones the block brief and ADR-023 name")
     void keysMatchTheBrief() {
         assertThat(Arrays.stream(Attribute.all()).map(Attribute::key))
                 .containsExactly(
                         "health",
+                        "healthRegen",
                         "defense",
                         "mana",
+                        "manaRegen",
                         "physicalDamage",
                         "magicDamage",
                         "attackSpeed",

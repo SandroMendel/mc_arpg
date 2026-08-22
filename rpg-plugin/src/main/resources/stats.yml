@@ -22,6 +22,22 @@ attributes:
     min: 1.0
     max: 2000.0
 
+  # Health per second, out of combat (ADR-023). B08 applies it and reduces it while the holder is in
+  # combat; the factor lives with the ability configuration, not here, because this file describes
+  # what an attribute IS, not who spends it.
+  #
+  # base is ZERO on purpose, unlike health above. Creatures get a stat holder without a class
+  # contributor, so a non-zero base here would quietly make every mob in the world heal itself. The
+  # level-1 value comes from the class (classes.yml base-stats), which no creature has.
+  #
+  # max 40 is where the level-60 warrior lands: 1997 health back in 50 seconds. The cap sits AT the
+  # role target rather than above it, exactly like health, defense and the rest - one class reaches
+  # each cap and the other two stay below (ShippedClassConfigTest T066).
+  healthRegen:
+    base: 0.0
+    min: 0.0
+    max: 40.0
+
   # Divisor model: damage * 100/(100 + defense). 300 is exactly 75% mitigation. No separate cap is
   # needed - the curve approaches complete immunity without ever reaching it.
   defense:
@@ -33,6 +49,16 @@ attributes:
     base: 50.0
     min: 0.0
     max: 500.0
+
+  # Mana per second, out of combat. Same shape and the same zero base as healthRegen.
+  #
+  # max 20 is where the level-60 mage lands: 500 mana back in 25 seconds. Points per second rather
+  # than a share of the maximum: as an attribute it takes flat and percent modifiers like every other
+  # one, and the mage's advantage is then a higher value rather than a special rule.
+  manaRegen:
+    base: 0.0
+    min: 0.0
+    max: 20.0
 
   physicalDamage:
     base: 5.0
