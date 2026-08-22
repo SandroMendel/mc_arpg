@@ -78,7 +78,11 @@ class CoinPickupTest {
         currency = new RecordingCurrency();
         registry =
                 new CoinPileRegistry(
-                        config(), (id, amount, reason) -> true, java.time.Clock.systemUTC(), QUIET);
+                        config(),
+                        (id, amount, reason) -> true,
+                        java.time.Clock.systemUTC(),
+                        QUIET,
+                        new NoDisplay());
         listener = new CoinPickupListener(currency, new TestSessions(), registry, messages());
     }
 
@@ -306,5 +310,18 @@ class CoinPickupTest {
         public int activeSessionCount() {
             return activeCharacters.size();
         }
+    }
+
+    /** Diese Tests handeln nicht von Sichtbarkeit - die Anzeige tut hier nichts. */
+    private static final class NoDisplay implements CoinPile.PilePlatform {
+
+        @Override
+        public void hideFromEveryone(org.bukkit.entity.Item pile) {}
+
+        @Override
+        public void showTo(org.bukkit.entity.Item pile, org.bukkit.entity.Player player) {}
+
+        @Override
+        public void harden(org.bukkit.entity.Item pile, java.util.UUID ownerId, int spawnTicksLived) {}
     }
 }

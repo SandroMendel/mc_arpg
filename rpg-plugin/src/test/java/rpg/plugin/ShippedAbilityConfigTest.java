@@ -39,7 +39,15 @@ import rpg.core.session.CharacterClass;
 class ShippedAbilityConfigTest {
 
     /** Das Raster, dem alle drei Klassen folgen. Die Unique ist immer die letzte. */
-    private static final List<Integer> UNLOCK_LEVELS = List.of(1, 5, 15, 25, 35, 45);
+    /**
+     * Die ausgelieferte Freischaltung: <b>alles ab Stufe 1</b> (Entscheidung vom 2026-08-22).
+     *
+     * <p>Vorher stand hier die Leiter 1, 5, 15, 25, 35, 45. Sie war Balancing, keine Mechanik - und
+     * die Mechanik „was nicht freigeschaltet ist, belegt nichts" ist davon unberuehrt und wird in
+     * {@code AbilityHotbarTest} weiterhin gegen eine gestaffelte Testkonfiguration geprueft. Was hier
+     * steht, ist eine Aussage ueber die <em>ausgelieferte Datei</em>, und die hat sich geaendert.
+     */
+    private static final List<Integer> UNLOCK_LEVELS = List.of(1, 1, 1, 1, 1, 1);
 
     @Test
     @DisplayName("die ausgelieferte abilities.yml besteht das Schema und enthält achtzehn")
@@ -64,16 +72,16 @@ class ShippedAbilityConfigTest {
         }
 
         @Test
-        @DisplayName("jede Klasse hat genau eine Unique, und es ist die auf Stufe 45")
+        @DisplayName("jede Klasse hat genau eine Unique")
         void everyClassHasExactlyOneUnique() throws Exception {
             for (CharacterClass id : CharacterClass.values()) {
                 List<AbilityBinding> unique =
                         bindings(id).stream().filter(AbilityBinding::unique).toList();
 
+                // Genau eine je Klasse bleibt die Zusage (ADR-022, SC-006). Dass sie die LETZTE
+                // Freischaltung war, stand ebenfalls hier - das war eine Aussage ueber die Leiter,
+                // und die gibt es seit dem 2026-08-22 nicht mehr.
                 assertThat(unique).as(id + " hat genau eine Unique").hasSize(1);
-                assertThat(unique.get(0).unlockLevel())
-                        .as(id + ": die Unique ist die letzte Freischaltung")
-                        .isEqualTo(45);
             }
         }
 
@@ -106,7 +114,7 @@ class ShippedAbilityConfigTest {
     class UnlockLevels {
 
         @Test
-        @DisplayName("alle drei Klassen folgen 1, 5, 15, 25, 35, 45")
+        @DisplayName("alle drei Klassen schalten alles ab Stufe 1 frei")
         void allThreeFollowTheSameGrid() throws Exception {
             for (CharacterClass id : CharacterClass.values()) {
                 assertThat(bindings(id).stream().map(AbilityBinding::unlockLevel).sorted().toList())
@@ -116,12 +124,13 @@ class ShippedAbilityConfigTest {
         }
 
         @Test
-        @DisplayName("auf Stufe 1 ist genau eine Fähigkeit verfügbar, auf 45 alle sechs")
-        void exactlyOneAtLevelOne() throws Exception {
+        @DisplayName("auf Stufe 1 sind alle sechs verfügbar, und es kommt spaeter keine dazu")
+        void allSixAtLevelOne() throws Exception {
             for (CharacterClass id : CharacterClass.values()) {
-                assertThat(unlockedAt(id, 1)).as(id + " auf Stufe 1").hasSize(1);
-                assertThat(unlockedAt(id, 44)).as(id + " auf Stufe 44").hasSize(5);
-                assertThat(unlockedAt(id, 45)).as(id + " auf Stufe 45").hasSize(6);
+                assertThat(unlockedAt(id, 1)).as(id + " auf Stufe 1").hasSize(6);
+                assertThat(unlockedAt(id, 45))
+                        .as(id + ": auf Stufe 45 ist nichts hinzugekommen")
+                        .hasSize(6);
             }
         }
     }

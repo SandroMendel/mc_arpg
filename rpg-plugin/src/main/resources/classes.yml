@@ -160,11 +160,11 @@ classes:
     # unlock levels; what an ability does is B08 (FR-044).
     abilities:
       - { id: 'warrior.rage', kind: 'PASSIVE', unlock-level: 1 }
-      - { id: 'warrior.shield', kind: 'ACTIVE', unlock-level: 5 }
-      - { id: 'warrior.leap', kind: 'ACTIVE', unlock-level: 15 }
-      - { id: 'warrior.lifesteal', kind: 'PASSIVE', unlock-level: 25 }
-      - { id: 'warrior.whirl', kind: 'ACTIVE', unlock-level: 35 }
-      - { id: 'warrior.call-of-the-berserker', kind: 'ACTIVE', unique: true, unlock-level: 45 }
+      - { id: 'warrior.shield', kind: 'ACTIVE', unlock-level: 1 }
+      - { id: 'warrior.leap', kind: 'ACTIVE', unlock-level: 1 }
+      - { id: 'warrior.lifesteal', kind: 'PASSIVE', unlock-level: 1 }
+      - { id: 'warrior.whirl', kind: 'ACTIVE', unlock-level: 1 }
+      - { id: 'warrior.call-of-the-berserker', kind: 'ACTIVE', unique: true, unlock-level: 1 }
 
   # ---------------------------------------------------------------------------------------------
   # ROGUE - agile melee. Maxes attack speed and movement speed. Gold and chainmail are exclusive
@@ -263,11 +263,11 @@ classes:
     # The unique is passive: Second Life is not a button, it is what happens instead of dying.
     abilities:
       - { id: 'rogue.poisoned-blade', kind: 'PASSIVE', unlock-level: 1 }
-      - { id: 'rogue.teleport', kind: 'ACTIVE', unlock-level: 5 }
-      - { id: 'rogue.backstab', kind: 'PASSIVE', unlock-level: 15 }
-      - { id: 'rogue.invisibility', kind: 'ACTIVE', unlock-level: 25 }
-      - { id: 'rogue.clone', kind: 'ACTIVE', unlock-level: 35 }
-      - { id: 'rogue.second-life', kind: 'PASSIVE', unique: true, unlock-level: 45 }
+      - { id: 'rogue.teleport', kind: 'ACTIVE', unlock-level: 1 }
+      - { id: 'rogue.backstab', kind: 'PASSIVE', unlock-level: 1 }
+      - { id: 'rogue.invisibility', kind: 'ACTIVE', unlock-level: 1 }
+      - { id: 'rogue.clone', kind: 'ACTIVE', unlock-level: 1 }
+      - { id: 'rogue.second-life', kind: 'PASSIVE', unique: true, unlock-level: 1 }
 
   # ---------------------------------------------------------------------------------------------
   # MAGE - magic damage and mobility. Maxes mana, magic damage and cooldown reduction.
@@ -378,8 +378,8 @@ classes:
     # button to double jump would not have a double jump.
     abilities:
       - { id: 'mage.magic-life', kind: 'PASSIVE', unlock-level: 1 }
-      - { id: 'mage.lightning', kind: 'ACTIVE', unlock-level: 5 }
-      - { id: 'mage.magic-shield', kind: 'ACTIVE', unlock-level: 15 }
-      - { id: 'mage.mana-potion', kind: 'ACTIVE', unlock-level: 25 }
-      - { id: 'mage.lightning-storm', kind: 'ACTIVE', unlock-level: 35 }
-      - { id: 'mage.rise-and-fall', kind: 'PASSIVE', unique: true, unlock-level: 45 }
+      - { id: 'mage.lightning', kind: 'ACTIVE', unlock-level: 1 }
+      - { id: 'mage.magic-shield', kind: 'ACTIVE', unlock-level: 1 }
+      - { id: 'mage.mana-potion', kind: 'ACTIVE', unlock-level: 1 }
+      - { id: 'mage.lightning-storm', kind: 'ACTIVE', unlock-level: 1 }
+      - { id: 'mage.rise-and-fall', kind: 'PASSIVE', unique: true, unlock-level: 1 }

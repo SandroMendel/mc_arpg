@@ -55,7 +55,14 @@ class CoinPileCapTest {
         world = server.addSimpleWorld("world");
         clock = new MovableClock(Instant.parse("2026-08-22T12:00:00Z"));
         payout = new RecordingPayout();
-        registry = new CoinPileRegistry(config(3), payout, clock, QUIET);
+        registry =
+                new CoinPileRegistry(
+                        config(3),
+                        payout,
+                        clock,
+                        QUIET,
+                        // Dieser Test handelt von der Deckelung, nicht von Sichtbarkeit.
+                        new NoDisplay());
     }
 
     @AfterEach
@@ -268,5 +275,18 @@ class CoinPileCapTest {
         public Instant instant() {
             return now;
         }
+    }
+
+    /** Diese Tests handeln nicht von Sichtbarkeit - die Anzeige tut hier nichts. */
+    private static final class NoDisplay implements CoinPile.PilePlatform {
+
+        @Override
+        public void hideFromEveryone(org.bukkit.entity.Item pile) {}
+
+        @Override
+        public void showTo(org.bukkit.entity.Item pile, org.bukkit.entity.Player player) {}
+
+        @Override
+        public void harden(org.bukkit.entity.Item pile, java.util.UUID ownerId, int spawnTicksLived) {}
     }
 }

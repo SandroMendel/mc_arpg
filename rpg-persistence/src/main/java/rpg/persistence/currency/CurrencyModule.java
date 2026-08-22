@@ -60,6 +60,19 @@ public final class CurrencyModule implements Module {
     private JdbcCurrencyAdmin admin;
     private ConfigHandle<CurrencyConfig> configHandle;
 
+    /**
+     * Told when a character enters play, so the platform can show them their coin piles again.
+     *
+     * <p>A callback rather than a Bukkit listener: B03 permits exactly one join handler (FR-007),
+     * and this module must not know what a Player is. The plugin wires it to the pile registry.
+     */
+    private volatile java.util.function.BiConsumer<UUID, UUID> characterEntered = (player, character) -> {};
+
+    /** Installs the entry hook. At startup, not during play. */
+    public void setCharacterEntered(java.util.function.BiConsumer<UUID, UUID> hook) {
+        this.characterEntered = Objects.requireNonNull(hook, "hook");
+    }
+
     public CurrencyModule(
             PersistenceModule persistence, SessionModule sessions, Logger logger, Clock clock) {
         this.persistence = Objects.requireNonNull(persistence, "persistence");
@@ -216,6 +229,9 @@ public final class CurrencyModule implements Module {
             UUID characterId = character.characterId();
             Optional<CharacterBalance> stored = bundle.balanceOf(characterId);
             currency.onCharacterLoaded(characterId, stored);
+            // Player.showEntity is state on the connection and is gone after a relogin, so the
+            // piles this character earned have to be shown again (FR-027a).
+            characterEntered.accept(character.playerId(), characterId);
             if (stored.isEmpty()) {
                 // Never written before. Credits the configured starting balance, once, as an
                 // ordinary booking - and books nothing at all when that number is zero (FR-011a,

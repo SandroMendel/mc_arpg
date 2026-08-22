@@ -518,6 +518,30 @@ public class RpgPlugin extends JavaPlugin {
         startDamageWindowSweep(combatModule.config().aggregationWindow(), combatModule.pipeline());
     }
 
+    /**
+     * Credits health and mana that accrued since the last pass, for everyone in play.
+     *
+     * <p>The characters, not the players: regeneration belongs to the character (ADR-011), and the
+     * two ids are different things even though B05 keys damage by holder.
+     */
+    private void settleRegeneration() {
+        rpg.core.ability.ResourceRegeneration regeneration =
+                abilityModule == null ? null : abilityModule.regeneration();
+        if (regeneration == null) {
+            return;
+        }
+        regeneration.settleAll(charactersInPlay());
+    }
+
+    /** Every character currently being played. */
+    private List<java.util.UUID> charactersInPlay() {
+        return sessionModule.registry().all().stream()
+                .map(rpg.core.session.PlayerSession::activeCharacter)
+                .flatMap(java.util.Optional::stream)
+                .map(rpg.core.session.PlayerCharacter::characterId)
+                .toList();
+    }
+
     /** Everyone currently playing a character, from the registry that decides it. */
     private List<java.util.UUID> playersInPlay() {
         return sessionModule.registry().all().stream()
@@ -571,6 +595,11 @@ public class RpgPlugin extends JavaPlugin {
                     intervals.sweep();
                     buffs.expire();
                     projectiles.sweep();
+                    // Regeneration belongs here for the same reason the three above do: it is
+                    // "something that happens later". It was originally settled only when somebody
+                    // asked - and a wounded player standing still asks nothing, so health never
+                    // climbed unless they used an ability. Riding this sweep adds no task.
+                    settleRegeneration();
                     if (isEnabled()) {
                         startAbilitySweep(intervals, buffs, projectiles);
                     }
@@ -1204,11 +1233,23 @@ public class RpgPlugin extends JavaPlugin {
                                         .creditWhereverTheyAre(characterId, amount, reason)
                                         .isSuccess(),
                         Clock.systemUTC(),
-                        getLogger());
+                        getLogger(),
+                        rpg.platform.currency.CoinPile.PilePlatform.vanilla(this));
 
         rpg.platform.currency.CoinPile piles =
                 new rpg.platform.currency.CoinPile(
                         this, getServer(), config, Clock.systemUTC(), getLogger());
+
+        // A pile is invisible by default and shown to one player; that showing lives on the
+        // connection and dies with it. Without this, a relogin left a pile invisible but still
+        // collectable - the worst of both, and exactly what was reported from the server.
+        currencyModule.setCharacterEntered(
+                (playerId, characterId) -> {
+                    org.bukkit.entity.Player player = getServer().getPlayer(playerId);
+                    if (player != null) {
+                        pileRegistry.showPilesTo(player, characterId);
+                    }
+                });
 
         rpg.platform.currency.CoinDropListener coinDrops =
                 new rpg.platform.currency.CoinDropListener(

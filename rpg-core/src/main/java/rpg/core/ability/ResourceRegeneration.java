@@ -50,11 +50,47 @@ public final class ResourceRegeneration {
     }
 
     /**
+     * Settles every character that is currently in play.
+     *
+     * <p><b>Why this exists at all, and why the paragraph below used to say "never periodically".</b>
+     * The original design settled only when somebody asked - before a mana check, before damage,
+     * before a read. That is correct for <em>mana</em>, where the question "can I afford this" is the
+     * only moment the number matters. It is wrong for <em>health</em>: a wounded player standing
+     * still asks nothing, and expects their health to climb anyway. Until this method existed, a
+     * player who never triggered an ability never regenerated at all.
+     *
+     * <p>It is the same distinction ADR-024 draws for the scheduler: timestamp arithmetic answers
+     * questions, it does not perform actions. Regeneration turned out to be an action.
+     *
+     * <p><b>No new task.</b> This rides the one sweep that already drives every timed ability effect,
+     * so Constitution II is untouched: still no recurring work per player, per entity or per party -
+     * one pass that walks a list. Settling is arithmetic plus two map operations, and it is
+     * idempotent, so an extra pass costs a subtraction that yields zero.
+     */
+    public void settleAll(java.util.Collection<UUID> characterIds) {
+        if (characterIds == null || characterIds.isEmpty()) {
+            return;
+        }
+        for (UUID characterId : characterIds) {
+            try {
+                settle(characterId);
+            } catch (RuntimeException failure) {
+                // One character's failure must not stop the rest of the sweep (Constitution VI).
+                // No logger here on purpose: this class is pure arithmetic and has never needed one,
+                // and a log line per character per pass would be the loudest thing in the file at
+                // 150 players. The failure is swallowed at the level where it cannot spread.
+                continue;
+            }
+        }
+    }
+
+    /**
      * Credits whatever has accrued since the last settlement.
      *
      * <p>Call before checking mana, before applying damage and before reading a resource (FR-037) -
-     * never periodically. The answer "not enough mana" must never be down to an outstanding
-     * settlement.
+     * and, since {@link #settleAll}, also from the sweep. The answer "not enough mana" must never be
+     * down to an outstanding settlement, which is why the on-demand calls stay even though the sweep
+     * would eventually get there.
      */
     public void settle(UUID characterId) {
         Objects.requireNonNull(characterId, "characterId");

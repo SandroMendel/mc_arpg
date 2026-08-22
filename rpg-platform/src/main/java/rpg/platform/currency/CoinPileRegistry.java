@@ -11,6 +11,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 
 import org.bukkit.entity.Item;
+import org.bukkit.entity.Player;
 
 import rpg.core.currency.BookingReason;
 import rpg.core.currency.CurrencyConfig;
@@ -35,15 +36,11 @@ public final class CoinPileRegistry implements CoinPile.PileCap {
     /**
      * What a pile needs to be paid out when the server takes it away.
      *
-     * <p><b>Known gap, and it is named rather than hidden.</b> FR-030c requires that an <em>offline</em>
-     * owner is credited too. The implementation wired in today books through {@code Currency}, which
-     * only knows loaded characters - so an offline owner's pile is currently left in place and the
-     * next one is cashed in instead. Nothing is lost, but the cap frees a slot less often than it
-     * could.
-     *
-     * <p>Closing it needs the repository path an operator intervention uses for an offline character
-     * (T078). Until then this interface is exactly the seam that will take it, which is why the
-     * signature already talks about a character rather than a session.
+     * <p><b>An offline owner is credited too</b> (FR-030c), and that is not incidental: the pile most
+     * likely to be the oldest belongs to somebody who logged out, which is precisely why it is the
+     * oldest. The wiring goes through {@code JdbcCurrencyAdmin.creditWhereverTheyAre}, which reaches
+     * the stored balance when the character is not loaded. That is why this signature talks about a
+     * character and not about a session.
      */
     @FunctionalInterface
     public interface Payout {
@@ -59,11 +56,22 @@ public final class CoinPileRegistry implements CoinPile.PileCap {
     private final Payout payout;
     private final Clock clock;
     private final Logger logger;
+    private final CoinPile.PilePlatform platform;
 
     private final Map<UUID, Entry> piles = new ConcurrentHashMap<>();
 
+    /**
+     * @param platform how a pile is shown to a player - {@code PilePlatform.vanilla(plugin)} in
+     *     production, a recorder in a test. There is deliberately no convenience constructor without
+     *     it: showing a pile is not optional (FR-027a), and a default would have to invent a plugin.
+     */
     public CoinPileRegistry(
-            CurrencyConfig config, Payout payout, Clock clock, Logger logger) {
+            CurrencyConfig config,
+            Payout payout,
+            Clock clock,
+            Logger logger,
+            CoinPile.PilePlatform platform) {
+        this.platform = Objects.requireNonNull(platform, "platform");
         this.config = Objects.requireNonNull(config, "config");
         this.payout = Objects.requireNonNull(payout, "payout");
         this.clock = Objects.requireNonNull(clock, "clock");
@@ -75,6 +83,32 @@ public final class CoinPileRegistry implements CoinPile.PileCap {
         Objects.requireNonNull(pile, "pile");
         Objects.requireNonNull(characterId, "characterId");
         piles.put(pile.getUniqueId(), new Entry(pile, characterId, clock.millis()));
+    }
+
+    /**
+     * Shows this character's piles to the player again.
+     *
+     * <p><b>Why this is needed at all.</b> {@code Player.showEntity} is state on the <em>connection</em>,
+     * not on the entity: it is gone the moment the player disconnects. A pile is
+     * {@code setVisibleByDefault(false)}, so after a relogin it is invisible again - while the vanilla
+     * owner flag and our character check both still pass, which is why it could still be walked over
+     * and collected. Invisible but collectable is the worst of both.
+     *
+     * <p>Called when a character enters play, which is also the only moment it can be needed: nothing
+     * else takes a shown entity away for the rest of a session.
+     *
+     * <p>Silently does nothing for piles of other characters, including the player's own other
+     * characters - a pile belongs to the character that earned it (ADR-011).
+     */
+    public void showPilesTo(Player player, UUID characterId) {
+        Objects.requireNonNull(player, "player");
+        Objects.requireNonNull(characterId, "characterId");
+        forgetWhatIsGone();
+        for (Entry entry : piles.values()) {
+            if (entry.characterId().equals(characterId) && entry.pile().isValid()) {
+                platform.showTo(entry.pile(), player);
+            }
+        }
     }
 
     /** Forgets a pile that was picked up. */

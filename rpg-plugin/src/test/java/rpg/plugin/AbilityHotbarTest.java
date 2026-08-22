@@ -118,18 +118,21 @@ class AbilityHotbarTest {
     class NotYetUnlocked {
 
         @Test
-        @DisplayName("auf Stufe 1 hat der Warrior keinen einzigen Fähigkeiten-Slot")
-        void levelOneWarriorHasNoAbilitySlot() throws Exception {
-            // Wut ist passiv und trägt keinen Marker: auf Stufe 1 ist die Hotbar leer.
-            hotbar.layOut(player, unlockedAt(CharacterClass.WARRIOR, 1));
+        @DisplayName("nur Passive freigeschaltet: die Hotbar bleibt leer")
+        void onlyPassivesMeansNoSlot() throws Exception {
+            // Gegen eine EIGENE Auswahl, nicht gegen die ausgelieferte Datei. Diese Tests handeln von
+            // der Mechanik - was nicht freigeschaltet ist, belegt nichts -, und die haengt nicht
+            // davon ab, welche Freischaltstufen gerade konfiguriert sind. Als sie noch aus
+            // classes.yml lasen, sind sie an einer reinen Balancing-Aenderung zerbrochen.
+            hotbar.layOut(player, only("warrior.rage"));
 
             assertThat(occupied()).isZero();
         }
 
         @Test
-        @DisplayName("auf Stufe 5 kommt genau einer dazu, und zwar direkt neben der Waffe")
-        void levelFiveAddsExactlyOne() throws Exception {
-            hotbar.layOut(player, unlockedAt(CharacterClass.WARRIOR, 5));
+        @DisplayName("eine freigeschaltete Aktive belegt genau einen Slot, direkt neben der Waffe")
+        void oneActiveTakesExactlyOneSlot() throws Exception {
+            hotbar.layOut(player, only("warrior.rage", "warrior.shield"));
 
             assertThat(occupied()).isEqualTo(1);
             assertThat(player.getInventory().getItem(1)).isNotNull();
@@ -142,9 +145,9 @@ class AbilityHotbarTest {
             hotbar.layOut(player, allOf(CharacterClass.MAGE));
             assertThat(occupied()).isEqualTo(6);
 
-            // Neu aufbauen statt nachbessern - die Zusage ist, dass der Stand allein aus dem Level
-            // folgt. Ein Rest aus dem vorherigen Aufbau würde genau das brechen.
-            hotbar.layOut(player, unlockedAt(CharacterClass.MAGE, 5));
+            // Neu aufbauen statt nachbessern - die Zusage ist, dass der Stand allein aus dem folgt,
+            // was freigeschaltet ist. Ein Rest aus dem vorherigen Aufbau würde genau das brechen.
+            hotbar.layOut(player, only("mage.magic-life", "mage.lightning"));
 
             assertThat(occupied()).isEqualTo(1);
         }
@@ -183,6 +186,12 @@ class AbilityHotbarTest {
             }
         }
         return found.toArray(new Material[0]);
+    }
+
+    /** Genau diese Faehigkeiten, unabhaengig von jeder konfigurierten Freischaltstufe. */
+    private static List<Ability> only(String... abilityIds) throws Exception {
+        AbilityConfig abilities = shippedAbilities();
+        return java.util.Arrays.stream(abilityIds).map(abilities::require).toList();
     }
 
     private static List<Ability> allOf(CharacterClass id) throws Exception {
