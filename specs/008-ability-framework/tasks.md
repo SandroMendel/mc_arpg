@@ -199,22 +199,22 @@ tatsächlich zugefügten Schadens.
 
 ### Tests für User Story 3 ⚠️
 
-- [ ] T074 [P] [US3] `ResourceRegenerationTest` in `rpg-core/src/test/java/rpg/core/ability/` — die Zerlegung eines Intervalls in Kampf- und Ruheanteil ist **exakt**, mit steuerbarer Uhr
-- [ ] T075 [P] [US3] `ResourceRegenerationTest`: die Zerlegung stimmt auch, wenn zwischen zwei Abrechnungen der Kampf endete und **kein Ereignis** eintraf (research.md R3)
-- [ ] T076 [P] [US3] `ResourceRegenerationTest`: beide Ressourcen klemmen am Maximum (FR-038a); ein toter Charakter und ein Halter ohne Klassenbeitrag regenerieren nicht (FR-038b)
-- [ ] T077 [P] [US3] `NoTaskPerPlayerTest` in `rpg-core/src/test/java/rpg/core/ability/` — SC-005: mit einem zählenden Scheduler ist die Zahl geplanter Aufgaben null, solange kein Cast läuft. Aufbau wie `AttackWindowTest` in B05
-- [ ] T078 [P] [US3] `AbilityStatePersistenceTest` in `rpg-persistence/src/test/java/rpg/persistence/ability/` mit Testcontainers — SC-004: Restzeit nach Neuladen; ein abgelaufener Cooldown wird **verworfen**, nicht geladen; eine Zeile auf Rang 1 ohne Cooldown wird gelöscht
+- [X] T074 [P] [US3] `ResourceRegenerationTest` in `rpg-core/src/test/java/rpg/core/ability/` — die Zerlegung eines Intervalls in Kampf- und Ruheanteil ist **exakt**, mit steuerbarer Uhr
+- [X] T075 [P] [US3] `ResourceRegenerationTest`: die Zerlegung stimmt auch, wenn zwischen zwei Abrechnungen der Kampf endete und **kein Ereignis** eintraf (research.md R3)
+- [X] T076 [P] [US3] `ResourceRegenerationTest`: beide Ressourcen klemmen am Maximum (FR-038a); ein toter Charakter und ein Halter ohne Klassenbeitrag regenerieren nicht (FR-038b)
+- [X] T077 [P] [US3] `NoTaskPerPlayerTest` in `rpg-core/src/test/java/rpg/core/ability/` — SC-005: mit einem zählenden Scheduler ist die Zahl geplanter Aufgaben null, solange kein Cast läuft. Aufbau wie `AttackWindowTest` in B05
+- [X] T078 [P] [US3] `AbilityStatePersistenceTest` in `rpg-persistence/src/test/java/rpg/persistence/ability/` mit Testcontainers — SC-004: Restzeit nach Neuladen; ein abgelaufener Cooldown wird **verworfen**, nicht geladen; eine Zeile auf Rang 1 ohne Cooldown wird gelöscht
 
 ### Umsetzung für User Story 3
 
-- [ ] T079 [US3] `ResourceRegeneration` in `rpg-core/src/main/java/rpg/core/ability/ResourceRegeneration.java` mit `settle` und `forget` — je Charakter `lastSettledAt` und `combatEndsAt`, sonst nichts (data-model.md)
-- [ ] T080 [US3] `combatEndsAt` bei jeder Abrechnung aus `CombatPipeline.remainingCombatTime` nachführen, solange der Halter im Kampf ist — **kein zweiter Kampfzähler** (FR-036)
-- [ ] T081 [US3] Beide Raten aus den Attributen `healthRegen` und `manaRegen` lesen und im Kampf mit dem jeweiligen Faktor multiplizieren (FR-033, FR-033a, ADR-023)
-- [ ] T082 [US3] `settle` an den Stellen aufrufen, die FR-037 nennt: vor jeder Kostenprüfung, vor jeder Schadensanwendung, vor jedem Lesen einer Ressource — **nicht** periodisch
-- [ ] T083 [US3] Regeneration über die Abwesenheit hinweg: der Ladepfad rechnet einmal aus dem gespeicherten Abmeldezeitpunkt, den B03 ohnehin führt (FR-038)
-- [ ] T084 [US3] Cooldown-Zeitstempel je Charakter persistieren, über den Write-Behind-Puffer und **nicht** je Auslösung (FR-031, FR-032)
-- [ ] T085 [US3] Beim Laden abgelaufene Cooldowns verwerfen und Zeilen ohne Nutzinhalt löschen, damit die Tabelle nicht mit jedem Kampf wächst
-- [ ] T086 [US3] `ResourceRegeneration` und das Laden der Ränge in `AbilitySessionAttachment` einhängen (T037)
+- [X] T079 [US3] `ResourceRegeneration` in `rpg-core/src/main/java/rpg/core/ability/ResourceRegeneration.java` mit `settle` und `forget` — je Charakter `lastSettledAt` und `combatEndsAt`, sonst nichts (data-model.md)
+- [X] T080 [US3] `combatEndsAt` bei jeder Abrechnung aus `CombatPipeline.remainingCombatTime` nachführen, solange der Halter im Kampf ist — **kein zweiter Kampfzähler** (FR-036)
+- [X] T081 [US3] Beide Raten aus den Attributen `healthRegen` und `manaRegen` lesen und im Kampf mit dem jeweiligen Faktor multiplizieren (FR-033, FR-033a, ADR-023)
+- [X] T082 [US3] `settle` an den Stellen aufrufen, die FR-037 nennt: vor jeder Kostenprüfung, vor jeder Schadensanwendung, vor jedem Lesen einer Ressource — **nicht** periodisch
+- [X] T083 [US3] Regeneration über die Abwesenheit hinweg: der Ladepfad rechnet einmal aus dem gespeicherten Abmeldezeitpunkt, den B03 ohnehin führt (FR-038)
+- [X] T084 [US3] Cooldown-Zeitstempel je Charakter persistieren, über den Write-Behind-Puffer und **nicht** je Auslösung (FR-031, FR-032)
+- [X] T085 [US3] Beim Laden abgelaufene Cooldowns verwerfen und Zeilen ohne Nutzinhalt löschen, damit die Tabelle nicht mit jedem Kampf wächst
+- [X] T086 [US3] `ResourceRegeneration` und das Laden der Ränge in `AbilitySessionAttachment` einhängen (T037)
 
 **Checkpoint**: Ein verletzter Spieler heilt. Cooldowns überstehen einen Neustart.
 

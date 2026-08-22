@@ -32,6 +32,19 @@ public final class AbilityRuntime {
     private final AbilityStateRepository repository;
     private final Clock clock;
 
+    /**
+     * Settled before the mana check, never on a timer (FR-037).
+     *
+     * <p>Optional so the runtime stays testable on its own; absent means nothing accrues, which is the
+     * safe direction - a missing settlement can only make an ability harder to use, never easier.
+     */
+    private volatile ResourceRegeneration regeneration;
+
+    /** Installs the regeneration. At startup, not during play. */
+    public void setRegeneration(ResourceRegeneration regeneration) {
+        this.regeneration = regeneration;
+    }
+
     public AbilityRuntime(
             AbilityRegistry registry,
             StatEngine stats,
@@ -85,6 +98,12 @@ public final class AbilityRuntime {
             return AbilityResult.ON_COOLDOWN;
         }
 
+        // FR-037. Settled here, immediately before the question is asked: "not enough mana" must
+        // never be down to an outstanding settlement rather than to the player's actual mana.
+        ResourceRegeneration accrual = regeneration;
+        if (accrual != null) {
+            accrual.settle(characterId);
+        }
         ResourceView resources = stats.resources(characterId);
         if (resources.currentMana() < ability.manaCost()) {
             return AbilityResult.NOT_ENOUGH_MANA;

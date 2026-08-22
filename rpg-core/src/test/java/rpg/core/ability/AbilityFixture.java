@@ -265,7 +265,7 @@ final class AbilityFixture {
         double maxHealth = 1000.0;
         double cooldownReduction;
 
-        private final Map<rpg.core.stats.Attribute, Double> values = new HashMap<>();
+        final Map<rpg.core.stats.Attribute, Double> values = new HashMap<>();
 
         @Override
         public rpg.core.stats.StatSnapshot snapshot(UUID holderId) {

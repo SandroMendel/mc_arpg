@@ -600,6 +600,11 @@ public class RpgPlugin extends JavaPlugin {
                         abilityModule.repository(),
                         Clock.systemUTC());
 
+        // Settled before every mana check (FR-037) - and never on a timer. This is also where a
+        // wounded player finally heals at all: ADR-013 switched vanilla regeneration off and left the
+        // gap open until ADR-023 made the two rates attributes.
+        abilityRuntime.setRegeneration(abilityModule.regeneration());
+
         abilityHotbar = new rpg.platform.ability.AbilityHotbar(messages, getLogger());
 
         // The passive triggers, hung on the three hooks B05 already has (research.md R6). Which stage

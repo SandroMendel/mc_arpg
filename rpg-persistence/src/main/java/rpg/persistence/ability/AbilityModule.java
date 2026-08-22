@@ -71,6 +71,7 @@ public final class AbilityModule implements Module {
     private ConfigHandle<AbilityConfig> configHandle;
     private JdbcAbilityStateRepository repository;
     private AbilityRegistry registry;
+    private rpg.core.ability.ResourceRegeneration regeneration;
 
     public AbilityModule(
             PersistenceModule persistence,
@@ -136,6 +137,13 @@ public final class AbilityModule implements Module {
         // than keeping a second copy that could disagree. Not statesOf: the flush needs the stash too.
         repository.setLiveSource(this::statesForFlush);
 
+        regeneration =
+                new rpg.core.ability.ResourceRegeneration(
+                        context.registry().getService(rpg.core.stats.StatEngine.class),
+                        context.registry().getService(rpg.core.combat.CombatPipeline.class),
+                        registry,
+                        clock);
+
         sessions.lifecycle().addAttachment(new AbilitySessionAttachment());
         context.registry().registerService(ID, AbilityRegistry.class, registry);
 
@@ -156,6 +164,29 @@ public final class AbilityModule implements Module {
     /** The write path the runtime marks through - never a direct database access (FR-032). */
     public AbilityStateRepository repository() {
         return repository;
+    }
+
+    /**
+     * Credits what accrued while the character was away (FR-038, T083).
+     *
+     * <p>The bundle already carries the moment the account was last seen - B03 stores it on every
+     * session end, so this costs no query. A first-time account has no record and simply starts the
+     * clock at now: there is no absence to credit for a character that did not exist.
+     *
+     * <p>The whole absence counts as idle time. Nobody was there to fight, and the alternative -
+     * crediting nothing - would mean a player who logs off wounded comes back exactly as wounded,
+     * which is the behaviour ADR-013 accidentally produced for months.
+     */
+    private void creditAbsence(UUID characterId, SessionBundle bundle) {
+        bundle.accountState()
+                .ifPresentOrElse(
+                        state -> regeneration.settleAbsence(characterId, state.lastSeenAt()),
+                        () -> regeneration.settle(characterId));
+    }
+
+    /** Health and mana coming back over time - the block that finally closes ADR-013's gap. */
+    public rpg.core.ability.ResourceRegeneration regeneration() {
+        return regeneration;
     }
 
     public AbilityConfig config() {
@@ -228,6 +259,7 @@ public final class AbilityModule implements Module {
             UUID characterId = character.characterId();
             registry.restore(characterId, bundle.abilitiesOf(characterId));
             characterByPlayer.put(playerId, characterId);
+            creditAbsence(characterId, bundle);
         }
 
         @Override
@@ -245,6 +277,7 @@ public final class AbilityModule implements Module {
                 repository.markDirty(characterId);
             }
             registry.forget(characterId);
+            regeneration.forget(characterId);
         }
     }
 }
