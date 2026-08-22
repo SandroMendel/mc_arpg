@@ -87,6 +87,107 @@ class IntervalAndMeterTest {
     }
 
     @Nested
+    @DisplayName("Der Weg dorthin - ein Effekt mit Intervall landet ueberhaupt im Durchlauf")
+    class TheDispatcherHandsItOver {
+
+        @Test
+        @DisplayName("eine Faehigkeit mit Intervall wirkt nicht sofort, sondern startet eine Instanz")
+        void aPeriodicEffectIsHandedToTheRunner() {
+            dispatcher.setIntervalRunner(runner);
+            UUID target = UUID.randomUUID();
+
+            dispatcher.run(
+                    withInterval(fixture.strike()),
+                    fixture.character,
+                    List.of(target),
+                    1,
+                    snapshot());
+
+            // Der Fehler, den dieser Test festhaelt: der Runner wurde gebaut und gefegt, aber nie
+            // gefuettert. Ohne die Uebergabe haette Gift einmal gewirkt statt sechs Sekunden lang -
+            // und nichts haette es gemeldet, weil ein einmaliger Treffer wie ein Treffer aussieht.
+            assertThat(applied).as("noch nichts - das erste Intervall ist nicht um").isEmpty();
+            assertThat(runner.runningCount()).isEqualTo(1);
+
+            fixture.clock.advance(Duration.ofSeconds(1));
+            runner.sweep();
+
+            assertThat(applied).hasSize(1);
+        }
+
+        @Test
+        @DisplayName("ein Flaecheneffekt mit Intervall startet eine Instanz JE Ziel")
+        void oneInstancePerTarget() {
+            dispatcher.setIntervalRunner(runner);
+
+            dispatcher.run(
+                    withInterval(fixture.strike()),
+                    fixture.character,
+                    List.of(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID()),
+                    1,
+                    snapshot());
+
+            // Je Ziel eine, weil der Runner nach Ziel schluesselt - genau das laesst Stapeln
+            // funktionieren. Eine gemeinsame Instanz koennte nicht sagen, wer wie oft vergiftet ist.
+            assertThat(runner.runningCount()).isEqualTo(3);
+        }
+
+        @Test
+        @DisplayName("ohne Intervall geht alles den gewoehnlichen Weg")
+        void withoutAnIntervalNothingChanges() {
+            dispatcher.setIntervalRunner(runner);
+
+            dispatcher.run(
+                    fixture.strike(), fixture.character, List.of(UUID.randomUUID()), 1, snapshot());
+
+            assertThat(applied).as("sofort, einmal").hasSize(1);
+            assertThat(runner.runningCount()).isZero();
+        }
+
+        /** Dieselbe Faehigkeit, aber ihr Schadenseffekt traegt Dauer und Intervall. */
+        private static Ability withInterval(Ability ability) {
+            EffectSpec original = ability.effects().get(0);
+            EffectSpec periodic =
+                    new EffectSpec(
+                            original.type(),
+                            original.amount(),
+                            original.perRank(),
+                            Duration.ofSeconds(6),
+                            Duration.ofSeconds(1),
+                            1,
+                            null,
+                            original.attribute(),
+                            original.damageType(),
+                            original.statusEffect(),
+                            original.buildPerHit(),
+                            original.idleBefore(),
+                            original.decayPerSecond(),
+                            original.asFraction());
+            return new Ability(
+                    ability.id(),
+                    ability.kind(),
+                    ability.displayNameKey(),
+                    ability.manaCost(),
+                    ability.cooldown(),
+                    ability.castTime(),
+                    ability.sustained(),
+                    ability.duration(),
+                    ability.charges(),
+                    ability.chargeWindow(),
+                    ability.requiresBehindTarget(),
+                    ability.openWorldOnly(),
+                    ability.playerToggle(),
+                    ability.interruptOnMove(),
+                    ability.triggers(),
+                    ability.chance(),
+                    ability.target(),
+                    List.of(periodic),
+                    ability.maxRank(),
+                    ability.items());
+        }
+    }
+
+    @Nested
     @DisplayName("FR-010b - EINE Auswertung für alle")
     class OneSweepForAll {
 

@@ -45,5 +45,30 @@ public final class AbilityMessageKeys {
     public static final MessageKey SECOND_LIFE_SUBTITLE =
             MessageKey.of("ability.second-life.subtitle");
 
+    /**
+     * Every key this block can say, for the test that checks the shipped file carries them all.
+     *
+     * <p>Listed by hand rather than read by reflection: a key that somebody adds and forgets to list
+     * here is caught by the start validator anyway, and a reflective list would silently follow a
+     * rename that the message file did not.
+     */
+    public static java.util.List<MessageKey> all() {
+        return java.util.List.of(
+                ON_COOLDOWN,
+                GLOBAL_LOCK,
+                NOT_ENOUGH_MANA,
+                NOT_UNLOCKED,
+                ALREADY_CASTING,
+                ALREADY_SUSTAINING,
+                NO_CHARGES,
+                NO_CHARACTER,
+                UNLOCKED,
+                RANK_ADVANCED,
+                RANK_AT_MAXIMUM,
+                TOGGLE_CHANGED,
+                SECOND_LIFE_TITLE,
+                SECOND_LIFE_SUBTITLE);
+    }
+
     private AbilityMessageKeys() {}
 }

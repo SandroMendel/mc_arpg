@@ -347,14 +347,14 @@ eine freigeschaltet, auf Stufe 45 alle sechs.
 
 ### Tests für User Story 7 ⚠️
 
-- [ ] T125 [P] [US7] `AbilityRankTest` in `rpg-core/src/test/java/rpg/core/ability/` — `valueAtRank` folgt `amount + perRank × (r − 1)`; Höchstrang wird durchgesetzt
-- [ ] T126 [P] [US7] `AbilityRankTest`: der Rang gehört dem **Charakter**, nicht dem Konto — zwei Charaktere desselben Kontos bleiben unabhängig (ADR-011)
+- [X] T125 [P] [US7] `AbilityRankTest` in `rpg-core/src/test/java/rpg/core/ability/` — `valueAtRank` folgt `amount + perRank × (r − 1)`; Höchstrang wird durchgesetzt
+- [X] T126 [P] [US7] `AbilityRankTest`: der Rang gehört dem **Charakter**, nicht dem Konto — zwei Charaktere desselben Kontos bleiben unabhängig (ADR-011)
 
 ### Umsetzung für User Story 7
 
-- [ ] T127 [US7] `advanceRank` in `AbilityRuntime` — erhöht um eins, setzt den Höchstrang durch, schreibt über den Puffer (FR-062, FR-065)
-- [ ] T128 [US7] Rangskalierung in allen Effekt-Anwendungen anwenden: eine Multiplikation beim Auslesen, kein zweiter Satz Definitionen (FR-063)
-- [ ] T129 [US7] `RankResult` in `rpg-core/src/main/java/rpg/core/ability/RankResult.java` — Erfolg oder Höchstrang erreicht; im Javadoc steht ausdrücklich, dass **niemand** den Aufstieg bezahlt, weil es im Projekt keine Währung gibt (Workflow-Regel 5)
+- [X] T127 [US7] `advanceRank` in `AbilityRuntime` — erhöht um eins, setzt den Höchstrang durch, schreibt über den Puffer (FR-062, FR-065)
+- [X] T128 [US7] Rangskalierung in allen Effekt-Anwendungen anwenden: eine Multiplikation beim Auslesen, kein zweiter Satz Definitionen (FR-063)
+- [X] T129 [US7] `RankResult` in `rpg-core/src/main/java/rpg/core/ability/RankResult.java` — Erfolg oder Höchstrang erreicht; im Javadoc steht ausdrücklich, dass **niemand** den Aufstieg bezahlt, weil es im Projekt keine Währung gibt (Workflow-Regel 5)
 
 ---
 
@@ -366,14 +366,14 @@ eine freigeschaltet, auf Stufe 45 alle sechs.
 
 ### Tests für User Story 8 ⚠️
 
-- [ ] T130 [P] [US8] `AbilityConfigReloadTest` in `rpg-core/src/test/java/rpg/core/ability/` — je eine Kategorie geänderter Zahl wirkt: Kosten, Cooldown, Wirkzeit, Reichweite, Obergrenze, Rangkurve, globale Sperre, Kampf-Faktor
-- [ ] T131 [P] [US8] `AbilityConfigValidationTest`: SC-008 — jede fehlerhafte Konfiguration verhindert den Start **und** nennt Fähigkeit und Feld
-- [ ] T132 [P] [US8] `AbilityCooldownCapTest` in `rpg-core/src/test/java/rpg/core/ability/` — eine Cooldown-Reduktion über 40 % wird gekappt (ADR-008)
+- [X] T130 [P] [US8] `AbilityConfigReloadTest` in `rpg-core/src/test/java/rpg/core/ability/` — je eine Kategorie geänderter Zahl wirkt: Kosten, Cooldown, Wirkzeit, Reichweite, Obergrenze, Rangkurve, globale Sperre, Kampf-Faktor
+- [X] T131 [P] [US8] `AbilityConfigValidationTest`: SC-008 — jede fehlerhafte Konfiguration verhindert den Start **und** nennt Fähigkeit und Feld
+- [X] T132 [P] [US8] `AbilityCooldownCapTest` in `rpg-core/src/test/java/rpg/core/ability/` — eine Cooldown-Reduktion über 40 % wird gekappt (ADR-008)
 
 ### Umsetzung für User Story 8
 
-- [ ] T133 [US8] Prüfen, dass keine Kosten-, Cooldown-, Reichweiten- oder Wirkungszahl im Code steht (FR-008) — als Quellentest nach dem Muster von `ClassSourceInvariantsTest` in B07
-- [ ] T134 [US8] `AbilityMessageKeyResolutionTest` in `rpg-plugin/src/test/java/rpg/plugin/` — jeder Schlüssel des Blocks löst zu nicht-leerem Text auf und führt die Platzhalter, die der Code füllt
+- [X] T133 [US8] Prüfen, dass keine Kosten-, Cooldown-, Reichweiten- oder Wirkungszahl im Code steht (FR-008) — als Quellentest nach dem Muster von `ClassSourceInvariantsTest` in B07
+- [X] T134 [US8] `AbilityMessageKeyResolutionTest` in `rpg-plugin/src/test/java/rpg/plugin/` — jeder Schlüssel des Blocks löst zu nicht-leerem Text auf und führt die Platzhalter, die der Code füllt
 
 ---
 

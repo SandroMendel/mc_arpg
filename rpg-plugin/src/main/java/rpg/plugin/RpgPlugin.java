@@ -662,6 +662,9 @@ public class RpgPlugin extends JavaPlugin {
         // the first time round (FR-010b).
         rpg.core.ability.effect.IntervalEffectRunner intervals =
                 new rpg.core.ability.effect.IntervalEffectRunner(effects, Clock.systemUTC());
+        // Both directions: the dispatcher hands periodic effects TO the runner, and the runner hands
+        // each due application back THROUGH the dispatcher, so it stays behind the same error barrier.
+        effects.setIntervalRunner(intervals);
         startAbilitySweep(intervals, buffs, projectiles);
 
         abilityRuntime =

@@ -358,6 +358,34 @@ public final class AbilityRuntime {
         repository.markDirty(characterId);
     }
 
+    /**
+     * Raises this character's rank on this ability by one (FR-062).
+     *
+     * <p><b>The rank belongs to the character, never to the account</b> (ADR-011). Two characters of
+     * the same player advance separately, and the state key says so: it is a pair of character and
+     * ability, and no player id appears in it anywhere.
+     *
+     * <p><b>Nothing is charged.</b> See {@link RankResult} - there is no currency in this project,
+     * and inventing one here would put an economy in the wrong block.
+     *
+     * <p>Written through the buffer like every other change: the cache is authoritative for the
+     * session and the write-behind cycle carries it to the database (Principle IV).
+     */
+    public RankResult advanceRank(UUID characterId, String abilityId) {
+        Objects.requireNonNull(characterId, "characterId");
+        Ability ability = registry.config().require(abilityId);
+        if (!isUnlocked(characterId, abilityId)) {
+            return RankResult.NOT_UNLOCKED;
+        }
+        AbilityState state = registry.stateOf(characterId, abilityId);
+        if (state.rank() >= ability.maxRank()) {
+            return RankResult.AT_MAXIMUM;
+        }
+        registry.put(state.withRank(state.rank() + 1));
+        repository.markDirty(characterId);
+        return RankResult.ADVANCED;
+    }
+
     /** The player's setting, or {@link ToggleState#ON} when they never changed it. */
     public ToggleState toggleOf(UUID characterId, String abilityId) {
         return registry.toggleOf(characterId, abilityId);

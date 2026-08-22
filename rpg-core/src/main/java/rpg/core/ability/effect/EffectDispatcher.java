@@ -31,6 +31,15 @@ public final class EffectDispatcher {
     private final Map<EffectType, AbilityEffect> effects = new EnumMap<>(EffectType.class);
     private final Logger logger;
 
+    /**
+     * Where a periodic effect goes instead of being applied once.
+     *
+     * <p>Installed at startup and never during play. Without one, an effect carrying an interval
+     * applies a single time - correct in a unit test that has no runner, wrong on a server, and the
+     * kind of wrong nothing reports.
+     */
+    private volatile IntervalEffectRunner intervals;
+
     public EffectDispatcher(Logger logger) {
         this.logger = Objects.requireNonNull(logger, "logger");
     }
@@ -39,6 +48,11 @@ public final class EffectDispatcher {
     public void register(EffectType type, AbilityEffect effect) {
         effects.put(
                 Objects.requireNonNull(type, "type"), Objects.requireNonNull(effect, "effect"));
+    }
+
+    /** Installs the shared sweep that periodic effects are handed to. At startup. */
+    public void setIntervalRunner(IntervalEffectRunner runner) {
+        this.intervals = Objects.requireNonNull(runner, "runner");
     }
 
     /** Whether a primitive has an application yet. */
@@ -97,6 +111,19 @@ public final class EffectDispatcher {
             StatSnapshot snapshot,
             EffectContext.TriggerData data) {
         for (EffectSpec spec : ability.effects()) {
+            // An effect with an interval is handed to the shared sweep instead of applied here. Not a
+            // special case in each primitive: DAMAGE with an interval is a poison, MANA_RESTORE with
+            // one is the mana potion, and neither primitive should have to know that.
+            //
+            // Only single-target periodic effects go there, because the runner keys an instance by
+            // target - which is exactly what makes stacking work. A radius poison starts one
+            // instance per target it found.
+            if (spec.isPeriodic() && intervals != null) {
+                for (UUID target : targets) {
+                    intervals.start(ability, spec, casterId, target, rank, snapshot);
+                }
+                continue;
+            }
             AbilityEffect effect = effects.get(spec.type());
             if (effect == null) {
                 logger.fine(
