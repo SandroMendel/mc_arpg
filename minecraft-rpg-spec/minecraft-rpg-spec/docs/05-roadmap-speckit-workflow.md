@@ -9,7 +9,7 @@ entwickelt wird — dort steckt die meiste Spezifikationsarbeit.
 ```
 M1 Fundament        B01 → B02 → B03
 M2 Regelkern        B04 → B05
-M3 Charakter        B06 → B07 → B08
+M3 Charakter        B06 → B07 → B08 → B08b
 M4 Welt & Content   B09 → B10 → B11
 M5 Meta             B12 → B13 → B14
 quer                B15, B16, B17 ab M1 mitlaufend
@@ -83,16 +83,21 @@ Anschließend `/constitution` mit dem Inhalt von `constitution.md` ausführen.
 dort nur noch Validierungsläufe und Lasttests, die einen echten Paper-Server
 brauchen — kein Code.
 
-Als nächstes ist **B11 neu zuzuschneiden, bevor es spezifiziert wird**: ADR-017
-hat Rüstung und Waffe zu Klassenprogression gemacht und damit Rolls,
-Raritätsstufen und Ausrüstungs-Beute aus dem Block gezogen. Was von B11 übrig
-bleibt, ist erst zu klären und dann zu spezifizieren — `/specify` auf einen
-Steckbrief anzusetzen, dessen halber Inhalt woanders liegt, führt zu einer
-Spezifikation, die niemand umsetzt.
+Als nächstes **`/specify` für B08b (Währung & Konto)**. Der Block ist durch
+ADR-027 neu entstanden und eingeschoben: Coins stehen seit dem 19.08. in der
+Vision, drei Blöcke setzen sie voraus, und keiner besass sie. B07 reicht heute
+`cost: { coins: 500 }` undurchsichtig durch, B08s Rangaufstieg kostet nichts,
+und B11 könnte weder verkaufen noch reparieren. Beide fertigen Blöcke haben die
+Lücke benannt statt gefüllt (Regel 5) — jetzt wird sie gefüllt.
 
-Zwei Dinge aus B08 sind dabei mitzudenken: es gibt **immer noch keine Währung**
-im Projekt, obwohl drei Blöcke sie voraussetzen (Rangaufstieg in B08, die
-Ausrüstungsleitern in B07, die Beute in B11) — wer sie einführt, sollte es
-bewusst tun und nicht nebenbei. Und **B09/B10 schulden B08 drei Verhaltensweisen**
-(Aggro auf den Klon, Mobs wenden sich von Unsichtbaren ab, Zonen für Zweites
-Leben); die Schnittstellen stehen und werden gerufen.
+B08b hängt von B02, B03 und B06 ab, **nicht** von B09, B10 oder B11. Er ist
+damit sofort umsetzbar und schliesst zwei bereits ausgelieferte Blöcke ab.
+
+**Danach B11**, dessen Neuzuschnitt mit ADR-027 abgeschlossen ist: keine offene
+Frage mehr im Steckbrief. Raritätsstufen bleiben als reines Etikett, der
+Roll-Mechanismus entfällt — jedes Item hat feste Attributwerte —, und der
+NPC-Händler gehört hierher.
+
+**B09/B10 schulden B08 drei Verhaltensweisen** (Aggro auf den Klon, Mobs wenden
+sich von Unsichtbaren ab, Zonen für Zweites Leben). Die Schnittstellen stehen
+und werden gerufen; sie antworten heute mit „nichts passiert".

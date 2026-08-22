@@ -50,7 +50,8 @@ Prozentanzeige.
 
 ## ADR-004 · Ausrüstung ist Stat-Quelle
 
-**Status:** Für Rüstung und Waffe revidiert durch ADR-017; für alle übrigen Items in Kraft
+**Status:** Für Rüstung und Waffe revidiert durch ADR-017; die Roll-Hälfte gestrichen durch
+ADR-027; im Übrigen in Kraft
 
 Spielerwerte setzen sich zusammen aus Klasse + Level + **Ausrüstung** (später
 zusätzlich Buffs/Auren).
@@ -58,9 +59,12 @@ zusätzlich Buffs/Auren).
 **Konsequenzen:**
 - B11 (Items/Ausrüstung/Loot) ist Kernbestandteil, nicht optional, und wird
   parallel zu B04 spezifiziert.
-- Items speichern **Template-ID und gewürfelte Roll-Werte**, niemals berechnete
-  Endwerte oder gerendertes Lore. Nur so ist späteres Rebalancing möglich, ohne
-  bestehende Spieleritems anzufassen.
+- Items speichern die **Template-ID**, niemals berechnete Endwerte oder
+  gerendertes Lore. Nur so ist späteres Rebalancing möglich, ohne bestehende
+  Spieleritems anzufassen.
+  > Ursprünglich stand hier „Template-ID **und gewürfelte Roll-Werte**". ADR-027
+  > hat den Roll-Mechanismus gestrichen: jedes Item hat feste Attributwerte. Die
+  > Zusage wird dadurch stärker — ohne Roll ist die Vorlage die einzige Quelle.
 - Speicherung über PersistentDataContainer, nicht über Lore-Parsing.
 - Item-Schema wird versioniert; Migrationspfad ist Teil der Spec.
 
@@ -1221,3 +1225,75 @@ ist aber keine — wer keinen Trigger will, lässt die Zeile weg.
 `item()` sind die beiden Leser. Zwei Aufrufstellen im Code, beide angepasst. Der Test
 `ConfigOnlyAbilityTest` bleibt unberührt — er belegte die Zusage für die Bausteine, und die Zusage
 hielt: was fehlte, war Vokabular in der Konfiguration, keine Klasse im Code.
+
+---
+
+## ADR-027: Der Neuzuschnitt von B11, und eine Währung bekommt einen eigenen Block
+
+**Status:** Angenommen · **Datum:** 2026-08-22 · **Blöcke:** B08b (neu), B11, rückwirkend B07 und B08
+
+**Kontext.** ADR-017 hat Rüstung und Waffe zu Klassenprogression gemacht. Damit verlor B11 seinen
+dominanten Inhalt, und vier Fragen blieben offen, die vor `/specify` zu klären waren. Sie sind es
+jetzt.
+
+### 1. Die Währung bekommt einen eigenen Block: **B08b · Währung & Konto**
+
+**Sie war unterwegs verlorengegangen.** Coins stehen seit dem 19.08. in der Vision. `classes.yml`
+schreibt heute `cost: { coins: 500 }` an jede Ausrüstungsstufe — und B07 liest die Zahl bewusst nicht
+aus („B07 knows nothing about coins"). B08s Rangaufstieg kostet aus demselben Grund nichts;
+`RankResult` kennt kein `NOT_ENOUGH_COINS`, weil es nichts gäbe, woran es scheitern könnte. Drei
+Blöcke setzen eine Währung voraus, und keiner besitzt sie.
+
+**Warum kein Unterbringen in B11.** Der naheliegende Weg wäre, sie zum Item-Block zu schlagen — dort
+fliesst ohnehin Geld. Dagegen spricht die Abhängigkeitsrichtung: B07 und B08 bräuchten dann eine
+Abhängigkeit auf B11, und das sind Schicht 1 auf Schicht 2. Ein Kontostand hat mit Items nichts zu
+tun; er hat mit dem Charakter zu tun, wie Level und Erfahrung.
+
+**Nummerierung.** B01–B17 ist fest, also wird eingeschoben statt umnummeriert: **B08b**, Schicht 1,
+direkt hinter dem Fähigkeitsblock. Das ist zugleich die Reihenfolgeaussage — B08b hängt von B02, B03
+und B06 ab, aber **nicht** von B09, B10 oder B11 und ist damit sofort umsetzbar.
+
+**Was er umfasst:** Kontostand je Charakter (nicht je Konto, wie alles andere auch — ADR-011),
+Buchung mit Grund, Kostenprüfung als Schnittstelle für andere Blöcke, und eine Historie, soweit B12
+sie braucht. **Was er nicht umfasst:** wofür etwas kostet. Preise stehen bei dem, der sie verlangt —
+die Stufenkosten in `classes.yml`, die Rangkosten in `abilities.yml`, die Reparatur in B11.
+
+**Folgen, die nachzuziehen sind, sobald B08b steht:**
+
+- B07 löst den `cost`-Block aus, statt ihn undurchsichtig weiterzureichen
+- B08s `advanceRank` bekommt eine Kostenprüfung davor und `RankResult` ein `NOT_ENOUGH_COINS`; das
+  Javadoc, das heute „es gibt keine Währung" sagt, ist dann falsch und gehört korrigiert
+- B11 baut NPC-Verkauf und Reparatur darauf auf
+
+### 2. Raritätsstufen bleiben — als Etikett, ohne Wertwirkung
+
+Die acht Stufen von Common bis Special bleiben für Verbrauchbares, Material und Kosmetik. Sie sagen,
+**wie selten** etwas ist, und sonst nichts. Ein epischer Trank heilt nicht mehr als ein gewöhnlicher;
+er ist seltener.
+
+Der Grund für die Trennung: Rarität als Wertträger hätte Wertebereiche zurückgebracht, die
+Entscheidung 3 gerade abschafft. Als reine Farbe kostet die Skala fast nichts und ist schon
+entworfen.
+
+### 3. **Jedes Item hat feste Attributwerte.** Der Roll-Mechanismus entfällt
+
+Kein Würfeln, keine Wertebereiche, keine Affixe. Zwei Tränke desselben Typs sind identisch.
+
+**Was das mit ADR-004 macht.** ADR-004 sagt: ein Item speichert Vorlagen-ID und gewürfelte
+Roll-Werte, **niemals** berechnete Endwerte und niemals gerendertes Lore. Die zweite Hälfte bleibt
+vollständig gültig und ist der eigentliche Kern — sie ist der Grund, aus dem Rebalancing nach dem
+Release möglich bleibt, ohne jedes Spielerinventar anzufassen. Die erste Hälfte schrumpft: gespeichert
+wird die **Vorlagen-ID allein**. Endwerte und Lore werden weiterhin bei jedem Laden neu abgeleitet,
+nur eben aus der Vorlage statt aus Vorlage plus Roll.
+
+Das macht die Zusage stärker, nicht schwächer: ohne Roll ist die Vorlage die einzige Quelle, und ein
+geändertes Balancing wirkt auf jedes vorhandene Exemplar.
+
+### 4. Der NPC-Händler gehört zu B11
+
+Er ist der Ort, an dem Items zu Coins werden. B10 liefert die Entity-Technik, die er mitbenutzt; das
+macht ihn nicht zu einem Mob.
+
+**Nicht geändert:** Das Nicht-Ziel „kein Wirtschaftssystem" aus `00-vision-scope.md` meint **kein
+Spieler-zu-Spieler-Handel und kein Crafting**. NPC-Verkauf gegen Coins ist davon gedeckt und war es
+immer; die Formulierung wird bei `/specify` B11 präzisiert.

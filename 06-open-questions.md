@@ -172,16 +172,40 @@ Bei zwei /clarify-Runden zusätzlich geklärt (siehe ADR-014):
 - [ ] Zonengeometrie: Quader, Polygon oder Chunk-Menge?
 - [ ] Reisesystem: Laufen, Portale, Wegpunkte, Teleport-Kosten?
 
-## B11 (Items) — abgeschlossen, Details offen
+## B08b (Währung & Konto) — neu durch ADR-027 *(2026-08-22)*
+
+Eingeschoben, weil drei Blöcke Coins voraussetzen und keiner sie besass. B07 reicht
+`cost: { coins: 500 }` undurchsichtig durch, B08s Rangaufstieg kostet nichts, B11
+könnte weder verkaufen noch reparieren.
+
+- [x] **Eigener Block statt Unterbringung in B11.** Sonst hingen B07 und B08 —
+      Schicht 1 — von B11 auf Schicht 2 ab. Ein Kontostand gehört zum Charakter,
+      wie Level und Erfahrung. *(2026-08-22)*
+- [x] **Je Charakter, nicht je Konto** (ADR-011), wie alles andere auch.
+- [x] **Preise stehen bei dem, der sie verlangt** — Stufenkosten in `classes.yml`,
+      Rangkosten in `abilities.yml`, Reparatur in B11. Kein zentraler Katalog.
+- [ ] Startguthaben bei Charaktererstellung: null oder ein Betrag?
+- [ ] Verlieren Coins beim Tod? ADR-017 sagt nichts dazu.
+- [ ] Wieviel wirft ein Mob ab? Content, bei `/specify` B10 oder B11.
+
+## B11 (Items) — neu zugeschnitten durch ADR-027, keine offene Frage mehr
 
 - [x] Ausrüstungsslots: nur Vanilla-Armor + Waffe
 - [x] Raritätsstufen (8, mit Farben): Common (Weiß) → Uncommon (Hellgrün) →
       Rare (Blau) → Epic (Lila) → Legendary (Orange) → Mythic (Pink) →
-      Divine (Hellblau) → Special (Rot, Seasons/Events)
+      Divine (Hellblau) → Special (Rot, Seasons/Events). **Seit ADR-027 nur noch
+      ein Etikett** - sie sagen, wie selten etwas ist, und wirken auf keinen Wert.
+      *(2026-08-22)*
 - [x] Item-Level-Anforderung und Klassenbindung: beides
 - [x] Handel zwischen Spielern: nicht erlaubt
-- [ ] Zufällige Affixe/Suffixe zusätzlich zu Basiswerten?
-- [ ] Lagerplatz: Vanilla-Inventar, Enderchest, eigene Bank?
+- [x] **Zufällige Affixe/Suffixe: nein.** Der Roll-Mechanismus entfällt ganz -
+      **jedes Item hat feste Attributwerte** (ADR-027). Damit schrumpft ADR-004 zur
+      Hälfte: gespeichert wird die Vorlagen-ID allein, weiterhin nie ein Endwert.
+      Das macht die Zusage stärker, nicht schwächer. *(2026-08-22)*
+- [x] **Lagerplatz**: Vanilla-Inventar plus Enderchest, keine eigene Bank.
+      *(2026-08-21)*
+- [x] **NPC-Händler gehört zu B11** - er ist der Ort, an dem Items zu Coins werden.
+      B10 liefert nur die Entity-Technik. *(2026-08-22)*
 
 ## B12 (Statistiken) — abgeschlossen, Details offen
 

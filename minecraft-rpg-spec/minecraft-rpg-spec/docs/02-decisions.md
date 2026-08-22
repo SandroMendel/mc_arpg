@@ -1,5 +1,10 @@
 # 02 · Entscheidungs-Log (ADR)
 
+> **VERALTET — nicht diese Fassung lesen.** Die gelebte Datei ist `02-decisions.md` im
+> Projektstamm. Diese Kopie ist seit dem ersten Commit eingefroren; ihr fehlen alle
+> Einträge ab ADR-013. Sie steht noch hier, weil das Löschen einer Datei aus dem
+> Spec-Bündel eine Entscheidung ist, die nicht nebenbei getroffen werden sollte.
+
 Verbindliche Festlegungen. Änderungen hier sind Architekturänderungen und
 brauchen eine Anpassung der betroffenen Blocksteckbriefe.
 

@@ -3,8 +3,8 @@
 | | |
 |---|---|
 | **Schicht** | 2 — Welt & Content |
-| **Status** | Entwurf — **durch ADR-017 stark verkleinert**, Neuzuschnitt vor `/specify` nötig |
-| **Abhängig von** | B04, B07, B09, B10 |
+| **Status** | Entwurf — durch ADR-017 verkleinert, **durch ADR-027 neu zugeschnitten** *(2026-08-22)*. Die vier blockierenden Fragen sind beantwortet; bereit für `/specify`, sobald B08b steht |
+| **Abhängig von** | B04, B07, B08b, B09, B10 |
 | **Benötigt von** | B12, B13 |
 
 ## Zweck
@@ -18,8 +18,10 @@
 > ausdrücklich „nur Vanilla-Armor + Waffe" fest, und beide sind jetzt
 > klassenfest.
 >
-> Was unten durchgestrichen wirkt, ist noch nicht überarbeitet. Der Abschnitt
-> „Offene Fragen" hält fest, was zu klären ist, bevor B11 spezifiziert wird.
+> **ADR-027 hat den Neuzuschnitt vollzogen** *(2026-08-22)*: die Währung ist in einen eigenen
+> Block gewandert (B08b), die Raritätsstufen bleiben als reines Etikett ohne Wertwirkung, der
+> Roll-Mechanismus entfällt vollständig — **jedes Item hat feste Attributwerte** —, und der
+> NPC-Händler gehört hierher.
 
 Items außerhalb der Klassenausrüstung: Aufstiegsmaterial, Verbrauchbares,
 Kosmetik. Umfasst Item-Definition, Instanziierung, Haltbarkeit und Beute.
@@ -58,14 +60,20 @@ Kosmetik. Umfasst Item-Definition, Instanziierung, Haltbarkeit und Beute.
 - ~~Ausrüstungsslots und Bindung an B04~~ — die Slots sind durch ADR-018 gesperrt,
   die Bindung läuft über B07
 
-## Zentrale Architekturvorgabe (ADR-004)
+## Zentrale Architekturvorgabe (ADR-004, geändert durch ADR-027)
 
-> Ein Item speichert **Template-ID und gewürfelte Roll-Werte** — niemals
-> berechnete Endwerte und niemals gerendertes Lore.
+> Ein Item speichert **die Vorlagen-ID** — niemals berechnete Endwerte und niemals
+> gerendertes Lore.
 
 Andernfalls ist nach dem Release kein Rebalancing mehr möglich, ohne alle Items
 in allen Spielerinventaren anzufassen. Endwerte und Lore werden bei jedem Laden
-aus Vorlage + Roll neu abgeleitet.
+aus der Vorlage neu abgeleitet.
+
+> **Die Roll-Hälfte ist entfallen** (ADR-027). Ursprünglich hiess es „Vorlagen-ID
+> **und gewürfelte Roll-Werte**". Da jedes Item feste Attributwerte hat, gibt es
+> nichts zu würfeln. Die Zusage wird dadurch **stärker**: ohne Roll ist die
+> Vorlage die einzige Quelle, und ein geändertes Balancing wirkt auf jedes
+> vorhandene Exemplar.
 
 Weitere Vorgaben:
 - Speicherung über **PersistentDataContainer**, nicht über Lore-Parsing
@@ -81,29 +89,30 @@ Weitere Vorgaben:
 
 ## Offene Fragen
 
-### Neu durch ADR-017 — zu klären, bevor B11 spezifiziert wird
+### Beantwortet durch ADR-027 *(2026-08-22)*
 
-- [ ] **Was treibt den Stufenaufstieg?** Coins, Level, Material oder eine
-      Kombination. B07 hält die erreichte Stufe und ruft eine Schnittstelle;
-      die Kosten legt B11 aus.
-- [ ] **Bleiben die acht Raritätsstufen überhaupt bestehen?** Ihr einziger Träger
-      war Ausrüstung. Denkbar wäre eine Übertragung auf Verbrauchbares und
-      Kosmetik — oder das Streichen des Konzepts.
-- [ ] **Bleibt der Roll-Mechanismus bestehen?** Ohne gewürfelte Ausrüstung ist
-      offen, ob Verbrauchbares und Material überhaupt Wertebereiche brauchen.
-      Falls nein, entfällt der Kern von ADR-004 auch für den Rest von B11.
+- [x] **Was treibt den Stufenaufstieg?** Coins. Sie bekommen einen eigenen Block
+      (**B08b · Währung & Konto**), weil B07 und B08 sie ebenfalls brauchen und
+      Schicht 1 nicht von Schicht 2 abhängen darf. B11 legt die *Preise* für das
+      aus, was B11 verkauft und repariert — den Kontostand führt B08b.
+- [x] **Bleiben die acht Raritätsstufen bestehen?** Ja, aber **nur als Etikett**.
+      Sie sagen, wie selten etwas ist, und beeinflussen keine Werte mehr. Rarität
+      als Wertträger hätte genau die Wertebereiche zurückgebracht, die die
+      nächste Antwort abschafft.
+- [x] **Bleibt der Roll-Mechanismus bestehen?** Nein. **Jedes Item hat feste
+      Attributwerte.** Kein Würfeln, keine Wertebereiche, keine Affixe. Zwei
+      Tränke desselben Typs sind identisch. ADR-004 schrumpft entsprechend —
+      siehe oben.
 - [x] **Was fällt noch aus Mobs?** Mobs behalten ihre Loot-Table und lassen Items
       fallen wie geplant. ADR-018 sperrt nur den Spieler-Drop, nicht den Mob-Drop.
       Was genau in den Tabellen steht, ist Content und bei `/specify` B11
       auszuarbeiten — Ausrüstung ist es nicht mehr. *(2026-08-21)*
-- [ ] **Wem gehört der NPC-Händler?** Kein Steckbrief B01–B17 deckt NPCs ab; B10
-      beschreibt Mobs und Spawning, nicht Händler. Entweder wandert er in den
-      Umfang von B11, oder es entsteht ein eigener Block.
-- [ ] **Das Nicht-Ziel „kein Wirtschaftssystem" ist zu präzisieren.**
-      `00-vision-scope.md` schließt Crafting, Wirtschaft und Handel aus, während
-      Coins seit dem 19.08. Währung sind und der NPC-Verkauf eine Coin-Quelle
-      wäre. Vermutlich gemeint: kein **Spieler-zu-Spieler**-Handel und kein
-      Crafting. So formuliert wäre der NPC-Verkauf gedeckt.
+- [x] **Wem gehört der NPC-Händler?** B11. Er ist der Ort, an dem Items zu Coins
+      werden; B10 liefert nur die Entity-Technik, die er mitbenutzt.
+- [x] **Das Nicht-Ziel „kein Wirtschaftssystem"** meint **kein
+      Spieler-zu-Spieler-Handel und kein Crafting**. NPC-Verkauf gegen Coins ist
+      davon gedeckt und war es immer. Die Formulierung in `00-vision-scope.md`
+      wird bei `/specify` B11 präzisiert.
 
 ### Bestand
 
@@ -127,8 +136,8 @@ Weitere Vorgaben:
       Mindestlevel und sind teilweise klassengebunden. *(2026-08-19)* Für
       Ausrüstung ist die Klassenbindung durch ADR-017 total statt teilweise: es
       gibt je Klasse genau einen Pfad.
-- [ ] Zufällige Affixe/Suffixe zusätzlich zu Basiswerten? — hängt daran, ob der
-      Roll-Mechanismus überhaupt bestehen bleibt.
+- [x] **Zufällige Affixe/Suffixe**: nein. Mit dem Roll-Mechanismus entfällt auch
+      ihre Grundlage (ADR-027). *(2026-08-22)*
 - [x] **Volles Inventar**: Warnung als Title plus Sound; der Spieler schafft
       selbst Platz über Enderchest, NPC-Verkauf oder Mülleimer-Befehl. Kein
       automatisches Aufräumen und kein stilles Verwerfen (ADR-018).
