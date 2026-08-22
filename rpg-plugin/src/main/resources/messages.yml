@@ -124,3 +124,30 @@ class:
   inventory:
     # No automatic cleanup, no background bank, no silent discard - the player makes room.
     full: 'Your inventory is full. Make room before more loot arrives.'
+
+# B08 - abilities. Every one of these is referenced by AbilityMessageKeys; the display names of the
+# eighteen abilities themselves come from abilities.yml, which names a key rather than a text.
+ability:
+  rejected:
+    on-cooldown: 'That ability is still on cooldown for {seconds}s.'
+    global-lock: 'Too soon after your last ability.'
+    not-enough-mana: 'Not enough mana - {cost} needed.'
+    not-unlocked: 'You unlock that ability at level {level}.'
+    already-casting: 'You are already casting something.'
+    already-sustaining: 'Finish {ability} first.'
+    no-charges: 'No charges left.'
+    no-character: 'Choose a class first.'
+
+  unlocked: 'New ability unlocked: {ability}.'
+
+  rank:
+    advanced: '{ability} is now rank {rank}.'
+    at-maximum: '{ability} is already at its highest rank.'
+
+  toggle:
+    changed: '{ability} is now {state}.'
+
+  second-life:
+    # No respawn and no death screen - the rogue is put back where he fell (FR-052c).
+    title: 'Second Life'
+    subtitle: 'Death passed you by.'

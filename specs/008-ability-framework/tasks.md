@@ -33,12 +33,12 @@ Vier Module aus B01, unverändert: `rpg-core` (Regeln, bukkitfrei), `rpg-persist
 
 **Zweck**: Die Pakete anlegen, in denen alles Weitere entsteht.
 
-- [ ] T001 [P] Paket `rpg-core/src/main/java/rpg/core/ability/` mit `package-info.java` anlegen — die vier Ebenen benennen (Definition, Primitives, Targeting, Runtime) und die Blockgrenze zu B04/B05/B07 beschreiben, nach dem Muster von `rpg/core/classes/package-info.java`
-- [ ] T002 [P] Paket `rpg-core/src/main/java/rpg/core/ability/effect/` mit `package-info.java` anlegen — je Primitive eine zustandslose Anwendung, keine Fähigkeitslogik
-- [ ] T003 [P] Paket `rpg-platform/src/main/java/rpg/platform/ability/` mit `package-info.java` anlegen
-- [ ] T004 [P] Paket `rpg-persistence/src/main/java/rpg/persistence/ability/` anlegen
-- [ ] T005 [P] `rpg-plugin/src/main/resources/abilities.yml` als Gerüst anlegen: `runtime.global-cooldown-ms`, `runtime.regeneration.health-combat-factor`, `runtime.regeneration.mana-combat-factor`, leerer `abilities:`-Block, Kopfkommentar mit dem Verweis auf ADR-022 und ADR-023
-- [ ] T006 [P] `AbilityMessageKeys` in `rpg-core/src/main/java/rpg/core/ability/AbilityMessageKeys.java` anlegen und die Schlüssel in `rpg-plugin/src/main/resources/messages.yml` eintragen — Ablehnungsgründe, Freischaltmeldung, Cooldown-Restzeit (FR-009)
+- [X] T001 [P] Paket `rpg-core/src/main/java/rpg/core/ability/` mit `package-info.java` anlegen — die vier Ebenen benennen (Definition, Primitives, Targeting, Runtime) und die Blockgrenze zu B04/B05/B07 beschreiben, nach dem Muster von `rpg/core/classes/package-info.java`
+- [X] T002 [P] Paket `rpg-core/src/main/java/rpg/core/ability/effect/` mit `package-info.java` anlegen — je Primitive eine zustandslose Anwendung, keine Fähigkeitslogik
+- [X] T003 [P] Paket `rpg-platform/src/main/java/rpg/platform/ability/` mit `package-info.java` anlegen
+- [X] T004 [P] Paket `rpg-persistence/src/main/java/rpg/persistence/ability/` anlegen
+- [X] T005 [P] `rpg-plugin/src/main/resources/abilities.yml` als Gerüst anlegen: `runtime.global-cooldown-ms`, `runtime.regeneration.health-combat-factor`, `runtime.regeneration.mana-combat-factor`, leerer `abilities:`-Block, Kopfkommentar mit dem Verweis auf ADR-022 und ADR-023
+- [X] T006 [P] `AbilityMessageKeys` in `rpg-core/src/main/java/rpg/core/ability/AbilityMessageKeys.java` anlegen und die Schlüssel in `rpg-plugin/src/main/resources/messages.yml` eintragen — Ablehnungsgründe, Freischaltmeldung, Cooldown-Restzeit (FR-009)
 
 ---
 
@@ -63,14 +63,14 @@ Vier Module aus B01, unverändert: `rpg-core` (Regeln, bukkitfrei), `rpg-persist
 
 ### Wertetypen der Definition
 
-- [ ] T014 [P] `EffectType` in `rpg-core/src/main/java/rpg/core/ability/EffectType.java` — die **sechzehn** Primitives aus [data-model.md](./data-model.md), je mit Javadoc; bei `SUMMON` und `INVISIBILITY` steht dabei, was bis B10 unwirksam bleibt
-- [ ] T015 [P] `TargetMode` in `rpg-core/src/main/java/rpg/core/ability/TargetMode.java` — die **neun** Zielbestimmungen, je mit dem Hinweis, ob sie mehr als ein Ziel liefern kann
-- [ ] T016 [P] `AbilityTrigger` in `rpg-core/src/main/java/rpg/core/ability/AbilityTrigger.java` — die fünf Trigger mit ihrem Einhängepunkt im Javadoc (research.md R6)
-- [ ] T017 [P] `EffectSpec` als Record in `rpg-core/src/main/java/rpg/core/ability/EffectSpec.java` mit Prüfungen V15 bis V19 und **V37 bis V42** im Konstruktor und `valueAtRank(int)` — inklusive `interval`, `maxStacks`, `stackCap`, Typfilter und den drei `METER`-Feldern
-- [ ] T018 [P] `TargetSpec` als Record in `rpg-core/src/main/java/rpg/core/ability/TargetSpec.java` mit Prüfungen V21 bis V24 — `maxTargets` ist **Pflichtfeld** für jeden Mehrfachmodus, kein Vorgabewert; dazu `hopRange` für `CHAIN` und `areaRadius` für `GROUND_AREA`
-- [ ] T018a [P] `ToggleState` in `rpg-core/src/main/java/rpg/core/ability/ToggleState.java` — `ON`, `OFF` und der fähigkeitseigene Zwischenwert für Rise & Fall (FR-052d)
-- [ ] T019 `Ability` als Record in `rpg-core/src/main/java/rpg/core/ability/Ability.java` mit Prüfungen V5 bis V13 und **V31 bis V36**; Listen werden kopiert, nicht übernommen (hängt an T014 bis T018a). Neue Felder: `sustained`, `duration`, `charges`, `chargeWindow`, `requiresBehindTarget`, `openWorldOnly`, `playerToggle`
-- [ ] T020 `AbilityConfig` in `rpg-core/src/main/java/rpg/core/ability/AbilityConfig.java` — alle Definitionen, globale Sperre, beide Kampf-Faktoren; Nachschlagen über eine unveränderliche Karte
+- [X] T014 [P] `EffectType` in `rpg-core/src/main/java/rpg/core/ability/EffectType.java` — die **sechzehn** Primitives aus [data-model.md](./data-model.md), je mit Javadoc; bei `SUMMON` und `INVISIBILITY` steht dabei, was bis B10 unwirksam bleibt
+- [X] T015 [P] `TargetMode` in `rpg-core/src/main/java/rpg/core/ability/TargetMode.java` — die **neun** Zielbestimmungen, je mit dem Hinweis, ob sie mehr als ein Ziel liefern kann
+- [X] T016 [P] `AbilityTrigger` in `rpg-core/src/main/java/rpg/core/ability/AbilityTrigger.java` — die fünf Trigger mit ihrem Einhängepunkt im Javadoc (research.md R6)
+- [X] T017 [P] `EffectSpec` als Record in `rpg-core/src/main/java/rpg/core/ability/EffectSpec.java` mit Prüfungen V15 bis V19 und **V37 bis V42** im Konstruktor und `valueAtRank(int)` — inklusive `interval`, `maxStacks`, `stackCap`, Typfilter und den drei `METER`-Feldern
+- [X] T018 [P] `TargetSpec` als Record in `rpg-core/src/main/java/rpg/core/ability/TargetSpec.java` mit Prüfungen V21 bis V24 — `maxTargets` ist **Pflichtfeld** für jeden Mehrfachmodus, kein Vorgabewert; dazu `hopRange` für `CHAIN` und `areaRadius` für `GROUND_AREA`
+- [X] T018a [P] `ToggleState` in `rpg-core/src/main/java/rpg/core/ability/ToggleState.java` — `ON`, `OFF` und der fähigkeitseigene Zwischenwert für Rise & Fall (FR-052d)
+- [X] T019 `Ability` als Record in `rpg-core/src/main/java/rpg/core/ability/Ability.java` mit Prüfungen V5 bis V13 und **V31 bis V36**; Listen werden kopiert, nicht übernommen (hängt an T014 bis T018a). Neue Felder: `sustained`, `duration`, `charges`, `chargeWindow`, `requiresBehindTarget`, `openWorldOnly`, `playerToggle`
+- [X] T020 `AbilityConfig` in `rpg-core/src/main/java/rpg/core/ability/AbilityConfig.java` — alle Definitionen, globale Sperre, beide Kampf-Faktoren; Nachschlagen über eine unveränderliche Karte
 
 ### Konfigurationsschema
 

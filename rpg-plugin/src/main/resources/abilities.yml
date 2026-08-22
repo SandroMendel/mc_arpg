@@ -1,0 +1,42 @@
+# B08 - the abilities. Every balancing number lives here, never in code (Principle V).
+#
+# WHAT THIS FILE OWNS and what it does not:
+#   - it owns the global cooldown and the two combat factors of regeneration
+#   - it does NOT own the regeneration RATES. Those are the attributes healthRegen and manaRegen and
+#     they live in classes.yml, because they belong to the character (ADR-023)
+#   - it does NOT own which class has which ability. That binding is in classes.yml under
+#     `abilities:`; this file only defines what an id means (B07 names, B08 resolves)
+#
+# THE UNIQUE IS ONE OF THE SIX (ADR-022). It is not a seventh entry, not its own category and not
+# necessarily active: the warrior's is, the rogue's and the mage's are passive. How the six split
+# between active and passive is content and differs per class - warrior and mage are 4+2, the rogue
+# is 3+3 (ADR-025). Startup checks "exactly six, at most one unique" and nothing about the split.
+#
+# PERIODIC EFFECTS HAVE NO PRIMITIVE OF THEIR OWN. An effect with `interval-ms` applies repeatedly
+# over its duration: DAMAGE with an interval is a damage-over-time, MANA_RESTORE with one is the mana
+# potion. All running instances share ONE server-wide sweep - one per target would be a recurring
+# task per entity and would break Principle II.
+#
+# A DAMAGE `amount` IS A FACTOR, NOT AN ABSOLUTE NUMBER. 1.4 means 140% of the caster's physical or
+# magic damage. That is how an ability scales with level and equipment without reading a single
+# attribute itself (FR-013). Read this before "buffing" anything: 40.0 is not a small change.
+#
+# max-targets IS A REQUIRED FIELD on every targeting mode that can return more than one. There is no
+# default, deliberately - a forgotten line must not be indistinguishable from a decision (FR-020).
+
+runtime:
+  # After any active ability every other one is locked for this long. The reason is the input scheme
+  # itself: slot switch plus right-click can happen four times in one tick, and without the lock
+  # "all four at once" would always be the strongest opening (ADR-022).
+  global-cooldown-ms: 750
+
+  regeneration:
+    # Multiplied onto healthRegen / manaRegen while the holder is in combat. Health is the stricter
+    # of the two on purpose: holding mana back shortens a fight, holding health back decides it.
+    health-combat-factor: 0.20
+    mana-combat-factor: 0.35
+
+# The eighteen abilities. Filled in phase 8 of the task list - deliberately AFTER the machine is
+# finished, because SC-001 ("a new ability comes from configuration alone") only proves something if
+# the code was done first.
+abilities: {}
