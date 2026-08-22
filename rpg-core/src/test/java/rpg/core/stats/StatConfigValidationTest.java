@@ -31,8 +31,10 @@ class StatConfigValidationTest {
     private static Map<String, Object> validDocument() {
         Map<String, Object> attributes = new LinkedHashMap<>();
         attributes.put("health", attribute(100.0, 1.0, 2000.0, null));
+        attributes.put("healthRegen", attribute(0.0, 0.0, 40.0, null));
         attributes.put("defense", attribute(0.0, 0.0, 300.0, null));
         attributes.put("mana", attribute(50.0, 0.0, 500.0, null));
+        attributes.put("manaRegen", attribute(0.0, 0.0, 20.0, null));
         attributes.put("physicalDamage", attribute(5.0, 0.0, 150.0, null));
         attributes.put("magicDamage", attribute(5.0, 0.0, 150.0, null));
         attributes.put("attackSpeed", attribute(4.0, 0.0, 1024.0, 0.50));

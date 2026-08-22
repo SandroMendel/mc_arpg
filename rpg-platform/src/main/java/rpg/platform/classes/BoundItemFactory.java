@@ -84,6 +84,18 @@ public final class BoundItemFactory {
         return item;
     }
 
+    /**
+     * Marks an item as belonging to the character, so {@code EquipmentLockListener} refuses to move,
+     * drop or swap it (ADR-018).
+     *
+     * <p>Public for B08, whose ability items need the same lock. Building them here would have been
+     * wrong - they are not equipment and carry no tier - but re-implementing the lock for them would
+     * have been worse: one rule, two enforcement points, and the second one eventually forgotten.
+     */
+    public static void markBound(ItemMeta meta, String tag) {
+        BoundItemTag.write(meta, tag);
+    }
+
     /** The weapon of a tier. Its material is a full item name, not a set. */
     public ItemStack weapon(TierAppearance appearance, String tag) {
         Objects.requireNonNull(appearance, "appearance");

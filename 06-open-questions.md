@@ -15,7 +15,13 @@ Auftraggeber abgeschlossen, Ergebnisse sind in den Blocksteckbriefen und in
 - [x] Wertebereiche und Caps je Attribut: siehe Tabelle in
       `blocks/B04-stat-engine.md`
 - [x] Sekundärwerte (Crit-Chance, Crit-Schaden, Lifesteal, Resistenzen):
-      vorerst nicht Teil von B04
+      vorerst nicht Teil von B04 — sie bleiben Fähigkeitseffekte (ADR-022)
+- [x] **Der Attributsatz umfasst zehn statt acht.** `healthRegen` und `manaRegen`
+      sind nachgetragen (ADR-023). Sie kommen aus dem Levelwachstum, liegen auf
+      keiner Ausrüstungsleiter und werden von B08 angewandt, weil die
+      Regeneration den Kampfzustand aus B05 braucht. Das ist **keine** Rücknahme
+      der zurückgestellten Sekundärwerte: jene wirken im Schadensereignis, eine
+      Regenerationsrate wirkt über die Zeit. *(2026-08-22)*
 
 Bei der Umsetzung zusätzlich geklärt (siehe ADR-013):
 
@@ -113,9 +119,11 @@ Bei zwei /clarify-Runden zusätzlich geklärt (siehe ADR-014):
       verfällt still. Weiteres Wachstum über Coins (B08) und Ausrüstung (B11).
       Paragon/Prestige bleiben als eigener Block nachrüstbar *(2026-08-20)*
 
-## B08 (Fähigkeiten) — abgeschlossen
+## B08 (Fähigkeiten) — abgeschlossen und umgesetzt
 
-- [x] Anzahl Fähigkeiten je Klasse: 4 aktiv + 2 passiv
+- [x] Anzahl Fähigkeiten je Klasse: sechs, darunter genau eine Unique. Die Aufteilung
+      aktiv/passiv ist Inhalt und nicht überall gleich - Warrior und Mage 4+2, der
+      Rogue 3+3 (ADR-025). *(2026-08-22)*
 - [x] Eingabeschema: Hotbar-Slot-Wechsel + Rechtsklick
 - [x] Freischaltung: fest per Level, kein Skilltree; zusätzlich Coin-Aufwertung
 - [x] Mana-Regeneration: konstant, im Kampf leicht reduziert
@@ -124,8 +132,27 @@ Bei zwei /clarify-Runden zusätzlich geklärt (siehe ADR-014):
   - Rogue — „Second Life" (Totem, passiv: %-Chance auf Wiederbelebung)
   - Mage — „Magic Boost & Fall" (Wind Charge + Slow Fall Potion, passiv:
     Doppelsprung + Slow Fall)
-- [ ] Globaler Cooldown zwischen beliebigen Fähigkeiten?
-- [ ] Casting-Zeiten und Unterbrechung vorgesehen?
+- [x] **Globaler Cooldown**: ja, kurz. Nach jeder ausgelösten aktiven Fähigkeit
+      sind alle anderen kurz gesperrt; zeitstempelbasiert lazy wie die
+      Einzel-Cooldowns, Wert in Konfiguration (ADR-022). *(2026-08-22)*
+- [x] **Casting-Zeiten und Unterbrechung**: vorgesehen. Eine Fähigkeit darf eine
+      Wirkzeit haben, ein laufender Cast ist unterbrechbar; instant ist der Fall
+      `cast-time: 0`, nicht die Abwesenheit der Mechanik (ADR-022). *(2026-08-22)*
+- [x] **Die Unique zählt zu den sechs**, kein siebter Eintrag und keine eigene
+      Kategorie. Damit darf sie passiv sein — die Invariante `unique ⇒ ACTIVE`
+      in `AbilityBinding` fällt (ADR-022). *(2026-08-22)*
+- [x] **Lifesteal**: Effekt-Primitive in der B05-Pipeline, kein neuntes Attribut.
+      ADR-008 bleibt unangetastet (ADR-022). *(2026-08-22)*
+- [x] Loadouts für Mage und Rogue ausgearbeitet und ausgeliefert; alle achtzehn
+      Fähigkeiten stehen in `abilities.yml`. *(2026-08-22)*
+- [x] **Sechzehn der achtzehn entstanden ohne eine Zeile Java.** Zwei brauchten
+      Vokabular, das die Konfiguration nicht hatte - ein zweiter Trigger für Wut,
+      ein zweites Marker-Item für Aufstieg & Fall. Beide Felder nehmen jetzt einen
+      Wert oder eine Liste (ADR-026). *(2026-08-22)*
+- [x] **Der Rangaufstieg kostet nichts**, weil es im Projekt keine Währung gibt.
+      Eine hier zu erfinden hiesse, eine Wirtschaft im Fähigkeitsblock anzulegen,
+      die ein späterer Block nicht mehr übernehmen könnte (Regel 5). `RankResult`
+      kennt bewusst kein `NOT_ENOUGH_COINS`. *(2026-08-22)*
 
 ## B09/B10 (Welt & Mobs) — abgeschlossen, Details offen
 
@@ -145,16 +172,40 @@ Bei zwei /clarify-Runden zusätzlich geklärt (siehe ADR-014):
 - [ ] Zonengeometrie: Quader, Polygon oder Chunk-Menge?
 - [ ] Reisesystem: Laufen, Portale, Wegpunkte, Teleport-Kosten?
 
-## B11 (Items) — abgeschlossen, Details offen
+## B08b (Währung & Konto) — neu durch ADR-027 *(2026-08-22)*
+
+Eingeschoben, weil drei Blöcke Coins voraussetzen und keiner sie besass. B07 reicht
+`cost: { coins: 500 }` undurchsichtig durch, B08s Rangaufstieg kostet nichts, B11
+könnte weder verkaufen noch reparieren.
+
+- [x] **Eigener Block statt Unterbringung in B11.** Sonst hingen B07 und B08 —
+      Schicht 1 — von B11 auf Schicht 2 ab. Ein Kontostand gehört zum Charakter,
+      wie Level und Erfahrung. *(2026-08-22)*
+- [x] **Je Charakter, nicht je Konto** (ADR-011), wie alles andere auch.
+- [x] **Preise stehen bei dem, der sie verlangt** — Stufenkosten in `classes.yml`,
+      Rangkosten in `abilities.yml`, Reparatur in B11. Kein zentraler Katalog.
+- [ ] Startguthaben bei Charaktererstellung: null oder ein Betrag?
+- [ ] Verlieren Coins beim Tod? ADR-017 sagt nichts dazu.
+- [ ] Wieviel wirft ein Mob ab? Content, bei `/specify` B10 oder B11.
+
+## B11 (Items) — neu zugeschnitten durch ADR-027, keine offene Frage mehr
 
 - [x] Ausrüstungsslots: nur Vanilla-Armor + Waffe
 - [x] Raritätsstufen (8, mit Farben): Common (Weiß) → Uncommon (Hellgrün) →
       Rare (Blau) → Epic (Lila) → Legendary (Orange) → Mythic (Pink) →
-      Divine (Hellblau) → Special (Rot, Seasons/Events)
+      Divine (Hellblau) → Special (Rot, Seasons/Events). **Seit ADR-027 nur noch
+      ein Etikett** - sie sagen, wie selten etwas ist, und wirken auf keinen Wert.
+      *(2026-08-22)*
 - [x] Item-Level-Anforderung und Klassenbindung: beides
 - [x] Handel zwischen Spielern: nicht erlaubt
-- [ ] Zufällige Affixe/Suffixe zusätzlich zu Basiswerten?
-- [ ] Lagerplatz: Vanilla-Inventar, Enderchest, eigene Bank?
+- [x] **Zufällige Affixe/Suffixe: nein.** Der Roll-Mechanismus entfällt ganz -
+      **jedes Item hat feste Attributwerte** (ADR-027). Damit schrumpft ADR-004 zur
+      Hälfte: gespeichert wird die Vorlagen-ID allein, weiterhin nie ein Endwert.
+      Das macht die Zusage stärker, nicht schwächer. *(2026-08-22)*
+- [x] **Lagerplatz**: Vanilla-Inventar plus Enderchest, keine eigene Bank.
+      *(2026-08-21)*
+- [x] **NPC-Händler gehört zu B11** - er ist der Ort, an dem Items zu Coins werden.
+      B10 liefert nur die Entity-Technik. *(2026-08-22)*
 
 ## B12 (Statistiken) — abgeschlossen, Details offen
 
@@ -181,3 +232,18 @@ Bei zwei /clarify-Runden zusätzlich geklärt (siehe ADR-014):
       - **Netzwerk**: ≥ 1 Gbit/s Uplink für 100–200 gleichzeitige Spieler.
       - Anbieter mit garantiert dedizierten Kernen bevorzugen, keine
         Burst-/Shared-vCPU-Billig-Angebote.
+
+## B05 (Kampf-Pipeline) — Nachtrag aus der B08-Planung
+
+- [ ] **Die verlassende Flanke des Kampfzustands wird nie veröffentlicht.**
+      `DefaultCombatPipeline.publishExpiredCombatStates()` existiert, ist
+      dokumentiert und wird in der Produktion von niemandem aufgerufen — die
+      einzigen Aufrufer stehen in `CombatStateTest`. `isInCombat()` antwortet
+      weiterhin richtig, weil es lazy rechnet; nur `CombatStateChangedEvent`
+      mit `inCombat=false` fehlt. Das ist derselbe Fehler, der für die
+      Schadensfenster mit `startDamageWindowSweep` bereits behoben wurde, und
+      die Behebung ist absehbar klein: ein Aufruf im vorhandenen Sweep.
+      **B08 ist davon nicht betroffen** — seine Regeneration rechnet aus zwei
+      Zeitstempeln und braucht das Ereignis nicht. B12 und B13 werden es
+      erwarten, weil B05 es zusagt. *(gefunden 2026-08-22, siehe
+      `specs/008-ability-framework/research.md` R3)*

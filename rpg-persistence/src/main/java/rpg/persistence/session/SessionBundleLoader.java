@@ -16,6 +16,7 @@ import java.util.logging.Logger;
 import javax.sql.DataSource;
 
 import rpg.core.classes.ClassProgress;
+import rpg.core.ability.AbilityState;
 import rpg.core.inventory.CharacterInventory;
 import rpg.core.persistence.ItemInstance;
 import rpg.core.persistence.PersistenceException;
@@ -25,6 +26,7 @@ import rpg.core.session.PlayerCharacter;
 import rpg.core.session.SessionBundle;
 import rpg.core.stats.CharacterResources;
 import rpg.persistence.classes.JdbcClassProgressRepository;
+import rpg.persistence.ability.JdbcAbilityStateRepository;
 import rpg.persistence.inventory.JdbcCharacterInventoryRepository;
 import rpg.persistence.progression.JdbcCharacterProgressRepository;
 import rpg.persistence.stats.JdbcCharacterResourcesRepository;
@@ -116,6 +118,7 @@ public final class SessionBundleLoader {
                 List<CharacterProgress> progress = readProgress(connection, loaded);
                 List<ClassProgress> classProgress = readClassProgress(connection, loaded);
                 List<CharacterInventory> inventories = readInventories(connection, loaded);
+                List<AbilityState> abilities = readAbilities(connection, loaded);
                 connection.commit();
                 return new SessionBundle(
                         playerId,
@@ -125,7 +128,8 @@ public final class SessionBundleLoader {
                         resources,
                         progress,
                         classProgress,
-                        inventories);
+                        inventories,
+                        abilities);
             } catch (SQLException failure) {
                 connection.rollback();
                 throw failure;
@@ -194,6 +198,27 @@ public final class SessionBundleLoader {
                     .ifPresent(resources::add);
         }
         return List.copyOf(resources);
+    }
+
+    /**
+     * Reads what every character owns per ability (B08).
+     *
+     * <p>All characters, for the same reason as the inventories below: which one will be played is
+     * decided by the selection afterwards (ADR-021), and asking again later would be a query on the
+     * player's tick. An empty result is the ordinary case - a row exists only once something differs
+     * from the default.
+     */
+    private static List<AbilityState> readAbilities(
+            Connection connection, List<PlayerCharacter> characters) throws SQLException {
+        if (characters.isEmpty()) {
+            return List.of();
+        }
+        java.time.Instant now = java.time.Instant.now();
+        List<AbilityState> abilities = new ArrayList<>();
+        for (PlayerCharacter character : characters) {
+            abilities.addAll(JdbcAbilityStateRepository.read(connection, character.characterId(), now));
+        }
+        return List.copyOf(abilities);
     }
 
     /**

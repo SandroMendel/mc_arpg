@@ -5,6 +5,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
+import rpg.core.ability.AbilityState;
 import rpg.core.classes.ClassProgress;
 import rpg.core.inventory.CharacterInventory;
 import rpg.core.persistence.ItemInstance;
@@ -25,6 +26,9 @@ import rpg.core.stats.CharacterResources;
  * @param items the items belonging to those characters
  * @param resources stored health and mana per character (B04)
  * @param progress stored level and experience per character (B06)
+ * @param classProgress reached armour and weapon tier per character (B07)
+ * @param inventories stored inventory contents per character
+ * @param abilities rank, running cooldown and toggle per character and ability (B08)
  */
 public record SessionBundle(
         UUID playerId,
@@ -34,7 +38,8 @@ public record SessionBundle(
         List<CharacterResources> resources,
         List<CharacterProgress> progress,
         List<ClassProgress> classProgress,
-        List<CharacterInventory> inventories) {
+        List<CharacterInventory> inventories,
+        List<AbilityState> abilities) {
 
     public SessionBundle {
         Objects.requireNonNull(playerId, "playerId");
@@ -45,14 +50,37 @@ public record SessionBundle(
         progress = List.copyOf(Objects.requireNonNull(progress, "progress"));
         classProgress = List.copyOf(Objects.requireNonNull(classProgress, "classProgress"));
         inventories = List.copyOf(Objects.requireNonNull(inventories, "inventories"));
+        abilities = List.copyOf(Objects.requireNonNull(abilities, "abilities"));
     }
 
     /**
-     * A bundle without stored inventories - the shape before that existed.
+     * A bundle without stored abilities - the shape before B08 existed.
      *
-     * <p>Same reason as the constructor below it: callers that predate the table, and tests about
-     * sessions, should not have to name a type they do not use.
+     * <p>Same reason as the two constructors below: a caller that predates the table, and a test that
+     * is about sessions, should not have to name a type it does not use.
      */
+    public SessionBundle(
+            UUID playerId,
+            Optional<PlayerState> accountState,
+            List<PlayerCharacter> characters,
+            List<ItemInstance> items,
+            List<CharacterResources> resources,
+            List<CharacterProgress> progress,
+            List<ClassProgress> classProgress,
+            List<CharacterInventory> inventories) {
+        this(
+                playerId,
+                accountState,
+                characters,
+                items,
+                resources,
+                progress,
+                classProgress,
+                inventories,
+                List.of());
+    }
+
+    /** A bundle without stored inventories - the shape before that existed. */
     public SessionBundle(
             UUID playerId,
             Optional<PlayerState> accountState,
@@ -69,6 +97,23 @@ public record SessionBundle(
         return inventories.stream()
                 .filter(inventory -> inventory.characterId().equals(characterId))
                 .findFirst();
+    }
+
+    /**
+     * What one character owns per ability - rank, running cooldown and toggle (B08).
+     *
+     * <p>Loaded here rather than fetched later, for the same reason B07's tiers are: the rank scales
+     * every number an ability produces, and a character whose ranks arrived a moment after the session
+     * was declared ready would briefly act at rank 1 and then correct itself. The session load already
+     * batches its queries, so this is one more read on a connection that is open anyway.
+     *
+     * <p>An empty list is the ordinary case, not a miss: a row only exists once something differs from
+     * the default (see the {@code V8_1} header).
+     */
+    public List<AbilityState> abilitiesOf(UUID characterId) {
+        return abilities.stream()
+                .filter(state -> state.characterId().equals(characterId))
+                .toList();
     }
 
     /**

@@ -54,11 +54,11 @@ class ShippedClassConfigTest {
     }
 
     @Test
-    @DisplayName("die Leiterlängen sind 5/6, 6/6 und 7/7 - nicht überall fünf (FR-013)")
+    @DisplayName("die Leiterlängen sind 6/6, 6/6 und 7/7 - nicht überall gleich (FR-013)")
     void ladderLengthsAreNotUniform() throws Exception {
         ClassConfig config = shipped();
 
-        assertThat(lengths(config, CharacterClass.WARRIOR)).containsExactly(5, 6);
+        assertThat(lengths(config, CharacterClass.WARRIOR)).containsExactly(6, 6);
         assertThat(lengths(config, CharacterClass.ROGUE)).containsExactly(6, 6);
         assertThat(lengths(config, CharacterClass.MAGE)).containsExactly(7, 7);
     }
@@ -93,7 +93,7 @@ class ShippedClassConfigTest {
     }
 
     @Test
-    @DisplayName("T067: die Leiter trägt 60 bis 80 % des Zuwachses der fünf wachsenden Attribute (SC-005)")
+    @DisplayName("T067: die Leiter trägt 60 bis 80 % des Zuwachses der Attribute, die sie führt (SC-005)")
     void ladderCarriesTheDominantShare() throws Exception {
         ClassConfig config = shipped();
 
@@ -103,6 +103,12 @@ class ShippedClassConfigTest {
                 if (definition.growth().perLevel(attribute) == 0.0) {
                     // Die drei prozentualen Attribute kommen vollständig aus der Leiter und sind von
                     // dieser Spanne ausdrücklich ausgenommen (SC-005).
+                    continue;
+                }
+                if (attribute == Attribute.HEALTH_REGEN || attribute == Attribute.MANA_REGEN) {
+                    // Der Gegenfall, und ebenso ausdrücklich: die beiden Regenerationsraten kommen
+                    // vollständig aus dem Levelwachstum und liegen auf keiner Leiter (ADR-023).
+                    // Damit ist ihr Leiteranteil null - keine Abweichung, sondern die Entscheidung.
                     continue;
                 }
                 double start = startValue(definition, attribute);
@@ -136,7 +142,11 @@ class ShippedClassConfigTest {
         assertThat(strongestIn(config, Attribute.HEALTH)).isEqualTo(CharacterClass.WARRIOR);
         assertThat(strongestIn(config, Attribute.DEFENSE)).isEqualTo(CharacterClass.WARRIOR);
         assertThat(strongestIn(config, Attribute.PHYSICAL_DAMAGE)).isEqualTo(CharacterClass.WARRIOR);
+        // Der Warrior führt healthRegen, weil er das grösste Gefäss füllt - alle drei Klassen sind
+        // nach derselben Zeit wieder voll, und genau deshalb regeneriert er am schnellsten.
+        assertThat(strongestIn(config, Attribute.HEALTH_REGEN)).isEqualTo(CharacterClass.WARRIOR);
         assertThat(strongestIn(config, Attribute.MANA)).isEqualTo(CharacterClass.MAGE);
+        assertThat(strongestIn(config, Attribute.MANA_REGEN)).isEqualTo(CharacterClass.MAGE);
         assertThat(strongestIn(config, Attribute.MAGIC_DAMAGE)).isEqualTo(CharacterClass.MAGE);
         assertThat(strongestIn(config, Attribute.ABILITY_COOLDOWN)).isEqualTo(CharacterClass.MAGE);
         assertThat(strongestIn(config, Attribute.ATTACK_SPEED)).isEqualTo(CharacterClass.ROGUE);
@@ -144,18 +154,22 @@ class ShippedClassConfigTest {
     }
 
     @Test
-    @DisplayName("das Warrior-Loadout hat sechs Fähigkeiten, vier davon aktiv (FR-041)")
-    void warriorLoadoutIsComplete() throws Exception {
-        CharacterClassDefinition warrior = shipped().definition(CharacterClass.WARRIOR);
+    @DisplayName("jede Klasse hat sechs Fähigkeiten mit genau einer Unique (FR-041)")
+    void everyLoadoutIsComplete() throws Exception {
+        // Seit B08 sind alle drei gefüllt. Bis dahin stand hier "Mage und Rogue bleiben leer" - eine
+        // Zusage mit Verfallsdatum, und sie ist verfallen.
+        //
+        // Was B07 hier prüft, ist nur die Form: sechs Einträge, eine Unique. Ob die Aufteilung 4+2
+        // oder 3+3 ist und ob die IDs überhaupt existieren, gehört B08 und steht in
+        // ShippedAbilityConfigTest - zwei Stellen, die dasselbe prüfen, wären eine zu viel.
+        for (CharacterClass id : CharacterClass.values()) {
+            CharacterClassDefinition definition = shipped().definition(id);
 
-        assertThat(warrior.abilities()).hasSize(6);
-        assertThat(warrior.abilities().stream().filter(a -> a.isActive()).count()).isEqualTo(4);
-        assertThat(warrior.abilities().stream().filter(a -> a.unique()).count()).isEqualTo(1);
-        assertThat(warrior.abilities())
-                .as("Mage und Rogue bleiben leer, bis B08 sie füllt (FR-045)")
-                .isNotEmpty();
-        assertThat(shipped().definition(CharacterClass.MAGE).abilities()).isEmpty();
-        assertThat(shipped().definition(CharacterClass.ROGUE).abilities()).isEmpty();
+            assertThat(definition.abilities()).as(id + " hat sechs").hasSize(6);
+            assertThat(definition.abilities().stream().filter(a -> a.unique()).count())
+                    .as(id + " hat genau eine Unique")
+                    .isEqualTo(1);
+        }
     }
 
     // --- helpers ----------------------------------------------------------------------------
@@ -233,8 +247,10 @@ class ShippedClassConfigTest {
     private static Map<Attribute, Double> caps() {
         Map<Attribute, Double> caps = new EnumMap<>(Attribute.class);
         caps.put(Attribute.HEALTH, 2000.0);
+        caps.put(Attribute.HEALTH_REGEN, 40.0);
         caps.put(Attribute.DEFENSE, 300.0);
         caps.put(Attribute.MANA, 500.0);
+        caps.put(Attribute.MANA_REGEN, 20.0);
         caps.put(Attribute.PHYSICAL_DAMAGE, 150.0);
         caps.put(Attribute.MAGIC_DAMAGE, 150.0);
         caps.put(Attribute.ABILITY_COOLDOWN, 0.40);
@@ -248,8 +264,10 @@ class ShippedClassConfigTest {
     private static AttributeDefinition definitionOf(Attribute attribute) {
         return switch (attribute) {
             case HEALTH -> new AttributeDefinition(attribute, 100.0, 1.0, 2000.0, 0.0);
+            case HEALTH_REGEN -> new AttributeDefinition(attribute, 0.0, 0.0, 40.0, 0.0);
             case DEFENSE -> new AttributeDefinition(attribute, 0.0, 0.0, 300.0, 0.0);
             case MANA -> new AttributeDefinition(attribute, 50.0, 0.0, 500.0, 0.0);
+            case MANA_REGEN -> new AttributeDefinition(attribute, 0.0, 0.0, 20.0, 0.0);
             case PHYSICAL_DAMAGE -> new AttributeDefinition(attribute, 5.0, 0.0, 150.0, 0.0);
             case MAGIC_DAMAGE -> new AttributeDefinition(attribute, 5.0, 0.0, 150.0, 0.0);
             case ATTACK_SPEED -> new AttributeDefinition(attribute, 4.0, 0.0, 1024.0, 0.50);

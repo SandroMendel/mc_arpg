@@ -72,6 +72,14 @@ final class HudFixture {
             return handle();
         }
 
+        /** ADR-024: verzoegert, aber im Test genauso behandelt wie sofort. */
+        @Override
+        public TaskHandle runSyncOnEntityDelayed(EntityRef entity, Duration delay, Runnable task) {
+            entityTasks++;
+            task.run();
+            return handle();
+        }
+
         @Override
         public TaskHandle runAsync(Runnable task) {
             task.run();

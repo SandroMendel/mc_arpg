@@ -50,7 +50,8 @@ Prozentanzeige.
 
 ## ADR-004 · Ausrüstung ist Stat-Quelle
 
-**Status:** Für Rüstung und Waffe revidiert durch ADR-017; für alle übrigen Items in Kraft
+**Status:** Für Rüstung und Waffe revidiert durch ADR-017; die Roll-Hälfte gestrichen durch
+ADR-027; im Übrigen in Kraft
 
 Spielerwerte setzen sich zusammen aus Klasse + Level + **Ausrüstung** (später
 zusätzlich Buffs/Auren).
@@ -58,9 +59,12 @@ zusätzlich Buffs/Auren).
 **Konsequenzen:**
 - B11 (Items/Ausrüstung/Loot) ist Kernbestandteil, nicht optional, und wird
   parallel zu B04 spezifiziert.
-- Items speichern **Template-ID und gewürfelte Roll-Werte**, niemals berechnete
-  Endwerte oder gerendertes Lore. Nur so ist späteres Rebalancing möglich, ohne
-  bestehende Spieleritems anzufassen.
+- Items speichern die **Template-ID**, niemals berechnete Endwerte oder
+  gerendertes Lore. Nur so ist späteres Rebalancing möglich, ohne bestehende
+  Spieleritems anzufassen.
+  > Ursprünglich stand hier „Template-ID **und gewürfelte Roll-Werte**". ADR-027
+  > hat den Roll-Mechanismus gestrichen: jedes Item hat feste Attributwerte. Die
+  > Zusage wird dadurch stärker — ohne Roll ist die Vorlage die einzige Quelle.
 - Speicherung über PersistentDataContainer, nicht über Lore-Parsing.
 - Item-Schema wird versioniert; Migrationspfad ist Teil der Spec.
 
@@ -957,3 +961,339 @@ die Stufe.
 - **Die Frist ist eine Konstante, keine Konfiguration** — wie die Meldungssperre in
   `InventoryFullNoticeListener`. Sollte sich das als falsch erweisen, wandert sie nach `classes.yml`,
   was eine Schemaänderung ist und auf Verdacht nicht lohnt.
+
+---
+
+## ADR-022 · Die vier blockierenden Vorentscheidungen zu B08
+
+**Status:** Entschieden *(2026-08-22)* — vor `/specify` B08, gemäß Workflow-Regel 2.
+
+**1. Die Unique Class Ability ist eine der sechs, nicht die siebte.** Sie bekommt keine eigene
+Kategorie, keinen eigenen Reiter und keinen Sonderplatz in der Leiste. Sie ist eine gewöhnliche
+Bindung mit gesetztem `unique`-Flag; das Flag sagt nur, dass diese Fähigkeit das Markenzeichen der
+Klasse ist. Damit bleibt es bei **4 aktiv + 2 passiv je Klasse**.
+
+**Folge im Code:** Die Invariante `unique ⇒ ACTIVE` in `AbilityBinding` fällt. Sie war aus der
+Annahme entstanden, „vier Aktive inklusive der Unique" bedeute, die Unique sei zwingend aktiv — das
+gilt aber nur für den Warrior. Rogues „Second Life" und Mages „Magic Boost & Fall" sind laut
+festgelegtem Entwurf passiv, und sie umzubauen hätte eine bereits abgeschlossene Frage wieder
+geöffnet, um eine Zählregel zu retten, die auch ohne sie aufgeht. Die Klassenprüfung in
+`CharacterClassDefinition` zählt weiter vier aktive und zwei passive Fähigkeiten und höchstens eine
+Unique — nur der Zusammenhang zwischen `unique` und `kind` entfällt.
+
+**2. Es gibt einen kurzen globalen Cooldown.** Nach jeder ausgelösten aktiven Fähigkeit sind für eine
+kurze Spanne alle anderen gesperrt. Grund ist das festgelegte Eingabeschema: Hotbar-Slot-Wechsel plus
+Rechtsklick lässt sich in einem einzigen Tick viermal ausführen, und ohne globale Sperre wäre die
+Reihenfolge „alle vier Aktiven sofort" immer die stärkste Eröffnung. Der GCD wird wie die
+Einzel-Cooldowns **zeitstempelbasiert lazy** gerechnet — kein Herunterzählen, keine Aufgabe je
+Spieler. Der Zahlenwert ist Konfiguration (Prinzip V).
+
+**3. Casting-Zeiten und Unterbrechung sind vorgesehen.** Eine Fähigkeit darf eine Wirkzeit haben, und
+ein laufender Cast ist unterbrechbar. Das kostet einen Cast-Zustand je Spieler und Regeln dafür, was
+unterbricht und was mit den Kosten geschieht — es ist die teurere der beiden Möglichkeiten und
+bewusst so gewählt, weil Wirkzeit nachträglich einzuziehen jede vorhandene Fähigkeit, das HUD (B13)
+und die Eingabebehandlung gleichzeitig anfasst. Welche Fähigkeit welche Wirkzeit hat, ist
+Konfiguration; instant ist der Sonderfall `cast-time: 0`, nicht die Abwesenheit der Mechanik.
+
+**4. Lifesteal ist ein Effekt in der Kampf-Pipeline, kein Attribut.** ADR-008 bleibt unangetastet:
+die acht Attribute bleiben acht, Sekundärwerte bleiben zurückgestellt. Warriors passives Lifesteal
+ist ein Effekt-Primitive, das sich in B05 einhängt und einen Anteil des ausgeteilten Schadens als
+Heilung zurückgibt. Der Prozentsatz hängt an der Fähigkeitsstufe (Coin-Aufwertung), nicht an einem
+Attribut. Ein neuntes Attribut hätte Stat-Engine, Persistenz und HUD gleichzeitig geöffnet — und mit
+ihm die Tür für Crit-Chance und Resistenzen, die dieselbe Zurückstellung teilen.
+
+---
+
+## ADR-023 · Zwei Regenerationsraten als neuntes und zehntes Attribut
+
+**Status:** Entschieden *(2026-08-22)* — ergänzt ADR-008, hebt es nicht auf.
+
+`healthRegen` und `manaRegen`, beide in Punkten je Sekunde ausserhalb des Kampfes, im Kampf um einen
+konfigurierten Faktor reduziert. Damit sind es zehn Attribute statt acht.
+
+**1. Warum es überhaupt fehlte.** ADR-013 hat `NATURAL_HEALTH_REGENERATION` abgeschaltet und
+`VanillaRegenerationGuard` bricht `REGEN`, `SATIATED`, `EATING` und `MAGIC_REGEN` ab, damit
+ausschliesslich die Engine die Herzleiste schreibt. Das war richtig und hat eine Lücke hinterlassen,
+die bis jetzt niemand geschlossen hat: **ein verletzter Spieler heilt nicht.** `healthRegen` ist die
+Rückseite von ADR-013, kein Zusatzwunsch.
+
+**2. Warum ein Attribut und keine Konstante.** Eine Regenerationsrate ist genau das, was ADR-008 unter
+einem Attribut versteht: eine Zahl je Charakter, die aus Basis, Level und später Ausrüstung und Buffs
+entsteht und einen Cap hat. Als Konfigurationskonstante hätte sie für alle drei Klassen gleich sein
+müssen oder eine zweite, klassenabhängige Tabelle neben `classes.yml` gebraucht — eine zweite Stelle
+für dieselbe Art von Zahl. Als Attribut nimmt sie den vorhandenen Modifikatorpfad mit: ein Buff „+50 %
+Heilung" ist ein gewöhnlicher `ModifierSet` und braucht keine Sonderregel.
+
+**Dies ist keine Rücknahme der zurückgestellten Sekundärwerte.** Crit-Chance, Crit-Schaden, Lifesteal
+und Resistenzen bleiben zurückgestellt und bleiben Fähigkeitseffekte (ADR-022). Der Unterschied ist,
+dass jene Werte *im Schadensereignis* wirken, wo B05 bereits einen Einhängepunkt hat, während eine
+Regenerationsrate über die Zeit wirkt und ausser dem Attribut nirgends hingehört.
+
+**3. Punkte je Sekunde, nicht Anteil am Maximum.** Der Anteil wäre bequemer gewesen — eine Zahl für
+alle Klassen, obwohl der Mage 500 Mana hat und der Warrior 200. Er hätte aber ein Attribut geschaffen,
+dessen Wirkung von einem *anderen* Attribut abhängt, und ein Modifikator darauf hätte je nach Klasse
+etwas anderes bedeutet. Stattdessen unterscheiden sich die Zahlen je Klasse so, dass jede Klasse
+dieselbe Zeit braucht: **50 Sekunden auf volle Gesundheit, 25 Sekunden auf volles Mana**, auf Level 1
+wie auf Level 60. Dass der Warrior am schnellsten regeneriert, ist die Folge davon, dass er das
+grösste Gefäss füllt — nicht eine Bevorzugung.
+
+**4. Basiswert null, und das ist der wichtige Teil.** In `stats.yml` steht bei beiden `base: 0.0`,
+anders als bei Gesundheit (100) und Mana (50). Ein Träger ohne Klassenbeitrag ist ein Monster
+(`createForEntity`), und ein Basiswert ungleich null hätte still jedes Monster der Welt sich selbst
+heilen lassen. Der Wert auf Level 1 kommt aus `classes.yml`, das kein Monster hat.
+
+**5. Beide kommen aus dem Levelwachstum, nicht von einer Leiter.** Damit bleibt `LadderSlot` bei vier
+Attributen je Leiter, keine der 37 Stufen bekommt ein Feld, und die Prüfung „ein getragenes Attribut
+steigt streng über die Stufen" bleibt unberührt. Das ist der Grund, warum diese Änderung klein war:
+die teure Hälfte von B07 wurde nicht angefasst. Der Preis ist, dass `T067` — die Leiter trägt 60 bis
+80 % des Zuwachses — für diese beiden ausdrücklich nicht gilt; die Ausnahme steht im Test, damit sie
+gelesen wird und nicht als Lücke durchgeht.
+
+**6. Die Caps liegen auf dem Rollenziel, nicht darüber.** `healthRegen` 40, `manaRegen` 20 — der
+Warrior erreicht 39,97, der Mage 19,91. Das ist dasselbe Muster wie bei den anderen acht: je Attribut
+reizt genau eine Klasse den Cap aus, die anderen bleiben darunter, und `T066` prüft es.
+
+**7. Angewandt wird beides von B08, nicht von B04.** Die Regeneration braucht den Kampfzustand, und
+den kennt B05. B04 dürfte ihn nicht lesen, ohne die Abhängigkeitsrichtung umzudrehen (Prinzip III).
+B08 liegt über beiden, baut die zeitstempelbasierte Abrechnung ohnehin für Mana und rechnet die
+Gesundheit mit derselben Maschine ab. Der Bestand sagt das schon: `CombatState` und `ResourcePool`
+benennen B08 namentlich als den Ort, an dem Mana-Regeneration stattfindet.
+
+**Folge:** Bis B08 umgesetzt ist, werden beide Werte berechnet, geführt und angezeigt — aber von
+niemandem verbraucht. Das ist derselbe Zustand, in dem B07 die Fähigkeitsbindungen hinterlassen hat.
+
+---
+
+## ADR-024 · Der Scheduler bekommt ein verzögertes synchrones Einzelstück
+
+**Status:** Entschieden *(2026-08-22)* — bei der Planung von B08. Erweitert ADR-010, das
+`runAsyncDelayed` ergänzt hat, um den synchronen Gegenpart.
+
+`Scheduler` bekommt `runSyncOnEntityDelayed(EntityRef, Duration, Runnable)`.
+
+**Der Anlass.** B08s Fähigkeiten dürfen eine Wirkzeit haben (ADR-022). Eine Wirkzeit ist einmalige
+Arbeit **im Tick**, zu einem bestimmten späteren Zeitpunkt, mit Berührung der Paper-API. Keine der
+vier vorhandenen Methoden drückt das aus: `runSyncAtLocation` und `runSyncOnEntity` laufen sofort,
+`runAsync` und `runAsyncDelayed` dürfen die API nicht berühren.
+
+**Warum das die Abstraktion nicht aufweicht.** Ihr Javadoc verbietet zwei Dinge namentlich:
+synchrone Arbeit ohne Orts- oder Entity-Bindung, und *wiederkehrende* Aufgaben. Die neue Methode ist
+entity-gebunden und einmalig und verletzt keines von beiden. Sie öffnet keinen Weg zu einer
+periodischen Aufgabe je Spieler, und sie hält den Folia-Pfad offen (ADR-007), weil sie wie ihre
+Geschwister an eine Entity gebunden ist. `EntityScheduler.runDelayed` gibt es in Paper nativ — die
+Methode bildet ab, was die Plattform ohnehin kann, statt es nachzubauen.
+
+**Verworfen: `runAsyncDelayed`, das am Ende `runSyncOnEntity` aufruft.** Läuft mit der heutigen
+Schnittstelle und war der erste Entwurf. Er kostet einen Threadwechsel für Arbeit, die den Tick nie
+verlässt, macht die Wirkzeit um bis zu einen weiteren Tick ungenau und braucht zwei
+Scheduler-Aufrufe je Cast. Der Ausschlag gab der dritte Punkt: `runSyncOnEntity` darf einen bereits
+abgebrochenen Handle zurückgeben, wenn die Entity gerade nicht auflösbar ist — der Cast müsste diesen
+Fall dann *nach* dem Warten behandeln statt vorher, also zu einem Zeitpunkt, zu dem das Mana längst
+gebucht ist.
+
+**Verworfen: den Cast lazy auswerten wie einen Cooldown.** Der Unterschied ist grundsätzlich und
+lohnt, festgehalten zu werden, weil er bei jeder künftigen „warum nicht auch das lazy"-Frage
+wiederkommt: ein Cooldown wird ausgewertet, **wenn jemand fragt**. Ein Cast muss wirken, **auch wenn
+niemand fragt**. Zeitstempelarithmetik beantwortet Fragen; sie löst keine Handlungen aus.
+
+**Folge:** Prinzip II bleibt erfüllt und wird messbar geprüft (B08 SC-005). Ein Spieler, der nichts
+tut, hat keine Aufgabe.
+
+### Nachtrag nach der Umsetzung *(2026-08-22, Workflow-Regel 4)*
+
+Der Satz „die Zahl der geplanten Aufgaben entspricht der Zahl der laufenden Casts **und sonst
+nichts**" stand hier und stimmt so nicht mehr. Er war zum Zeitpunkt der Entscheidung richtig; ADR-025
+hat danach haltende Fähigkeiten, den Klon und die Unsichtbarkeit ergänzt, und alle drei enden zu
+einem Zeitpunkt. Der umgesetzte Stand:
+
+| Was | Aufgaben | Art |
+|---|---|---|
+| laufender Cast | eine | Einzelstück, entity-gebunden |
+| haltende Fähigkeit | eine | dasselbe - das vorzeitige Ende bricht sie ab |
+| Klon, Unsichtbarkeit | je eine | dasselbe, für Ablauf und Rückkehr |
+| **alle** Intervall-Effekte, ablaufende Buffs, verlorene Geschosse | **eine, serverweit** | selbst nachplanend, wie B05s Sweep |
+| Cooldowns, globale Sperre, Ladungen, Wut, beide Regenerationen | **keine** | Zeitstempelarithmetik |
+
+Die Zusage, um die es ADR-024 ging, ist unverändert: **keine wiederkehrende Aufgabe je Spieler und
+keine je Ziel.** Zweihundert gleichzeitig laufende Gifte teilen sich eine Auswertung, und ohne ein
+einziges laufendes ist sie ein leerer Scan. Was dazugekommen ist, sind Einzelstücke, die existieren,
+solange etwas läuft, und mit ihm verschwinden - genau die Form, die ADR-024 erlaubt hat.
+
+---
+
+## ADR-025 · Die ausgearbeiteten Loadouts und was sie am Framework ändern
+
+**Status:** Entschieden *(2026-08-22)* — nach der detaillierten Beschreibung aller achtzehn
+Fähigkeiten durch den Auftraggeber. Ergänzt ADR-022.
+
+**1. Die Aufteilung aktiv/passiv wird Inhalt, nicht Struktur.** Bisher galt „vier aktiv, zwei passiv"
+als harte Startprüfung. Der ausgearbeitete Rogue ist **drei und drei** — Vergiftete Klinge,
+Hinterhältiger Angriff und Zweites Leben sind alle passiv. Künftig prüft der Start nur noch: genau
+sechs Fähigkeiten je Klasse, höchstens eine Unique.
+
+Die Alternative wäre gewesen, eine der drei Rogue-Passiven zu einer aktiven umzubauen. Das hätte
+einen durchdachten Entwurf verbogen, um eine Zahl zu retten, die nie ein Ziel war, sondern eine
+frühe Schätzung. Und sie passt zum Rollenprofil: ein Assassine lebt von Zuständen — Gift, Position,
+ein zweites Leben — nicht von Knopfdrücken. `CharacterClassDefinition.ACTIVE_ABILITIES` und
+`PASSIVE_ABILITIES` entfallen; `TOTAL_ABILITIES` bleibt.
+
+**2. Haltende Fähigkeiten sind ein dritter Laufzeitzustand.** Sieben der achtzehn wirken über eine
+Dauer und enden per zweitem Rechtsklick: Wutschrei, Sprung, Wirbel, Block, Unsichtbarkeit, Magisches
+Schild, Manatrank. Das ist keine Randerscheinung, sondern das häufigste Bedienmuster des Blocks —
+neben Cooldown und Cast braucht es einen Zustand „wirkt gerade und lässt sich beenden".
+
+**Der Abbruch ist zweiphasig, und das ist die eigentliche Entscheidung.** Ein Abbruch in der
+*Vorbereitung* erstattet die Kosten und startet keinen Cooldown; das vorzeitige *Beenden einer
+bereits laufenden Wirkung* behält beides. Ohne diese Trennung wäre Sofort-Abbrechen ein kostenloses
+Werkzeug: ein Wirbel liesse sich beliebig oft für Sekundenbruchteile zünden. Mit ihr ist ein
+Fehlklick beim Sprung folgenlos und ein taktisch früh beendeter Wirbel trotzdem bezahlt.
+
+**3. Wirkung je Sekunde entsteht aus einem Intervallfeld, nicht aus neuen Primitives.** Wirbel,
+Vergiftete Klinge, Blitzsturm und Manatrank brauchen alle „X je Sekunde über Y Sekunden". Statt vier
+Primitives bekommt ein Effekt ein optionales Intervall — `DAMAGE` mit Intervall ist ein DoT,
+`MANA_RESTORE` mit Intervall ist der Manatrank.
+
+**Das nimmt die frühere Ablehnung von Schaden über Zeit zurück, aber nur zur Hälfte.** Abgelehnt war
+die *Umsetzung* mit einer Auswertung je Ziel, die Prinzip II verletzt hätte. **Alle** laufenden
+Intervall-Effekte laufen deshalb über **eine gemeinsame Auswertung** — ein serverweiter Durchlauf,
+keine Aufgabe je Entity. Debuffs ohne Intervall bleiben ablaufende Modifikatoren wie bisher.
+
+**4. Vier Primitives kommen dazu: Evade, Meter, Summon, Invisibility.** Die ersten beiden sind
+gewöhnlich. Die beiden anderen sind es nicht:
+
+- **Meter** ist Warriors Wut: ein Zähler von 0 bis 100, der bei Schaden steigt und nach einer
+  Ruhefrist fällt, und aus dessen Stand sich eine Attributskalierung ergibt. Er sieht aus wie eine
+  dritte Ressource neben Gesundheit und Mana, ist aber keine: er wird nicht gespeichert, überlebt das
+  Abmelden nicht und ist aus dem letzten Stand plus verstrichener Zeit **lazy** rechenbar. Deshalb
+  kostet er keine Aufgabe und keine Tabelle.
+- **Summon** war ausdrücklich auf B10 vertagt und kommt durch den Klon zurück. Es wird hier gebaut,
+  **aber ohne Aggro-Umlenkung** — die braucht Mob-KI.
+
+**5. Drei Mechaniken bekommen jetzt ihre Schnittstelle und später ihr Verhalten.** Der Klon zieht
+keine Mobs, die Unsichtbarkeit hält Mobs nicht ab und macht keine Ausnahme für Bosse, und Zweites
+Leben prüft nicht, ob der Spieler in einer Instanz steht. Alle drei brauchen B10 beziehungsweise B09.
+B08 definiert die Einhängepunkte und benutzt eine Vanilla-Näherung, wo eine existiert — der
+Unsichtbarkeitseffekt und die Unverwundbarkeit wirken sofort.
+
+Das ist dasselbe Muster, mit dem B07 die Fähigkeits-IDs an B08 abgegeben hat: **benennen, was ein
+späterer Block auflöst, statt ihn vorwegzunehmen** (Workflow-Regel 5). Der Preis ist, dass drei
+Fähigkeiten bis B10 unvollständig wirken — und das ist bewusst dokumentiert statt stillschweigend.
+
+**6. Zwei Zielbestimmungen kommen dazu.** Die **Kette** springt vom zuletzt getroffenen Ziel weiter,
+nicht vom Auslöser — das ist Mages Blitz und lässt sich mit „nächstes Ziel" nicht ausdrücken. Die
+**Bodenfläche** verankert sich an einem Punkt und bleibt dort, auch wenn der Auslöser weggeht — das
+ist der Blitzsturm.
+
+**7. Ladungen.** Rogues Teleport hat zwei, und der Cooldown beginnt erst nach der zweiten; wird sie
+nicht binnen zehn Sekunden benutzt, springt der Vorrat zurück. Zeitstempelarithmetik wie alles andere.
+
+**Nicht geändert:** ADR-008 bleibt bei zehn Attributen. Evade und Meter sind Fähigkeitseffekte, keine
+Sekundärwerte — dieselbe Grenze, die ADR-022 für Lifesteal gezogen hat.
+
+---
+
+## ADR-026: `trigger` und `item` dürfen mehrere nennen
+
+**Status:** Angenommen · **Datum:** 2026-08-22 · **Block:** B08
+
+**Kontext.** Die achtzehn Fähigkeiten wurden bewusst als Letztes geschrieben, nach der Maschine — weil
+SC-001 („eine neue Fähigkeit entsteht aus Konfiguration") nur dann etwas beweist, wenn der Code
+vorher fertig war. Sechzehn der achtzehn entstanden genau so. Zwei nicht:
+
+- **Warriors Wut** baut sich bei aus- *und* eingeteiltem Schaden auf. `trigger` war ein Einzelwert.
+- **Mages Aufstieg & Fall** zeigt zwei Marker: Wind Charge für den Sprung, Trank für den Fall. Bei
+  einer dreistufigen Einstellung — an, aus, nur Sprung — sind diese beiden das, was der Spieler
+  liest. `item` war ein Einzelwert.
+
+**Entscheidung.** Beide Felder nehmen einen Wert **oder** eine Liste. Die Einzelschreibweise bleibt
+gültig und ist bei sechzehn von achtzehn Fähigkeiten die richtige.
+
+**Warum nicht die Liste überall erzwingen.** Sechzehn Definitionen schlechter lesbar machen, damit
+zwei schreibbar werden, ist der falsche Tausch. Eine einelementige Liste an einer Stelle, an der es
+strukturell nur eines geben kann, ist Rauschen.
+
+**Warum nicht als Java-Sonderfall.** Genau das wäre der Bruch von SC-001 gewesen: „Wut ist speziell"
+in `PassiveDispatcher` und „Aufstieg & Fall zeigt zwei Items" in `AbilityHotbar` hätten die achtzehn
+zum Laufen gebracht und die neunzehnte wieder unmöglich gemacht.
+
+**Grenzen.** Eine **aktive** Fähigkeit nennt weiterhin genau ein Item — es ist der Slot, den der
+Spieler anklickt, und zwei wären zwei Wege, dasselbe auszulösen. Mehrere Items sind ausschließlich
+Marker einer passiven Fähigkeit. Eine leere Liste bricht ab: sie liest sich wie eine Entscheidung,
+ist aber keine — wer keinen Trigger will, lässt die Zeile weg.
+
+**Folgen.** `Ability.triggers()` ist ein `Set`, `Ability.items()` eine `List`; `firesOn(trigger)` und
+`item()` sind die beiden Leser. Zwei Aufrufstellen im Code, beide angepasst. Der Test
+`ConfigOnlyAbilityTest` bleibt unberührt — er belegte die Zusage für die Bausteine, und die Zusage
+hielt: was fehlte, war Vokabular in der Konfiguration, keine Klasse im Code.
+
+---
+
+## ADR-027: Der Neuzuschnitt von B11, und eine Währung bekommt einen eigenen Block
+
+**Status:** Angenommen · **Datum:** 2026-08-22 · **Blöcke:** B08b (neu), B11, rückwirkend B07 und B08
+
+**Kontext.** ADR-017 hat Rüstung und Waffe zu Klassenprogression gemacht. Damit verlor B11 seinen
+dominanten Inhalt, und vier Fragen blieben offen, die vor `/specify` zu klären waren. Sie sind es
+jetzt.
+
+### 1. Die Währung bekommt einen eigenen Block: **B08b · Währung & Konto**
+
+**Sie war unterwegs verlorengegangen.** Coins stehen seit dem 19.08. in der Vision. `classes.yml`
+schreibt heute `cost: { coins: 500 }` an jede Ausrüstungsstufe — und B07 liest die Zahl bewusst nicht
+aus („B07 knows nothing about coins"). B08s Rangaufstieg kostet aus demselben Grund nichts;
+`RankResult` kennt kein `NOT_ENOUGH_COINS`, weil es nichts gäbe, woran es scheitern könnte. Drei
+Blöcke setzen eine Währung voraus, und keiner besitzt sie.
+
+**Warum kein Unterbringen in B11.** Der naheliegende Weg wäre, sie zum Item-Block zu schlagen — dort
+fliesst ohnehin Geld. Dagegen spricht die Abhängigkeitsrichtung: B07 und B08 bräuchten dann eine
+Abhängigkeit auf B11, und das sind Schicht 1 auf Schicht 2. Ein Kontostand hat mit Items nichts zu
+tun; er hat mit dem Charakter zu tun, wie Level und Erfahrung.
+
+**Nummerierung.** B01–B17 ist fest, also wird eingeschoben statt umnummeriert: **B08b**, Schicht 1,
+direkt hinter dem Fähigkeitsblock. Das ist zugleich die Reihenfolgeaussage — B08b hängt von B02, B03
+und B06 ab, aber **nicht** von B09, B10 oder B11 und ist damit sofort umsetzbar.
+
+**Was er umfasst:** Kontostand je Charakter (nicht je Konto, wie alles andere auch — ADR-011),
+Buchung mit Grund, Kostenprüfung als Schnittstelle für andere Blöcke, und eine Historie, soweit B12
+sie braucht. **Was er nicht umfasst:** wofür etwas kostet. Preise stehen bei dem, der sie verlangt —
+die Stufenkosten in `classes.yml`, die Rangkosten in `abilities.yml`, die Reparatur in B11.
+
+**Folgen, die nachzuziehen sind, sobald B08b steht:**
+
+- B07 löst den `cost`-Block aus, statt ihn undurchsichtig weiterzureichen
+- B08s `advanceRank` bekommt eine Kostenprüfung davor und `RankResult` ein `NOT_ENOUGH_COINS`; das
+  Javadoc, das heute „es gibt keine Währung" sagt, ist dann falsch und gehört korrigiert
+- B11 baut NPC-Verkauf und Reparatur darauf auf
+
+### 2. Raritätsstufen bleiben — als Etikett, ohne Wertwirkung
+
+Die acht Stufen von Common bis Special bleiben für Verbrauchbares, Material und Kosmetik. Sie sagen,
+**wie selten** etwas ist, und sonst nichts. Ein epischer Trank heilt nicht mehr als ein gewöhnlicher;
+er ist seltener.
+
+Der Grund für die Trennung: Rarität als Wertträger hätte Wertebereiche zurückgebracht, die
+Entscheidung 3 gerade abschafft. Als reine Farbe kostet die Skala fast nichts und ist schon
+entworfen.
+
+### 3. **Jedes Item hat feste Attributwerte.** Der Roll-Mechanismus entfällt
+
+Kein Würfeln, keine Wertebereiche, keine Affixe. Zwei Tränke desselben Typs sind identisch.
+
+**Was das mit ADR-004 macht.** ADR-004 sagt: ein Item speichert Vorlagen-ID und gewürfelte
+Roll-Werte, **niemals** berechnete Endwerte und niemals gerendertes Lore. Die zweite Hälfte bleibt
+vollständig gültig und ist der eigentliche Kern — sie ist der Grund, aus dem Rebalancing nach dem
+Release möglich bleibt, ohne jedes Spielerinventar anzufassen. Die erste Hälfte schrumpft: gespeichert
+wird die **Vorlagen-ID allein**. Endwerte und Lore werden weiterhin bei jedem Laden neu abgeleitet,
+nur eben aus der Vorlage statt aus Vorlage plus Roll.
+
+Das macht die Zusage stärker, nicht schwächer: ohne Roll ist die Vorlage die einzige Quelle, und ein
+geändertes Balancing wirkt auf jedes vorhandene Exemplar.
+
+### 4. Der NPC-Händler gehört zu B11
+
+Er ist der Ort, an dem Items zu Coins werden. B10 liefert die Entity-Technik, die er mitbenutzt; das
+macht ihn nicht zu einem Mob.
+
+**Nicht geändert:** Das Nicht-Ziel „kein Wirtschaftssystem" aus `00-vision-scope.md` meint **kein
+Spieler-zu-Spieler-Handel und kein Crafting**. NPC-Verkauf gegen Coins ist davon gedeckt und war es
+immer; die Formulierung wird bei `/specify` B11 präzisiert.

@@ -34,6 +34,12 @@ public final class DirectScheduler implements Scheduler {
         throw new UnsupportedOperationException("persistence never schedules tick work");
     }
 
+    /** ADR-024: verzoegert, aber im Test genauso behandelt wie sofort. */
+    @Override
+    public TaskHandle runSyncOnEntityDelayed(EntityRef entity, Duration delay, Runnable task) {
+        throw new UnsupportedOperationException("persistence never schedules tick work");
+    }
+
     @Override
     public TaskHandle runAsync(Runnable task) {
         asyncRuns.incrementAndGet();

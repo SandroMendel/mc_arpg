@@ -30,23 +30,50 @@ class AbilityBindingTest {
         List<AbilityBinding> abilities = registry.abilitiesOf(CharacterClass.WARRIOR);
 
         assertThat(abilities).hasSize(CharacterClassDefinition.TOTAL_ABILITIES);
-        assertThat(abilities.stream().filter(AbilityBinding::isActive).count())
-                .as("die Unique zählt als eine der vier aktiven")
-                .isEqualTo(CharacterClassDefinition.ACTIVE_ABILITIES);
-        assertThat(abilities.stream().filter(a -> !a.isActive()).count())
-                .isEqualTo(CharacterClassDefinition.PASSIVE_ABILITIES);
+        // Die Aufteilung ist Inhalt, keine Struktur (ADR-025) - beim Warrior ist sie 4+2, geprüft wird
+        // sie aber gegen die ausgelieferte Konfiguration, nicht gegen eine Konstante.
+        assertThat(abilities.stream().filter(AbilityBinding::isActive).count()).isEqualTo(4);
+        assertThat(abilities.stream().filter(a -> !a.isActive()).count()).isEqualTo(2);
         assertThat(abilities.stream().filter(AbilityBinding::unique).count()).isEqualTo(1);
     }
 
     @Test
-    @DisplayName("die Unique ist aktiv, und es gibt genau eine")
+    @DisplayName("die Unique des Warrior ist aktiv, und es gibt genau eine")
     void theUniqueIsActiveAndSingular() throws Exception {
         List<AbilityBinding> abilities = registry(1).abilitiesOf(CharacterClass.WARRIOR);
 
         AbilityBinding unique =
                 abilities.stream().filter(AbilityBinding::unique).findFirst().orElseThrow();
-        assertThat(unique.kind()).isEqualTo(AbilityKind.ACTIVE);
+        assertThat(unique.kind())
+                .as("beim Warrior aktiv - das ist eine Eigenschaft dieser Klasse, keine Regel")
+                .isEqualTo(AbilityKind.ACTIVE);
         assertThat(unique.abilityId()).contains("berserker");
+    }
+
+    @Test
+    @DisplayName("ADR-022: eine passive Unique wird angenommen - der Rogue und der Mage haben eine")
+    void aPassiveUniqueIsAccepted() {
+        AbilityBinding passiveUnique =
+                new AbilityBinding("rogue.second-life", AbilityKind.PASSIVE, true, 45);
+
+        assertThat(passiveUnique.unique()).isTrue();
+        assertThat(passiveUnique.isActive()).isFalse();
+    }
+
+    @Test
+    @DisplayName("ADR-025: drei aktive und drei passive sind ein gültiges Loadout")
+    void threeActiveAndThreePassiveIsValid() {
+        List<AbilityBinding> rogueLike =
+                List.of(
+                        new AbilityBinding("rogue.poisoned-blade", AbilityKind.PASSIVE, false, 1),
+                        new AbilityBinding("rogue.teleport", AbilityKind.ACTIVE, false, 5),
+                        new AbilityBinding("rogue.backstab", AbilityKind.PASSIVE, false, 15),
+                        new AbilityBinding("rogue.invisibility", AbilityKind.ACTIVE, false, 25),
+                        new AbilityBinding("rogue.clone", AbilityKind.ACTIVE, false, 35),
+                        new AbilityBinding("rogue.second-life", AbilityKind.PASSIVE, true, 45));
+
+        assertThat(rogueLike).hasSize(CharacterClassDefinition.TOTAL_ABILITIES);
+        assertThat(rogueLike.stream().filter(AbilityBinding::isActive).count()).isEqualTo(3);
     }
 
     @Test

@@ -37,6 +37,7 @@ import rpg.core.stats.StatConfig;
 import rpg.core.stats.StatEngine;
 import rpg.persistence.PersistenceMessageKeys;
 import rpg.persistence.PersistenceModule;
+import rpg.persistence.ability.AbilityModule;
 import rpg.persistence.classes.ClassesModule;
 import rpg.persistence.inventory.InventoryModule;
 import rpg.persistence.progression.ProgressionModule;
@@ -118,7 +119,8 @@ public class RpgPlugin extends JavaPlugin {
                     "stats.yml",
                     "combat.yml",
                     "progression.yml",
-                    "classes.yml");
+                    "classes.yml",
+                    "abilities.yml");
 
     private final BootstrapState bootstrapState = new BootstrapState();
 
@@ -134,6 +136,9 @@ public class RpgPlugin extends JavaPlugin {
     private CombatModule combatModule;
     private ProgressionModule progressionModule;
     private ClassesModule classesModule;
+    private AbilityModule abilityModule;
+    private rpg.core.ability.AbilityRuntime abilityRuntime;
+    private rpg.platform.ability.AbilityHotbar abilityHotbar;
     private InventoryModule inventoryModule;
     private ExperienceBar experienceBar;
 
@@ -321,6 +326,16 @@ public class RpgPlugin extends JavaPlugin {
         inventoryModule =
                 new InventoryModule(
                         persistenceModule, sessionModule, getLogger(), Clock.systemUTC());
+        // After the classes: the cross-check between the loadouts and the ability definitions needs
+        // both configurations, and it is the promise B07 could not keep - there an ability id travels
+        // as an opaque string because this block did not exist yet.
+        abilityModule =
+                new AbilityModule(
+                        persistenceModule,
+                        sessionModule,
+                        classesModule,
+                        getLogger(),
+                        Clock.systemUTC());
         return List.of(
                 persistenceModule,
                 sessionModule,
@@ -328,7 +343,8 @@ public class RpgPlugin extends JavaPlugin {
                 combatModule,
                 progressionModule,
                 classesModule,
-                inventoryModule);
+                inventoryModule,
+                abilityModule);
     }
 
     /**
@@ -523,6 +539,33 @@ public class RpgPlugin extends JavaPlugin {
     }
 
     /**
+     * The one sweep that drives every timed ability effect (FR-010b).
+     *
+     * <p>Interval effects, expiring buffs and lost projectiles share it, because they share the reason for existing:
+     * both are "something that ends later", and the alternative - a task per running effect - is the
+     * shape Constitution II rules out. At two hundred poisons this is one pass; with none running it
+     * is two empty map scans.
+     *
+     * <p>Half a second, not a tick. An effect configured at one second is late by at most half of one,
+     * and nothing in this game is fine-grained enough for that to be visible.
+     */
+    private void startAbilitySweep(
+            rpg.core.ability.effect.IntervalEffectRunner intervals,
+            rpg.core.ability.effect.BuffEffect buffs,
+            rpg.platform.ability.AbilityProjectile projectiles) {
+        scheduler.runAsyncDelayed(
+                Duration.ofMillis(500),
+                () -> {
+                    intervals.sweep();
+                    buffs.expire();
+                    projectiles.sweep();
+                    if (isEnabled()) {
+                        startAbilitySweep(intervals, buffs, projectiles);
+                    }
+                });
+    }
+
+    /**
      * Assembles the Paper-facing half of B07, and hands back the seam B03 drives it through.
      *
      * <p>Four listeners and one observer. The observer is why this runs before
@@ -535,6 +578,244 @@ public class RpgPlugin extends JavaPlugin {
      * every attachment - B04's holder, B06's level, B07's tiers - and the equipment goes on afterwards,
      * because it is built from those tiers.
      */
+    /**
+     * Assembles the Paper-facing half of B08 (T056).
+     *
+     * <p>Runs from inside the class layer, because it needs what that one built: the ability items are
+     * placed <em>after</em> B07's bound weapon in slot 0, and the trigger path asks B05 whether a
+     * target may be attacked rather than deciding that itself.
+     *
+     * <p>Without this the whole block is inert however green its own tests are (ADR-012).
+     */
+    private void assembleAbilityLayer() {
+        rpg.core.ability.AbilityRegistry abilities = abilityModule.registry();
+        rpg.core.combat.CombatPipeline pipeline = combatModule.pipeline();
+
+        // The rules live in rpg-core, the lookup here - the same split as MobStatProvider in B05.
+        //
+        // The permission predicate lets everything through for now, and that is a stated gap rather
+        // than an oversight: B05 owns the rule but exposes no "may A attack B" read, only enforcement
+        // inside the pipeline. Damage is therefore still refused correctly - abilityDamage checks it -
+        // but a cone can currently NAME a target it may not hit. The pre-filter goes in when B05
+        // exposes the query, which B09 needs anyway to make the rule per-zone (FR-023).
+        rpg.platform.ability.PaperTargetResolver resolver =
+                new rpg.platform.ability.PaperTargetResolver(getServer(), (caster, target) -> true);
+
+        rpg.core.ability.effect.EffectDispatcher effects =
+                new rpg.core.ability.effect.EffectDispatcher(getLogger());
+        effects.register(
+                rpg.core.ability.EffectType.DAMAGE,
+                new rpg.core.ability.effect.DamageEffect(pipeline));
+        effects.register(
+                rpg.core.ability.EffectType.LIFESTEAL,
+                new rpg.core.ability.effect.LifestealEffect(statsModule.engine()));
+        effects.register(
+                rpg.core.ability.EffectType.HEAL,
+                new rpg.core.ability.effect.HealEffect(statsModule.engine()));
+        effects.register(
+                rpg.core.ability.EffectType.MANA_RESTORE,
+                new rpg.core.ability.effect.ManaRestoreEffect(statsModule.engine()));
+        effects.register(
+                rpg.core.ability.EffectType.EVADE, new rpg.core.ability.effect.EvadeEffect());
+        // The shield keeps the absorption pool itself, so the instance is held rather than discarded -
+        // the pipeline has to be able to ask it what it can take.
+        rpg.core.ability.effect.ShieldEffect shields =
+                new rpg.core.ability.effect.ShieldEffect(Clock.systemUTC());
+        effects.register(rpg.core.ability.EffectType.SHIELD, shields);
+
+        // Buff and debuff differ only in who they land on, and the targeting decided that already.
+        rpg.core.ability.effect.BuffEffect buffs =
+                new rpg.core.ability.effect.BuffEffect(statsModule.engine(), Clock.systemUTC());
+        effects.register(rpg.core.ability.EffectType.BUFF, buffs);
+        effects.register(rpg.core.ability.EffectType.DEBUFF, buffs);
+        rpg.core.ability.effect.MeterEffect meter =
+                new rpg.core.ability.effect.MeterEffect(statsModule.engine(), Clock.systemUTC());
+        effects.register(rpg.core.ability.EffectType.METER, meter);
+
+        // The three that need the world. The two B10 gaps - mob aggression towards a clone, mobs
+        // losing interest in someone who vanished - are named in the primitives' javadoc rather than
+        // silently absent.
+        rpg.platform.ability.PaperSummons summons =
+                new rpg.platform.ability.PaperSummons(getServer(), scheduler, getLogger());
+        effects.register(
+                rpg.core.ability.EffectType.SUMMON,
+                new rpg.core.ability.effect.SummonEffect(summons));
+        effects.register(
+                rpg.core.ability.EffectType.INVISIBILITY,
+                new rpg.core.ability.effect.InvisibilityEffect(summons));
+
+        rpg.platform.ability.AbilityProjectile projectiles =
+                new rpg.platform.ability.AbilityProjectile(getServer(), pipeline, getLogger());
+        effects.register(
+                rpg.core.ability.EffectType.PROJECTILE,
+                new rpg.core.ability.effect.ProjectileEffect(projectiles));
+        getServer().getPluginManager().registerEvents(projectiles, this);
+
+        rpg.platform.ability.PaperMovementEffects movement =
+                new rpg.platform.ability.PaperMovementEffects(getServer(), getLogger());
+        effects.register(rpg.core.ability.EffectType.DASH, movement.dash());
+        effects.register(rpg.core.ability.EffectType.KNOCKBACK, movement.knockback());
+        effects.register(rpg.core.ability.EffectType.TELEPORT, movement.teleport());
+
+        // ONE sweep for every interval effect in the game, and one for expiring buffs. Per target
+        // would be a recurring task per entity - the shape that made damage over time unacceptable
+        // the first time round (FR-010b).
+        rpg.core.ability.effect.IntervalEffectRunner intervals =
+                new rpg.core.ability.effect.IntervalEffectRunner(effects, Clock.systemUTC());
+        // Both directions: the dispatcher hands periodic effects TO the runner, and the runner hands
+        // each due application back THROUGH the dispatcher, so it stays behind the same error barrier.
+        effects.setIntervalRunner(intervals);
+        startAbilitySweep(intervals, buffs, projectiles);
+
+        abilityRuntime =
+                new rpg.core.ability.AbilityRuntime(
+                        abilities,
+                        statsModule.engine(),
+                        resolver,
+                        effects,
+                        abilityModule.repository(),
+                        Clock.systemUTC());
+
+        // Settled before every mana check (FR-037) - and never on a timer. This is also where a
+        // wounded player finally heals at all: ADR-013 switched vanilla regeneration off and left the
+        // gap open until ADR-023 made the two rates attributes.
+        abilityRuntime.setRegeneration(abilityModule.regeneration());
+
+        // The one place in this block that schedules anything: entity-bound, single-shot (ADR-024).
+        // A character with nothing running has no task, which is what SC-005 asserts.
+        abilityRuntime.setScheduling(
+                (characterId, delay, task) ->
+                        scheduler.runSyncOnEntityDelayed(
+                                new rpg.core.scheduler.EntityRef(characterId), delay, task));
+
+        abilityHotbar = new rpg.platform.ability.AbilityHotbar(messages, getLogger());
+
+        // The passive triggers, hung on the three hooks B05 already has (research.md R6). Which stage
+        // each one uses is not interchangeable - see PassiveInterceptors.
+        rpg.core.ability.PassiveDispatcher passives =
+                new rpg.core.ability.PassiveDispatcher(
+                        abilities,
+                        effects,
+                        statsModule.engine(),
+                        abilityModule.repository(),
+                        Clock.systemUTC(),
+                        Math::random);
+        // The three things the passive rules describe but cannot do themselves.
+        rpg.platform.ability.PaperPassiveHooks hooks =
+                new rpg.platform.ability.PaperPassiveHooks(getServer(), messages, getLogger());
+        passives.setBehindTargetCheck(hooks.behindTarget());
+        // No setWorldCondition: B09 owns that distinction and does not exist. The default lets
+        // everything through, which makes Second Life work inside an instance too - wrong, visible,
+        // and better than the opposite default, where the unique would silently do nothing (ADR-025).
+        effects.register(
+                rpg.core.ability.EffectType.STATUS_EFFECT,
+                new rpg.core.ability.effect.StatusEffectEffect(hooks.statusEffects()));
+
+        // ON_KILL is the one trigger that is not an interceptor: killing is not a stage of the damage
+        // pipeline, it is what the pipeline concludes, and B05 announces it.
+        new rpg.core.ability.OnKillSubscriber(passives).subscribeTo(eventBus);
+
+        pipeline.registerInterceptor(rpg.core.ability.PassiveInterceptors.damageTaken(passives));
+        pipeline.registerInterceptor(rpg.core.ability.PassiveInterceptors.damageDealt(passives));
+        pipeline.registerInterceptor(
+                rpg.core.ability.PassiveInterceptors.lethalBlow(
+                        passives,
+                        statsModule.engine(),
+                        hooks.secondLife()));
+
+        getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new rpg.platform.ability.AbilityTriggerListener(
+                                (player, abilityId) ->
+                                        abilityRuntime.trigger(
+                                                characterIdOf(player).orElse(player.getUniqueId()),
+                                                abilityId),
+                                (player, key) -> player.sendMessage(messages.get(key)),
+                                getLogger()),
+                        this);
+
+        // The double jump asks the registry which ability grants it, rather than naming one in code -
+        // otherwise a piece of content would live in the source (EffectType.DOUBLE_JUMP).
+        getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new rpg.platform.ability.DoubleJumpListener(
+                                player -> doubleJumpOf(abilities, player).isPresent(),
+                                player ->
+                                        doubleJumpOf(abilities, player)
+                                                .map(
+                                                        ability ->
+                                                                abilities.toggleOf(
+                                                                                characterIdOf(player)
+                                                                                        .orElse(
+                                                                                                player.getUniqueId()),
+                                                                                ability.id())
+                                                                        != rpg.core.ability.ToggleState
+                                                                                .PARTIAL)
+                                        .orElse(false),
+                                () -> 0.8,
+                                () -> 60),
+                        this);
+
+        getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new rpg.platform.ability.CastInterruptListener(
+                                player -> characterIdOf(player).orElse(null),
+                                characterId ->
+                                        abilityRuntime
+                                                .running(characterId)
+                                                .map(
+                                                        running ->
+                                                                abilities.find(running.abilityId())
+                                                                        .map(
+                                                                                rpg.core.ability
+                                                                                                .Ability
+                                                                                        ::interruptOnMove)
+                                                                        .orElse(false))
+                                                .orElse(false),
+                                abilityRuntime::end),
+                        this);
+
+        // The session end is B03's to announce, not ours to listen for (FR-007, FR-014). The module
+        // hears about it through its attachment and stops whatever was running.
+        // Everything a character can leave behind: the running ability, its interval effects, its
+        // timed buffs and its meter. A missed one is a leak that only shows up after hours of
+        // players coming and going, which is the worst kind of leak to look for.
+        abilityModule.setRunningEnder(
+                characterId -> {
+                    abilityRuntime.end(characterId, rpg.core.ability.EndCause.DISCONNECTED);
+                    intervals.forget(characterId);
+                    buffs.forget(characterId);
+                    meter.forget(characterId);
+                });
+
+        getLogger()
+                .info(
+                        "[abilities] listeners registered - trigger, left-click guard, double jump,"
+                                + " cast interruption");
+    }
+
+    /** The ability granting this player a double jump, if any is unlocked and switched on. */
+    private java.util.Optional<rpg.core.ability.Ability> doubleJumpOf(
+            rpg.core.ability.AbilityRegistry abilities, org.bukkit.entity.Player player) {
+        return characterIdOf(player)
+                .flatMap(
+                        characterId ->
+                                abilities.capability(
+                                        characterId, rpg.core.ability.EffectType.DOUBLE_JUMP));
+    }
+
+    /** The character a player is currently playing, for the trigger path. */
+    private java.util.Optional<java.util.UUID> characterIdOf(org.bukkit.entity.Player player) {
+        return sessionModule
+                .registry()
+                .find(player.getUniqueId())
+                .flatMap(rpg.core.session.PlayerSession::activeCharacter)
+                .map(rpg.core.session.PlayerCharacter::characterId);
+    }
+
     private SessionObserver assembleClassLayer() {
         ClassRegistry classes = classesModule.registry();
         NoCharacterGuardListener guard = new NoCharacterGuardListener(getLogger());
@@ -542,6 +823,23 @@ public class RpgPlugin extends JavaPlugin {
         // here so every gain reaches it, and read once on entry for the character's starting value.
         experienceBar = new ExperienceBar(getServer(), scheduler, getLogger());
         experienceBar.subscribeTo(eventBus);
+
+        // A level-up may unlock an ability, and then the hotbar has to grow by one slot (T123,
+        // FR-059). The whole layout is redone rather than one slot appended: it costs nothing at this
+        // frequency, and it cannot get out of step the way a patch can.
+        eventBus.subscribe(
+                rpg.core.progression.LevelUpEvent.class,
+                event -> {
+                    org.bukkit.entity.Player player = getServer().getPlayer(event.playerId());
+                    if (player != null) {
+                        scheduler.runSyncOnEntity(
+                                new rpg.core.scheduler.EntityRef(event.playerId()),
+                                () -> {
+                                    layOutAbilities(player, event.characterId());
+                                    announceUnlocks(player, event);
+                                });
+                    }
+                });
         ClassEquipmentApplier equipment =
                 new ClassEquipmentApplier(
                         classesModule.boundEquipment(), new BoundItemFactory(messages), getLogger());
@@ -574,6 +872,8 @@ public class RpgPlugin extends JavaPlugin {
                 .info(
                         "[classes] listeners registered - selection, guard, equipment lock, "
                                 + "inventory notice");
+
+        assembleAbilityLayer();
 
         return new SessionObserver() {
             @Override
@@ -615,6 +915,64 @@ public class RpgPlugin extends JavaPlugin {
      * stats and a level, and can play; the applier logs what it could not place, and the next login
      * applies it again. Refusing the entry over it would leave a stored character no session can reach.
      */
+    /**
+     * Puts this character's ability items into the hotbar (T123, T124).
+     *
+     * <p><b>Laid out from the reached level, never patched from an event.</b> Called on entry and
+     * again on every level-up, and both calls do the same complete thing - so a level-up that was
+     * missed, or one that happened while the ability layer was still starting, cannot leave a slot
+     * empty for the rest of the session. There is no state here to get out of step.
+     */
+    /**
+     * Tells the player which abilities the new level opened (FR-060).
+     *
+     * <p>Every level in the gap, not just the one reached: an admin command or a large kill can move
+     * a character several levels at once, and a player who never hears about the ability they just
+     * got will not use it.
+     */
+    private void announceUnlocks(
+            org.bukkit.entity.Player player, rpg.core.progression.LevelUpEvent event) {
+        if (abilityModule == null) {
+            return;
+        }
+        abilityModule
+                .registry()
+                .classOf(event.characterId())
+                .ifPresent(
+                        characterClass -> {
+                            for (rpg.core.classes.AbilityBinding binding :
+                                    classesModule.config().definition(characterClass).abilities()) {
+                                if (binding.unlockLevel() > event.previousLevel()
+                                        && binding.unlockLevel() <= event.newLevel()) {
+                                    announceUnlock(player, binding.abilityId());
+                                }
+                            }
+                        });
+    }
+
+    private void announceUnlock(org.bukkit.entity.Player player, String abilityId) {
+        abilityModule
+                .registry()
+                .find(abilityId)
+                .ifPresent(
+                        ability ->
+                                player.sendMessage(
+                                        net.kyori.adventure.text.Component.text(
+                                                messages.get(
+                                                        rpg.core.ability.AbilityMessageKeys.UNLOCKED,
+                                                        java.util.Map.of(
+                                                                "ability",
+                                                                messages.get(
+                                                                        ability.displayNameKey()))))));
+    }
+
+    private void layOutAbilities(org.bukkit.entity.Player player, java.util.UUID characterId) {
+        if (abilityHotbar == null || abilityModule == null) {
+            return;
+        }
+        abilityHotbar.layOut(player, abilityModule.registry().unlockedFor(characterId));
+    }
+
     private boolean enterGameState(
             org.bukkit.entity.Player player,
             rpg.core.session.PlayerCharacter character,
@@ -644,6 +1002,11 @@ public class RpgPlugin extends JavaPlugin {
                         });
         // Class equipment last, so it always wins the slots it owns.
         equipment.apply(player, characterId);
+        // And the ability items on top of it, because they sit in the hotbar slots the weapon does not
+        // own. Laid out from the reached level rather than patched from events (T124): a missed
+        // level-up would otherwise leave a slot empty for the rest of the session, and nothing would
+        // ever notice.
+        layOutAbilities(player, characterId);
 
         // The bar, now that B06 has loaded this character's progress. From here on the subscription
         // keeps it current; this is only the starting value.
@@ -860,6 +1223,17 @@ public class RpgPlugin extends JavaPlugin {
      */
     public rpg.core.stats.DefaultStatEngine statEngine() {
         return statsModule.engine();
+    }
+
+    /**
+     * The damage pipeline as it was assembled, for the bootstrap test.
+     *
+     * <p>Same reason as {@link #statEngine()}: what needs asserting is which interceptors a fully
+     * wired server ends up with, and that is not part of the {@code CombatPipeline} interface other
+     * blocks use.
+     */
+    public rpg.core.combat.DefaultCombatPipeline combatPipeline() {
+        return combatModule == null ? null : combatModule.pipeline();
     }
 
     /** The bootstrap phase, which decides whether the server accepts player sessions (FR-013). */

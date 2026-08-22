@@ -24,6 +24,7 @@
 | `../blocks/B06-progression.md` | Progression (XP/Level) | 1 |
 | `../blocks/B07-class-system.md` | Klassen-System | 1 |
 | `../blocks/B08-ability-framework.md` | Fähigkeiten-Framework | 1 |
+| `../blocks/B08b-currency-account.md` | Währung & Konto | 1 |
 | `../blocks/B09-zones-regions.md` | Zonen & Regionen | 2 |
 | `../blocks/B10-mobs-spawning.md` | Mobs & Horden-Spawning | 2 |
 | `../blocks/B11-items-loot-equipment.md` | Items, Ausrüstung & Loot | 2 |

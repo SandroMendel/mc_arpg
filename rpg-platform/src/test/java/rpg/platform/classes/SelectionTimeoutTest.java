@@ -162,6 +162,13 @@ class SelectionTimeoutTest {
             return record();
         }
 
+        /** ADR-024: verzoegert, aber im Test genauso behandelt wie sofort. */
+        @Override
+        public TaskHandle runSyncOnEntityDelayed(EntityRef entity, Duration delay, Runnable task) {
+            tasks.add(task);
+            return record();
+        }
+
         @Override
         public TaskHandle runAsync(Runnable task) {
             throw new UnsupportedOperationException("die Uhr benutzt das nicht");

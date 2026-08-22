@@ -124,3 +124,92 @@ class:
   inventory:
     # No automatic cleanup, no background bank, no silent discard - the player makes room.
     full: 'Your inventory is full. Make room before more loot arrives.'
+
+# B08 - abilities. Every one of these is referenced by AbilityMessageKeys; the display names of the
+# eighteen abilities themselves come from abilities.yml, which names a key rather than a text.
+ability:
+  rejected:
+    on-cooldown: 'That ability is still on cooldown for {seconds}s.'
+    global-lock: 'Too soon after your last ability.'
+    not-enough-mana: 'Not enough mana - {cost} needed.'
+    not-unlocked: 'You unlock that ability at level {level}.'
+    already-casting: 'You are already casting something.'
+    already-sustaining: 'Finish {ability} first.'
+    no-charges: 'No charges left.'
+    no-character: 'Choose a class first.'
+
+  unlocked: 'New ability unlocked: {ability}.'
+
+  rank:
+    advanced: '{ability} is now rank {rank}.'
+    at-maximum: '{ability} is already at its highest rank.'
+
+  toggle:
+    changed: '{ability} is now {state}.'
+
+  second-life:
+    # No respawn and no death screen - the rogue is put back where he fell (FR-052c).
+    title: 'Second Life'
+    subtitle: 'Death passed you by.'
+
+  # The display names of the eighteen. abilities.yml names a key, never a text - so a rename here
+  # never touches balancing, and a translation never touches numbers (Principle V).
+  warrior:
+    rage:
+      name: 'Rage'
+      description: 'Grows with every blow you land or take. Fades when the fighting stops.'
+    shield:
+      name: 'Block'
+      description: 'Absorbs physical damage for a while. Magic goes straight through.'
+    leap:
+      name: 'Leap'
+      description: 'A long jump to where you are looking. Everything at the landing takes it.'
+    lifesteal:
+      name: 'Lifesteal'
+      description: 'A share of the damage you deal comes back as health.'
+    whirl:
+      name: 'Whirl'
+      description: 'Physical damage to everything around you, once a second.'
+    call-of-the-berserker:
+      name: 'War Cry'
+      description: 'Move and strike faster for a while. Endable early.'
+
+  rogue:
+    poisoned-blade:
+      name: 'Poisoned Blade'
+      description: 'A chance to poison what you hit. Stacks up to three times.'
+    teleport:
+      name: 'Teleport'
+      description: 'Step instantly to the mob you are looking at. Two charges.'
+    backstab:
+      name: 'Sneaky Backstab'
+      description: 'Hitting from behind makes you faster and stronger for a minute.'
+    invisibility:
+      name: 'Vanish'
+      description: 'Unseen and untouchable, until you strike or step out of it.'
+    clone:
+      name: 'Clone'
+      description: 'A double of you that does not fight, and goes off when it ends.'
+    second-life:
+      name: 'Second Life'
+      description: 'A chance to be put back on your feet instead of dying.'
+
+  mage:
+    magic-life:
+      name: 'Magic Life'
+      description: 'Incoming magic sometimes misses you entirely. Physical does not.'
+    lightning:
+      name: 'Lightning'
+      description: 'Strikes your target and jumps on to the next, up to eight.'
+    magic-shield:
+      name: 'Magic Shield'
+      description: 'Absorbs damage of any kind for a while.'
+    mana-potion:
+      name: 'Mana Potion'
+      description: 'Mana every second. Any damage taken ends it.'
+    lightning-storm:
+      name: 'Lightning Storm'
+      description: 'A storm on the ground where you point. It stays where you called it.'
+    rise-and-fall:
+      name: 'Rise & Fall'
+      description: 'A second jump in mid-air, then a slow fall. Switchable.'

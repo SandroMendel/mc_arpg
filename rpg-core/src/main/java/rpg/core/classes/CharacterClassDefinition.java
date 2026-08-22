@@ -20,11 +20,11 @@ import rpg.core.session.CharacterClass;
  *     here (ADR-019)
  * @param displayNameKey message key, never text. "Berserker" is a value in the message file
  * @param menuMaterial vanilla material for the selection menu (ADR-005)
- * @param baseStats the eight base values
- * @param growth the eight per-level rates, replacing B06's class-neutral growth
+ * @param baseStats one base value per attribute
+ * @param growth one per-level rate per attribute, replacing B06's class-neutral growth
  * @param armorLadder the armour ladder, carrying the defensive four
  * @param weaponLadder the weapon ladder, carrying the offensive four
- * @param abilities empty while B08 is missing, otherwise exactly six
+ * @param abilities empty while B08 has not filled them, otherwise exactly six
  */
 public record CharacterClassDefinition(
         CharacterClass id,
@@ -36,12 +36,16 @@ public record CharacterClassDefinition(
         EquipmentLadder weaponLadder,
         List<AbilityBinding> abilities) {
 
-    /** Four active including the unique, two passive - six in total (FR-041). */
-    public static final int ACTIVE_ABILITIES = 4;
-
-    public static final int PASSIVE_ABILITIES = 2;
-
-    public static final int TOTAL_ABILITIES = ACTIVE_ABILITIES + PASSIVE_ABILITIES;
+    /**
+     * Six abilities per class, at most one of them unique (FR-041, ADR-025).
+     *
+     * <p><b>How they split between active and passive is not checked here, and that is deliberate.</b>
+     * The rule used to be "four active, two passive"; the worked-out rogue is three and three - poison,
+     * position and a second life are all states rather than button presses. Bending a thought-through
+     * loadout to save a number that was only ever an early estimate would have been the wrong trade,
+     * so the split became content and this class stopped having an opinion about it.
+     */
+    public static final int TOTAL_ABILITIES = 6;
 
     public CharacterClassDefinition {
         Objects.requireNonNull(id, "id");
@@ -79,15 +83,6 @@ public record CharacterClassDefinition(
                             + " entries, but had "
                             + abilities.size()
                             + " - a partially filled loadout cannot be told from a forgotten line");
-        }
-        long active = abilities.stream().filter(AbilityBinding::isActive).count();
-        if (active != ACTIVE_ABILITIES) {
-            throw new IllegalArgumentException(
-                    id
-                            + ": expected "
-                            + ACTIVE_ABILITIES
-                            + " active abilities including the unique, but found "
-                            + active);
         }
         long unique = abilities.stream().filter(AbilityBinding::unique).count();
         if (unique > 1) {

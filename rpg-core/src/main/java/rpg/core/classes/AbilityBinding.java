@@ -11,8 +11,12 @@ import java.util.Objects;
  *
  * @param abilityId opaque identifier, resolved by B08
  * @param kind active or passive
- * @param unique whether this is the Unique Class Ability - at most one per class, and it counts as
- *     one of the four actives
+ * @param unique whether this is the Unique Class Ability - at most one per class, and it is
+ *     <b>one of the six</b>, not a seventh entry and not a category of its own (ADR-022).
+ *     <p>Its kind therefore follows the class rather than the flag: the warrior's is active, the
+ *     rogue's and the mage's are passive. The earlier rule "a unique must be ACTIVE" came from
+ *     reading "four actives including the unique" as a constraint on the unique; it only ever held
+ *     for the warrior, and enforcing it would have rejected two loadouts that were already decided
  * @param unlockLevel the level from which the ability is available; derived, never stored (FR-043)
  */
 public record AbilityBinding(String abilityId, AbilityKind kind, boolean unique, int unlockLevel) {
@@ -27,12 +31,7 @@ public record AbilityBinding(String abilityId, AbilityKind kind, boolean unique,
             throw new IllegalArgumentException(
                     "unlock-level of " + abilityId + " must be at least 1, but was " + unlockLevel);
         }
-        // A passive unique would contradict the three loadouts fixed in B08, and more importantly it
-        // would make "four actives including the unique" uncountable.
-        if (unique && kind != AbilityKind.ACTIVE) {
-            throw new IllegalArgumentException(
-                    "the unique class ability " + abilityId + " must be ACTIVE, but was " + kind);
-        }
+        // No rule tying `unique` to `kind` - see the class javadoc (ADR-022).
     }
 
     public boolean isActive() {

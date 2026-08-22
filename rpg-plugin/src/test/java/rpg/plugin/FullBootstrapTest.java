@@ -102,13 +102,18 @@ class FullBootstrapTest {
         assertThat(handlerCount(PlayerJoinEvent.getHandlerList())).isEqualTo(1);
         assertThat(handlerCount(PlayerQuitEvent.getHandlerList())).isEqualTo(1);
         assertThat(handlerCount(PlayerConnectionCloseEvent.getHandlerList())).isEqualTo(1);
-        // Two, and both are meant: B03 freezes a player while their session loads, B07 freezes one who
-        // has not chosen a class (ADR-020). Different reasons, different lifetimes - and neither is a
-        // lifecycle entry, so the invariant this test protects is the two assertions above. Both handlers
-        // return on a counter before touching the event, which is what keeps a hot event affordable.
+        // THREE, and every one is meant: B03 freezes a player while their session loads, B07 freezes
+        // one who has not chosen a class (ADR-020), and B08 hands the mage his second jump back on
+        // landing. Different reasons, different lifetimes - and none of them is a lifecycle entry, so
+        // the invariant this test protects is the assertions above.
+        //
+        // What matters on the busiest event the server has is that each returns on field reads before
+        // doing anything: a counter for the first two, ground state and a permission flag for B08.
         assertThat(handlerCount(PlayerMoveEvent.getHandlerList()))
-                .as("B03's safe-state hold and B07's no-character hold")
-                .isEqualTo(2);
+                .as(
+                        "B03's safe-state hold, B07's no-character hold, B08's double jump and its"
+                                + " cast interruption")
+                .isEqualTo(4);
     }
 
     @Test
@@ -121,6 +126,7 @@ class FullBootstrapTest {
         assertThat(dataFolder.resolve("combat.yml")).exists();
         assertThat(dataFolder.resolve("progression.yml")).exists();
         assertThat(dataFolder.resolve("classes.yml")).exists();
+        assertThat(dataFolder.resolve("abilities.yml")).exists();
         assertThat(dataFolder.resolve("messages.yml")).exists();
     }
 
@@ -147,9 +153,23 @@ class FullBootstrapTest {
         // Damage is handled - by B05, since it exists. That B04 is not the one doing it is asserted
         // where it can actually be told apart: NoDamageInterceptionTest scans the sources of
         // rpg/platform/stats and fails if a damage handler appears there (FR-030b). Counting
-        // handlers here cannot distinguish owners, so this only checks that exactly one block took
-        // the job.
-        assertThat(handlerCount(EntityDamageEvent.getHandlerList())).isEqualTo(1);
+        // handlers here cannot distinguish owners, so this only checks how many blocks took the job.
+        //
+        // TWO since B08. EntityDamageByEntityEvent declares no HandlerList of its own and therefore
+        // SHARES this one: B05 prices the hit, and B08 refuses it outright when the player is holding
+        // an ability item (FR-054). Without the second one a left click with the goat horn would deal
+        // weapon damage.
+        // THREE since B08 gained cast interruption: taking damage stops a cast (FR-042).
+        assertThat(handlerCount(EntityDamageEvent.getHandlerList())).isEqualTo(3);
+    }
+
+    @Test
+    void abilityProjectilesSettleOnImpact() {
+        // Exactly one, and it belongs to B08. A fireball carries its values from the throw, so the
+        // impact has to be caught somewhere - and a second owner of this event would mean two blocks
+        // deciding what an arriving projectile does.
+        assertThat(handlerCount(org.bukkit.event.entity.ProjectileHitEvent.getHandlerList()))
+                .isEqualTo(1);
     }
 
     @Test
@@ -165,11 +185,11 @@ class FullBootstrapTest {
     }
 
     @Test
-    void theStatEngineStartsWithEightAttributesAndNoHolders() {
+    void theStatEngineStartsWithTenAttributesAndNoHolders() {
         rpg.core.stats.StatEngine engine =
                 plugin.registry().getService(rpg.core.stats.StatEngine.class);
 
-        assertThat(rpg.core.stats.Attribute.count()).isEqualTo(8);
+        assertThat(rpg.core.stats.Attribute.count()).isEqualTo(10);
         assertThat(engine.holderCount()).isZero();
     }
 
@@ -229,8 +249,10 @@ class FullBootstrapTest {
     @Test
     void everyCombatEventHasExactlyOneHandler() {
         assertThat(handlerCount(EntityDamageEvent.getHandlerList()))
-                .as("B05 intercepts damage; B04 must not")
-                .isEqualTo(1);
+                .as(
+                        "B05 prices the hit, B08 refuses it for an ability item and stops a cast on"
+                                + " it - B04 must not be here")
+                .isEqualTo(3);
         // ProjectileLaunchEvent extends EntitySpawnEvent and declares no HandlerList of its own, so
         // it SHARES one with CreatureSpawnEvent. The two cannot be counted separately - what this
         // asserts is that exactly two handlers sit on that shared list: projectile pricing and mob
@@ -284,6 +306,90 @@ class FullBootstrapTest {
         assertThat(PostgresContainer.tableExists("character_class_progress")).isTrue();
     }
 
+    // --- B08 --------------------------------------------------------------
+    //
+    // T032, T135: the same trap one block along. B08 owns a configuration, a repository, a place in
+    // the flush order, a session attachment and a read facade - and every one of them is dead code
+    // until the plugin wires it. ADR-012 exists because that has happened before.
+
+    @Test
+    void theAbilityRegistryIsResolvableThroughTheRegistry() {
+        assertThat(plugin.registry().findService(rpg.core.ability.AbilityRegistry.class))
+                .as("B12 counts through this and B13 draws from it")
+                .isPresent();
+    }
+
+    @Test
+    void theAbilityTableExistsBecauseB08sMigrationRanToo() {
+        assertThat(PostgresContainer.tableExists("character_abilities")).isTrue();
+    }
+
+    @Test
+    void theAbilityConfigurationWasLoadedRatherThanDefaulted() {
+        rpg.core.ability.AbilityRegistry abilities =
+                plugin.registry().getService(rpg.core.ability.AbilityRegistry.class);
+
+        // Reading the two values B08 owns itself proves abilities.yml was written out, parsed and
+        // validated. The rates are deliberately NOT here - they are attributes and live in
+        // classes.yml (ADR-023).
+        assertThat(abilities.config().globalCooldown()).isEqualTo(java.time.Duration.ofMillis(750));
+        assertThat(abilities.config().healthCombatFactor()).isEqualTo(0.20);
+        assertThat(abilities.config().manaCombatFactor()).isEqualTo(0.35);
+    }
+
+    @Test
+    void abilitiesDeclareTheDependencyThatKeepsThemAfterTheClasses() {
+        // The order is not cosmetic: resolving a class binding needs both files, and it is the promise
+        // B07 could not keep - there an ability id travels as an opaque string. Asserting the declared
+        // dependency rather than the resulting list tests the mechanism that enforces it; a list that
+        // happens to be in the right order would still break the day somebody reshuffles it.
+        assertThat(rpg.persistence.ability.AbilityModule.DEPENDENCIES)
+                .as("the cross-check runs at startup and needs classes.yml already loaded")
+                .contains("classes");
+    }
+
+    @Test
+    void allEighteenAbilitiesAreLoadedAndBoundToTheThreeClasses() {
+        rpg.core.ability.AbilityRegistry abilities =
+                plugin.registry().getService(rpg.core.ability.AbilityRegistry.class);
+
+        // The cross-check (V25 to V28) already ran at startup and would have refused the start, so
+        // this is not a second validation - it is the proof that it ran with something in it. While
+        // abilities.yml was empty the check skipped itself with a warning, and a green start proved
+        // nothing at all.
+        assertThat(abilities.config().size()).isEqualTo(18);
+        for (rpg.core.session.CharacterClass id : rpg.core.session.CharacterClass.values()) {
+            assertThat(abilities.abilitiesOf(id)).as("%s has six", id).hasSize(6);
+        }
+    }
+
+    @Test
+    void abilitiesHookIntoTheSessionLifecycle() {
+        assertThat(plugin.sessionLifecycle().attachmentIds())
+                .as("ranks and cooldowns are loaded on session open and released on close")
+                .contains(rpg.persistence.ability.AbilityModule.ID);
+    }
+
+    @Test
+    void theAbilityInterceptorsHangInTheDamagePipeline() {
+        // ADR-012: a module whose own tests are green but which is not wired in has no effect. These
+        // three are B08's whole passive half - evasion refuses damage at MODIFIERS, lifesteal reads
+        // the mitigated amount at APPLICATION, and Second Life cancels the lethal blow before
+        // changeHealth. A missing one is silent: the ability simply never happens.
+        java.util.List<String> ids = new java.util.ArrayList<>();
+        for (rpg.core.combat.PipelineStage stage : rpg.core.combat.PipelineStage.values()) {
+            plugin.combatPipeline()
+                    .interceptorsAt(stage)
+                    .forEach(interceptor -> ids.add(interceptor.id()));
+        }
+
+        assertThat(ids)
+                .contains(
+                        "abilities.on-damage-taken",
+                        "abilities.on-damage-dealt",
+                        "abilities.on-death");
+    }
+
     @Test
     void classesHookIntoTheSessionLifecycle() {
         assertThat(plugin.sessionLifecycle().attachmentIds())
@@ -332,7 +438,7 @@ class FullBootstrapTest {
                                         rpg.core.session.CharacterClass.WARRIOR,
                                         rpg.core.classes.LadderSlot.ARMOR)
                                 .length())
-                .isEqualTo(5);
+                .isEqualTo(6);
         assertThat(
                         classes.ladder(
                                         rpg.core.session.CharacterClass.MAGE,

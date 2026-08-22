@@ -115,9 +115,17 @@ public record StatConfig(Map<Attribute, AttributeDefinition> definitions) {
     public static StatConfig defaults() {
         EnumMap<Attribute, AttributeDefinition> map = new EnumMap<>(Attribute.class);
         map.put(Attribute.HEALTH, new AttributeDefinition(Attribute.HEALTH, 100.0, 1.0, 2000.0, 0.0));
+        // Base zero on both regeneration rates (ADR-023): a holder without a class contributor is a
+        // creature, and a non-zero base here would make every mob in the world heal itself.
+        map.put(
+                Attribute.HEALTH_REGEN,
+                new AttributeDefinition(Attribute.HEALTH_REGEN, 0.0, 0.0, 40.0, 0.0));
         // 300 defense is exactly 75% mitigation through 100/(100+def) - see DamageMitigation.
         map.put(Attribute.DEFENSE, new AttributeDefinition(Attribute.DEFENSE, 0.0, 0.0, 300.0, 0.0));
         map.put(Attribute.MANA, new AttributeDefinition(Attribute.MANA, 50.0, 0.0, 500.0, 0.0));
+        map.put(
+                Attribute.MANA_REGEN,
+                new AttributeDefinition(Attribute.MANA_REGEN, 0.0, 0.0, 20.0, 0.0));
         map.put(
                 Attribute.PHYSICAL_DAMAGE,
                 new AttributeDefinition(Attribute.PHYSICAL_DAMAGE, 5.0, 0.0, 150.0, 0.0));

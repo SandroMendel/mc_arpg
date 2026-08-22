@@ -77,7 +77,7 @@ festgehalten, damit sie nicht später als Annahme erfunden werden:
   ADR-017 wechselt nur die Quelle, nicht die Höhe. Das Levelwachstum trägt die restlichen 30 %.
 - **Das klassenneutrale Levelwachstum aus B06 wird je Klasse ersetzt, nicht ergänzt.** B06 hat diese
   Ersetzbarkeit ausdrücklich vorgesehen (FR-022). Ein Ergänzen hätte die Summe verdoppelt.
-- **Die Leiterlänge ist Konfiguration, nicht Code.** Warrior 5/6, Rogue 6/6, Mage 7/7 — Rüstung und
+- **Die Leiterlänge ist Konfiguration, nicht Code.** Warrior 6/6, Rogue 6/6, Mage 7/7 — Rüstung und
   Waffe einer Klasse dürfen unterschiedlich lang sein. Alle erreichen denselben Endwert; nur die
   Schrittweite unterscheidet sich. Eine feste Zahl im Code hätte die Materiallisten beschneiden
   müssen, statt sie abzubilden.
@@ -584,19 +584,19 @@ außer im Einstieg, den alle drei mit Leder teilen:
 
 | Klasse | Familie | Wie die Stufe sichtbar wird |
 |---|---|---|
-| Warrior | Schwere Rüstung: Kupfer, Eisen, Diamant, Netherite | Material |
+| Warrior | Schwere Rüstung: Kupfer, Eisen, Diamant, Netherite | Material, auf der letzten Stufe Trim |
 | Rogue | Gold und Kettenhemd | Material, ab Stufe 4 Trim |
 | Mage | Durchgehend Leder | **Färbung** |
 
 | Stufe | Warrior | Rogue | Mage |
 |---|---|---|---|
 | 1 | Leder · Lvl 1 | Leder · Lvl 1 | Leder Schiefergrau `#4a4a52` · Lvl 1 |
-| 2 | Kupfer · Lvl 15 | Gold · Lvl 13 | Leder Tiefblau `#1f3a93` · Lvl 11 |
-| 3 | Eisen · Lvl 29 | Kettenhemd · Lvl 24 | Leder Violett `#6b3fa0` · Lvl 20 |
-| 4 | Diamant · Lvl 42 | Kettenhemd + Trim `RIB`/Kupfer · Lvl 34 | Leder Magenta `#b5299b` · Lvl 29 |
-| 5 | Netherite · Lvl 55 | Kettenhemd + Trim `SILENCE`/Amethyst · Lvl 45 | Leder Bernstein `#e8952f` · Lvl 38 |
-| 6 | — | Kettenhemd + Trim `VEX`/Netherite · Lvl 55 | Leder Türkis `#21d4c4` · Lvl 46 |
-| 7 | — | — | Leder Weißglühend `#f5f2e8` · Lvl 55 |
+| 2 | Kupfer · Lvl 10 | Gold · Lvl 10 | Leder Tiefblau `#1f3a93` · Lvl 5 |
+| 3 | Eisen · Lvl 20 | Kettenhemd · Lvl 20 | Leder Violett `#6b3fa0` · Lvl 10 |
+| 4 | Diamant · Lvl 35 | Kettenhemd + Trim `RIB`/Kupfer · Lvl 35 | Leder Magenta `#b5299b` · Lvl 20 |
+| 5 | Netherite · Lvl 50 | Kettenhemd + Trim `SILENCE`/Amethyst · Lvl 50 | Leder Bernstein `#e8952f` · Lvl 30 |
+| 6 | Netherite + Trim `SENTRY`/Gold · Lvl 60 | Kettenhemd + Trim `VEX`/Netherite · Lvl 60 | Leder Türkis `#21d4c4` · Lvl 40 |
+| 7 | — | — | Leder Weißglühend `#f5f2e8` · Lvl 50 |
 
 **Farbe und Trim sind für zwei der drei Klassen Pflicht, nicht Kosmetik.** Der Mage bleibt
 durchgehend auf Leder — ohne Farbe je Stufe wäre seine Progression unsichtbar und nur noch eine Zahl.
@@ -605,17 +605,23 @@ nicht färbbar**; ab Stufe 4 ist der Trim deshalb der einzige verfügbare Marker
 trägt das Material allein die volle Leiter. Das Kosmetikfeld im Stufen-Schema ist damit kein
 reservierter Platzhalter mehr, sondern für Mage und Rogue verbindlich.
 
+**Überarbeitet am 2026-08-22.** Der Auftraggeber hat alle sechs Leitern mit neuen Levelanforderungen
+vorgegeben, und die Warrior-Rüstung ist von fünf auf sechs Stufen gewachsen. Erste und oberste Stufe
+tragen unveränderte Werte — deshalb bleiben die Endwerte, die Caps und der Leiteranteil am Zuwachs
+exakt dieselben; nur die Zwischenstufen und die Level haben sich verschoben.
+
 Werte je Stufe — die Rüstung trägt Leben, Verteidigung, Mana und Laufgeschwindigkeit:
 
-**Warrior** (5 Stufen)
+**Warrior** (6 Stufen — *auf 6 erweitert am 2026-08-22, siehe unten*)
 
 | Stufe | Health | Defense | Mana | Movement Speed (abs.) |
 |---|---|---|---|---|
 | 1 | 60 | 6 | 18 | 0 |
-| 2 | 280 | 40 | 35 | 0.001 |
-| 3 | 600 | 90 | 65 | 0.002 |
-| 4 | 975 | 150 | 95 | 0.004 |
-| 5 | 1385 | 205 | 130 | 0.005 |
+| 2 | 240 | 34 | 33 | 0.001 |
+| 3 | 500 | 74 | 55 | 0.002 |
+| 4 | 900 | 135 | 88 | 0.003 |
+| 5 | 1270 | 188 | 118 | 0.004 |
+| 6 | 1385 | 205 | 130 | 0.005 |
 
 **Rogue** (6 Stufen)
 
@@ -648,7 +654,8 @@ Werte je Stufe — die Rüstung trägt Leben, Verteidigung, Mana und Laufgeschwi
 | Rogue | Schwert | Holz → Stein → **Gold** → Eisen → Diamant → Netherite |
 | Mage | **Speer** | Holz → Stein → Kupfer → **Gold** → Eisen → Diamant → Netherite |
 
-Levelanforderungen: Warrior und Rogue 1, 13, 24, 34, 45, 55 — Mage 1, 11, 20, 29, 38, 46, 55.
+Levelanforderungen: Warrior und Rogue 1, 5, 10, 20, 35, 50 — Mage 1, 5, 10, 20, 30, 40, 50
+*(überarbeitet 2026-08-22.)*
 
 **Warrior und Rogue tragen beide ein Schwert — das ist entschieden, kein Versehen** *(2026-08-21)*.
 Sie unterscheiden sich nur auf Stufe 3, wo der Rogue Gold statt Kupfer führt; auf den übrigen fünf

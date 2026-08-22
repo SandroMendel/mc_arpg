@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Schicht** | 1 — Regel-Engine |
-| **Status** | Entwurf — umfangreichster Block |
+| **Status** | Implementiert (2026-08-22) — 178 Aufgaben, davon 173 erledigt; 1416 Tests im Projekt, 0 Fehler, 0 übersprungen. Offen allein: fünf Punkte, die einen laufenden Paper-Server brauchen. Spec unter `specs/008-ability-framework/` |
 | **Abhängig von** | B04, B05, B07 |
 | **Benötigt von** | B13 |
 
@@ -54,10 +54,14 @@ entstehen — nicht durch eine neue Java-Klasse je Fähigkeit.
 ## Offene Fragen (blockierend) — geklärt (2026-08-19)
 
 - [x] **Anzahl Fähigkeiten je Klasse**: 4 aktiv + 2 passiv, also **sechs
-      Fähigkeiten je Klasse**. Die Unique Class Ability zählt als eine der vier
-      aktiven — *(korrigiert 2026-08-21; die frühere Fassung sagte „ohne Unique
-      Class Ability" und ergab damit sieben, was auf keinen der festgelegten
-      Loadouts passt)*.
+      Fähigkeiten je Klasse**. Die Unique Class Ability zählt als eine der sechs
+      — sie ist kein siebter Eintrag, keine eigene Kategorie und kein eigener
+      Reiter, sondern eine gewöhnliche Bindung mit gesetztem `unique`-Flag.
+      Welcher Art sie ist, hängt an der Klasse: beim Warrior aktiv, bei Rogue
+      und Mage passiv. *(korrigiert 2026-08-21 von „sieben" auf „sechs";
+      präzisiert 2026-08-22, ADR-022 — die frühere Formulierung „zählt als eine
+      der vier aktiven" stimmte nur für den Warrior und widersprach den
+      festgelegten Uniques von Rogue und Mage)*.
 - [x] **Eingabeschema**: Hotbar-Slot-Wechsel + Rechtsklick — jede aktive
       Fähigkeit liegt auf einem eigenen Hotbar-Slot (Custom-Item), Rechtsklick
       löst sie aus.
@@ -73,8 +77,17 @@ entstehen — nicht durch eine neue Java-Klasse je Fähigkeit.
     Tod wiederbelebt zu werden.
   - **Mage — „Magic Boost & Fall"**: Items = Wind Charge & Slow Fall Potion,
     passiv → Doppelsprung + Slow-Fall-Effekt.
-- [ ] Gibt es einen globalen Cooldown zwischen beliebigen Fähigkeiten?
-- [ ] Sind Casting-Zeiten und Unterbrechung vorgesehen?
+- [x] **Globaler Cooldown**: ja, kurz. Nach jeder ausgelösten aktiven Fähigkeit
+      sind für eine kurze Spanne alle anderen gesperrt. Grund ist das
+      Eingabeschema selbst: Slot-Wechsel plus Rechtsklick geht viermal im selben
+      Tick, ohne Sperre wäre „alle vier sofort" immer die stärkste Eröffnung. Er
+      wird wie die Einzel-Cooldowns zeitstempelbasiert lazy gerechnet, der Wert
+      ist Konfiguration (ADR-022). *(2026-08-22)*
+- [x] **Casting-Zeiten und Unterbrechung**: vorgesehen. Eine Fähigkeit darf eine
+      Wirkzeit haben, ein laufender Cast ist unterbrechbar. Instant ist der Fall
+      `cast-time: 0`, nicht die Abwesenheit der Mechanik — Wirkzeit nachträglich
+      einzuziehen hätte jede vorhandene Fähigkeit, das HUD (B13) und die
+      Eingabebehandlung gleichzeitig angefasst (ADR-022). *(2026-08-22)*
 
 ### Loadouts je Klasse *(2026-08-21)*
 
@@ -95,12 +108,15 @@ implementiert das Verhalten (Workflow-Regel 5).
 Der Loadout ist damit **vollständig**: vier aktive Fähigkeiten inklusive der
 Unique, zwei passive. *(2026-08-21)*
 
-- [ ] **Lifesteal ist kein B04-Attribut.** ADR-008 stellt Sekundärwerte
-      (Crit-Chance, Crit-Schaden, Lifesteal, Resistenzen) ausdrücklich zurück.
-      Als Fähigkeitseffekt im Kampf-Hook („heile X % des ausgeteilten Schadens")
-      geht es ohne Attribut; als skalierender Wert bräuchte es die
-      Sekundärwert-Erweiterung von B04.
-- [ ] Loadouts für Mage und Rogue → bei `/specify` B08 auszuarbeiten.
+- [x] **Lifesteal ist kein B04-Attribut** und wird auch keins. ADR-008 bleibt
+      unangetastet: Lifesteal ist ein Effekt-Primitive im Kampf-Hook („heile X %
+      des ausgeteilten Schadens"), der Prozentsatz hängt an der Fähigkeitsstufe
+      (Coin-Aufwertung), nicht an einem Attribut. Ein neuntes Attribut hätte
+      Stat-Engine, Persistenz und HUD gleichzeitig geöffnet — und mit ihm die
+      Tür für Crit und Resistenzen (ADR-022). *(2026-08-22)*
+- [x] Loadouts für Mage und Rogue ausgearbeitet und ausgeliefert. Der Rogue ist **3+3**
+      statt 4+2 - die Zählregel wurde dafür gelockert (ADR-025): ein Assassine lebt mehr
+      von Zuständen als von Knopfdrücken. Beim Mage ist die Unique passiv. *(2026-08-22)*
 
 ## Akzeptanzkriterien (Entwurf)
 
@@ -109,3 +125,33 @@ Unique, zwei passive. *(2026-08-21)*
 - Ein Spieler mit 0 Mana kann keine kostenpflichtige Fähigkeit auslösen; ein
   Spieler auf Cooldown ebenso wenig — beides serverseitig durchgesetzt.
 - Cooldown-Anzeige bleibt bei Relogin korrekt (Zeitstempel persistiert).
+
+## Was die Umsetzung ergeben hat *(2026-08-22)*
+
+**Das Akzeptanzkriterium hält, mit einer benannten Einschränkung.** Sechzehn der
+achtzehn Fähigkeiten entstanden ohne eine Zeile Java. Zwei brauchten Vokabular,
+das die Konfiguration nicht hatte: Warriors Wut baut sich bei aus- *und*
+eingeteiltem Schaden auf, Mages Aufstieg & Fall zeigt zwei Marker-Items. Beide
+Felder nehmen jetzt einen Wert **oder** eine Liste (ADR-026). Die Grenze, die
+dabei gehalten wurde: eine fehlende Vokabel in der Datei ist eine
+Schema-Änderung, ein Sonderfall im Dispatcher wäre das Ende der Zusage gewesen.
+
+**Zwei Attribute kamen dazu** (ADR-023): `healthRegen` und `manaRegen`. Sie waren
+keine Erweiterung, sondern das fehlende Gegenstück zu ADR-013 — seit die
+Vanilla-Regeneration abgeschaltet ist, heilte ein verwundeter Spieler
+buchstäblich nie wieder.
+
+**Drei Mechaniken bleiben bis B09/B10 unvollständig**, und das steht im Javadoc
+statt still zu sein: der Klon zieht keine Aggro, die Unsichtbarkeit wendet keine
+Mobs ab, und Zweites Leben prüft nicht auf Instanzen.
+
+### Offen bis ein Server läuft
+
+- Rechtsklick löst aus; **Linksklick mit einem Fähigkeits-Item macht keinen
+  Nahkampfschaden**
+- Die Hotbar sieht richtig aus: Waffe auf 0, Fähigkeiten ab 1, Marker danach,
+  nicht Freigeschaltetes leer
+- Der Doppelsprung trägt zweimal, nicht dreimal, und der Fall ist verlangsamt
+- Die Regeneration ist spürbar und im Kampf schwächer — **zugleich der erste
+  Beweis überhaupt, dass ein Spieler heilt**
+- Ein unterbrochener Cast lässt das Mana unverändert

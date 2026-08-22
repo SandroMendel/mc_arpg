@@ -78,6 +78,12 @@ final class CombatFixture {
             return record(task);
         }
 
+        /** ADR-024: verzoegert, aber im Test genauso behandelt wie sofort. */
+        @Override
+        public TaskHandle runSyncOnEntityDelayed(EntityRef entity, Duration delay, Runnable task) {
+            return record(task);
+        }
+
         @Override
         public TaskHandle runAsync(Runnable task) {
             return record(task);

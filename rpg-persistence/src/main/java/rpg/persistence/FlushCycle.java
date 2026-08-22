@@ -70,6 +70,10 @@ public final class FlushCycle implements WriteBehindCoordinator {
                     AggregateType.CHARACTER_CLASS_PROGRESS,
                     // The stored inventory hangs off a character too, so it follows CHARACTER as well.
                     AggregateType.CHARACTER_INVENTORY,
+                    // B08's ability rows reference a character as well - registration 2 of 3
+                    // (ADR-015). The other two are the AggregateType constant and the repository
+                    // wired in AbilityModule.
+                    AggregateType.CHARACTER_ABILITIES,
                     AggregateType.ITEM_INSTANCE,
                     AggregateType.STATISTICS,
                     AggregateType.AUDIT_LOG);

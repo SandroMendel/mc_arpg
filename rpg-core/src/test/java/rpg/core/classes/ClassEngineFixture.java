@@ -1,5 +1,6 @@
 package rpg.core.classes;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -123,6 +124,13 @@ final class ClassEngineFixture {
 
         @Override
         public TaskHandle runSyncOnEntity(EntityRef entity, Runnable task) {
+            task.run();
+            return handle();
+        }
+
+        /** ADR-024: verzoegert, aber im Test genauso behandelt wie sofort. */
+        @Override
+        public TaskHandle runSyncOnEntityDelayed(EntityRef entity, Duration delay, Runnable task) {
             task.run();
             return handle();
         }

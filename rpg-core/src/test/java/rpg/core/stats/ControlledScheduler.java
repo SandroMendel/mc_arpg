@@ -22,6 +22,7 @@ final class ControlledScheduler implements Scheduler {
     private final Deque<Runnable> pending = new ArrayDeque<>();
     private int scheduledCount;
     private boolean refuseEntityTasks;
+    private Duration lastDelay;
 
     /**
      * Makes entity-bound scheduling fail the way the real one does when the entity cannot be resolved:
@@ -71,6 +72,29 @@ final class ControlledScheduler implements Scheduler {
             return refused;
         }
         return enqueue(task);
+    }
+
+    /**
+     * Queued like the immediate one, and the delay is recorded rather than waited out (ADR-024).
+     *
+     * <p>A test that wants to know a cast was scheduled for two seconds asks {@link #lastDelay};
+     * one that wants it to happen calls {@link #runPending}. Sleeping would make every cast test
+     * take as long as the cast.
+     */
+    @Override
+    public TaskHandle runSyncOnEntityDelayed(EntityRef entity, Duration delay, Runnable task) {
+        if (refuseEntityTasks) {
+            RecordedHandle refused = new RecordedHandle();
+            refused.cancel();
+            return refused;
+        }
+        lastDelay = delay;
+        return enqueue(task);
+    }
+
+    /** The delay the most recent delayed task was scheduled with, or {@code null}. */
+    Duration lastDelay() {
+        return lastDelay;
     }
 
     @Override

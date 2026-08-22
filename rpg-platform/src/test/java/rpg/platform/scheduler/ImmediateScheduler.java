@@ -26,6 +26,12 @@ public final class ImmediateScheduler implements Scheduler {
         return run(task);
     }
 
+    /** ADR-024: verzoegert, aber im Test genauso behandelt wie sofort. */
+    @Override
+    public TaskHandle runSyncOnEntityDelayed(EntityRef entity, Duration delay, Runnable task) {
+        return run(task);
+    }
+
     @Override
     public TaskHandle runAsync(Runnable task) {
         return run(task);

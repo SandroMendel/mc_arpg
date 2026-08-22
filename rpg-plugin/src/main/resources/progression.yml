@@ -74,23 +74,29 @@ xp-curve:
   59: 6170
   60: 6630
 
-# What one level adds to each of the eight attributes. The keys are the attribute keys from
-# stats.yml, so the two files name the same things the same way.
+# What one level adds to each attribute. The keys are the attribute keys from stats.yml, so the two
+# files name the same things the same way.
 #
-# All eight fields are required, including the three that are zero. A missing field stops the start
-# rather than quietly becoming zero - otherwise "movement speed does not grow" would be
-# indistinguishable from "somebody forgot the line".
+# EVERY field is required, including the three that are zero. A missing field stops the start rather
+# than quietly becoming zero - otherwise "movement speed does not grow" would be indistinguishable
+# from "somebody forgot the line".
 #
 # Why those three are zero:
 #   movementSpeed   - Minecraft is extremely sensitive here; growth over 60 levels is unplayable.
 #   attackSpeed     - runs into vanilla invulnerability (B05, ~2 hits/second); growth evaporates.
 #   abilityCooldown - B08 already sells cooldown reduction for coins; two sources would compound.
 #
+# The two regeneration rates (ADR-023) grow here rather than on an equipment ladder: they are the
+# one pair of attributes the operator asked to come from levelling alone, which is why LadderSlot
+# still carries four attributes per ladder and no tier gained a value.
+#
 # Class-neutral. B07 replaces these numbers per class without a single code change.
 level-growth:
   health: 8.0
+  healthRegen: 0.5
   defense: 2.0
   mana: 4.0
+  manaRegen: 0.2
   physicalDamage: 1.5
   magicDamage: 1.5
   attackSpeed: 0.0

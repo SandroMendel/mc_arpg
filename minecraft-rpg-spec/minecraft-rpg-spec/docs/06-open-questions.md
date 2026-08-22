@@ -1,5 +1,10 @@
 # 06 · Offene Fragen (zentrale Sammlung)
 
+> **VERALTET — nicht diese Fassung lesen.** Die gelebte Datei ist `06-open-questions.md` im
+> Projektstamm. Diese Kopie ist seit dem ersten Commit eingefroren; ihr fehlen alle
+> Einträge ab ADR-013. Sie steht noch hier, weil das Löschen einer Datei aus dem
+> Spec-Bündel eine Entscheidung ist, die nicht nebenbei getroffen werden sollte.
+
 Diese Punkte müssen vor der jeweiligen Spec-Erstellung geklärt werden. Details
 stehen im jeweiligen Blocksteckbrief. Stand: 2026-08-19 — Klärungsrunde mit dem
 Auftraggeber abgeschlossen, Ergebnisse sind in den Blocksteckbriefen und in
