@@ -1092,9 +1092,28 @@ lohnt, festgehalten zu werden, weil er bei jeder künftigen „warum nicht auch 
 wiederkommt: ein Cooldown wird ausgewertet, **wenn jemand fragt**. Ein Cast muss wirken, **auch wenn
 niemand fragt**. Zeitstempelarithmetik beantwortet Fragen; sie löst keine Handlungen aus.
 
-**Folge:** Prinzip II bleibt erfüllt und wird messbar geprüft — die Zahl der geplanten Aufgaben
-entspricht der Zahl der gerade laufenden Casts und sonst nichts (B08 SC-005). Ein Spieler ohne
-laufenden Cast hat keine Aufgabe.
+**Folge:** Prinzip II bleibt erfüllt und wird messbar geprüft (B08 SC-005). Ein Spieler, der nichts
+tut, hat keine Aufgabe.
+
+### Nachtrag nach der Umsetzung *(2026-08-22, Workflow-Regel 4)*
+
+Der Satz „die Zahl der geplanten Aufgaben entspricht der Zahl der laufenden Casts **und sonst
+nichts**" stand hier und stimmt so nicht mehr. Er war zum Zeitpunkt der Entscheidung richtig; ADR-025
+hat danach haltende Fähigkeiten, den Klon und die Unsichtbarkeit ergänzt, und alle drei enden zu
+einem Zeitpunkt. Der umgesetzte Stand:
+
+| Was | Aufgaben | Art |
+|---|---|---|
+| laufender Cast | eine | Einzelstück, entity-gebunden |
+| haltende Fähigkeit | eine | dasselbe - das vorzeitige Ende bricht sie ab |
+| Klon, Unsichtbarkeit | je eine | dasselbe, für Ablauf und Rückkehr |
+| **alle** Intervall-Effekte, ablaufende Buffs, verlorene Geschosse | **eine, serverweit** | selbst nachplanend, wie B05s Sweep |
+| Cooldowns, globale Sperre, Ladungen, Wut, beide Regenerationen | **keine** | Zeitstempelarithmetik |
+
+Die Zusage, um die es ADR-024 ging, ist unverändert: **keine wiederkehrende Aufgabe je Spieler und
+keine je Ziel.** Zweihundert gleichzeitig laufende Gifte teilen sich eine Auswertung, und ohne ein
+einziges laufendes ist sie ein leerer Scan. Was dazugekommen ist, sind Einzelstücke, die existieren,
+solange etwas läuft, und mit ihm verschwinden - genau die Form, die ADR-024 erlaubt hat.
 
 ---
 

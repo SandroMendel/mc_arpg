@@ -1225,6 +1225,17 @@ public class RpgPlugin extends JavaPlugin {
         return statsModule.engine();
     }
 
+    /**
+     * The damage pipeline as it was assembled, for the bootstrap test.
+     *
+     * <p>Same reason as {@link #statEngine()}: what needs asserting is which interceptors a fully
+     * wired server ends up with, and that is not part of the {@code CombatPipeline} interface other
+     * blocks use.
+     */
+    public rpg.core.combat.DefaultCombatPipeline combatPipeline() {
+        return combatModule == null ? null : combatModule.pipeline();
+    }
+
     /** The bootstrap phase, which decides whether the server accepts player sessions (FR-013). */
     public BootstrapState bootstrapState() {
         return bootstrapState;

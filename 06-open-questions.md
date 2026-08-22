@@ -119,9 +119,11 @@ Bei zwei /clarify-Runden zusätzlich geklärt (siehe ADR-014):
       verfällt still. Weiteres Wachstum über Coins (B08) und Ausrüstung (B11).
       Paragon/Prestige bleiben als eigener Block nachrüstbar *(2026-08-20)*
 
-## B08 (Fähigkeiten) — abgeschlossen, Loadouts offen
+## B08 (Fähigkeiten) — abgeschlossen und umgesetzt
 
-- [x] Anzahl Fähigkeiten je Klasse: 4 aktiv + 2 passiv
+- [x] Anzahl Fähigkeiten je Klasse: sechs, darunter genau eine Unique. Die Aufteilung
+      aktiv/passiv ist Inhalt und nicht überall gleich - Warrior und Mage 4+2, der
+      Rogue 3+3 (ADR-025). *(2026-08-22)*
 - [x] Eingabeschema: Hotbar-Slot-Wechsel + Rechtsklick
 - [x] Freischaltung: fest per Level, kein Skilltree; zusätzlich Coin-Aufwertung
 - [x] Mana-Regeneration: konstant, im Kampf leicht reduziert
@@ -141,8 +143,16 @@ Bei zwei /clarify-Runden zusätzlich geklärt (siehe ADR-014):
       in `AbilityBinding` fällt (ADR-022). *(2026-08-22)*
 - [x] **Lifesteal**: Effekt-Primitive in der B05-Pipeline, kein neuntes Attribut.
       ADR-008 bleibt unangetastet (ADR-022). *(2026-08-22)*
-- [ ] Loadouts für Mage und Rogue → bei `/specify` B08 auszuarbeiten (Content,
-      keine Architekturfrage)
+- [x] Loadouts für Mage und Rogue ausgearbeitet und ausgeliefert; alle achtzehn
+      Fähigkeiten stehen in `abilities.yml`. *(2026-08-22)*
+- [x] **Sechzehn der achtzehn entstanden ohne eine Zeile Java.** Zwei brauchten
+      Vokabular, das die Konfiguration nicht hatte - ein zweiter Trigger für Wut,
+      ein zweites Marker-Item für Aufstieg & Fall. Beide Felder nehmen jetzt einen
+      Wert oder eine Liste (ADR-026). *(2026-08-22)*
+- [x] **Der Rangaufstieg kostet nichts**, weil es im Projekt keine Währung gibt.
+      Eine hier zu erfinden hiesse, eine Wirtschaft im Fähigkeitsblock anzulegen,
+      die ein späterer Block nicht mehr übernehmen könnte (Regel 5). `RankResult`
+      kennt bewusst kein `NOT_ENOUGH_COINS`. *(2026-08-22)*
 
 ## B09/B10 (Welt & Mobs) — abgeschlossen, Details offen
 

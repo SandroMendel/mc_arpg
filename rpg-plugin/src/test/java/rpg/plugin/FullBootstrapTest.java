@@ -349,6 +349,48 @@ class FullBootstrapTest {
     }
 
     @Test
+    void allEighteenAbilitiesAreLoadedAndBoundToTheThreeClasses() {
+        rpg.core.ability.AbilityRegistry abilities =
+                plugin.registry().getService(rpg.core.ability.AbilityRegistry.class);
+
+        // The cross-check (V25 to V28) already ran at startup and would have refused the start, so
+        // this is not a second validation - it is the proof that it ran with something in it. While
+        // abilities.yml was empty the check skipped itself with a warning, and a green start proved
+        // nothing at all.
+        assertThat(abilities.config().size()).isEqualTo(18);
+        for (rpg.core.session.CharacterClass id : rpg.core.session.CharacterClass.values()) {
+            assertThat(abilities.abilitiesOf(id)).as("%s has six", id).hasSize(6);
+        }
+    }
+
+    @Test
+    void abilitiesHookIntoTheSessionLifecycle() {
+        assertThat(plugin.sessionLifecycle().attachmentIds())
+                .as("ranks and cooldowns are loaded on session open and released on close")
+                .contains(rpg.persistence.ability.AbilityModule.ID);
+    }
+
+    @Test
+    void theAbilityInterceptorsHangInTheDamagePipeline() {
+        // ADR-012: a module whose own tests are green but which is not wired in has no effect. These
+        // three are B08's whole passive half - evasion refuses damage at MODIFIERS, lifesteal reads
+        // the mitigated amount at APPLICATION, and Second Life cancels the lethal blow before
+        // changeHealth. A missing one is silent: the ability simply never happens.
+        java.util.List<String> ids = new java.util.ArrayList<>();
+        for (rpg.core.combat.PipelineStage stage : rpg.core.combat.PipelineStage.values()) {
+            plugin.combatPipeline()
+                    .interceptorsAt(stage)
+                    .forEach(interceptor -> ids.add(interceptor.id()));
+        }
+
+        assertThat(ids)
+                .contains(
+                        "abilities.on-damage-taken",
+                        "abilities.on-damage-dealt",
+                        "abilities.on-death");
+    }
+
+    @Test
     void classesHookIntoTheSessionLifecycle() {
         assertThat(plugin.sessionLifecycle().attachmentIds())
                 .as("the reached tiers are loaded on session open and released on close")

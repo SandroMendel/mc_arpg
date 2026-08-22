@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Schicht** | 1 — Regel-Engine |
-| **Status** | Spezifikation läuft *(2026-08-22)* — umfangreichster Block. Alle blockierenden Fragen sind beantwortet (ADR-022); offen ist allein Content: die Loadouts für Mage und Rogue |
+| **Status** | Implementiert (2026-08-22) — 178 Aufgaben, davon 173 erledigt; 1416 Tests im Projekt, 0 Fehler, 0 übersprungen. Offen allein: fünf Punkte, die einen laufenden Paper-Server brauchen. Spec unter `specs/008-ability-framework/` |
 | **Abhängig von** | B04, B05, B07 |
 | **Benötigt von** | B13 |
 
@@ -114,7 +114,9 @@ Unique, zwei passive. *(2026-08-21)*
       (Coin-Aufwertung), nicht an einem Attribut. Ein neuntes Attribut hätte
       Stat-Engine, Persistenz und HUD gleichzeitig geöffnet — und mit ihm die
       Tür für Crit und Resistenzen (ADR-022). *(2026-08-22)*
-- [ ] Loadouts für Mage und Rogue → bei `/specify` B08 auszuarbeiten.
+- [x] Loadouts für Mage und Rogue ausgearbeitet und ausgeliefert. Der Rogue ist **3+3**
+      statt 4+2 - die Zählregel wurde dafür gelockert (ADR-025): ein Assassine lebt mehr
+      von Zuständen als von Knopfdrücken. Beim Mage ist die Unique passiv. *(2026-08-22)*
 
 ## Akzeptanzkriterien (Entwurf)
 
@@ -123,3 +125,33 @@ Unique, zwei passive. *(2026-08-21)*
 - Ein Spieler mit 0 Mana kann keine kostenpflichtige Fähigkeit auslösen; ein
   Spieler auf Cooldown ebenso wenig — beides serverseitig durchgesetzt.
 - Cooldown-Anzeige bleibt bei Relogin korrekt (Zeitstempel persistiert).
+
+## Was die Umsetzung ergeben hat *(2026-08-22)*
+
+**Das Akzeptanzkriterium hält, mit einer benannten Einschränkung.** Sechzehn der
+achtzehn Fähigkeiten entstanden ohne eine Zeile Java. Zwei brauchten Vokabular,
+das die Konfiguration nicht hatte: Warriors Wut baut sich bei aus- *und*
+eingeteiltem Schaden auf, Mages Aufstieg & Fall zeigt zwei Marker-Items. Beide
+Felder nehmen jetzt einen Wert **oder** eine Liste (ADR-026). Die Grenze, die
+dabei gehalten wurde: eine fehlende Vokabel in der Datei ist eine
+Schema-Änderung, ein Sonderfall im Dispatcher wäre das Ende der Zusage gewesen.
+
+**Zwei Attribute kamen dazu** (ADR-023): `healthRegen` und `manaRegen`. Sie waren
+keine Erweiterung, sondern das fehlende Gegenstück zu ADR-013 — seit die
+Vanilla-Regeneration abgeschaltet ist, heilte ein verwundeter Spieler
+buchstäblich nie wieder.
+
+**Drei Mechaniken bleiben bis B09/B10 unvollständig**, und das steht im Javadoc
+statt still zu sein: der Klon zieht keine Aggro, die Unsichtbarkeit wendet keine
+Mobs ab, und Zweites Leben prüft nicht auf Instanzen.
+
+### Offen bis ein Server läuft
+
+- Rechtsklick löst aus; **Linksklick mit einem Fähigkeits-Item macht keinen
+  Nahkampfschaden**
+- Die Hotbar sieht richtig aus: Waffe auf 0, Fähigkeiten ab 1, Marker danach,
+  nicht Freigeschaltetes leer
+- Der Doppelsprung trägt zweimal, nicht dreimal, und der Fall ist verlangsamt
+- Die Regeneration ist spürbar und im Kampf schwächer — **zugleich der erste
+  Beweis überhaupt, dass ein Spieler heilt**
+- Ein unterbrochener Cast lässt das Mana unverändert

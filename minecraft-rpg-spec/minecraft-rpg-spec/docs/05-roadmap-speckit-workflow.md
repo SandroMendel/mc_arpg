@@ -79,17 +79,20 @@ Anschließend `/constitution` mit dem Inhalt von `constitution.md` ausführen.
 
 ## Empfohlener nächster Schritt
 
-*(Stand 2026-08-22)* B01 bis B07 sind implementiert und verdrahtet. Offen sind
+*(Stand 2026-08-22)* B01 bis B08 sind implementiert und verdrahtet. Offen sind
 dort nur noch Validierungsläufe und Lasttests, die einen echten Paper-Server
 brauchen — kein Code.
 
-Als nächstes **`/specify` für B08 (Fähigkeiten-Framework)**. ADR-022 hat die vier
-verbliebenen blockierenden Fragen geklärt: die Unique zählt zu den sechs und darf
-passiv sein, es gibt einen kurzen globalen Cooldown, Casting-Zeiten mit
-Unterbrechung sind vorgesehen, und Lifesteal bleibt ein Kampf-Effekt statt eines
-neunten Attributs. Offen bleiben nur die Loadouts für Mage und Rogue — Content,
-der laut Workflow bei `/specify` selbst ausgearbeitet wird.
+Als nächstes ist **B11 neu zuzuschneiden, bevor es spezifiziert wird**: ADR-017
+hat Rüstung und Waffe zu Klassenprogression gemacht und damit Rolls,
+Raritätsstufen und Ausrüstungs-Beute aus dem Block gezogen. Was von B11 übrig
+bleibt, ist erst zu klären und dann zu spezifizieren — `/specify` auf einen
+Steckbrief anzusetzen, dessen halber Inhalt woanders liegt, führt zu einer
+Spezifikation, die niemand umsetzt.
 
-Danach ist **B11 neu zuzuschneiden, bevor es spezifiziert wird**: ADR-017 hat
-Rüstung und Waffe zu Klassenprogression gemacht und damit Rolls, Raritätsstufen
-und Ausrüstungs-Beute aus dem Block gezogen.
+Zwei Dinge aus B08 sind dabei mitzudenken: es gibt **immer noch keine Währung**
+im Projekt, obwohl drei Blöcke sie voraussetzen (Rangaufstieg in B08, die
+Ausrüstungsleitern in B07, die Beute in B11) — wer sie einführt, sollte es
+bewusst tun und nicht nebenbei. Und **B09/B10 schulden B08 drei Verhaltensweisen**
+(Aggro auf den Klon, Mobs wenden sich von Unsichtbaren ab, Zonen für Zweites
+Leben); die Schnittstellen stehen und werden gerufen.

@@ -82,7 +82,7 @@ public final class AbilityConfigFixture {
         return block;
     }
 
-    static Map<String, Object> damageEffect() {
+    public static Map<String, Object> damageEffect() {
         Map<String, Object> effect = new LinkedHashMap<>();
         effect.put("type", "DAMAGE");
         effect.put("damage-type", "PHYSICAL");

@@ -120,7 +120,7 @@ wirkt, ein zweiter Klick wird abgewiesen.
 
 - [X] T038 [P] [US1] `AbilityRuntimeTest` in `rpg-core/src/test/java/rpg/core/ability/` — die sechs Akzeptanzfälle aus US1: Auslösung wirkt, zweite Auslösung abgewiesen, zu wenig Mana, globale Sperre, Linksklick wirkungslos, kein aktiver Charakter
 - [X] T039 [P] [US1] `AbilityRuntimeTest`: SC-003 — drei Ablehnungsgründe mal 1000 Versuche, null Durchbrüche, und **kein** Verbrauch bei Ablehnung
-- [ ] T040 [P] [US1] `TargetResolutionTest` in `rpg-core/src/test/java/rpg/core/ability/` — `SELF` liefert genau den Auslöser; `RADIUS` respektiert die Obergrenze und wählt nach aufsteigendem Abstand (FR-021)
+- [X] T040 [P] [US1] `SELF` liefert genau den Auslöser; `RADIUS` respektiert die Obergrenze und wählt nach aufsteigendem Abstand (FR-021). **Liegt in `rpg-platform` statt in `rpg-core`**: die Zusage ist eine über den räumlichen Index, und den gibt es in `rpg-core` nicht - siehe `PaperTargetResolverTest`, das dieselben Fälle gegen echte Entities prüft
 - [X] T041 [P] [US1] `AbilityTriggerListenerTest` in `rpg-platform/src/test/java/rpg/platform/ability/` mit MockBukkit — Rechtsklick löst aus, Linksklick löst weder Fähigkeit noch Nahkampf aus
 
 ### Umsetzung für User Story 1
@@ -381,16 +381,16 @@ eine freigeschaltet, auf Stufe 45 alle sechs.
 
 **Zweck**: Verdrahtung beweisen, Dokumentation nachziehen, offene Serverläufe benennen.
 
-- [ ] T135 `FullBootstrapTest` in `rpg-plugin/src/test/java/rpg/plugin/` erweitern — `AbilityRuntime` und `AbilityRegistry` sind über die Registry auflösbar, alle Listener sind registriert, die Interceptoren hängen (ADR-012). **Keine Formalie**: ein Modul mit grünen eigenen Tests, das nicht verdrahtet ist, ist wirkungslos
-- [ ] T136 [P] `FullBootstrapTest`: `abilities.yml` wird **nach** `classes.yml` geladen, damit die Abgleichprüfungen beide sehen (T036)
-- [ ] T137 [P] `NoAbilityDamageBypassTest` in `rpg-core/src/test/java/rpg/core/ability/` — ein Quellentest, dass B08 Schaden ausschließlich über `CombatPipeline` erzeugt und nirgends daran vorbei (FR-068, Prinzip III)
-- [ ] T138 [P] `AbilityImmutabilityTest` in `rpg-core/src/test/java/rpg/core/ability/` — `Ability`, `EffectSpec` und `TargetSpec` sind unveränderlich; Listen werden kopiert, nicht übernommen
-- [ ] T139 [P] Javadoc-Durchgang über `rpg/core/ability/package-info.java` — die vier Ebenen, die Blockgrenzen und die Zusage „ab jetzt ist eine Änderung an `AbilityRegistry` ADR-pflichtig"
-- [ ] T140 [P] `blocks/B08-ability-framework.md` auf **Implementiert** setzen, mit Aufgabenzahl, Testzahl und den offenen Serverpunkten
-- [ ] T141 [P] `docs/05-roadmap-speckit-workflow.md`: „Empfohlener nächster Schritt" auf B11 stellen — der Block ist laut ADR-017 vor der Spezifikation neu zuzuschneiden
-- [ ] T142 [P] `06-open-questions.md`: den B08-Abschnitt schließen und die Loadout-Zeile abhaken
-- [ ] T143 Prüfen, dass ADR-024 den umgesetzten Stand beschreibt, und Abweichungen nachtragen (Workflow-Regel 4)
-- [ ] T144 Vollständiger Durchlauf `./gradlew test` — grün, keine übersprungenen Tests (die Erinnerung aus B02/B05: MockBukkit meldet Nicht-Implementiertes als „skipped", nicht als Fehler)
+- [X] T135 `FullBootstrapTest` in `rpg-plugin/src/test/java/rpg/plugin/` erweitern — `AbilityRuntime` und `AbilityRegistry` sind über die Registry auflösbar, alle Listener sind registriert, die Interceptoren hängen (ADR-012). **Keine Formalie**: ein Modul mit grünen eigenen Tests, das nicht verdrahtet ist, ist wirkungslos
+- [X] T136 [P] `FullBootstrapTest`: `abilities.yml` wird **nach** `classes.yml` geladen, damit die Abgleichprüfungen beide sehen (T036)
+- [X] T137 [P] `NoAbilityDamageBypassTest` in `rpg-core/src/test/java/rpg/core/ability/` — ein Quellentest, dass B08 Schaden ausschließlich über `CombatPipeline` erzeugt und nirgends daran vorbei (FR-068, Prinzip III)
+- [X] T138 [P] `AbilityImmutabilityTest` in `rpg-core/src/test/java/rpg/core/ability/` — `Ability`, `EffectSpec` und `TargetSpec` sind unveränderlich; Listen werden kopiert, nicht übernommen
+- [X] T139 [P] Javadoc-Durchgang über `rpg/core/ability/package-info.java` — die vier Ebenen, die Blockgrenzen und die Zusage „ab jetzt ist eine Änderung an `AbilityRegistry` ADR-pflichtig"
+- [X] T140 [P] `blocks/B08-ability-framework.md` auf **Implementiert** setzen, mit Aufgabenzahl, Testzahl und den offenen Serverpunkten
+- [X] T141 [P] `docs/05-roadmap-speckit-workflow.md`: „Empfohlener nächster Schritt" auf B11 stellen — der Block ist laut ADR-017 vor der Spezifikation neu zuzuschneiden
+- [X] T142 [P] `06-open-questions.md`: den B08-Abschnitt schließen und die Loadout-Zeile abhaken
+- [X] T143 Prüfen, dass ADR-024 den umgesetzten Stand beschreibt, und Abweichungen nachtragen (Workflow-Regel 4)
+- [X] T144 Vollständiger Durchlauf `./gradlew test` — grün, keine übersprungenen Tests (die Erinnerung aus B02/B05: MockBukkit meldet Nicht-Implementiertes als „skipped", nicht als Fehler)
 
 ### Validierungen am laufenden Paper-Server
 
