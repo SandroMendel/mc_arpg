@@ -255,7 +255,7 @@ Eingriff, der im Verlauf mit Verursacher erscheint.
 **Independent Test**: Rangaufstieg mit zu wenig und danach mit genug Coins.
 
 - [X] T102 [US5] `rank-cost` im Fähigkeitsschema ergänzen: `AbilityConfigSchema` in `rpg-core/src/main/java/rpg/core/ability/AbilityConfigSchema.java` — optionaler Block je Fähigkeit, fehlt er, kostet der Rang nichts (FR-054)
-- [X] T103 [US5] `rank-cost` für die achtzehn Fähigkeiten in `rpg-plugin/src/main/resources/abilities.yml` eintragen
+- [ ] T103 [US5] `rank-cost` für die achtzehn Fähigkeiten in `rpg-plugin/src/main/resources/abilities.yml` eintragen
 - [X] T104 [US5] `NOT_ENOUGH_COINS` in `rpg-core/src/main/java/rpg/core/ability/RankResult.java` ergänzen, mit `MessageKey`
 - [X] T105 [US5] Das Javadoc von `rpg-core/src/main/java/rpg/core/ability/RankResult.java` korrigieren — der Absatz „there are no coins anywhere in this project" ist ab diesem Block falsch (FR-055). Stattdessen: was die Kostenprüfung tut und wo sie sitzt
 - [X] T106 [US5] Die Kostenprüfung in `rpg-core/src/main/java/rpg/core/ability/AbilityRuntime.java` vor `advanceRank` setzen — **zuletzt**: erst Freischaltung, erst Höchstrang, **dann** das Geld (FR-052)
