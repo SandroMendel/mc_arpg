@@ -113,7 +113,7 @@ Bei zwei /clarify-Runden zusätzlich geklärt (siehe ADR-014):
       verfällt still. Weiteres Wachstum über Coins (B08) und Ausrüstung (B11).
       Paragon/Prestige bleiben als eigener Block nachrüstbar *(2026-08-20)*
 
-## B08 (Fähigkeiten) — abgeschlossen
+## B08 (Fähigkeiten) — abgeschlossen, Loadouts offen
 
 - [x] Anzahl Fähigkeiten je Klasse: 4 aktiv + 2 passiv
 - [x] Eingabeschema: Hotbar-Slot-Wechsel + Rechtsklick
@@ -124,8 +124,19 @@ Bei zwei /clarify-Runden zusätzlich geklärt (siehe ADR-014):
   - Rogue — „Second Life" (Totem, passiv: %-Chance auf Wiederbelebung)
   - Mage — „Magic Boost & Fall" (Wind Charge + Slow Fall Potion, passiv:
     Doppelsprung + Slow Fall)
-- [ ] Globaler Cooldown zwischen beliebigen Fähigkeiten?
-- [ ] Casting-Zeiten und Unterbrechung vorgesehen?
+- [x] **Globaler Cooldown**: ja, kurz. Nach jeder ausgelösten aktiven Fähigkeit
+      sind alle anderen kurz gesperrt; zeitstempelbasiert lazy wie die
+      Einzel-Cooldowns, Wert in Konfiguration (ADR-022). *(2026-08-22)*
+- [x] **Casting-Zeiten und Unterbrechung**: vorgesehen. Eine Fähigkeit darf eine
+      Wirkzeit haben, ein laufender Cast ist unterbrechbar; instant ist der Fall
+      `cast-time: 0`, nicht die Abwesenheit der Mechanik (ADR-022). *(2026-08-22)*
+- [x] **Die Unique zählt zu den sechs**, kein siebter Eintrag und keine eigene
+      Kategorie. Damit darf sie passiv sein — die Invariante `unique ⇒ ACTIVE`
+      in `AbilityBinding` fällt (ADR-022). *(2026-08-22)*
+- [x] **Lifesteal**: Effekt-Primitive in der B05-Pipeline, kein neuntes Attribut.
+      ADR-008 bleibt unangetastet (ADR-022). *(2026-08-22)*
+- [ ] Loadouts für Mage und Rogue → bei `/specify` B08 auszuarbeiten (Content,
+      keine Architekturfrage)
 
 ## B09/B10 (Welt & Mobs) — abgeschlossen, Details offen
 

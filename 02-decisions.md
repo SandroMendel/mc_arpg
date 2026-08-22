@@ -957,3 +957,43 @@ die Stufe.
 - **Die Frist ist eine Konstante, keine Konfiguration** — wie die Meldungssperre in
   `InventoryFullNoticeListener`. Sollte sich das als falsch erweisen, wandert sie nach `classes.yml`,
   was eine Schemaänderung ist und auf Verdacht nicht lohnt.
+
+---
+
+## ADR-022 · Die vier blockierenden Vorentscheidungen zu B08
+
+**Status:** Entschieden *(2026-08-22)* — vor `/specify` B08, gemäß Workflow-Regel 2.
+
+**1. Die Unique Class Ability ist eine der sechs, nicht die siebte.** Sie bekommt keine eigene
+Kategorie, keinen eigenen Reiter und keinen Sonderplatz in der Leiste. Sie ist eine gewöhnliche
+Bindung mit gesetztem `unique`-Flag; das Flag sagt nur, dass diese Fähigkeit das Markenzeichen der
+Klasse ist. Damit bleibt es bei **4 aktiv + 2 passiv je Klasse**.
+
+**Folge im Code:** Die Invariante `unique ⇒ ACTIVE` in `AbilityBinding` fällt. Sie war aus der
+Annahme entstanden, „vier Aktive inklusive der Unique" bedeute, die Unique sei zwingend aktiv — das
+gilt aber nur für den Warrior. Rogues „Second Life" und Mages „Magic Boost & Fall" sind laut
+festgelegtem Entwurf passiv, und sie umzubauen hätte eine bereits abgeschlossene Frage wieder
+geöffnet, um eine Zählregel zu retten, die auch ohne sie aufgeht. Die Klassenprüfung in
+`CharacterClassDefinition` zählt weiter vier aktive und zwei passive Fähigkeiten und höchstens eine
+Unique — nur der Zusammenhang zwischen `unique` und `kind` entfällt.
+
+**2. Es gibt einen kurzen globalen Cooldown.** Nach jeder ausgelösten aktiven Fähigkeit sind für eine
+kurze Spanne alle anderen gesperrt. Grund ist das festgelegte Eingabeschema: Hotbar-Slot-Wechsel plus
+Rechtsklick lässt sich in einem einzigen Tick viermal ausführen, und ohne globale Sperre wäre die
+Reihenfolge „alle vier Aktiven sofort" immer die stärkste Eröffnung. Der GCD wird wie die
+Einzel-Cooldowns **zeitstempelbasiert lazy** gerechnet — kein Herunterzählen, keine Aufgabe je
+Spieler. Der Zahlenwert ist Konfiguration (Prinzip V).
+
+**3. Casting-Zeiten und Unterbrechung sind vorgesehen.** Eine Fähigkeit darf eine Wirkzeit haben, und
+ein laufender Cast ist unterbrechbar. Das kostet einen Cast-Zustand je Spieler und Regeln dafür, was
+unterbricht und was mit den Kosten geschieht — es ist die teurere der beiden Möglichkeiten und
+bewusst so gewählt, weil Wirkzeit nachträglich einzuziehen jede vorhandene Fähigkeit, das HUD (B13)
+und die Eingabebehandlung gleichzeitig anfasst. Welche Fähigkeit welche Wirkzeit hat, ist
+Konfiguration; instant ist der Sonderfall `cast-time: 0`, nicht die Abwesenheit der Mechanik.
+
+**4. Lifesteal ist ein Effekt in der Kampf-Pipeline, kein Attribut.** ADR-008 bleibt unangetastet:
+die acht Attribute bleiben acht, Sekundärwerte bleiben zurückgestellt. Warriors passives Lifesteal
+ist ein Effekt-Primitive, das sich in B05 einhängt und einen Anteil des ausgeteilten Schadens als
+Heilung zurückgibt. Der Prozentsatz hängt an der Fähigkeitsstufe (Coin-Aufwertung), nicht an einem
+Attribut. Ein neuntes Attribut hätte Stat-Engine, Persistenz und HUD gleichzeitig geöffnet — und mit
+ihm die Tür für Crit-Chance und Resistenzen, die dieselbe Zurückstellung teilen.
