@@ -154,18 +154,22 @@ class ShippedClassConfigTest {
     }
 
     @Test
-    @DisplayName("das Warrior-Loadout hat sechs Fähigkeiten, vier davon aktiv (FR-041)")
-    void warriorLoadoutIsComplete() throws Exception {
-        CharacterClassDefinition warrior = shipped().definition(CharacterClass.WARRIOR);
+    @DisplayName("jede Klasse hat sechs Fähigkeiten mit genau einer Unique (FR-041)")
+    void everyLoadoutIsComplete() throws Exception {
+        // Seit B08 sind alle drei gefüllt. Bis dahin stand hier "Mage und Rogue bleiben leer" - eine
+        // Zusage mit Verfallsdatum, und sie ist verfallen.
+        //
+        // Was B07 hier prüft, ist nur die Form: sechs Einträge, eine Unique. Ob die Aufteilung 4+2
+        // oder 3+3 ist und ob die IDs überhaupt existieren, gehört B08 und steht in
+        // ShippedAbilityConfigTest - zwei Stellen, die dasselbe prüfen, wären eine zu viel.
+        for (CharacterClass id : CharacterClass.values()) {
+            CharacterClassDefinition definition = shipped().definition(id);
 
-        assertThat(warrior.abilities()).hasSize(6);
-        assertThat(warrior.abilities().stream().filter(a -> a.isActive()).count()).isEqualTo(4);
-        assertThat(warrior.abilities().stream().filter(a -> a.unique()).count()).isEqualTo(1);
-        assertThat(warrior.abilities())
-                .as("Mage und Rogue bleiben leer, bis B08 sie füllt (FR-045)")
-                .isNotEmpty();
-        assertThat(shipped().definition(CharacterClass.MAGE).abilities()).isEmpty();
-        assertThat(shipped().definition(CharacterClass.ROGUE).abilities()).isEmpty();
+            assertThat(definition.abilities()).as(id + " hat sechs").hasSize(6);
+            assertThat(definition.abilities().stream().filter(a -> a.unique()).count())
+                    .as(id + " hat genau eine Unique")
+                    .isEqualTo(1);
+        }
     }
 
     // --- helpers ----------------------------------------------------------------------------

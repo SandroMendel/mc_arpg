@@ -1166,3 +1166,39 @@ nicht binnen zehn Sekunden benutzt, springt der Vorrat zurück. Zeitstempelarith
 
 **Nicht geändert:** ADR-008 bleibt bei zehn Attributen. Evade und Meter sind Fähigkeitseffekte, keine
 Sekundärwerte — dieselbe Grenze, die ADR-022 für Lifesteal gezogen hat.
+
+---
+
+## ADR-026: `trigger` und `item` dürfen mehrere nennen
+
+**Status:** Angenommen · **Datum:** 2026-08-22 · **Block:** B08
+
+**Kontext.** Die achtzehn Fähigkeiten wurden bewusst als Letztes geschrieben, nach der Maschine — weil
+SC-001 („eine neue Fähigkeit entsteht aus Konfiguration") nur dann etwas beweist, wenn der Code
+vorher fertig war. Sechzehn der achtzehn entstanden genau so. Zwei nicht:
+
+- **Warriors Wut** baut sich bei aus- *und* eingeteiltem Schaden auf. `trigger` war ein Einzelwert.
+- **Mages Aufstieg & Fall** zeigt zwei Marker: Wind Charge für den Sprung, Trank für den Fall. Bei
+  einer dreistufigen Einstellung — an, aus, nur Sprung — sind diese beiden das, was der Spieler
+  liest. `item` war ein Einzelwert.
+
+**Entscheidung.** Beide Felder nehmen einen Wert **oder** eine Liste. Die Einzelschreibweise bleibt
+gültig und ist bei sechzehn von achtzehn Fähigkeiten die richtige.
+
+**Warum nicht die Liste überall erzwingen.** Sechzehn Definitionen schlechter lesbar machen, damit
+zwei schreibbar werden, ist der falsche Tausch. Eine einelementige Liste an einer Stelle, an der es
+strukturell nur eines geben kann, ist Rauschen.
+
+**Warum nicht als Java-Sonderfall.** Genau das wäre der Bruch von SC-001 gewesen: „Wut ist speziell"
+in `PassiveDispatcher` und „Aufstieg & Fall zeigt zwei Items" in `AbilityHotbar` hätten die achtzehn
+zum Laufen gebracht und die neunzehnte wieder unmöglich gemacht.
+
+**Grenzen.** Eine **aktive** Fähigkeit nennt weiterhin genau ein Item — es ist der Slot, den der
+Spieler anklickt, und zwei wären zwei Wege, dasselbe auszulösen. Mehrere Items sind ausschließlich
+Marker einer passiven Fähigkeit. Eine leere Liste bricht ab: sie liest sich wie eine Entscheidung,
+ist aber keine — wer keinen Trigger will, lässt die Zeile weg.
+
+**Folgen.** `Ability.triggers()` ist ein `Set`, `Ability.items()` eine `List`; `firesOn(trigger)` und
+`item()` sind die beiden Leser. Zwei Aufrufstellen im Code, beide angepasst. Der Test
+`ConfigOnlyAbilityTest` bleibt unberührt — er belegte die Zusage für die Bausteine, und die Zusage
+hielt: was fehlte, war Vokabular in der Konfiguration, keine Klasse im Code.

@@ -318,22 +318,22 @@ eine freigeschaltet, auf Stufe 45 alle sechs.
 
 ### Tests für User Story 6 ⚠️
 
-- [ ] T112 [P] [US6] `ShippedAbilityConfigTest` in `rpg-plugin/src/test/java/rpg/plugin/` — gegen die **ausgelieferten** `abilities.yml` und `classes.yml`, nicht gegen eine Fixtur: SC-006, je Klasse genau sechs Fähigkeiten und genau eine Unique. Warrior und Mage sind 4+2, der Rogue 3+3 (ADR-025)
-- [ ] T113 [P] [US6] `ShippedAbilityConfigTest`: die Freischaltstufen sind 1, 5, 15, 25, 35, 45 und die Unique ist die letzte; auf Stufe 1 ist genau eine Fähigkeit verfügbar
-- [ ] T114 [P] [US6] `AbilityConfigValidationTest` um V25 bis V30 erweitern — unbekannte ID in einer Bindung, Artenkonflikt, falsche Zahl aktiver Fähigkeiten, Slotkonflikt
-- [ ] T115 [P] [US6] `AbilityHotbarTest` in `rpg-platform/src/test/java/rpg/platform/ability/` — Warrior fünf Slots (1–4 aktiv), Rogue fünf (1–3 aktiv, 4 Totem), Mage sieben (1–4 aktiv, 5–6 Marker); Slot 0 trägt immer die Waffe
+- [X] T112 [P] [US6] `ShippedAbilityConfigTest` in `rpg-plugin/src/test/java/rpg/plugin/` — gegen die **ausgelieferten** `abilities.yml` und `classes.yml`, nicht gegen eine Fixtur: SC-006, je Klasse genau sechs Fähigkeiten und genau eine Unique. Warrior und Mage sind 4+2, der Rogue 3+3 (ADR-025)
+- [X] T113 [P] [US6] `ShippedAbilityConfigTest`: die Freischaltstufen sind 1, 5, 15, 25, 35, 45 und die Unique ist die letzte; auf Stufe 1 ist genau eine Fähigkeit verfügbar
+- [X] T114 [P] [US6] `AbilityConfigValidationTest` um V25 bis V30 erweitern — unbekannte ID in einer Bindung, Artenkonflikt, falsche Zahl aktiver Fähigkeiten, Slotkonflikt
+- [X] T115 [P] [US6] `AbilityHotbarTest` in `rpg-platform/src/test/java/rpg/platform/ability/` — Warrior fünf Slots (1–4 aktiv), Rogue fünf (1–3 aktiv, 4 Totem), Mage sieben (1–4 aktiv, 5–6 Marker); Slot 0 trägt immer die Waffe
 
 ### Umsetzung für User Story 6
 
-- [ ] T116 [US6] Abgleichprüfungen V25 bis V28 in `AbilityConfigSchema` — jede in einer Bindung genannte ID ist definiert, die Arten stimmen überein, **genau sechs** Fähigkeiten je Klasse, höchstens eine Unique **ohne** Einschränkung ihrer Art. Die Aufteilung aktiv/passiv wird **nicht** geprüft (FR-006a, FR-007, ADR-025)
-- [ ] T117 [US6] Slotprüfungen V29 und V30 in `AbilityConfigSchema`
-- [ ] T118 [P] [US6] Warrior-Loadout in `rpg-plugin/src/main/resources/abilities.yml` — Wut (Meter), Block (Shield physisch), Sprung, Lebensraub, Wirbel (Intervall), Wutschrei nach der Tabelle in [spec.md](./spec.md)
-- [ ] T119 [P] [US6] Rogue-Loadout in `abilities.yml` — Vergiftete Klinge (Intervall, stapelbar), Teleport (zwei Ladungen), Hinterhältiger Angriff (von hinten), Unsichtbarkeit, Klon, Zweites Leben. **Drei aktiv, drei passiv** — setzt T013a voraus
-- [ ] T120 [P] [US6] Mage-Loadout in `abilities.yml` — Magisches Leben (Evade magisch), Blitz (Kette), Magisches Schild, Manatrank (Intervall), Blitzsturm (Bodenfläche, Intervall), Aufstieg & Fall (abschaltbar)
-- [ ] T121 [US6] Die drei `abilities:`-Blöcke in `rpg-plugin/src/main/resources/classes.yml` füllen — ID, Art, Unique-Kennzeichen und Freischaltstufe je Fähigkeit; damit fällt B07s FR-045 auf die zweite Seite
-- [ ] T122 [P] [US6] Alle Anzeigenamen und Beschreibungen in `rpg-plugin/src/main/resources/messages.yml` eintragen
-- [ ] T123 [US6] Slots bei einem Levelaufstieg nachziehen und den Spieler unterrichten — an B06s `LevelUpEvent` (FR-059, FR-060)
-- [ ] T124 [US6] Slots beim Aktivieren eines Charakters gegen den Stand setzen, damit es keine übersprungene Freischaltung gibt
+- [X] T116 [US6] Abgleichprüfungen V25 bis V28 in `AbilityConfigSchema` — jede in einer Bindung genannte ID ist definiert, die Arten stimmen überein, **genau sechs** Fähigkeiten je Klasse, höchstens eine Unique **ohne** Einschränkung ihrer Art. Die Aufteilung aktiv/passiv wird **nicht** geprüft (FR-006a, FR-007, ADR-025)
+- [X] T117 [US6] Slotprüfungen V29 und V30 in `AbilityConfigSchema`
+- [X] T118 [P] [US6] Warrior-Loadout in `rpg-plugin/src/main/resources/abilities.yml` — Wut (Meter), Block (Shield physisch), Sprung, Lebensraub, Wirbel (Intervall), Wutschrei nach der Tabelle in [spec.md](./spec.md)
+- [X] T119 [P] [US6] Rogue-Loadout in `abilities.yml` — Vergiftete Klinge (Intervall, stapelbar), Teleport (zwei Ladungen), Hinterhältiger Angriff (von hinten), Unsichtbarkeit, Klon, Zweites Leben. **Drei aktiv, drei passiv** — setzt T013a voraus
+- [X] T120 [P] [US6] Mage-Loadout in `abilities.yml` — Magisches Leben (Evade magisch), Blitz (Kette), Magisches Schild, Manatrank (Intervall), Blitzsturm (Bodenfläche, Intervall), Aufstieg & Fall (abschaltbar)
+- [X] T121 [US6] Die drei `abilities:`-Blöcke in `rpg-plugin/src/main/resources/classes.yml` füllen — ID, Art, Unique-Kennzeichen und Freischaltstufe je Fähigkeit; damit fällt B07s FR-045 auf die zweite Seite
+- [X] T122 [P] [US6] Alle Anzeigenamen und Beschreibungen in `rpg-plugin/src/main/resources/messages.yml` eintragen
+- [X] T123 [US6] Slots bei einem Levelaufstieg nachziehen und den Spieler unterrichten — an B06s `LevelUpEvent` (FR-059, FR-060)
+- [X] T124 [US6] Slots beim Aktivieren eines Charakters gegen den Stand setzen, damit es keine übersprungene Freischaltung gibt
 
 **Checkpoint**: Alle drei Klassen sind spielbar. B08 ist ab hier vorzeigbar.
 

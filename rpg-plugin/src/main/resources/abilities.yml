@@ -36,7 +36,414 @@ runtime:
     health-combat-factor: 0.20
     mana-combat-factor: 0.35
 
-# The eighteen abilities. Filled in phase 8 of the task list - deliberately AFTER the machine is
-# finished, because SC-001 ("a new ability comes from configuration alone") only proves something if
-# the code was done first.
-abilities: {}
+# ---------------------------------------------------------------------------------------------
+# The eighteen. Written LAST, after the machine was finished - because SC-001 ("a new ability comes
+# from configuration alone") only proves something if the code was done first. It held for
+# seventeen of them; Rage needed one addition to the vocabulary, and that addition is a list where
+# there used to be a single value, not a Java class. See warrior.rage below.
+# ---------------------------------------------------------------------------------------------
+abilities:
+
+  # ============================== WARRIOR - melee, toughness, build-up ==============================
+
+  # Rage. The counter that makes the warrior stronger the longer a fight lasts.
+  #
+  # TWO TRIGGERS, and this is the one place the eighteen asked for something the framework did not
+  # have. Rage builds on damage dealt AND on damage taken - a warrior who is being beaten gets angry
+  # too - and a single trigger could not say that. `trigger` now accepts a list. Nothing else here
+  # needs a second one, which is exactly why the single spelling stayed valid: making seventeen
+  # definitions worse to read so that one could be written would be the wrong trade.
+  #
+  # It costs no task and stores nothing: build, idle grace and decay are three numbers, and the
+  # current value follows from the last reading plus elapsed time (FR-016b).
+  warrior.rage:
+    kind: PASSIVE
+    display-name-key: 'ability.warrior.rage.name'
+    trigger: [ON_DAMAGE_DEALT, ON_DAMAGE_TAKEN]
+    cooldown-ms: 0
+    max-rank: 5
+    target: { mode: SELF }
+    effects:
+      # A full meter is worth +12 physicalDamage at rank 1. Twelve hits fill it; five idle seconds
+      # later it drains in twenty.
+      - type: METER
+        attribute: physicalDamage
+        amount: 12.0
+        per-rank: 3.0
+        build-per-hit: 8.0
+        idle-before-ms: 5000
+        decay-per-second: 6.0
+      # And defence, at half the value. Rage is offence first.
+      - type: METER
+        attribute: defense
+        amount: 6.0
+        per-rank: 1.5
+        build-per-hit: 8.0
+        idle-before-ms: 5000
+        decay-per-second: 6.0
+
+  # Block. Absorbs PHYSICAL damage only - a fireball goes straight through, and that is the
+  # counterplay the type filter exists for (FR-015a).
+  warrior.shield:
+    kind: ACTIVE
+    display-name-key: 'ability.warrior.shield.name'
+    item: 'SHIELD'
+    mana-cost: 20.0
+    cooldown-ms: 18000
+    cast-time-ms: 0
+    sustained: true
+    duration-ms: 8000
+    max-rank: 5
+    target: { mode: SELF }
+    effects:
+      - type: SHIELD
+        damage-type: PHYSICAL
+        amount: 60.0
+        per-rank: 20.0
+        duration-ms: 8000
+
+  # Leap. A wind-up the player can still walk out of: cancelled before the jump it costs nothing,
+  # after the jump it is spent (FR-045d). interrupt-on-move stays false - a leap you cannot aim by
+  # turning would be worse than one that cannot be cancelled.
+  warrior.leap:
+    kind: ACTIVE
+    display-name-key: 'ability.warrior.leap.name'
+    item: 'FEATHER'
+    mana-cost: 25.0
+    cooldown-ms: 14000
+    cast-time-ms: 600
+    interrupt-on-move: false
+    max-rank: 5
+    target:
+      # LINE, not LOOK_DIRECTION: the leap goes where you look, but the landing hits everything
+      # along it, and LOOK_DIRECTION returns exactly one target by definition.
+      mode: LINE
+      range: 12.0
+      max-targets: 6
+    effects:
+      - type: DASH
+        amount: 1.4
+        per-rank: 0.1
+      - type: DAMAGE
+        damage-type: PHYSICAL
+        amount: 1.1
+        per-rank: 0.15
+      - type: KNOCKBACK
+        amount: 0.7
+
+  # Lifesteal. A share of the damage that ACTUALLY landed, which is why it hangs on APPLICATION and
+  # not on RAW_DAMAGE - armour has already been paid for by then (ADR-022).
+  warrior.lifesteal:
+    kind: PASSIVE
+    display-name-key: 'ability.warrior.lifesteal.name'
+    trigger: ON_DAMAGE_DEALT
+    cooldown-ms: 0
+    max-rank: 5
+    target: { mode: SELF }
+    effects:
+      - type: LIFESTEAL
+        amount: 0.08
+        per-rank: 0.02
+
+  # Whirl. Damage over time in the shape that is allowed: one interval effect in the shared sweep,
+  # never a task per target (FR-010b). Endable early - the whirl stops at once.
+  warrior.whirl:
+    kind: ACTIVE
+    display-name-key: 'ability.warrior.whirl.name'
+    item: 'IRON_AXE'
+    mana-cost: 35.0
+    cooldown-ms: 22000
+    cast-time-ms: 0
+    sustained: true
+    duration-ms: 5000
+    max-rank: 5
+    target:
+      mode: RADIUS
+      range: 4.5
+      max-targets: 8
+    effects:
+      - type: DAMAGE
+        damage-type: PHYSICAL
+        amount: 0.55
+        per-rank: 0.08
+        duration-ms: 5000
+        interval-ms: 1000
+
+  # Wutschrei, the unique. Active, sustained, self only - the one thing a warrior does that helps
+  # nobody but himself. The id still says berserker; only the display name is player-facing.
+  warrior.call-of-the-berserker:
+    kind: ACTIVE
+    display-name-key: 'ability.warrior.call-of-the-berserker.name'
+    item: 'GOAT_HORN'
+    mana-cost: 45.0
+    cooldown-ms: 90000
+    cast-time-ms: 0
+    sustained: true
+    duration-ms: 12000
+    max-rank: 5
+    target: { mode: SELF }
+    effects:
+      - type: BUFF
+        attribute: movementSpeed
+        amount: 0.05
+        per-rank: 0.01
+        duration-ms: 12000
+      - type: BUFF
+        attribute: attackSpeed
+        amount: 0.35
+        per-rank: 0.08
+        duration-ms: 12000
+
+  # ============================== ROGUE - mobility, single target, states ==========================
+  #
+  # THREE active and THREE passive. This is the exception the counting rule was relaxed for
+  # (ADR-025): an assassin lives off states more than off button presses.
+
+  # Poisoned Blade. Stacks up to three times, and the total per second is capped - without the cap
+  # enough hits would make it unbounded (V40). A fourth hit at the maximum refreshes the duration and
+  # adds nothing: the reward for hitting again is that it lasts.
+  rogue.poisoned-blade:
+    kind: PASSIVE
+    display-name-key: 'ability.rogue.poisoned-blade.name'
+    trigger: ON_DAMAGE_DEALT
+    chance: 0.35
+    cooldown-ms: 0
+    max-rank: 5
+    target:
+      mode: NEAREST
+      range: 4.0
+      max-targets: 1
+    effects:
+      - type: DAMAGE
+        damage-type: PHYSICAL
+        amount: 0.20
+        per-rank: 0.04
+        duration-ms: 6000
+        interval-ms: 1000
+        max-stacks: 3
+        stack-cap: 0.45
+
+  # Teleport. Two charges, and the cooldown only starts once the second is spent (FR-045i). Unused
+  # within the window the pool jumps back to two, so holding one in reserve costs nothing.
+  rogue.teleport:
+    kind: ACTIVE
+    display-name-key: 'ability.rogue.teleport.name'
+    item: 'ENDER_PEARL'
+    mana-cost: 20.0
+    cooldown-ms: 16000
+    cast-time-ms: 0
+    charges: 2
+    charge-window-ms: 10000
+    max-rank: 5
+    target:
+      mode: CURSOR
+      range: 20.0
+      max-targets: 1
+    effects:
+      - type: TELEPORT
+        amount: 1.0
+
+  # Sneaky Backstab. The only ability carrying `requires-behind-target`, and the condition is only
+  # knowable in the moment of the hit - which is why V34 ties it to ON_DAMAGE_DEALT.
+  rogue.backstab:
+    kind: PASSIVE
+    display-name-key: 'ability.rogue.backstab.name'
+    trigger: ON_DAMAGE_DEALT
+    requires-behind-target: true
+    cooldown-ms: 0
+    max-rank: 5
+    target: { mode: SELF }
+    effects:
+      - type: BUFF
+        attribute: attackSpeed
+        amount: 0.25
+        per-rank: 0.05
+        duration-ms: 60000
+      - type: BUFF
+        attribute: physicalDamage
+        amount: 8.0
+        per-rank: 2.0
+        duration-ms: 60000
+
+  # Invisibility. Ends on damage dealt and on a second right-click. The void stays lethal, and mobs
+  # keep their interest until B10 - both are written down in InvisibilityEffect rather than pretended
+  # away here (FR-016d).
+  rogue.invisibility:
+    kind: ACTIVE
+    display-name-key: 'ability.rogue.invisibility.name'
+    item: 'GLASS_BOTTLE'
+    mana-cost: 30.0
+    cooldown-ms: 45000
+    cast-time-ms: 0
+    sustained: true
+    duration-ms: 6000
+    max-rank: 5
+    target: { mode: SELF }
+    effects:
+      - type: INVISIBILITY
+        amount: 1.0
+        duration-ms: 6000
+
+  # Clone. Carries the values from the moment it was called, does not attack, and goes off when it
+  # runs out. The aggression redirect follows with B10 (FR-016c).
+  rogue.clone:
+    kind: ACTIVE
+    display-name-key: 'ability.rogue.clone.name'
+    item: 'ARMOR_STAND'
+    mana-cost: 40.0
+    cooldown-ms: 60000
+    cast-time-ms: 0
+    max-rank: 5
+    target: { mode: SELF }
+    effects:
+      - type: SUMMON
+        amount: 60.0
+        per-rank: 20.0
+        duration-ms: 10000
+
+  # Second Life, the unique. Passive, and that is the whole reason ADR-022 let the unique be passive:
+  # forcing it active would have meant a button for "do not die", which is not the ability.
+  #
+  # `open-world-only` LOADS BUT IS NOT ENFORCED until B09 delivers the zones. The start says so once
+  # as a note, because refusing to start over a correct configuration would be worse (V36).
+  rogue.second-life:
+    kind: PASSIVE
+    display-name-key: 'ability.rogue.second-life.name'
+    item: 'TOTEM_OF_UNDYING'
+    trigger: ON_DEATH
+    chance: 0.20
+    open-world-only: true
+    cooldown-ms: 600000
+    max-rank: 5
+    target: { mode: SELF }
+    effects:
+      - type: HEAL
+        amount: 0.35
+        per-rank: 0.05
+        as-fraction: true
+
+  # ============================== MAGE - mana, magic damage, area ==================================
+
+  # Magic Life. Refuses incoming MAGIC damage outright, which is why it hangs on MODIFIERS: by
+  # APPLICATION the damage can only be reduced, no longer refused (FR-016a). Physical goes through.
+  mage.magic-life:
+    kind: PASSIVE
+    display-name-key: 'ability.mage.magic-life.name'
+    trigger: ON_DAMAGE_TAKEN
+    cooldown-ms: 0
+    max-rank: 5
+    target: { mode: SELF }
+    effects:
+      - type: EVADE
+        damage-type: MAGIC
+        amount: 0.15
+        per-rank: 0.03
+
+  # Lightning. Hops from the target it hit to the next one nearby - each further hop is looked for
+  # around the LAST one hit, which is what makes it a chain and not eight nearest targets (FR-019a).
+  mage.lightning:
+    kind: ACTIVE
+    display-name-key: 'ability.mage.lightning.name'
+    item: 'BLAZE_ROD'
+    mana-cost: 30.0
+    cooldown-ms: 8000
+    cast-time-ms: 0
+    max-rank: 5
+    target:
+      mode: CHAIN
+      range: 18.0
+      hop-range: 6.0
+      max-targets: 8
+    effects:
+      - type: DAMAGE
+        damage-type: MAGIC
+        amount: 1.3
+        per-rank: 0.18
+
+  # Magic Shield. No type filter at all - physical and magic alike. That difference to the warrior's
+  # Block is the whole reason the filter is optional rather than required.
+  mage.magic-shield:
+    kind: ACTIVE
+    display-name-key: 'ability.mage.magic-shield.name'
+    item: 'AMETHYST_SHARD'
+    mana-cost: 30.0
+    cooldown-ms: 24000
+    cast-time-ms: 0
+    sustained: true
+    duration-ms: 8000
+    max-rank: 5
+    target: { mode: SELF }
+    effects:
+      - type: SHIELD
+        amount: 50.0
+        per-rank: 18.0
+        duration-ms: 8000
+
+  # Mana Potion. Triggerable in combat, but any damage taken ends it - otherwise it would simply be
+  # free mana in the middle of a fight. Costs no mana, which is the point of it.
+  mage.mana-potion:
+    kind: ACTIVE
+    display-name-key: 'ability.mage.mana-potion.name'
+    item: 'HONEY_BOTTLE'
+    mana-cost: 0.0
+    cooldown-ms: 40000
+    cast-time-ms: 0
+    sustained: true
+    duration-ms: 5000
+    max-rank: 5
+    target: { mode: SELF }
+    effects:
+      - type: MANA_RESTORE
+        amount: 12.0
+        per-rank: 4.0
+        duration-ms: 5000
+        interval-ms: 1000
+
+  # Lightning Storm. Anchored at a ground point in the cursor direction, and it STAYS there: the mage
+  # may walk away and it keeps raining where it was called down (FR-019b).
+  mage.lightning-storm:
+    kind: ACTIVE
+    display-name-key: 'ability.mage.lightning-storm.name'
+    item: 'TRIDENT'
+    mana-cost: 55.0
+    cooldown-ms: 45000
+    cast-time-ms: 0
+    max-rank: 5
+    target:
+      mode: GROUND_AREA
+      range: 16.0
+      area-radius: 5.0
+      max-targets: 10
+    effects:
+      - type: DAMAGE
+        damage-type: MAGIC
+        amount: 0.7
+        per-rank: 0.1
+        duration-ms: 6000
+        interval-ms: 1000
+
+  # Rise & Fall, the unique. Passive, always on, and the only ability the player may switch off -
+  # three settings: on, off, jump without slow fall (FR-052d).
+  #
+  # DOUBLE_JUMP is a primitive rather than a special case in the listener, because the listener has
+  # to be able to ask "who may double jump" WITHOUT naming an ability id. Any later class could get
+  # one, and then the listener would need a second name in it.
+  mage.rise-and-fall:
+    kind: PASSIVE
+    display-name-key: 'ability.mage.rise-and-fall.name'
+    # Two markers for one ability: the Wind Charge is the jump, the potion is the fall. With a
+    # three-way toggle - on, off, jump without slow fall - those two are what the player reads.
+    item: ['WIND_CHARGE', 'POTION']
+    trigger: ALWAYS
+    player-toggle: true
+    cooldown-ms: 6000
+    max-rank: 5
+    target: { mode: SELF }
+    effects:
+      - type: DOUBLE_JUMP
+        amount: 0.8
+        per-rank: 0.04
+      - type: STATUS_EFFECT
+        status-effect: 'SLOW_FALLING'
+        amount: 0.0
+        duration-ms: 6000

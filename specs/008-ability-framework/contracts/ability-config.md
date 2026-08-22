@@ -86,7 +86,8 @@ abilities:
 | | Prüfung | Begründung |
 |---|---|---|
 | **V5** | `kind` ist `ACTIVE` oder `PASSIVE` | |
-| **V6** | `ACTIVE` trägt ein `item`, `PASSIVE` trägt einen `trigger` (FR-003) | ohne Item ist eine aktive Fähigkeit nicht auslösbar; ohne Trigger wirkt eine passive nie |
+| **V6** | `ACTIVE` trägt **genau ein** `item`, `PASSIVE` trägt mindestens einen `trigger` (FR-003) | ohne Item ist eine aktive Fähigkeit nicht auslösbar; ohne Trigger wirkt eine passive nie. Zwei Items bei einer aktiven wären zwei Slots für eine Fähigkeit |
+| **V6a** | `trigger` und `item` nehmen einen Wert **oder** eine Liste; eine leere Liste bricht ab (ADR-026) | Wut braucht zwei Trigger, Aufstieg & Fall zwei Marker. Eine leere Liste liest sich wie eine Entscheidung, ist aber keine - wer nichts will, lässt die Zeile weg |
 | **V7** | `ACTIVE` trägt **keinen** `trigger`, `PASSIVE` **keine** `mana-cost` > 0 und keine `cast-time-ms` > 0 | ein Feld, das nie gelesen wird, ist ein Missverständnis und kein harmloser Überschuss |
 | **V8** | `mana-cost` ≥ 0, `cooldown-ms` ≥ 0, `cast-time-ms` ≥ 0 (FR-008) | |
 | **V9** | `chance` in `[0, 1]` | |

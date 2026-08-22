@@ -3,9 +3,11 @@ package rpg.core.ability;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 import rpg.core.classes.AbilityKind;
 import rpg.core.combat.DamageType;
@@ -90,17 +92,60 @@ public final class AbilityConfigSchema {
                 optionalBoolean(block, "open-world-only"),
                 optionalBoolean(block, "player-toggle"),
                 optionalBoolean(block, "interrupt-on-move"),
-                readTrigger(block, where),
+                readTriggers(block, where),
                 optionalDouble(block, "chance", where + ".chance", 1.0),
                 readTarget(requireMap(block, "target", where + ".target"), where + ".target"),
                 readEffects(block, where),
                 (int) optionalDouble(block, "max-rank", where + ".max-rank", 1.0),
-                optionalString(block, "item", where + ".item"));
+                readItems(block, where));
     }
 
-    private static AbilityTrigger readTrigger(Map<?, ?> block, String where) {
-        String name = optionalString(block, "trigger", where + ".trigger");
-        return name == null ? null : readEnum(AbilityTrigger.class, name);
+    /**
+     * Reads {@code trigger}, which may name one or several.
+     *
+     * <p><b>Both spellings are accepted on purpose.</b> Almost every passive fires on exactly one
+     * thing and writing a one-element list for it would be noise; the warrior's Rage genuinely needs
+     * two, and a single value could not say that. Insisting on the list everywhere would make
+     * seventeen definitions worse to read so that one could be written.
+     */
+    /**
+     * Reads {@code item}, which may name one or several - same two spellings as {@code trigger}.
+     *
+     * <p>An active names exactly one and V6 enforces it. A passive may name none, one, or several:
+     * the mage's Rise & Fall shows two markers, one per half of what it does.
+     */
+    private static List<String> readItems(Map<?, ?> block, String where) {
+        Object raw = block.get("item");
+        if (raw == null) {
+            return List.of();
+        }
+        if (raw instanceof List<?> list) {
+            List<String> items = new ArrayList<>(list.size());
+            for (Object entry : list) {
+                items.add(String.valueOf(entry));
+            }
+            return items;
+        }
+        return List.of(String.valueOf(raw));
+    }
+
+    private static Set<AbilityTrigger> readTriggers(Map<?, ?> block, String where) {
+        Object raw = block.get("trigger");
+        if (raw == null) {
+            return Set.of();
+        }
+        if (raw instanceof List<?> list) {
+            if (list.isEmpty()) {
+                throw new IllegalArgumentException(
+                        where + ".trigger is an empty list - leave the line out to mean 'no trigger'");
+            }
+            Set<AbilityTrigger> triggers = new LinkedHashSet<>();
+            for (Object entry : list) {
+                triggers.add(readEnum(AbilityTrigger.class, String.valueOf(entry)));
+            }
+            return triggers;
+        }
+        return Set.of(readEnum(AbilityTrigger.class, String.valueOf(raw)));
     }
 
     private static TargetSpec readTarget(Map<?, ?> block, String where) {

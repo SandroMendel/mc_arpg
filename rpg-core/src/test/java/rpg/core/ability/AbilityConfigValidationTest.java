@@ -98,7 +98,61 @@ class AbilityConfigValidationTest {
 
             assertThatThrownBy(() -> AbilityConfigFixture.bind(document))
                     .hasMessageContaining("probe.strike")
-                    .hasMessageContaining("needs an item");
+                    .hasMessageContaining("needs exactly one item");
+        }
+
+        @Test
+        @DisplayName("V6: eine aktive Fähigkeit mit ZWEI Items bricht ab - das wären zwei Slots")
+        void activeWithTwoItemsIsRejected() {
+            Map<String, Object> document = AbilityConfigFixture.valid();
+            // Mehrere Items sind erlaubt, aber nur als Marker einer passiven Fähigkeit. Bei einer
+            // aktiven wäre jedes ein anklickbarer Slot, und zwei Slots für eine Fähigkeit hiesse:
+            // zwei Wege, dasselbe auszulösen, und einer davon ist irgendwann falsch belegt.
+            AbilityConfigFixture.abilityOf(document, "probe.strike")
+                    .put("item", new java.util.ArrayList<>(java.util.List.of("IRON_AXE", "STICK")));
+
+            assertThatThrownBy(() -> AbilityConfigFixture.bind(document))
+                    .hasMessageContaining("probe.strike")
+                    .hasMessageContaining("needs exactly one item");
+        }
+
+        @Test
+        @DisplayName("eine passive Fähigkeit DARF mehrere Marker tragen - Aufstieg & Fall trägt zwei")
+        void aPassiveMayCarrySeveralMarkers() throws Exception {
+            Map<String, Object> document = AbilityConfigFixture.valid();
+            AbilityConfigFixture.abilityOf(document, "probe.lifesteal")
+                    .put("item", new java.util.ArrayList<>(java.util.List.of("WIND_CHARGE", "POTION")));
+
+            assertThat(AbilityConfigFixture.bind(document).require("probe.lifesteal").items())
+                    .containsExactly("WIND_CHARGE", "POTION");
+        }
+
+        @Test
+        @DisplayName("eine passive Fähigkeit DARF mehrere Trigger tragen - Wut baut auf beiden auf")
+        void aPassiveMayNameSeveralTriggers() throws Exception {
+            Map<String, Object> document = AbilityConfigFixture.valid();
+            AbilityConfigFixture.abilityOf(document, "probe.lifesteal")
+                    .put(
+                            "trigger",
+                            new java.util.ArrayList<>(
+                                    java.util.List.of("ON_DAMAGE_DEALT", "ON_DAMAGE_TAKEN")));
+
+            Ability built = AbilityConfigFixture.bind(document).require("probe.lifesteal");
+
+            assertThat(built.firesOn(AbilityTrigger.ON_DAMAGE_DEALT)).isTrue();
+            assertThat(built.firesOn(AbilityTrigger.ON_DAMAGE_TAKEN)).isTrue();
+            assertThat(built.firesOn(AbilityTrigger.ON_KILL)).isFalse();
+        }
+
+        @Test
+        @DisplayName("eine leere Trigger-Liste bricht ab - sie liest sich wie eine Entscheidung")
+        void anEmptyTriggerListIsRejected() {
+            Map<String, Object> document = AbilityConfigFixture.valid();
+            AbilityConfigFixture.abilityOf(document, "probe.lifesteal")
+                    .put("trigger", new java.util.ArrayList<>());
+
+            assertThatThrownBy(() -> AbilityConfigFixture.bind(document))
+                    .hasMessageContaining("empty list");
         }
 
         @Test

@@ -29,13 +29,17 @@ import rpg.core.message.MessageKey;
  * @param openWorldOnly not effective inside instances - <b>unchecked until B09</b> (FR-052b)
  * @param playerToggle whether the player may switch it off; the mage's Rise &amp; Fall (FR-052d)
  * @param interruptOnMove whether moving cancels the cast (FR-043)
- * @param trigger required for a passive, forbidden for an active
+ * @param triggers what makes a passive fire; at least one for a passive, none for an active.
+ *     <b>More than one is allowed</b>: the warrior's Rage builds on damage dealt AND taken, and a
+ *     single trigger could not say that (FR-016b)
  * @param chance probability its trigger takes hold, in {@code [0, 1]} (FR-049)
  * @param target how it finds what it acts on
  * @param effects at least one - an ability without effect is always a mistake
  * @param maxRank the ceiling the rank may reach
- * @param item the vanilla material carrying it on the hotbar; required for an active, an optional
- *     marker for a passive (FR-003)
+ * @param items the vanilla materials carrying it on the hotbar. Exactly one for an active - it is
+ *     the slot the player clicks. For a passive they are markers and there may be several: the
+ *     mage's Rise & Fall shows a Wind Charge for the jump and a Slow Fall Potion for the fall, and
+ *     with a three-way toggle those two are what the player reads (FR-003)
  */
 public record Ability(
         String id,
@@ -52,12 +56,12 @@ public record Ability(
         boolean openWorldOnly,
         boolean playerToggle,
         boolean interruptOnMove,
-        AbilityTrigger trigger,
+        java.util.Set<AbilityTrigger> triggers,
         double chance,
         TargetSpec target,
         List<EffectSpec> effects,
         int maxRank,
-        String item) {
+        java.util.List<String> items) {
 
     public Ability {
         Objects.requireNonNull(id, "id");
@@ -85,38 +89,42 @@ public record Ability(
         }
 
         // V13
+        items = items == null ? List.of() : List.copyOf(items);
         effects = List.copyOf(effects);
         if (effects.isEmpty()) {
             throw new IllegalArgumentException(
                     id + ": needs at least one effect - an ability without one is always a mistake");
         }
 
-        validateKind(id, kind, trigger, manaCost, castTime, item);
+        triggers = triggers == null ? java.util.Set.of() : java.util.Set.copyOf(triggers);
+        validateKind(id, kind, triggers, manaCost, castTime, items);
         validateSustained(id, sustained, kind, duration);
         validateCharges(id, charges, chargeWindow);
-        validateConditions(id, kind, requiresBehindTarget, trigger, playerToggle);
+        validateConditions(id, kind, requiresBehindTarget, triggers, playerToggle);
     }
 
     /** V6 and V7 - what an active needs and what a passive must not carry. */
     private static void validateKind(
             String id,
             AbilityKind kind,
-            AbilityTrigger trigger,
+            java.util.Set<AbilityTrigger> triggers,
             double manaCost,
             Duration castTime,
-            String item) {
+            java.util.List<String> items) {
         if (kind == AbilityKind.ACTIVE) {
-            if (item == null || item.isBlank()) {
+            if (items.size() != 1 || items.get(0).isBlank()) {
                 throw new IllegalArgumentException(
-                        id + ": an active ability needs an item - without one it cannot be triggered");
+                        id
+                                + ": an active ability needs exactly one item - it is the slot the"
+                                + " player clicks, and two would be two slots for one ability");
             }
-            if (trigger != null) {
+            if (!triggers.isEmpty()) {
                 throw new IllegalArgumentException(
                         id + ": an active ability has no trigger - it is triggered by the player");
             }
             return;
         }
-        if (trigger == null) {
+        if (triggers.isEmpty()) {
             throw new IllegalArgumentException(
                     id + ": a passive ability needs a trigger - without one it would never take effect");
         }
@@ -171,9 +179,9 @@ public record Ability(
             String id,
             AbilityKind kind,
             boolean requiresBehindTarget,
-            AbilityTrigger trigger,
+            java.util.Set<AbilityTrigger> triggers,
             boolean playerToggle) {
-        if (requiresBehindTarget && trigger != AbilityTrigger.ON_DAMAGE_DEALT) {
+        if (requiresBehindTarget && !triggers.equals(java.util.Set.of(AbilityTrigger.ON_DAMAGE_DEALT))) {
             throw new IllegalArgumentException(
                     id
                             + ": requires-behind-target only works with ON_DAMAGE_DEALT - the position is"
@@ -201,6 +209,25 @@ public record Ability(
 
     public boolean isActive() {
         return kind == AbilityKind.ACTIVE;
+    }
+
+    /**
+     * The first material carrying it, or {@code null} for a passive without a marker.
+     *
+     * <p>For an active this is <em>the</em> item - there is exactly one, and V6 enforces that.
+     */
+    public String item() {
+        return items.isEmpty() ? null : items.get(0);
+    }
+
+    /**
+     * Whether this passive fires on that trigger.
+     *
+     * <p>Asked instead of comparing to a single value, because an ability may name several - and a
+     * caller that compared would silently miss the second one.
+     */
+    public boolean firesOn(AbilityTrigger trigger) {
+        return triggers.contains(trigger);
     }
 
     /** Whether triggering this creates a cast state at all - a zero cast time does not (FR-044). */

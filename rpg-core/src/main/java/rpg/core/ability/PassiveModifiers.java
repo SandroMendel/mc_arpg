@@ -43,7 +43,7 @@ public final class PassiveModifiers {
     public void refresh(UUID characterId) {
         Objects.requireNonNull(characterId, "characterId");
         for (Ability ability : registry.unlockedFor(characterId)) {
-            if (ability.isActive() || ability.trigger() != AbilityTrigger.ALWAYS) {
+            if (ability.isActive() || !ability.firesOn(AbilityTrigger.ALWAYS)) {
                 continue;
             }
             SourceId source = sourceOf(ability);

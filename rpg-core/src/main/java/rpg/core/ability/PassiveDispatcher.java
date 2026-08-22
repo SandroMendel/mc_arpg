@@ -97,7 +97,7 @@ public final class PassiveDispatcher {
         boolean anyFired = false;
 
         for (Ability ability : registry.unlockedFor(characterId)) {
-            if (ability.isActive() || ability.trigger() != trigger) {
+            if (ability.isActive() || !ability.firesOn(trigger)) {
                 continue;
             }
             if (!takesHold(characterId, ability, damageType, now)) {

@@ -259,9 +259,15 @@ classes:
         values: { physicalDamage: 85.0, magicDamage: 32.0, attackSpeed: 2.00, abilityCooldown: 0.30 }
         cost: { coins: 60000 }
 
-    # Empty is allowed while B08 does not exist. A PARTIALLY filled loadout is not - otherwise a
-    # forgotten line could not be told from a deliberate omission (FR-045).
-    abilities: []
+    # THREE active and THREE passive - the exception the counting rule was relaxed for (ADR-025).
+    # The unique is passive: Second Life is not a button, it is what happens instead of dying.
+    abilities:
+      - { id: 'rogue.poisoned-blade', kind: 'PASSIVE', unlock-level: 1 }
+      - { id: 'rogue.teleport', kind: 'ACTIVE', unlock-level: 5 }
+      - { id: 'rogue.backstab', kind: 'PASSIVE', unlock-level: 15 }
+      - { id: 'rogue.invisibility', kind: 'ACTIVE', unlock-level: 25 }
+      - { id: 'rogue.clone', kind: 'ACTIVE', unlock-level: 35 }
+      - { id: 'rogue.second-life', kind: 'PASSIVE', unique: true, unlock-level: 45 }
 
   # ---------------------------------------------------------------------------------------------
   # MAGE - magic damage and mobility. Maxes mana, magic damage and cooldown reduction.
@@ -368,4 +374,12 @@ classes:
         values: { physicalDamage: 32.0, magicDamage: 105.0, attackSpeed: 0.24, abilityCooldown: 0.40 }
         cost: { coins: 60000 }
 
-    abilities: []
+    # Four active, two passive. The unique is the passive Rise & Fall - a mage who has to press a
+    # button to double jump would not have a double jump.
+    abilities:
+      - { id: 'mage.magic-life', kind: 'PASSIVE', unlock-level: 1 }
+      - { id: 'mage.lightning', kind: 'ACTIVE', unlock-level: 5 }
+      - { id: 'mage.magic-shield', kind: 'ACTIVE', unlock-level: 15 }
+      - { id: 'mage.mana-potion', kind: 'ACTIVE', unlock-level: 25 }
+      - { id: 'mage.lightning-storm', kind: 'ACTIVE', unlock-level: 35 }
+      - { id: 'mage.rise-and-fall', kind: 'PASSIVE', unique: true, unlock-level: 45 }

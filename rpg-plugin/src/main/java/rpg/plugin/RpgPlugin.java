@@ -820,6 +820,23 @@ public class RpgPlugin extends JavaPlugin {
         // here so every gain reaches it, and read once on entry for the character's starting value.
         experienceBar = new ExperienceBar(getServer(), scheduler, getLogger());
         experienceBar.subscribeTo(eventBus);
+
+        // A level-up may unlock an ability, and then the hotbar has to grow by one slot (T123,
+        // FR-059). The whole layout is redone rather than one slot appended: it costs nothing at this
+        // frequency, and it cannot get out of step the way a patch can.
+        eventBus.subscribe(
+                rpg.core.progression.LevelUpEvent.class,
+                event -> {
+                    org.bukkit.entity.Player player = getServer().getPlayer(event.playerId());
+                    if (player != null) {
+                        scheduler.runSyncOnEntity(
+                                new rpg.core.scheduler.EntityRef(event.playerId()),
+                                () -> {
+                                    layOutAbilities(player, event.characterId());
+                                    announceUnlocks(player, event);
+                                });
+                    }
+                });
         ClassEquipmentApplier equipment =
                 new ClassEquipmentApplier(
                         classesModule.boundEquipment(), new BoundItemFactory(messages), getLogger());
@@ -895,6 +912,64 @@ public class RpgPlugin extends JavaPlugin {
      * stats and a level, and can play; the applier logs what it could not place, and the next login
      * applies it again. Refusing the entry over it would leave a stored character no session can reach.
      */
+    /**
+     * Puts this character's ability items into the hotbar (T123, T124).
+     *
+     * <p><b>Laid out from the reached level, never patched from an event.</b> Called on entry and
+     * again on every level-up, and both calls do the same complete thing - so a level-up that was
+     * missed, or one that happened while the ability layer was still starting, cannot leave a slot
+     * empty for the rest of the session. There is no state here to get out of step.
+     */
+    /**
+     * Tells the player which abilities the new level opened (FR-060).
+     *
+     * <p>Every level in the gap, not just the one reached: an admin command or a large kill can move
+     * a character several levels at once, and a player who never hears about the ability they just
+     * got will not use it.
+     */
+    private void announceUnlocks(
+            org.bukkit.entity.Player player, rpg.core.progression.LevelUpEvent event) {
+        if (abilityModule == null) {
+            return;
+        }
+        abilityModule
+                .registry()
+                .classOf(event.characterId())
+                .ifPresent(
+                        characterClass -> {
+                            for (rpg.core.classes.AbilityBinding binding :
+                                    classesModule.config().definition(characterClass).abilities()) {
+                                if (binding.unlockLevel() > event.previousLevel()
+                                        && binding.unlockLevel() <= event.newLevel()) {
+                                    announceUnlock(player, binding.abilityId());
+                                }
+                            }
+                        });
+    }
+
+    private void announceUnlock(org.bukkit.entity.Player player, String abilityId) {
+        abilityModule
+                .registry()
+                .find(abilityId)
+                .ifPresent(
+                        ability ->
+                                player.sendMessage(
+                                        net.kyori.adventure.text.Component.text(
+                                                messages.get(
+                                                        rpg.core.ability.AbilityMessageKeys.UNLOCKED,
+                                                        java.util.Map.of(
+                                                                "ability",
+                                                                messages.get(
+                                                                        ability.displayNameKey()))))));
+    }
+
+    private void layOutAbilities(org.bukkit.entity.Player player, java.util.UUID characterId) {
+        if (abilityHotbar == null || abilityModule == null) {
+            return;
+        }
+        abilityHotbar.layOut(player, abilityModule.registry().unlockedFor(characterId));
+    }
+
     private boolean enterGameState(
             org.bukkit.entity.Player player,
             rpg.core.session.PlayerCharacter character,
@@ -924,6 +999,11 @@ public class RpgPlugin extends JavaPlugin {
                         });
         // Class equipment last, so it always wins the slots it owns.
         equipment.apply(player, characterId);
+        // And the ability items on top of it, because they sit in the hotbar slots the weapon does not
+        // own. Laid out from the reached level rather than patched from events (T124): a missed
+        // level-up would otherwise leave a slot empty for the rest of the session, and nothing would
+        // ever notice.
+        layOutAbilities(player, characterId);
 
         // The bar, now that B06 has loaded this character's progress. From here on the subscription
         // keeps it current; this is only the starting value.

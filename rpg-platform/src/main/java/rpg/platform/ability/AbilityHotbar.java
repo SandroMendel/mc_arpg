@@ -67,15 +67,19 @@ public final class AbilityHotbar {
         List<Ability> actives = unlocked.stream().filter(Ability::isActive).sorted(byId()).toList();
         List<Ability> markers =
                 unlocked.stream()
-                        .filter(ability -> !ability.isActive() && ability.item() != null)
+                        .filter(ability -> !ability.isActive() && !ability.items().isEmpty())
                         .sorted(byId())
                         .toList();
 
         for (Ability ability : actives) {
-            slot = place(player, slot, ability);
+            slot = place(player, slot, ability, ability.item());
         }
         for (Ability ability : markers) {
-            slot = place(player, slot, ability);
+            // One slot per marker, not one per ability: the mage's Rise & Fall shows two, one for the
+            // jump and one for the fall, and its three-way toggle is what those two make readable.
+            for (String material : ability.items()) {
+                slot = place(player, slot, ability, material);
+            }
         }
     }
 
@@ -89,7 +93,7 @@ public final class AbilityHotbar {
         }
     }
 
-    private int place(Player player, int slot, Ability ability) {
+    private int place(Player player, int slot, Ability ability, String material) {
         if (slot >= HOTBAR_SIZE) {
             // Cannot happen with the three shipped loadouts - the mage needs seven slots of nine - and
             // is logged rather than thrown, because losing one icon must not cost the player a session.
@@ -97,19 +101,19 @@ public final class AbilityHotbar {
                     () -> "[abilities] no hotbar slot left for " + ability.id() + " - skipped");
             return slot;
         }
-        ItemStack item = build(ability);
+        ItemStack item = build(ability, material);
         if (item != null) {
             player.getInventory().setItem(slot, item);
         }
         return slot + 1;
     }
 
-    private ItemStack build(Ability ability) {
-        Material material = Material.matchMaterial(ability.item());
+    private ItemStack build(Ability ability, String materialName) {
+        Material material = Material.matchMaterial(materialName);
         if (material == null) {
             // V12 catches this at startup on a real server; here it must not take the login down.
             logger.warning(
-                    () -> "[abilities] " + ability.id() + " names unknown material " + ability.item());
+                    () -> "[abilities] " + ability.id() + " names unknown material " + materialName);
             return null;
         }
         ItemStack item = new ItemStack(material);
