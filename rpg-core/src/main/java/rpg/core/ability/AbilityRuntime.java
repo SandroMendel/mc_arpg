@@ -152,9 +152,13 @@ public final class AbilityRuntime {
             return AbilityResult.NO_CHARACTER;
         }
         if (!ability.isActive()) {
-            // A passive is not triggered by the player. Reaching here means an item carried a passive
-            // id, which the hotbar never builds - so this is a guard, not a player-facing case.
-            return AbilityResult.NOT_UNLOCKED;
+            // A passive is not triggered by the player - but it does carry a marker in the hotbar, so
+            // this IS a player-facing case. It always was: the rogue's Totem of Undying is a passive
+            // with an item, and this used to answer NOT_UNLOCKED - telling somebody who owns the
+            // ability that they would unlock it later.
+            return isUnlocked(characterId, abilityId)
+                    ? AbilityResult.PASSIVE
+                    : AbilityResult.NOT_UNLOCKED;
         }
         if (!isUnlocked(characterId, abilityId)) {
             return AbilityResult.NOT_UNLOCKED;

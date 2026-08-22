@@ -128,6 +128,31 @@ class AbilityRuntimeTest {
         }
 
         @Test
+        @DisplayName("ein Klick auf einen Passiv-Marker sagt PASSIVE, nicht \"noch nicht freigeschaltet\"")
+        void clickingAPassiveMarkerSaysSo() {
+            // Seit jede Passive einen Marker in der Hotbar traegt, ist das ein Fall, den ein Spieler
+            // taeglich ausloest - vorher war er selten, aber nie unmoeglich: das Totem des Rogue ist
+            // eine Passive MIT Gegenstand. Die Antwort lautete NOT_UNLOCKED und erzaehlte damit
+            // jemandem, der die Faehigkeit besitzt, er bekomme sie spaeter.
+            AbilityResult result = fixture.runtime.trigger(fixture.character, "probe.lifesteal");
+
+            assertThat(result).isEqualTo(AbilityResult.PASSIVE);
+            assertThat(fixture.stats.mana).as("ein Marker kostet nichts").isEqualTo(100.0);
+            assertThat(fixture.applications).as("und wirkt nichts").isEmpty();
+        }
+
+        @Test
+        @DisplayName("eine NICHT freigeschaltete Passive bleibt bei \"noch nicht freigeschaltet\"")
+        void aLockedPassiveStillSaysNotUnlocked() {
+            // Die Unterscheidung ist der ganze Punkt: PASSIVE heisst \"du hast sie, sie laeuft von
+            // selbst\". Wer sie noch nicht hat, darf das nicht zu hoeren bekommen.
+            fixture.unlocked.remove("probe.lifesteal");
+
+            assertThat(fixture.runtime.trigger(fixture.character, "probe.lifesteal"))
+                    .isEqualTo(AbilityResult.NOT_UNLOCKED);
+        }
+
+        @Test
         @DisplayName("jede Ablehnung trägt einen Message-Schlüssel, jeder Erfolg keinen")
         void everyRejectionCarriesAKey() {
             for (AbilityResult result : AbilityResult.values()) {

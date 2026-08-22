@@ -187,12 +187,14 @@ class ShippedAbilityConfigTest {
     class Hotbar {
 
         @Test
-        @DisplayName("Warrior fünf belegte Slots, Rogue fünf, Mage sieben")
+        @DisplayName("Warrior sieben belegte Slots, Rogue sieben, Mage acht")
         void theOccupiedSlotsFollowFromTheLoadout() throws Exception {
-            // Waffe + aktive Fähigkeiten + Marker passiver Fähigkeiten, die ein Item tragen.
-            assertThat(occupiedSlots(CharacterClass.WARRIOR)).isEqualTo(5);
-            assertThat(occupiedSlots(CharacterClass.ROGUE)).isEqualTo(5);
-            assertThat(occupiedSlots(CharacterClass.MAGE)).isEqualTo(7);
+            // Waffe + aktive Fähigkeiten + Marker passiver Fähigkeiten. Seit JEDE Passive einen
+            // Marker trägt, sind das mehr als vorher: ein Spieler soll seinen Fähigkeiten ansehen
+            // können, dass er sie hat - auch denen, die er nie anklickt.
+            assertThat(occupiedSlots(CharacterClass.WARRIOR)).isEqualTo(7);
+            assertThat(occupiedSlots(CharacterClass.ROGUE)).isEqualTo(7);
+            assertThat(occupiedSlots(CharacterClass.MAGE)).isEqualTo(8);
         }
 
         @Test

@@ -143,6 +143,10 @@ ability:
     no-charges: 'No charges left.'
     no-character: 'Choose a class first.'
 
+  # A passive marker was clicked. Deliberately NOT under "rejected": the player owns the ability,
+  # nothing was refused, and saying so is the whole reason the marker occupies a hotbar slot.
+  passive: 'That ability is passive - it works on its own, no click needed.'
+
   unlocked: 'New ability unlocked: {ability}.'
 
   rank:

@@ -58,6 +58,9 @@ abilities:
   # current value follows from the last reading plus elapsed time (FR-016b).
   warrior.rage:
     kind: PASSIVE
+    # A marker, not a trigger: Rage builds and decays - the marker is a reminder that it is running, not a button.
+    # Clicking it says so (AbilityResult.PASSIVE) instead of pretending it is locked.
+    item: 'BLAZE_POWDER'
     display-name-key: 'ability.warrior.rage.name'
     trigger: [ON_DAMAGE_DEALT, ON_DAMAGE_TAKEN]
     cooldown-ms: 0
@@ -135,6 +138,9 @@ abilities:
   # not on RAW_DAMAGE - armour has already been paid for by then (ADR-022).
   warrior.lifesteal:
     kind: PASSIVE
+    # A marker, not a trigger: Lifesteal happens on every hit; the slot is how a player knows it is theirs.
+    # Clicking it says so (AbilityResult.PASSIVE) instead of pretending it is locked.
+    item: 'GHAST_TEAR'
     display-name-key: 'ability.warrior.lifesteal.name'
     trigger: ON_DAMAGE_DEALT
     cooldown-ms: 0
@@ -204,6 +210,9 @@ abilities:
   # adds nothing: the reward for hitting again is that it lasts.
   rogue.poisoned-blade:
     kind: PASSIVE
+    # A marker, not a trigger: Poison on hit, by chance. The marker names what the chance belongs to.
+    # Clicking it says so (AbilityResult.PASSIVE) instead of pretending it is locked.
+    item: 'SPIDER_EYE'
     display-name-key: 'ability.rogue.poisoned-blade.name'
     trigger: ON_DAMAGE_DEALT
     chance: 0.35
@@ -247,6 +256,9 @@ abilities:
   # knowable in the moment of the hit - which is why V34 ties it to ON_DAMAGE_DEALT.
   rogue.backstab:
     kind: PASSIVE
+    # A marker, not a trigger: Only from behind - and only visible as a marker, since nothing is clicked.
+    # Clicking it says so (AbilityResult.PASSIVE) instead of pretending it is locked.
+    item: 'FLINT'
     display-name-key: 'ability.rogue.backstab.name'
     trigger: ON_DAMAGE_DEALT
     requires-behind-target: true
@@ -328,6 +340,9 @@ abilities:
   # APPLICATION the damage can only be reduced, no longer refused (FR-016a). Physical goes through.
   mage.magic-life:
     kind: PASSIVE
+    # A marker, not a trigger: Reacts to damage taken. The slot says the reaction exists.
+    # Clicking it says so (AbilityResult.PASSIVE) instead of pretending it is locked.
+    item: 'GLISTERING_MELON_SLICE'
     display-name-key: 'ability.mage.magic-life.name'
     trigger: ON_DAMAGE_TAKEN
     cooldown-ms: 0
