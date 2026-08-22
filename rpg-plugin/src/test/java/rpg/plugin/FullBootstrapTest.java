@@ -110,8 +110,10 @@ class FullBootstrapTest {
         // What matters on the busiest event the server has is that each returns on field reads before
         // doing anything: a counter for the first two, ground state and a permission flag for B08.
         assertThat(handlerCount(PlayerMoveEvent.getHandlerList()))
-                .as("B03's safe-state hold, B07's no-character hold, B08's double jump")
-                .isEqualTo(3);
+                .as(
+                        "B03's safe-state hold, B07's no-character hold, B08's double jump and its"
+                                + " cast interruption")
+                .isEqualTo(4);
     }
 
     @Test
@@ -157,7 +159,8 @@ class FullBootstrapTest {
         // SHARES this one: B05 prices the hit, and B08 refuses it outright when the player is holding
         // an ability item (FR-054). Without the second one a left click with the goat horn would deal
         // weapon damage.
-        assertThat(handlerCount(EntityDamageEvent.getHandlerList())).isEqualTo(2);
+        // THREE since B08 gained cast interruption: taking damage stops a cast (FR-042).
+        assertThat(handlerCount(EntityDamageEvent.getHandlerList())).isEqualTo(3);
     }
 
     @Test
@@ -237,8 +240,10 @@ class FullBootstrapTest {
     @Test
     void everyCombatEventHasExactlyOneHandler() {
         assertThat(handlerCount(EntityDamageEvent.getHandlerList()))
-                .as("B05 prices the hit, B08 refuses it for an ability item - B04 must not be here")
-                .isEqualTo(2);
+                .as(
+                        "B05 prices the hit, B08 refuses it for an ability item and stops a cast on"
+                                + " it - B04 must not be here")
+                .isEqualTo(3);
         // ProjectileLaunchEvent extends EntitySpawnEvent and declares no HandlerList of its own, so
         // it SHARES one with CreatureSpawnEvent. The two cannot be counted separately - what this
         // asserts is that exactly two handlers sit on that shared list: projectile pricing and mob

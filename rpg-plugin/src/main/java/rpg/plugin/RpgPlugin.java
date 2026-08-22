@@ -590,6 +590,11 @@ public class RpgPlugin extends JavaPlugin {
                 new rpg.core.ability.effect.ManaRestoreEffect(statsModule.engine()));
         effects.register(
                 rpg.core.ability.EffectType.EVADE, new rpg.core.ability.effect.EvadeEffect());
+        // The shield keeps the absorption pool itself, so the instance is held rather than discarded -
+        // the pipeline has to be able to ask it what it can take.
+        rpg.core.ability.effect.ShieldEffect shields =
+                new rpg.core.ability.effect.ShieldEffect(Clock.systemUTC());
+        effects.register(rpg.core.ability.EffectType.SHIELD, shields);
 
         abilityRuntime =
                 new rpg.core.ability.AbilityRuntime(
@@ -604,6 +609,13 @@ public class RpgPlugin extends JavaPlugin {
         // wounded player finally heals at all: ADR-013 switched vanilla regeneration off and left the
         // gap open until ADR-023 made the two rates attributes.
         abilityRuntime.setRegeneration(abilityModule.regeneration());
+
+        // The one place in this block that schedules anything: entity-bound, single-shot (ADR-024).
+        // A character with nothing running has no task, which is what SC-005 asserts.
+        abilityRuntime.setScheduling(
+                (characterId, delay, task) ->
+                        scheduler.runSyncOnEntityDelayed(
+                                new rpg.core.scheduler.EntityRef(characterId), delay, task));
 
         abilityHotbar = new rpg.platform.ability.AbilityHotbar(messages, getLogger());
 
@@ -675,8 +687,36 @@ public class RpgPlugin extends JavaPlugin {
                                 () -> 60),
                         this);
 
+        getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new rpg.platform.ability.CastInterruptListener(
+                                player -> characterIdOf(player).orElse(null),
+                                characterId ->
+                                        abilityRuntime
+                                                .running(characterId)
+                                                .map(
+                                                        running ->
+                                                                abilities.find(running.abilityId())
+                                                                        .map(
+                                                                                rpg.core.ability
+                                                                                                .Ability
+                                                                                        ::interruptOnMove)
+                                                                        .orElse(false))
+                                                .orElse(false),
+                                abilityRuntime::end),
+                        this);
+
+        // The session end is B03's to announce, not ours to listen for (FR-007, FR-014). The module
+        // hears about it through its attachment and stops whatever was running.
+        abilityModule.setRunningEnder(
+                characterId ->
+                        abilityRuntime.end(characterId, rpg.core.ability.EndCause.DISCONNECTED));
+
         getLogger()
-                .info("[abilities] listeners registered - trigger, left-click guard, double jump");
+                .info(
+                        "[abilities] listeners registered - trigger, left-click guard, double jump,"
+                                + " cast interruption");
     }
 
     /** The ability granting this player a double jump, if any is unlocked and switched on. */

@@ -60,6 +60,9 @@ final class AbilityFixture {
     /** Zusaetzliche Klassenbindungen, die eine Fixture-Variante mitbringt. */
     final List<String> extraBindings = new ArrayList<>();
 
+    /** Zaehlt, was geplant wurde - die Zusage aus SC-005 ist eine Zahl, keine Behauptung. */
+    final CountingScheduling scheduling = new CountingScheduling();
+
     private AbilityFixture(AbilityConfig config, Logger logger) {
         this.dispatcher = new EffectDispatcher(logger);
         this.dispatcher.register(
@@ -90,6 +93,69 @@ final class AbilityFixture {
                         dispatcher,
                         repository,
                         clock);
+        this.runtime.setScheduling(scheduling);
+    }
+
+    /**
+     * Ein Scheduler, der haelt statt auszufuehren - und mitzaehlt.
+     *
+     * <p>Sofort auszufuehren machte die Wirkzeit unpruefbar: jeder Cast saehe aus, als waere er
+     * augenblicklich. Halten bildet ab, was ein echter Tick tut, und laesst einen Test feststellen,
+     * <em>wie viele</em> Aufgaben ueberhaupt entstanden sind - die Eigenschaft, um die es in
+     * Prinzip II geht.
+     */
+    static final class CountingScheduling implements AbilityRuntime.Scheduling {
+
+        int scheduled;
+        int cancelled;
+        private final List<Handle> queue = new ArrayList<>();
+
+        @Override
+        public rpg.core.scheduler.TaskHandle after(
+                UUID characterId, Duration delay, Runnable task) {
+            scheduled++;
+            Handle handle = new Handle(task);
+            queue.add(handle);
+            return handle;
+        }
+
+        /** Wie viele noch warten. */
+        int pending() {
+            return (int) queue.stream().filter(handle -> !handle.cancelled && !handle.ran).count();
+        }
+
+        /** Fuehrt aus, was faellig waere - das Test-Aequivalent des naechsten Ticks. */
+        void runPending() {
+            for (Handle handle : List.copyOf(queue)) {
+                if (!handle.cancelled && !handle.ran) {
+                    handle.ran = true;
+                    handle.task.run();
+                }
+            }
+        }
+
+        final class Handle implements rpg.core.scheduler.TaskHandle {
+            private final Runnable task;
+            private boolean cancelled;
+            private boolean ran;
+
+            Handle(Runnable task) {
+                this.task = task;
+            }
+
+            @Override
+            public void cancel() {
+                if (!cancelled) {
+                    cancelled = true;
+                    CountingScheduling.this.cancelled++;
+                }
+            }
+
+            @Override
+            public boolean isCancelled() {
+                return cancelled;
+            }
+        }
     }
 
     /** A fixture with one active damage ability, unlocked, and a character with full mana. */
@@ -111,6 +177,46 @@ final class AbilityFixture {
         fixture.unlocked.add("probe.dash");
         fixture.unlocked.add("probe.lifesteal");
         return fixture;
+    }
+
+    /** Eine aktive Faehigkeit mit 2 s Wirkzeit - fuer die Vorbereitungsphase. */
+    static AbilityFixture withCastTime() throws Exception {
+        Map<String, Object> document = AbilityConfigFixture.valid();
+        Map<String, Object> ability = AbilityConfigFixture.activeAbility();
+        ability.put("display-name-key", "ability.probe.slow.name");
+        ability.put("item", "STICK");
+        ability.put("cast-time-ms", 2000);
+        AbilityConfigFixture.abilities(document).put("probe.slow", ability);
+        AbilityFixture fixture = unlocked(document, "probe.slow");
+        fixture.unlocked.add("probe.strike");
+        return fixture;
+    }
+
+    /** Eine haltende Faehigkeit mit 5 s Dauer - der Wirbel im Kleinen. */
+    static AbilityFixture withSustained() throws Exception {
+        Map<String, Object> document = AbilityConfigFixture.valid();
+        Map<String, Object> ability = AbilityConfigFixture.activeAbility();
+        ability.put("display-name-key", "ability.probe.whirl.name");
+        ability.put("item", "IRON_AXE");
+        ability.put("sustained", true);
+        ability.put("duration-ms", 5000);
+        AbilityConfigFixture.abilities(document).put("probe.whirl", ability);
+        AbilityFixture fixture = unlocked(document, "probe.whirl");
+        fixture.unlocked.add("probe.strike");
+        return fixture;
+    }
+
+    /** Zwei Ladungen mit zehn Sekunden Nachfuellfenster - Rogues Teleport im Kleinen. */
+    static AbilityFixture withCharges() throws Exception {
+        Map<String, Object> document = AbilityConfigFixture.valid();
+        Map<String, Object> ability = AbilityConfigFixture.activeAbility();
+        ability.put("display-name-key", "ability.probe.blink.name");
+        ability.put("item", "ENDER_PEARL");
+        ability.put("mana-cost", 5.0);
+        ability.put("charges", 2);
+        ability.put("charge-window-ms", 10000);
+        AbilityConfigFixture.abilities(document).put("probe.blink", ability);
+        return unlocked(document, "probe.blink");
     }
 
     /** Eine Passive mit ZWEI Effekten und 50 % Chance - fuer FR-049. */

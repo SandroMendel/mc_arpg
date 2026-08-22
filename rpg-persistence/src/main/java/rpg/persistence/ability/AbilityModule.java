@@ -184,6 +184,19 @@ public final class AbilityModule implements Module {
                         () -> regeneration.settle(characterId));
     }
 
+    /**
+     * Ends whatever a character has running. Installed by the plugin, because the runtime lives there.
+     *
+     * <p>A consumer rather than the runtime itself: this module must not depend on a class the plugin
+     * assembles, and the only thing it needs is "stop it".
+     */
+    private volatile java.util.function.Consumer<UUID> running;
+
+    /** Installs the stop hook. At startup, not during play. */
+    public void setRunningEnder(java.util.function.Consumer<UUID> ender) {
+        this.running = ender;
+    }
+
     /** Health and mana coming back over time - the block that finally closes ADR-013's gap. */
     public rpg.core.ability.ResourceRegeneration regeneration() {
         return regeneration;
@@ -275,6 +288,12 @@ public final class AbilityModule implements Module {
             } else {
                 lastKnown.put(characterId, states);
                 repository.markDirty(characterId);
+            }
+            // A cast or a sustained ability must not outlive the session. This is the seam B03
+            // provides for exactly that - a PlayerQuitEvent handler in rpg-platform would be a second
+            // exit from the lifecycle (FR-007, FR-014).
+            if (running != null) {
+                running.accept(characterId);
             }
             registry.forget(characterId);
             regeneration.forget(characterId);

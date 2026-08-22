@@ -3,11 +3,15 @@ package rpg.core.ability;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
 import rpg.core.ability.effect.EffectDispatcher;
+import rpg.core.scheduler.TaskHandle;
 import rpg.core.stats.Attribute;
 import rpg.core.stats.ResourceView;
 import rpg.core.stats.StatEngine;
@@ -43,6 +47,66 @@ public final class AbilityRuntime {
     /** Installs the regeneration. At startup, not during play. */
     public void setRegeneration(ResourceRegeneration regeneration) {
         this.regeneration = regeneration;
+    }
+
+    /** At most one running ability per character - a cast or a sustained one (FR-040, FR-045b). */
+    private final Map<UUID, RunningAbility> running = new ConcurrentHashMap<>();
+
+    /** Charge pools, keyed by character and ability. */
+    private final Map<Key, Charges> charges = new ConcurrentHashMap<>();
+
+    /**
+     * Where a delayed one-shot is placed.
+     *
+     * <p>The only thing in this block that schedules anything, and it is entity-bound and single-shot
+     * (ADR-024). A character with nothing running has no task.
+     */
+    private volatile Scheduling scheduling = Scheduling.none();
+
+    /** How the runtime reaches the scheduler without knowing about Paper. */
+    @FunctionalInterface
+    public interface Scheduling {
+        /** Runs {@code task} on the character's tick after {@code delay}. */
+        TaskHandle after(UUID characterId, Duration delay, Runnable task);
+
+        /** Schedules nothing. Then a cast never completes, which a test can rely on. */
+        static Scheduling none() {
+            return (characterId, delay, task) ->
+                    new TaskHandle() {
+                        @Override
+                        public void cancel() {}
+
+                        @Override
+                        public boolean isCancelled() {
+                            return true;
+                        }
+                    };
+        }
+    }
+
+    /** Installs the scheduling. At startup, not during play. */
+    public void setScheduling(Scheduling scheduling) {
+        this.scheduling = Objects.requireNonNull(scheduling, "scheduling");
+    }
+
+    private TaskHandle scheduleCompletion(UUID characterId, Duration delay) {
+        return scheduling.after(characterId, delay, () -> completeWindUp(characterId));
+    }
+
+    private TaskHandle scheduleEnd(UUID characterId, Duration delay) {
+        return scheduling.after(characterId, delay, () -> expire(characterId));
+    }
+
+    /** Character plus ability - the key a charge pool hangs on. */
+    private record Key(UUID characterId, String abilityId) {}
+
+    /** A charge pool: how many are left, and when one was last taken. */
+    private record Charges(int remaining, Instant lastUsedAt) {
+
+        /** Whether the refill window has passed, which puts the pool back at its maximum. */
+        boolean hasLapsed(Instant now, Duration window) {
+            return window != null && !now.isBefore(lastUsedAt.plus(window));
+        }
     }
 
     public AbilityRuntime(
@@ -89,12 +153,30 @@ public final class AbilityRuntime {
         if (!isUnlocked(characterId, abilityId)) {
             return AbilityResult.NOT_UNLOCKED;
         }
+        // FR-040 and FR-045b: at most one going at a time, whichever phase it is in. Checked before
+        // the global lock because "you are already doing something" is the more useful thing to say.
+        RunningAbility current = running.get(characterId);
+        if (current != null) {
+            return current.isWindingUp()
+                    ? AbilityResult.ALREADY_CASTING
+                    : AbilityResult.ALREADY_SUSTAINING;
+        }
         if (isGloballyLocked(characterId, now)) {
             return AbilityResult.GLOBAL_LOCK;
         }
 
         AbilityState state = registry.stateOf(characterId, abilityId);
-        if (state.runningCooldown(now).isPresent()) {
+        if (ability.charges() > 1) {
+            // A charge ability has no cooldown until the pool is empty (FR-045i), so the pool is the
+            // gate and the cooldown only applies once it ran dry.
+            if (chargesAvailable(characterId, abilityId) <= 0
+                    && state.runningCooldown(now).isEmpty()) {
+                return AbilityResult.NO_CHARGES;
+            }
+            if (state.runningCooldown(now).isPresent()) {
+                return AbilityResult.ON_COOLDOWN;
+            }
+        } else if (state.runningCooldown(now).isPresent()) {
             return AbilityResult.ON_COOLDOWN;
         }
 
@@ -116,10 +198,143 @@ public final class AbilityRuntime {
         if (ability.manaCost() > 0.0) {
             stats.changeMana(characterId, -ability.manaCost());
         }
+        spendCharge(characterId, ability, now);
 
-        apply(ability, characterId, state.rank());
+        if (ability.hasCastTime()) {
+            // Winds up first. The effects follow when the cast completes, and until then an
+            // interruption costs nothing (FR-039, FR-045d).
+            beginWindUp(characterId, ability, now);
+            return AbilityResult.CASTING;
+        }
+        return takeEffect(characterId, ability, now);
+    }
+
+    /**
+     * Ends whatever this character has running (FR-045c to FR-045e).
+     *
+     * <p><b>The state decides what it costs, not the caller.</b> Winding up refunds and starts no
+     * cooldown; already running keeps the cost and starts it. A caller that could choose would
+     * eventually choose wrong, and the difference is exactly what stops "cancel immediately" from
+     * being a free way to fish for a better moment.
+     */
+    public AbilityResult end(UUID characterId, EndCause cause) {
+        Objects.requireNonNull(characterId, "characterId");
+        Objects.requireNonNull(cause, "cause");
+
+        RunningAbility running = this.running.remove(characterId);
+        if (running == null) {
+            return AbilityResult.TRIGGERED;
+        }
+        running.cancelTask();
+        Ability ability = registry.config().require(running.abilityId());
+
+        if (running.isWindingUp()) {
+            // It never happened. Refund in full and leave the cooldown untouched (FR-045d).
+            if (running.reservedMana() > 0.0) {
+                stats.changeMana(characterId, running.reservedMana());
+            }
+            return AbilityResult.ENDED;
+        }
+        // It did happen, and stopping it early does not undo that (FR-045e).
+        startCooldown(characterId, ability, clock.instant());
+        return AbilityResult.ENDED;
+    }
+
+    /** What this character has going, or empty. At most one (FR-040, FR-045b). */
+    public Optional<RunningAbility> running(UUID characterId) {
+        return Optional.ofNullable(running.get(characterId));
+    }
+
+    /**
+     * Completes a wind-up: the effects run now, and the cooldown starts here rather than at the
+     * trigger (FR-030).
+     *
+     * <p>Called by the scheduled one-shot, on the tick.
+     */
+    public void completeWindUp(UUID characterId) {
+        RunningAbility windingUp = running.get(characterId);
+        if (windingUp == null || !windingUp.isWindingUp()) {
+            // Interrupted between the schedule and now. Ordinary, not an error.
+            return;
+        }
+        running.remove(characterId);
+        Ability ability = registry.config().require(windingUp.abilityId());
+        takeEffect(characterId, ability, clock.instant());
+    }
+
+    /** Ends a sustained ability whose duration ran out. Called by the scheduled one-shot. */
+    public void expire(UUID characterId) {
+        end(characterId, EndCause.EXPIRED);
+    }
+
+    /** Applies the effects and decides whether the ability keeps running afterwards. */
+    private AbilityResult takeEffect(UUID characterId, Ability ability, Instant now) {
+        apply(ability, characterId, registry.stateOf(characterId, ability.id()).rank());
+
+        if (ability.sustained()) {
+            Instant endsAt = now.plus(ability.duration());
+            running.put(
+                    characterId,
+                    new RunningAbility(
+                            characterId,
+                            ability.id(),
+                            RunningAbility.Phase.RUNNING,
+                            now,
+                            endsAt,
+                            0.0,
+                            scheduleEnd(characterId, ability.duration())));
+            // No cooldown yet: it starts when the ability actually ends, however that happens.
+            return AbilityResult.SUSTAINING;
+        }
+
         startCooldown(characterId, ability, now);
         return AbilityResult.TRIGGERED;
+    }
+
+    private void beginWindUp(UUID characterId, Ability ability, Instant now) {
+        Instant dueAt = now.plus(ability.castTime());
+        running.put(
+                characterId,
+                new RunningAbility(
+                        characterId,
+                        ability.id(),
+                        RunningAbility.Phase.WINDING_UP,
+                        now,
+                        dueAt,
+                        ability.manaCost(),
+                        scheduleCompletion(characterId, ability.castTime())));
+    }
+
+    /**
+     * Takes a charge and, on the last one, lets the cooldown apply (FR-045i to FR-045k).
+     *
+     * <p>Timestamp arithmetic like everything else: the pool springs back when the window has passed
+     * since the last use, so nothing has to notice that it did.
+     */
+    private void spendCharge(UUID characterId, Ability ability, Instant now) {
+        if (ability.charges() <= 1) {
+            return;
+        }
+        Key key = new Key(characterId, ability.id());
+        Charges current = charges.get(key);
+        int remaining =
+                current == null || current.hasLapsed(now, ability.chargeWindow())
+                        ? ability.charges()
+                        : current.remaining();
+        charges.put(key, new Charges(remaining - 1, now));
+    }
+
+    /** How many charges this character has left on this ability (FR-045i). */
+    public int chargesAvailable(UUID characterId, String abilityId) {
+        Ability ability = registry.config().require(abilityId);
+        if (ability.charges() <= 1) {
+            return registry.remainingCooldown(characterId, abilityId).isPresent() ? 0 : 1;
+        }
+        Charges current = charges.get(new Key(characterId, abilityId));
+        if (current == null || current.hasLapsed(clock.instant(), ability.chargeWindow())) {
+            return ability.charges();
+        }
+        return current.remaining();
     }
 
     /**
@@ -199,6 +414,10 @@ public final class AbilityRuntime {
     private void startCooldown(UUID characterId, Ability ability, Instant now) {
         Duration cooldown = effectiveCooldown(characterId, ability);
         if (cooldown.isZero()) {
+            return;
+        }
+        if (ability.charges() > 1 && chargesAvailable(characterId, ability.id()) > 0) {
+            // Charges left, so no cooldown yet: it begins when the last one is spent (FR-045i).
             return;
         }
         registry.put(registry.stateOf(characterId, ability.id()).withCooldown(now.plus(cooldown)));

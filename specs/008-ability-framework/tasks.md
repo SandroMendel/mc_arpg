@@ -229,32 +229,32 @@ Mana unverändert, sofort wieder auslösbar.
 
 ### Tests für User Story 4 ⚠️
 
-- [ ] T087 [P] [US4] `CastStateTest` in `rpg-core/src/test/java/rpg/core/ability/` — Wirkzeit 0 wirkt im selben Tick ohne Cast-Zustand (FR-044); Wirkzeit > 0 erzeugt einen
-- [ ] T088 [P] [US4] `CastInterruptionTest` in `rpg-core/src/test/java/rpg/core/ability/` — SC-009: alle sechs Abbruchgründe, 1000 Versuche, keine Manadifferenz und kein Cooldown
-- [ ] T089 [P] [US4] `CastStateTest`: eine zweite Auslösung während eines Casts wird abgewiesen (FR-040); die globale Sperre greift beim **Beginn**, der Einzel-Cooldown bei der **Wirkung**
+- [X] T087 [P] [US4] `CastStateTest` in `rpg-core/src/test/java/rpg/core/ability/` — Wirkzeit 0 wirkt im selben Tick ohne Cast-Zustand (FR-044); Wirkzeit > 0 erzeugt einen
+- [X] T088 [P] [US4] `CastInterruptionTest` in `rpg-core/src/test/java/rpg/core/ability/` — SC-009: alle sechs Abbruchgründe, 1000 Versuche, keine Manadifferenz und kein Cooldown
+- [X] T089 [P] [US4] `CastStateTest`: eine zweite Auslösung während eines Casts wird abgewiesen (FR-040); die globale Sperre greift beim **Beginn**, der Einzel-Cooldown bei der **Wirkung**
 
 ### Umsetzung für User Story 4
 
-- [ ] T090 [US4] `CastState` in `rpg-core/src/main/java/rpg/core/ability/CastState.java` nach [data-model.md](./data-model.md) — höchstens einer je Spieler
-- [ ] T091 [US4] Cast planen über `runSyncOnEntityDelayed` (T007) — **nicht** über `runAsyncDelayed` mit Rücksprung; der Handle wird im `CastState` gehalten, damit ein Abbruch ihn stornieren kann
-- [ ] T092 [US4] Kosten beim **Beginn** buchen und bei Abbruch **vollständig** erstatten (FR-041)
-- [ ] T093 [US4] Einzel-Cooldown erst bei der Wirkung starten; ein abgebrochener Cast startet keinen (FR-030)
-- [ ] T094 [P] [US4] `CastInterruptListener` in `rpg-platform/src/main/java/rpg/platform/ability/CastInterruptListener.java` — Schaden > 0 nach Mitigation, Slotwechsel, Tod, Charakterwechsel, Verbindungsverlust (FR-042)
-- [ ] T095 [US4] `interruptOnMove` je Definition auswerten; ohne Angabe bricht Bewegung **nicht** ab (FR-043)
-- [ ] T096 [US4] `CastView` als Lesesicht in `rpg-core/src/main/java/rpg/core/ability/CastView.java` — Fähigkeits-ID, Beginn, Wirkzeitpunkt, Fortschritt; `TaskHandle` und gebuchtes Mana bleiben draußen
-- [ ] T097 [US4] `SHIELD` in `rpg-core/src/main/java/rpg/core/ability/effect/ShieldEffect.java` — absorbiert vor der Gesundheit, endet bei Ablauf oder Verbrauch (FR-015), mit optionalem **Schadenstyp-Filter**: Warriors Block nimmt nur physischen, Mages Magisches Schild jeden (FR-015a)
+- [X] T090 [US4] `CastState` in `rpg-core/src/main/java/rpg/core/ability/CastState.java` nach [data-model.md](./data-model.md) — höchstens einer je Spieler
+- [X] T091 [US4] Cast planen über `runSyncOnEntityDelayed` (T007) — **nicht** über `runAsyncDelayed` mit Rücksprung; der Handle wird im `CastState` gehalten, damit ein Abbruch ihn stornieren kann
+- [X] T092 [US4] Kosten beim **Beginn** buchen und bei Abbruch **vollständig** erstatten (FR-041)
+- [X] T093 [US4] Einzel-Cooldown erst bei der Wirkung starten; ein abgebrochener Cast startet keinen (FR-030)
+- [X] T094 [P] [US4] `CastInterruptListener` in `rpg-platform/src/main/java/rpg/platform/ability/CastInterruptListener.java` — Schaden > 0 nach Mitigation, Slotwechsel, Tod, Charakterwechsel, Verbindungsverlust (FR-042)
+- [X] T095 [US4] `interruptOnMove` je Definition auswerten; ohne Angabe bricht Bewegung **nicht** ab (FR-043)
+- [X] T096 [US4] `CastView` als Lesesicht in `rpg-core/src/main/java/rpg/core/ability/CastView.java` — Fähigkeits-ID, Beginn, Wirkzeitpunkt, Fortschritt; `TaskHandle` und gebuchtes Mana bleiben draußen
+- [X] T097 [US4] `SHIELD` in `rpg-core/src/main/java/rpg/core/ability/effect/ShieldEffect.java` — absorbiert vor der Gesundheit, endet bei Ablauf oder Verbrauch (FR-015), mit optionalem **Schadenstyp-Filter**: Warriors Block nimmt nur physischen, Mages Magisches Schild jeden (FR-015a)
 
 ### Haltende Fähigkeiten und Ladungen *(ADR-025)*
 
-- [ ] T097a [P] [US4] `SustainedStateTest` in `rpg-core/src/test/java/rpg/core/ability/` — höchstens eine haltende Fähigkeit je Spieler (FR-045b); ein zweiter Rechtsklick auf demselben Slot beendet sie (FR-045c)
-- [ ] T097b [P] [US4] `SustainedStateTest`: die **zweiphasige Abbruchregel** — Abbruch in der Vorbereitung erstattet und startet keinen Cooldown, Beenden einer laufenden Wirkung behält beides (FR-045d, FR-045e). Der wichtigste Test dieser Phase
-- [ ] T097c [P] [US4] `SustainedStateTest`: ab der Wirkung gibt es keinen Weg zurück in die Vorbereitung (FR-045f) — der Sprung ist ab dem Absprung unabbrechbar
-- [ ] T097d [US4] `SustainedState` in `rpg-core/src/main/java/rpg/core/ability/SustainedState.java` nach [data-model.md](./data-model.md); das Ende wird über `runSyncOnEntityDelayed` geplant, der Handle im Zustand gehalten
-- [ ] T097e [US4] `end(characterId, cause)` in `AbilityRuntime` — **der Zustand entscheidet über Erstattung und Cooldown, nicht der Aufrufer** (contracts/ability-api.md)
-- [ ] T097f [US4] Die Auslösung eines besetzten Slots im `AbilityTriggerListener` auf `end` umleiten statt auf `trigger` (FR-055a) — derselbe Slot, dieselbe Taste
-- [ ] T097g [US4] Haltende Fähigkeiten enden bei Tod, Charakterwechsel und Verbindungsverlust; Manatrank zusätzlich bei erlittenem, Unsichtbarkeit bei ausgeteiltem Schaden (FR-045g)
-- [ ] T097h [P] [US4] `ChargeStateTest` in `rpg-core/src/test/java/rpg/core/ability/` — zwei Ladungen, Cooldown erst nach der zweiten; ungenutzte zweite Ladung setzt den Vorrat nach dem Fenster zurück, ohne dass ein Cooldown lief (FR-045j)
-- [ ] T097i [US4] `ChargeState` und die Ladungsprüfung in `AbilityRuntime` — zeitstempelbasiert lazy wie alles andere (FR-045k)
+- [X] T097a [P] [US4] `SustainedStateTest` in `rpg-core/src/test/java/rpg/core/ability/` — höchstens eine haltende Fähigkeit je Spieler (FR-045b); ein zweiter Rechtsklick auf demselben Slot beendet sie (FR-045c)
+- [X] T097b [P] [US4] `SustainedStateTest`: die **zweiphasige Abbruchregel** — Abbruch in der Vorbereitung erstattet und startet keinen Cooldown, Beenden einer laufenden Wirkung behält beides (FR-045d, FR-045e). Der wichtigste Test dieser Phase
+- [X] T097c [P] [US4] `SustainedStateTest`: ab der Wirkung gibt es keinen Weg zurück in die Vorbereitung (FR-045f) — der Sprung ist ab dem Absprung unabbrechbar
+- [X] T097d [US4] `SustainedState` in `rpg-core/src/main/java/rpg/core/ability/SustainedState.java` nach [data-model.md](./data-model.md); das Ende wird über `runSyncOnEntityDelayed` geplant, der Handle im Zustand gehalten
+- [X] T097e [US4] `end(characterId, cause)` in `AbilityRuntime` — **der Zustand entscheidet über Erstattung und Cooldown, nicht der Aufrufer** (contracts/ability-api.md)
+- [X] T097f [US4] Die Auslösung eines besetzten Slots im `AbilityTriggerListener` auf `end` umleiten statt auf `trigger` (FR-055a) — derselbe Slot, dieselbe Taste
+- [X] T097g [US4] Haltende Fähigkeiten enden bei Tod, Charakterwechsel und Verbindungsverlust; Manatrank zusätzlich bei erlittenem, Unsichtbarkeit bei ausgeteiltem Schaden (FR-045g)
+- [X] T097h [P] [US4] `ChargeStateTest` in `rpg-core/src/test/java/rpg/core/ability/` — zwei Ladungen, Cooldown erst nach der zweiten; ungenutzte zweite Ladung setzt den Vorrat nach dem Fenster zurück, ohne dass ein Cooldown lief (FR-045j)
+- [X] T097i [US4] `ChargeState` und die Ladungsprüfung in `AbilityRuntime` — zeitstempelbasiert lazy wie alles andere (FR-045k)
 
 **Checkpoint**: Wirkzeit und Unterbrechung stehen.
 
