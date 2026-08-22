@@ -59,5 +59,20 @@ public enum AggregateType {
      *
      * <p>Registration 1 of 3 (ADR-015), as above.
      */
-    CHARACTER_INVENTORY
+    CHARACTER_INVENTORY,
+
+    /**
+     * What a character owns per ability: its rank, its running cooldown and its toggle (B08).
+     *
+     * <p><b>Many rows per character, unlike every type above.</b> The flush therefore writes a set and
+     * deletes what fell back to the default - rank 1, no cooldown, no toggle. Without that the table
+     * would keep a row for every ability a player ever used, all of them empty afterwards.
+     *
+     * <p>What is deliberately <em>not</em> here: the unlock state, which follows from the level
+     * (FR-061), and rage, charges and any running ability, which are runtime and computed from a
+     * timestamp plus elapsed time (ADR-025).
+     *
+     * <p>Registration 1 of 3 (ADR-015), as above.
+     */
+    CHARACTER_ABILITIES
 }

@@ -81,20 +81,20 @@ Vier Module aus B01, unverändert: `rpg-core` (Regeln, bukkitfrei), `rpg-persist
 
 ### Persistenz — die drei Registrierungen (ADR-015)
 
-- [ ] T025 Migration `rpg-persistence/src/main/resources/db/migration/V8_1__character_abilities.sql` — Tabelle nach [data-model.md](./data-model.md), Primärschlüssel `(character_id, ability_id)`, Fremdschlüssel kaskadierend
-- [ ] T026 [P] `AbilityState` als Record in `rpg-core/src/main/java/rpg/core/ability/AbilityState.java` mit Prüfungen im Konstruktor, nach dem Muster von `CharacterProgress`
-- [ ] T027 [P] `AbilityStateRepository` als Schnittstelle in `rpg-core/src/main/java/rpg/core/ability/AbilityStateRepository.java`
-- [ ] T028 `JdbcAbilityStateRepository` in `rpg-persistence/src/main/java/rpg/persistence/ability/JdbcAbilityStateRepository.java` — Laden je Charakter, Schreiben über den Write-Behind-Puffer, JDBC-Treiber ausdrücklich benannt
-- [ ] T029 **Registrierung 1 von 3**: `AggregateType.CHARACTER_ABILITIES` in `rpg-core/src/main/java/rpg/core/persistence/AggregateType.java`
-- [ ] T030 **Registrierung 2 von 3**: Position in `FlushCycle.WRITE_ORDER` — **nach** `CHARACTER`, wie jedes Kind
+- [X] T025 Migration `rpg-persistence/src/main/resources/db/migration/V8_1__character_abilities.sql` — Tabelle nach [data-model.md](./data-model.md), Primärschlüssel `(character_id, ability_id)`, Fremdschlüssel kaskadierend
+- [X] T026 [P] `AbilityState` als Record in `rpg-core/src/main/java/rpg/core/ability/AbilityState.java` mit Prüfungen im Konstruktor, nach dem Muster von `CharacterProgress`
+- [X] T027 [P] `AbilityStateRepository` als Schnittstelle in `rpg-core/src/main/java/rpg/core/ability/AbilityStateRepository.java`
+- [X] T028 `JdbcAbilityStateRepository` in `rpg-persistence/src/main/java/rpg/persistence/ability/JdbcAbilityStateRepository.java` — Laden je Charakter, Schreiben über den Write-Behind-Puffer, JDBC-Treiber ausdrücklich benannt
+- [X] T029 **Registrierung 1 von 3**: `AggregateType.CHARACTER_ABILITIES` in `rpg-core/src/main/java/rpg/core/persistence/AggregateType.java`
+- [X] T030 **Registrierung 2 von 3**: Position in `FlushCycle.WRITE_ORDER` — **nach** `CHARACTER`, wie jedes Kind
 - [ ] T031 **Registrierung 3 von 3**: `AbilityModule` in `rpg-persistence/src/main/java/rpg/persistence/ability/AbilityModule.java` und Verdrahtung des Repositories
 - [ ] T032 `NoDatabaseAccessPerGameEventTest` in `rpg-persistence/src/test/` läuft gegen den neuen Aggregattyp — der Test, der T029 bis T031 als Gruppe absichert. **Gehört unmittelbar hinter sie, nicht in die Polish-Phase** (ADR-015 ist aus genau diesem Vergessen entstanden)
 - [ ] T033 [P] `ClassAbilityMigrationTest` in `rpg-persistence/src/test/java/rpg/persistence/ability/` — Testcontainers, die Migration legt die Tabelle mit den erwarteten Spalten und Bedingungen an
 
 ### Auskunft und Verdrahtung
 
-- [ ] T034 `AbilityRegistry` in `rpg-core/src/main/java/rpg/core/ability/AbilityRegistry.java` — die Lesemethoden aus [contracts/ability-api.md](./contracts/ability-api.md); keine davon rechnet (FR-067)
-- [ ] T035 `TargetResolver` als Schnittstelle in `rpg-core/src/main/java/rpg/core/ability/TargetResolver.java` — nimmt `TargetSpec` und Auslöser, liefert Ziel-IDs; die Auswahlregeln bleiben in `rpg-core`, das Nachschlagen in der Welt nicht
+- [X] T034 `AbilityRegistry` in `rpg-core/src/main/java/rpg/core/ability/AbilityRegistry.java` — die Lesemethoden aus [contracts/ability-api.md](./contracts/ability-api.md); keine davon rechnet (FR-067)
+- [X] T035 `TargetResolver` als Schnittstelle in `rpg-core/src/main/java/rpg/core/ability/TargetResolver.java` — nimmt `TargetSpec` und Auslöser, liefert Ziel-IDs; die Auswahlregeln bleiben in `rpg-core`, das Nachschlagen in der Welt nicht
 - [ ] T036 Modul `AbilityModule` in `rpg-core` anlegen und in `rpg-plugin/src/main/java/rpg/plugin/RpgPlugin.java` starten — Laden und Prüfen von `abilities.yml` **nach** `classes.yml`, weil die Abgleichprüfungen beide brauchen
 - [ ] T037 `AbilitySessionAttachment` in `rpg-core/src/main/java/rpg/core/ability/` — hängt sich an B04s `SessionAttachment`-Naht; Ränge laden in `onCharacterActivated`, aufräumen in `onSessionClosing`
 
