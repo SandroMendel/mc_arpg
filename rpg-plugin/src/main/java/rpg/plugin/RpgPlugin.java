@@ -498,9 +498,15 @@ public class RpgPlugin extends JavaPlugin {
                                 .map(
                                         snapshot -> {
                                             var resources = stats.resources(holderId);
+                                            // Mana comes from the same reading as health, so the two
+                                            // halves of the line can never be from different rounds.
+                                            // A mob's maximum is zero, and the readout leaves the
+                                            // mana part out rather than printing 0/0.
                                             return new rpg.platform.hud.CombatStatusSource.Status(
                                                     resources.currentHealth(),
                                                     resources.maxHealth(),
+                                                    resources.currentMana(),
+                                                    resources.maxMana(),
                                                     snapshot.get(rpg.core.stats.Attribute.DEFENSE));
                                         });
 

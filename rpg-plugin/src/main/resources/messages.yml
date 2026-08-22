@@ -65,7 +65,12 @@ combat:
   status:
     # The player's own health and defence, on the action bar. Redrawn on every change and once a
     # second while in combat, because Minecraft fades an action bar after about two seconds.
-    action-bar: '{health}/{max} HP ({percent}%)   DEF {defense}'
+    # A player: health, mana, defence. The colour of the whole line follows health alone - it is the
+    # number that decides whether to run.
+    action-bar: '{health}/{max} HP ({percent}%)   {mana}/{maxMana} MP   DEF {defense}'
+    # A mob has no mana. Its own text rather than a placeholder that stays empty: 0/0 would take
+    # space from three numbers that mean something.
+    action-bar-no-mana: '{health}/{max} HP ({percent}%)   DEF {defense}'
   target:
     # One line per half-second window, not per hit - B05 aggregates, so a fast weapon does not
     # write a wall of text. {damage} is the sum of that window, {hits} how many blows it took.

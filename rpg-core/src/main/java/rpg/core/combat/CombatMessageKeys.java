@@ -23,6 +23,16 @@ public final class CombatMessageKeys {
     public static final MessageKey STATUS_ACTION_BAR = MessageKey.of("combat.status.action-bar");
 
     /**
+     * The same line for a holder without mana - a mob.
+     *
+     * <p>Its own key rather than a placeholder that stays empty: a text with a hole in it is a text
+     * somebody has to remember to keep tidy, and an operator translating this file should see the two
+     * shapes side by side.
+     */
+    public static final MessageKey STATUS_ACTION_BAR_NO_MANA =
+            MessageKey.of("combat.status.action-bar-no-mana");
+
+    /**
      * What the player just hit, in chat.
      *
      * <p>Placeholders: {@code target}, {@code health}, {@code max}, {@code percent},
@@ -37,6 +47,6 @@ public final class CombatMessageKeys {
 
     /** Every key this block can emit, for the resolution test in the plugin module. */
     public static List<MessageKey> all() {
-        return List.of(STATUS_ACTION_BAR, TARGET_REPORT, TARGET_SLAIN);
+        return List.of(STATUS_ACTION_BAR, STATUS_ACTION_BAR_NO_MANA, TARGET_REPORT, TARGET_SLAIN);
     }
 }

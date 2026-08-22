@@ -17,6 +17,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import rpg.core.combat.CombatMessageKeys;
 import rpg.core.event.EventBus;
+import rpg.core.message.MessageKey;
 import rpg.core.message.Messages;
 import rpg.core.scheduler.EntityRef;
 import rpg.core.scheduler.Scheduler;
@@ -25,14 +26,14 @@ import rpg.core.stats.ResourceKind;
 import rpg.core.stats.StatsRecalculatedEvent;
 
 /**
- * The player's own health and defence, on the action bar.
+ * The player's own health, mana and defence, on the action bar.
  *
  * <p>Named for what it is rather than {@code HudRenderer}: Constitution III reserves that name for
  * B13, which will own bossbars, scoreboards and the layout of all of it. This is one line, and taking
  * the bigger name would force B13 to reconcile two abstractions instead of widening one.
  *
- * <p><b>Two triggers.</b> The line is redrawn whenever health changes or the stats are recalculated -
- * the moments the numbers actually differ - and on a steady refresh besides.
+ * <p><b>Two triggers.</b> The line is redrawn whenever a resource changes or the stats are
+ * recalculated - the moments the numbers actually differ - and on a steady refresh besides.
  *
  * <p>The refresh is not optional and cannot be avoided: Minecraft fades an action bar after about two
  * seconds, so a permanent readout means resending it. That is scheduled work while the server is
@@ -72,13 +73,14 @@ public final class StatusActionBar {
     /** Redraws on every health change and every recalculation. */
     public void subscribeTo(EventBus eventBus) {
         Objects.requireNonNull(eventBus, "eventBus");
-        eventBus.subscribe(
-                ResourceChangedEvent.class,
-                event -> {
-                    if (event.kind() == ResourceKind.HEALTH) {
-                        show(event.holderId());
-                    }
-                });
+        // Both resources, not just health: mana is on the line now, and filtering it out would let a
+        // spell cost show up to a second late - long enough to look like the cast did not register.
+        //
+        // This does not make the bar chatty. A change event is only published when the value actually
+        // moved (DefaultStatEngine returns early otherwise), so a player at full health and mana
+        // produces none at all - and one who is regenerating is exactly the player whose bar should
+        // be moving.
+        eventBus.subscribe(ResourceChangedEvent.class, event -> show(event.holderId()));
         // Defence and maximum health only move on a recalculation - a tier advance, a level, a buff.
         eventBus.subscribe(StatsRecalculatedEvent.class, event -> show(event.holderId()));
     }
@@ -129,17 +131,37 @@ public final class StatusActionBar {
                 });
     }
 
+    /**
+     * The line a player reads.
+     *
+     * <p><b>Two texts, not one with an empty gap.</b> A mob has no mana, and printing {@code 0/0} for
+     * it would take space from three numbers that mean something. Which of the two is used follows
+     * from the holder, not from a flag somebody has to remember to pass.
+     *
+     * <p>The colour still comes from <em>health</em> alone. It is the number that decides whether to
+     * run, and a second colour source would make the line say two things at once.
+     */
     private Component line(CombatStatusSource.Status current) {
         int percent = current.percent();
-        return Component.text(
-                        messages.get(
-                                CombatMessageKeys.STATUS_ACTION_BAR,
-                                Map.of(
-                                        "health", whole(current.health()),
-                                        "max", whole(current.maxHealth()),
-                                        "percent", Integer.toString(percent),
-                                        "defense", whole(current.defense()))))
-                .color(colourFor(percent));
+        Map<String, String> values =
+                current.hasMana()
+                        ? Map.of(
+                                "health", whole(current.health()),
+                                "max", whole(current.maxHealth()),
+                                "percent", Integer.toString(percent),
+                                "mana", whole(current.mana()),
+                                "maxMana", whole(current.maxMana()),
+                                "defense", whole(current.defense()))
+                        : Map.of(
+                                "health", whole(current.health()),
+                                "max", whole(current.maxHealth()),
+                                "percent", Integer.toString(percent),
+                                "defense", whole(current.defense()));
+        MessageKey key =
+                current.hasMana()
+                        ? CombatMessageKeys.STATUS_ACTION_BAR
+                        : CombatMessageKeys.STATUS_ACTION_BAR_NO_MANA;
+        return Component.text(messages.get(key, values)).color(colourFor(percent));
     }
 
     /**
