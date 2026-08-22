@@ -17,20 +17,20 @@ import rpg.core.config.SchemaValidator;
  * under test are precisely the ones standing between untyped configuration and typed definition.
  * Same shape and same reasoning as {@code ClassConfigFixture} in B07.
  */
-final class AbilityConfigFixture {
+public final class AbilityConfigFixture {
 
     private static final Path SOURCE = Path.of("abilities.yml");
 
     private AbilityConfigFixture() {}
 
     /** Goes through {@code SchemaValidator} and then the binder - exactly the loader's route. */
-    static AbilityConfig bind(Map<String, Object> document) throws Exception {
+    public static AbilityConfig bind(Map<String, Object> document) throws Exception {
         ConfigSchema<AbilityConfig> schema = AbilityConfigSchema.schema();
         return schema.bind(SchemaValidator.validate(SOURCE, document, schema));
     }
 
     /** A document that must load: the runtime block plus one active and one passive ability. */
-    static Map<String, Object> valid() {
+    public static Map<String, Object> valid() {
         Map<String, Object> document = new LinkedHashMap<>();
         document.put("runtime", runtime());
         Map<String, Object> abilities = new LinkedHashMap<>();
@@ -51,7 +51,7 @@ final class AbilityConfigFixture {
     }
 
     /** An active ability with one damage effect on the caster's surroundings. */
-    static Map<String, Object> activeAbility() {
+    public static Map<String, Object> activeAbility() {
         Map<String, Object> block = new LinkedHashMap<>();
         block.put("kind", "ACTIVE");
         block.put("display-name-key", "ability.probe.strike.name");
@@ -114,7 +114,7 @@ final class AbilityConfigFixture {
     }
 
     @SuppressWarnings("unchecked")
-    static Map<String, Object> abilities(Map<String, Object> document) {
+    public static Map<String, Object> abilities(Map<String, Object> document) {
         return (Map<String, Object>) document.get("abilities");
     }
 

@@ -284,6 +284,19 @@ final class AbilityFixture {
         return effect;
     }
 
+    /**
+     * Eine Fixture ueber einer beliebigen, schon gebundenen Konfiguration.
+     *
+     * <p>Fuer den Fall, den {@link #unlocked} nicht abdeckt: eine Faehigkeit, die es sonst nirgends
+     * gibt. Genau das braucht der SC-001-Beweis.
+     */
+    static AbilityFixture of(AbilityConfig config, Logger logger, String abilityId) {
+        AbilityFixture fixture = new AbilityFixture(config, logger);
+        fixture.unlocked.add(abilityId);
+        fixture.extraBindings.add(abilityId);
+        return fixture;
+    }
+
     /** Bindet das Dokument und schaltet genau diese eine Faehigkeit frei. */
     private static AbilityFixture unlocked(Map<String, Object> document, String abilityId)
             throws Exception {

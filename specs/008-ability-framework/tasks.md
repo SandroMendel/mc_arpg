@@ -270,37 +270,37 @@ dass eine Quelldatei angefasst wurde.
 
 ### Tests für User Story 5 ⚠️
 
-- [ ] T098 [P] [US5] `ConfigOnlyAbilityTest` in `rpg-core/src/test/java/rpg/core/ability/` — SC-001, das Akzeptanzkriterium des Steckbriefs; die Fähigkeit steht ausschließlich in der Testkonfiguration
-- [ ] T099 [P] [US5] `TargetResolutionTest` um die übrigen fünf Modi erweitern — `LOOK_DIRECTION`, `CURSOR`, `CONE`, `LINE`, `NEAREST`, je mit Obergrenze und Abstandsreihenfolge
-- [ ] T100 [P] [US5] `AbilityBudgetTest` in `rpg-core/src/test/java/rpg/core/ability/` — SC-002: 100 gleichzeitig wirkende Flächenfähigkeiten im Tick-Budget; Aufbau wie `CombatBudgetTest` in B05
-- [ ] T101 [P] [US5] `AbilityBudgetTest`: SC-007 — ein Flächeneffekt trifft nie mehr Ziele als seine Obergrenze, auch nicht bei 200 Kandidaten
-- [ ] T102 [P] [US5] `EffectDispatcherTest` in `rpg-core/src/test/java/rpg/core/ability/effect/` — SC-010: eine Ausnahme in einem Effekt beendet weder die übrigen Effekte noch die Sitzung
+- [X] T098 [P] [US5] `ConfigOnlyAbilityTest` in `rpg-core/src/test/java/rpg/core/ability/` — SC-001, das Akzeptanzkriterium des Steckbriefs; die Fähigkeit steht ausschließlich in der Testkonfiguration
+- [X] T099 [P] [US5] `TargetResolutionTest` um die übrigen fünf Modi erweitern — `LOOK_DIRECTION`, `CURSOR`, `CONE`, `LINE`, `NEAREST`, je mit Obergrenze und Abstandsreihenfolge
+- [X] T100 [P] [US5] `AbilityBudgetTest` in `rpg-core/src/test/java/rpg/core/ability/` — SC-002: 100 gleichzeitig wirkende Flächenfähigkeiten im Tick-Budget; Aufbau wie `CombatBudgetTest` in B05
+- [X] T101 [P] [US5] `AbilityBudgetTest`: SC-007 — ein Flächeneffekt trifft nie mehr Ziele als seine Obergrenze, auch nicht bei 200 Kandidaten
+- [X] T102 [P] [US5] `EffectDispatcherTest` in `rpg-core/src/test/java/rpg/core/ability/effect/` — SC-010: eine Ausnahme in einem Effekt beendet weder die übrigen Effekte noch die Sitzung
 
 ### Umsetzung für User Story 5
 
-- [ ] T103 [P] [US5] `BuffEffect` in `rpg-core/src/main/java/rpg/core/ability/effect/BuffEffect.java` — zeitlich begrenzter Modifikator auf eines der zehn Attribute, Ablauf über Zeitstempel (FR-014)
-- [ ] T104 [P] [US5] `DebuffEffect` in `rpg-core/src/main/java/rpg/core/ability/effect/DebuffEffect.java` — dasselbe auf ein feindliches Ziel; **kein Schaden über Zeit**, siehe die Begründung in spec.md
-- [ ] T105 [P] [US5] `DashEffect` in `rpg-core/src/main/java/rpg/core/ability/effect/DashEffect.java`
-- [ ] T106 [P] [US5] `KnockbackEffect` in `rpg-core/src/main/java/rpg/core/ability/effect/KnockbackEffect.java`
-- [ ] T107 [P] [US5] `TeleportEffect` in `rpg-core/src/main/java/rpg/core/ability/effect/TeleportEffect.java` — Reichweite aus `TargetSpec`, kein Versetzen in Blöcke
-- [ ] T108 [US5] `ProjectileEffect` in `rpg-core/src/main/java/rpg/core/ability/effect/ProjectileEffect.java` und `AbilityProjectile` in `rpg-platform/src/main/java/rpg/platform/ability/AbilityProjectile.java` — trägt die Werte **vom Abwurf**, wie B05s `projectileDamage`, und wirkt auch, wenn der Werfer nicht mehr da ist
-- [ ] T109 [US5] `PaperTargetResolver` um `LOOK_DIRECTION`, `CURSOR`, `CONE`, `LINE` und `NEAREST` erweitern — Nachfiltern einer bereits durch den räumlichen Index verkleinerten Menge
-- [ ] T110 [US5] Auswahl nach aufsteigendem Abstand bei mehr Kandidaten als erlaubt, damit dieselbe Lage dasselbe Ergebnis liefert (FR-021)
-- [ ] T111 [US5] Kosten und Cooldown fallen auch an, wenn ein Flächeneffekt **kein** Ziel findet — nur eine abgewiesene Auslösung ist kostenlos (Edge Case in spec.md)
+- [X] T103 [P] [US5] `BuffEffect` in `rpg-core/src/main/java/rpg/core/ability/effect/BuffEffect.java` — zeitlich begrenzter Modifikator auf eines der zehn Attribute, Ablauf über Zeitstempel (FR-014)
+- [X] T104 [P] [US5] `DebuffEffect` in `rpg-core/src/main/java/rpg/core/ability/effect/DebuffEffect.java` — dasselbe auf ein feindliches Ziel; **kein Schaden über Zeit**, siehe die Begründung in spec.md
+- [X] T105 [P] [US5] `DashEffect` in `rpg-core/src/main/java/rpg/core/ability/effect/DashEffect.java`
+- [X] T106 [P] [US5] `KnockbackEffect` in `rpg-core/src/main/java/rpg/core/ability/effect/KnockbackEffect.java`
+- [X] T107 [P] [US5] `TeleportEffect` in `rpg-core/src/main/java/rpg/core/ability/effect/TeleportEffect.java` — Reichweite aus `TargetSpec`, kein Versetzen in Blöcke
+- [X] T108 [US5] `ProjectileEffect` in `rpg-core/src/main/java/rpg/core/ability/effect/ProjectileEffect.java` und `AbilityProjectile` in `rpg-platform/src/main/java/rpg/platform/ability/AbilityProjectile.java` — trägt die Werte **vom Abwurf**, wie B05s `projectileDamage`, und wirkt auch, wenn der Werfer nicht mehr da ist
+- [X] T109 [US5] `PaperTargetResolver` um `LOOK_DIRECTION`, `CURSOR`, `CONE`, `LINE` und `NEAREST` erweitern — Nachfiltern einer bereits durch den räumlichen Index verkleinerten Menge
+- [X] T110 [US5] Auswahl nach aufsteigendem Abstand bei mehr Kandidaten als erlaubt, damit dieselbe Lage dasselbe Ergebnis liefert (FR-021)
+- [X] T111 [US5] Kosten und Cooldown fallen auch an, wenn ein Flächeneffekt **kein** Ziel findet — nur eine abgewiesene Auslösung ist kostenlos (Edge Case in spec.md)
 
 ### Intervall-Wirkung, die vier neuen Primitives und zwei Zielmodi *(ADR-025)*
 
-- [ ] T111a [P] [US5] `IntervalEffectTest` in `rpg-core/src/test/java/rpg/core/ability/effect/` — ein Effekt mit `interval` wirkt über seine Dauer wiederholt; ohne Intervall genau einmal (FR-010a)
-- [ ] T111b [P] [US5] `IntervalEffectTest`: **alle** laufenden Intervall-Effekte teilen sich **eine** Auswertung. Mit einem zählenden Scheduler ist die Zahl der Aufgaben eins, egal ob ein Effekt läuft oder zweihundert (FR-010b) — die Zusage, deren Bruch Prinzip II verletzt
-- [ ] T111c [P] [US5] `IntervalEffectTest`: Stapeln bis zur Höchstzahl; ein weiterer Stapel auf dem Höchststand erneuert die Laufzeit, erhöht die Wirkung nicht; die Gesamtwirkung je Intervall bleibt unter dem Deckel (FR-010c)
-- [ ] T111d [US5] `IntervalEffectRunner` in `rpg-core/src/main/java/rpg/core/ability/effect/IntervalEffectRunner.java` — **ein** serverweiter Durchlauf über alle laufenden Intervall-Effekte, selbst nachplanend wie B05s Sweep; niemals eine Aufgabe je Ziel oder je Effekt
-- [ ] T111e [P] [US5] `EvadeEffect` in `rpg-core/src/main/java/rpg/core/ability/effect/EvadeEffect.java` — Wahrscheinlichkeit, eingehenden Schaden vollständig zu vermeiden, mit Schadenstyp-Filter (FR-016a); hängt auf `PipelineStage.MODIFIERS`, wo der Schaden noch abweisbar ist
-- [ ] T111f [US5] `MeterEffect` und `MeterState` in `rpg-core/src/main/java/rpg/core/ability/` — Zähler 0 bis 100, Aufbau bei Schaden, Zerfall nach Ruhefrist, **lazy aus letztem Stand plus verstrichener Zeit** (FR-016b). Der Attributbeitrag wird bei jedem Schadensereignis neu gesetzt, nicht periodisch
-- [ ] T111g [P] [US5] `MeterStateTest` in `rpg-core/src/test/java/rpg/core/ability/` — Aufbau, Ruhefrist, Zerfall bis 0, Klemmen bei 100; mit steuerbarer Uhr und **null geplanten Aufgaben**; nach dem Abmelden beginnt er wieder bei 0
-- [ ] T111h [US5] `SummonEffect` in `rpg-core/src/main/java/rpg/core/ability/effect/SummonEffect.java` und die Paper-Seite in `rpg-platform/src/main/java/rpg/platform/ability/` — Wesen mit den Werten des Auslösers, greift nicht an, löst bei Ablauf oder null Gesundheit einen Effekt aus. **Die Aggro-Umlenkung bleibt eine leere Schnittstelle bis B10** und das steht im Javadoc (FR-016c)
-- [ ] T111i [US5] `InvisibilityEffect` — Vanilla-Unsichtbarkeit plus Unverwundbarkeit für eine Dauer, endet bei ausgeteiltem Schaden. **Mob-Abwendung und Boss-Ausnahme bleiben bis B10 offen**; das Void bleibt tödlich (FR-016d)
-- [ ] T111j [P] [US5] `PaperTargetResolver` um `CHAIN` erweitern — jedes weitere Ziel im Umkreis des **zuletzt getroffenen**, keines zweimal, bis zur Obergrenze (FR-019a)
-- [ ] T111k [P] [US5] `PaperTargetResolver` um `GROUND_AREA` erweitern — an einem Cursor-Punkt verankert, eigener Radius, eigene Höchstentfernung; bleibt am Ort, auch wenn der Auslöser weggeht (FR-019b)
+- [X] T111a [P] [US5] `IntervalEffectTest` in `rpg-core/src/test/java/rpg/core/ability/effect/` — ein Effekt mit `interval` wirkt über seine Dauer wiederholt; ohne Intervall genau einmal (FR-010a)
+- [X] T111b [P] [US5] `IntervalEffectTest`: **alle** laufenden Intervall-Effekte teilen sich **eine** Auswertung. Mit einem zählenden Scheduler ist die Zahl der Aufgaben eins, egal ob ein Effekt läuft oder zweihundert (FR-010b) — die Zusage, deren Bruch Prinzip II verletzt
+- [X] T111c [P] [US5] `IntervalEffectTest`: Stapeln bis zur Höchstzahl; ein weiterer Stapel auf dem Höchststand erneuert die Laufzeit, erhöht die Wirkung nicht; die Gesamtwirkung je Intervall bleibt unter dem Deckel (FR-010c)
+- [X] T111d [US5] `IntervalEffectRunner` in `rpg-core/src/main/java/rpg/core/ability/effect/IntervalEffectRunner.java` — **ein** serverweiter Durchlauf über alle laufenden Intervall-Effekte, selbst nachplanend wie B05s Sweep; niemals eine Aufgabe je Ziel oder je Effekt
+- [X] T111e [P] [US5] `EvadeEffect` in `rpg-core/src/main/java/rpg/core/ability/effect/EvadeEffect.java` — Wahrscheinlichkeit, eingehenden Schaden vollständig zu vermeiden, mit Schadenstyp-Filter (FR-016a); hängt auf `PipelineStage.MODIFIERS`, wo der Schaden noch abweisbar ist
+- [X] T111f [US5] `MeterEffect` und `MeterState` in `rpg-core/src/main/java/rpg/core/ability/` — Zähler 0 bis 100, Aufbau bei Schaden, Zerfall nach Ruhefrist, **lazy aus letztem Stand plus verstrichener Zeit** (FR-016b). Der Attributbeitrag wird bei jedem Schadensereignis neu gesetzt, nicht periodisch
+- [X] T111g [P] [US5] `MeterStateTest` in `rpg-core/src/test/java/rpg/core/ability/` — Aufbau, Ruhefrist, Zerfall bis 0, Klemmen bei 100; mit steuerbarer Uhr und **null geplanten Aufgaben**; nach dem Abmelden beginnt er wieder bei 0
+- [X] T111h [US5] `SummonEffect` in `rpg-core/src/main/java/rpg/core/ability/effect/SummonEffect.java` und die Paper-Seite in `rpg-platform/src/main/java/rpg/platform/ability/` — Wesen mit den Werten des Auslösers, greift nicht an, löst bei Ablauf oder null Gesundheit einen Effekt aus. **Die Aggro-Umlenkung bleibt eine leere Schnittstelle bis B10** und das steht im Javadoc (FR-016c)
+- [X] T111i [US5] `InvisibilityEffect` — Vanilla-Unsichtbarkeit plus Unverwundbarkeit für eine Dauer, endet bei ausgeteiltem Schaden. **Mob-Abwendung und Boss-Ausnahme bleiben bis B10 offen**; das Void bleibt tödlich (FR-016d)
+- [X] T111j [P] [US5] `PaperTargetResolver` um `CHAIN` erweitern — jedes weitere Ziel im Umkreis des **zuletzt getroffenen**, keines zweimal, bis zur Obergrenze (FR-019a)
+- [X] T111k [P] [US5] `PaperTargetResolver` um `GROUND_AREA` erweitern — an einem Cursor-Punkt verankert, eigener Radius, eigene Höchstentfernung; bleibt am Ort, auch wenn der Auslöser weggeht (FR-019b)
 
 **Checkpoint**: Die Maschine ist vollständig. SC-001 ist bewiesen, nicht behauptet.
 

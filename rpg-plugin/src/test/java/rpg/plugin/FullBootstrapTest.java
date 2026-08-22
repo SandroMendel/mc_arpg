@@ -164,6 +164,15 @@ class FullBootstrapTest {
     }
 
     @Test
+    void abilityProjectilesSettleOnImpact() {
+        // Exactly one, and it belongs to B08. A fireball carries its values from the throw, so the
+        // impact has to be caught somewhere - and a second owner of this event would mean two blocks
+        // deciding what an arriving projectile does.
+        assertThat(handlerCount(org.bukkit.event.entity.ProjectileHitEvent.getHandlerList()))
+                .isEqualTo(1);
+    }
+
+    @Test
     void naturalRegenerationIsOffInEveryWorld() {
         assertThat(server.getWorlds())
                 .isNotEmpty()

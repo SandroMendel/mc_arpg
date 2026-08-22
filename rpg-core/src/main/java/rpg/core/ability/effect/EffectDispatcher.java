@@ -47,6 +47,33 @@ public final class EffectDispatcher {
     }
 
     /**
+     * Applies one prepared effect, behind the same barrier as the rest.
+     *
+     * <p>For {@link IntervalEffectRunner}, which resolves stacking into a single value before handing
+     * it over - a primitive applies an amount and should not have to know that stacking exists.
+     */
+    public void runOne(
+            Ability ability,
+            EffectSpec spec,
+            UUID casterId,
+            List<UUID> targets,
+            int rank,
+            StatSnapshot snapshot) {
+        AbilityEffect effect = effects.get(spec.type());
+        if (effect == null) {
+            return;
+        }
+        try {
+            effect.apply(new EffectContext(ability, spec, casterId, targets, rank, snapshot, null));
+        } catch (RuntimeException failure) {
+            logger.log(
+                    Level.WARNING,
+                    "[abilities] " + ability.id() + ": interval effect " + spec.type() + " failed",
+                    failure);
+        }
+    }
+
+    /**
      * Applies every effect of {@code ability} to {@code targets}.
      *
      * @param snapshot the caster's values as of the trigger, held for all of them (FR-018)

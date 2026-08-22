@@ -539,6 +539,33 @@ public class RpgPlugin extends JavaPlugin {
     }
 
     /**
+     * The one sweep that drives every timed ability effect (FR-010b).
+     *
+     * <p>Interval effects, expiring buffs and lost projectiles share it, because they share the reason for existing:
+     * both are "something that ends later", and the alternative - a task per running effect - is the
+     * shape Constitution II rules out. At two hundred poisons this is one pass; with none running it
+     * is two empty map scans.
+     *
+     * <p>Half a second, not a tick. An effect configured at one second is late by at most half of one,
+     * and nothing in this game is fine-grained enough for that to be visible.
+     */
+    private void startAbilitySweep(
+            rpg.core.ability.effect.IntervalEffectRunner intervals,
+            rpg.core.ability.effect.BuffEffect buffs,
+            rpg.platform.ability.AbilityProjectile projectiles) {
+        scheduler.runAsyncDelayed(
+                Duration.ofMillis(500),
+                () -> {
+                    intervals.sweep();
+                    buffs.expire();
+                    projectiles.sweep();
+                    if (isEnabled()) {
+                        startAbilitySweep(intervals, buffs, projectiles);
+                    }
+                });
+    }
+
+    /**
      * Assembles the Paper-facing half of B07, and hands back the seam B03 drives it through.
      *
      * <p>Four listeners and one observer. The observer is why this runs before
@@ -595,6 +622,47 @@ public class RpgPlugin extends JavaPlugin {
         rpg.core.ability.effect.ShieldEffect shields =
                 new rpg.core.ability.effect.ShieldEffect(Clock.systemUTC());
         effects.register(rpg.core.ability.EffectType.SHIELD, shields);
+
+        // Buff and debuff differ only in who they land on, and the targeting decided that already.
+        rpg.core.ability.effect.BuffEffect buffs =
+                new rpg.core.ability.effect.BuffEffect(statsModule.engine(), Clock.systemUTC());
+        effects.register(rpg.core.ability.EffectType.BUFF, buffs);
+        effects.register(rpg.core.ability.EffectType.DEBUFF, buffs);
+        rpg.core.ability.effect.MeterEffect meter =
+                new rpg.core.ability.effect.MeterEffect(statsModule.engine(), Clock.systemUTC());
+        effects.register(rpg.core.ability.EffectType.METER, meter);
+
+        // The three that need the world. The two B10 gaps - mob aggression towards a clone, mobs
+        // losing interest in someone who vanished - are named in the primitives' javadoc rather than
+        // silently absent.
+        rpg.platform.ability.PaperSummons summons =
+                new rpg.platform.ability.PaperSummons(getServer(), scheduler, getLogger());
+        effects.register(
+                rpg.core.ability.EffectType.SUMMON,
+                new rpg.core.ability.effect.SummonEffect(summons));
+        effects.register(
+                rpg.core.ability.EffectType.INVISIBILITY,
+                new rpg.core.ability.effect.InvisibilityEffect(summons));
+
+        rpg.platform.ability.AbilityProjectile projectiles =
+                new rpg.platform.ability.AbilityProjectile(getServer(), pipeline, getLogger());
+        effects.register(
+                rpg.core.ability.EffectType.PROJECTILE,
+                new rpg.core.ability.effect.ProjectileEffect(projectiles));
+        getServer().getPluginManager().registerEvents(projectiles, this);
+
+        rpg.platform.ability.PaperMovementEffects movement =
+                new rpg.platform.ability.PaperMovementEffects(getServer(), getLogger());
+        effects.register(rpg.core.ability.EffectType.DASH, movement.dash());
+        effects.register(rpg.core.ability.EffectType.KNOCKBACK, movement.knockback());
+        effects.register(rpg.core.ability.EffectType.TELEPORT, movement.teleport());
+
+        // ONE sweep for every interval effect in the game, and one for expiring buffs. Per target
+        // would be a recurring task per entity - the shape that made damage over time unacceptable
+        // the first time round (FR-010b).
+        rpg.core.ability.effect.IntervalEffectRunner intervals =
+                new rpg.core.ability.effect.IntervalEffectRunner(effects, Clock.systemUTC());
+        startAbilitySweep(intervals, buffs, projectiles);
 
         abilityRuntime =
                 new rpg.core.ability.AbilityRuntime(
@@ -709,9 +777,16 @@ public class RpgPlugin extends JavaPlugin {
 
         // The session end is B03's to announce, not ours to listen for (FR-007, FR-014). The module
         // hears about it through its attachment and stops whatever was running.
+        // Everything a character can leave behind: the running ability, its interval effects, its
+        // timed buffs and its meter. A missed one is a leak that only shows up after hours of
+        // players coming and going, which is the worst kind of leak to look for.
         abilityModule.setRunningEnder(
-                characterId ->
-                        abilityRuntime.end(characterId, rpg.core.ability.EndCause.DISCONNECTED));
+                characterId -> {
+                    abilityRuntime.end(characterId, rpg.core.ability.EndCause.DISCONNECTED);
+                    intervals.forget(characterId);
+                    buffs.forget(characterId);
+                    meter.forget(characterId);
+                });
 
         getLogger()
                 .info(
