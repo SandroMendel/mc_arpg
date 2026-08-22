@@ -118,20 +118,20 @@ wirkt, ein zweiter Klick wird abgewiesen.
 
 > Diese Tests werden **zuerst** geschrieben und müssen fehlschlagen, bevor implementiert wird.
 
-- [ ] T038 [P] [US1] `AbilityRuntimeTest` in `rpg-core/src/test/java/rpg/core/ability/` — die sechs Akzeptanzfälle aus US1: Auslösung wirkt, zweite Auslösung abgewiesen, zu wenig Mana, globale Sperre, Linksklick wirkungslos, kein aktiver Charakter
-- [ ] T039 [P] [US1] `AbilityRuntimeTest`: SC-003 — drei Ablehnungsgründe mal 1000 Versuche, null Durchbrüche, und **kein** Verbrauch bei Ablehnung
+- [X] T038 [P] [US1] `AbilityRuntimeTest` in `rpg-core/src/test/java/rpg/core/ability/` — die sechs Akzeptanzfälle aus US1: Auslösung wirkt, zweite Auslösung abgewiesen, zu wenig Mana, globale Sperre, Linksklick wirkungslos, kein aktiver Charakter
+- [X] T039 [P] [US1] `AbilityRuntimeTest`: SC-003 — drei Ablehnungsgründe mal 1000 Versuche, null Durchbrüche, und **kein** Verbrauch bei Ablehnung
 - [ ] T040 [P] [US1] `TargetResolutionTest` in `rpg-core/src/test/java/rpg/core/ability/` — `SELF` liefert genau den Auslöser; `RADIUS` respektiert die Obergrenze und wählt nach aufsteigendem Abstand (FR-021)
 - [ ] T041 [P] [US1] `AbilityTriggerListenerTest` in `rpg-platform/src/test/java/rpg/platform/ability/` mit MockBukkit — Rechtsklick löst aus, Linksklick löst weder Fähigkeit noch Nahkampf aus
 
 ### Umsetzung für User Story 1
 
-- [ ] T042 [P] [US1] `AbilityResult` in `rpg-core/src/main/java/rpg/core/ability/AbilityResult.java` — die acht Ergebnisse aus [contracts/ability-api.md](./contracts/ability-api.md), jedes mit seinem Message-Schlüssel; ausgeworfen wird nur, was ein Programmfehler ist
-- [ ] T043 [US1] `AbilityRuntime` in `rpg-core/src/main/java/rpg/core/ability/AbilityRuntime.java` mit `trigger` — Prüfreihenfolge: Charakter aktiv, freigeschaltet, kein laufender Cast, globale Sperre, Einzel-Cooldown, Mana (FR-024, FR-025)
-- [ ] T044 [US1] Cooldown-Arithmetik in `AbilityRuntime`: Vergleich zweier Zeitstempel, **kein** Herunterzählen (FR-026); Verkürzung um die Cooldown-Reduktion des Auslösers, hart gedeckelt bei 40 % (FR-027)
-- [ ] T045 [US1] Globale Sperre in `AbilityRuntime` — ein Zeitstempel je Charakter, gesetzt beim **Beginn** der Auslösung (FR-029)
-- [ ] T046 [P] [US1] `DamageEffect` in `rpg-core/src/main/java/rpg/core/ability/effect/DamageEffect.java` — über `CombatPipeline.abilityDamage`, `amount` als **Faktor** auf das Schadensattribut (FR-012, FR-013)
-- [ ] T047 [US1] Fehlerbarriere je Effekt in `rpg-core/src/main/java/rpg/core/ability/effect/EffectDispatcher.java` — eine Ausnahme wird abgefangen, mit der Kennung der Fähigkeit protokolliert und auf das eine Ereignis begrenzt; die übrigen Effekte laufen weiter (FR-017)
-- [ ] T048 [US1] Der Wertestand wird **einmal beim Auslösen** gezogen und bis zum Ende der Handlung gehalten (FR-018) — dieselbe Regel, die ADR-013 für `StatSnapshot` festgehalten hat
+- [X] T042 [P] [US1] `AbilityResult` in `rpg-core/src/main/java/rpg/core/ability/AbilityResult.java` — die acht Ergebnisse aus [contracts/ability-api.md](./contracts/ability-api.md), jedes mit seinem Message-Schlüssel; ausgeworfen wird nur, was ein Programmfehler ist
+- [X] T043 [US1] `AbilityRuntime` in `rpg-core/src/main/java/rpg/core/ability/AbilityRuntime.java` mit `trigger` — Prüfreihenfolge: Charakter aktiv, freigeschaltet, kein laufender Cast, globale Sperre, Einzel-Cooldown, Mana (FR-024, FR-025)
+- [X] T044 [US1] Cooldown-Arithmetik in `AbilityRuntime`: Vergleich zweier Zeitstempel, **kein** Herunterzählen (FR-026); Verkürzung um die Cooldown-Reduktion des Auslösers, hart gedeckelt bei 40 % (FR-027)
+- [X] T045 [US1] Globale Sperre in `AbilityRuntime` — ein Zeitstempel je Charakter, gesetzt beim **Beginn** der Auslösung (FR-029)
+- [X] T046 [P] [US1] `DamageEffect` in `rpg-core/src/main/java/rpg/core/ability/effect/DamageEffect.java` — über `CombatPipeline.abilityDamage`, `amount` als **Faktor** auf das Schadensattribut (FR-012, FR-013)
+- [X] T047 [US1] Fehlerbarriere je Effekt in `rpg-core/src/main/java/rpg/core/ability/effect/EffectDispatcher.java` — eine Ausnahme wird abgefangen, mit der Kennung der Fähigkeit protokolliert und auf das eine Ereignis begrenzt; die übrigen Effekte laufen weiter (FR-017)
+- [X] T048 [US1] Der Wertestand wird **einmal beim Auslösen** gezogen und bis zum Ende der Handlung gehalten (FR-018) — dieselbe Regel, die ADR-013 für `StatSnapshot` festgehalten hat
 - [ ] T049 [P] [US1] `PaperTargetResolver` in `rpg-platform/src/main/java/rpg/platform/ability/PaperTargetResolver.java` mit `SELF` und `RADIUS` über `World.getNearbyEntities` — räumlicher Index statt linearer Iteration (FR-022)
 - [ ] T050 [US1] Zielberechtigung im Resolver: kein Ziel, das nach B05s Regel nicht angegriffen werden darf (FR-023)
 - [ ] T051 [P] [US1] `AbilityItemTag` in `rpg-platform/src/main/java/rpg/platform/ability/AbilityItemTag.java` — zweite Marke im `PersistentDataContainer` mit der Fähigkeits-ID, neben B07s `BoundItemTag`; die Fähigkeit wird **nie** aus dem Material abgeleitet (FR-058)
