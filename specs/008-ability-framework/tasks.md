@@ -155,22 +155,22 @@ tatsächlich zugefügten Schadens.
 
 ### Tests für User Story 2 ⚠️
 
-- [ ] T057 [P] [US2] `PassiveTriggerTest` in `rpg-core/src/test/java/rpg/core/ability/` — je Trigger ein Fall; Lifesteal heilt den **nach Mitigation** zugefügten Betrag, nicht den rohen
-- [ ] T058 [P] [US2] `PassiveTriggerTest`: Heilung über das Maximum verpufft ohne Fehler; eine noch nicht freigeschaltete Passive wirkt nicht
-- [ ] T059 [P] [US2] `OnDeathTriggerTest` in `rpg-core/src/test/java/rpg/core/ability/` — Wiederbelebung bei Chance 1.0, danach Cooldown; innerhalb des Cooldowns regulärer Tod; **`kill` ist nicht abfangbar** (FR-051)
+- [X] T057 [P] [US2] `PassiveTriggerTest` in `rpg-core/src/test/java/rpg/core/ability/` — je Trigger ein Fall; Lifesteal heilt den **nach Mitigation** zugefügten Betrag, nicht den rohen
+- [X] T058 [P] [US2] `PassiveTriggerTest`: Heilung über das Maximum verpufft ohne Fehler; eine noch nicht freigeschaltete Passive wirkt nicht
+- [X] T059 [P] [US2] `OnDeathTriggerTest` in `rpg-core/src/test/java/rpg/core/ability/` — Wiederbelebung bei Chance 1.0, danach Cooldown; innerhalb des Cooldowns regulärer Tod; **`kill` ist nicht abfangbar** (FR-051)
 - [ ] T060 [P] [US2] `DoubleJumpListenerTest` in `rpg-platform/src/test/java/rpg/platform/ability/` mit MockBukkit — zweiter Sprung trägt, dritter vor Bodenkontakt nicht
 
 ### Umsetzung für User Story 2
 
-- [ ] T061 [US2] `PassiveDispatcher` in `rpg-core/src/main/java/rpg/core/ability/PassiveDispatcher.java` — löst die passiven Fähigkeiten eines Charakters nach Trigger auf, ohne je Ereignis zu allokieren
-- [ ] T062 [US2] Interceptor auf `PipelineStage.MODIFIERS` für `ON_DAMAGE_TAKEN` — dort ist der Schaden noch abweisbar, was Ausweichen braucht (research.md R6)
-- [ ] T063 [US2] Interceptor auf `PipelineStage.APPLICATION` für `ON_DAMAGE_DEALT` und `ON_DEATH` — dort steht der tatsächlich zugefügte Betrag, was Lifesteal braucht
+- [X] T061 [US2] `PassiveDispatcher` in `rpg-core/src/main/java/rpg/core/ability/PassiveDispatcher.java` — löst die passiven Fähigkeiten eines Charakters nach Trigger auf, ohne je Ereignis zu allokieren
+- [X] T062 [US2] Interceptor auf `PipelineStage.MODIFIERS` für `ON_DAMAGE_TAKEN` — dort ist der Schaden noch abweisbar, was Ausweichen braucht (research.md R6)
+- [X] T063 [US2] Interceptor auf `PipelineStage.APPLICATION` für `ON_DAMAGE_DEALT` und `ON_DEATH` — dort steht der tatsächlich zugefügte Betrag, was Lifesteal braucht
 - [ ] T064 [US2] `ON_KILL` an B05s Todesereignis hängen
 - [ ] T065 [US2] `ALWAYS` als Dauerwirkung: meldet einen `ModifierSet` über `StatEngine.apply` an und entfernt ihn beim Charakterwechsel oder Verlust der Freischaltung (FR-052)
-- [ ] T066 [US2] Wahrscheinlichkeit je Passive, geprüft bei **jedem** Auftreten des Triggers (FR-049); der Zufallsgenerator ist einspeisbar, damit der Test ihn festnageln kann
-- [ ] T067 [US2] Eigener Cooldown für Passive — geprüft wie bei aktiven, aber ohne Auslösung durch den Spieler (FR-048)
-- [ ] T068 [P] [US2] `LifestealEffect` in `rpg-core/src/main/java/rpg/core/ability/effect/LifestealEffect.java` — Anteil des zugefügten Schadens als Heilung, **kein neues Attribut** (FR-016, ADR-022)
-- [ ] T069 [P] [US2] `HealEffect` und `ManaRestoreEffect` in `rpg-core/src/main/java/rpg/core/ability/effect/` — beide klemmen am Maximum
+- [X] T066 [US2] Wahrscheinlichkeit je Passive, geprüft bei **jedem** Auftreten des Triggers (FR-049); der Zufallsgenerator ist einspeisbar, damit der Test ihn festnageln kann
+- [X] T067 [US2] Eigener Cooldown für Passive — geprüft wie bei aktiven, aber ohne Auslösung durch den Spieler (FR-048)
+- [X] T068 [P] [US2] `LifestealEffect` in `rpg-core/src/main/java/rpg/core/ability/effect/LifestealEffect.java` — Anteil des zugefügten Schadens als Heilung, **kein neues Attribut** (FR-016, ADR-022)
+- [X] T069 [P] [US2] `HealEffect` und `ManaRestoreEffect` in `rpg-core/src/main/java/rpg/core/ability/effect/` — beide klemmen am Maximum
 - [ ] T070 [US2] `ON_DEATH` fängt den tödlichen Schaden ab und setzt stattdessen einen Anteil der Maximalgesundheit (FR-050)
 - [ ] T071 [P] [US2] `DoubleJumpListener` in `rpg-platform/src/main/java/rpg/platform/ability/DoubleJumpListener.java` — `PlayerToggleFlightEvent` abbrechen, Aufwärtsimpuls geben, `allowFlight` beim Bodenkontakt zurücksetzen (research.md R7)
 - [ ] T072 [P] [US2] `StatusEffectEffect` in `rpg-core/src/main/java/rpg/core/ability/effect/` — trägt Slow Fall und Verlangsamung über Vanilla-Statuseffekte

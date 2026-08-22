@@ -579,6 +579,17 @@ public class RpgPlugin extends JavaPlugin {
         effects.register(
                 rpg.core.ability.EffectType.DAMAGE,
                 new rpg.core.ability.effect.DamageEffect(pipeline));
+        effects.register(
+                rpg.core.ability.EffectType.LIFESTEAL,
+                new rpg.core.ability.effect.LifestealEffect(statsModule.engine()));
+        effects.register(
+                rpg.core.ability.EffectType.HEAL,
+                new rpg.core.ability.effect.HealEffect(statsModule.engine()));
+        effects.register(
+                rpg.core.ability.EffectType.MANA_RESTORE,
+                new rpg.core.ability.effect.ManaRestoreEffect(statsModule.engine()));
+        effects.register(
+                rpg.core.ability.EffectType.EVADE, new rpg.core.ability.effect.EvadeEffect());
 
         abilityRuntime =
                 new rpg.core.ability.AbilityRuntime(
@@ -590,6 +601,26 @@ public class RpgPlugin extends JavaPlugin {
                         Clock.systemUTC());
 
         abilityHotbar = new rpg.platform.ability.AbilityHotbar(messages, getLogger());
+
+        // The passive triggers, hung on the three hooks B05 already has (research.md R6). Which stage
+        // each one uses is not interchangeable - see PassiveInterceptors.
+        rpg.core.ability.PassiveDispatcher passives =
+                new rpg.core.ability.PassiveDispatcher(
+                        abilities,
+                        effects,
+                        statsModule.engine(),
+                        abilityModule.repository(),
+                        Clock.systemUTC(),
+                        Math::random);
+        pipeline.registerInterceptor(rpg.core.ability.PassiveInterceptors.damageTaken(passives));
+        pipeline.registerInterceptor(rpg.core.ability.PassiveInterceptors.damageDealt(passives));
+        pipeline.registerInterceptor(
+                rpg.core.ability.PassiveInterceptors.lethalBlow(
+                        passives,
+                        statsModule.engine(),
+                        // The title, the sound and the teleport back are B13's to draw properly; until
+                        // then the save works and simply looks like nothing (FR-052c).
+                        rpg.core.ability.PassiveInterceptors.SecondLifeHandler.none()));
 
         getServer()
                 .getPluginManager()

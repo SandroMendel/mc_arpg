@@ -53,6 +53,22 @@ public final class EffectDispatcher {
      */
     public void run(
             Ability ability, UUID casterId, List<UUID> targets, int rank, StatSnapshot snapshot) {
+        run(ability, casterId, targets, rank, snapshot, null);
+    }
+
+    /**
+     * The same, for a passive fired by an event.
+     *
+     * @param data what the trigger brought - the amount that landed, and a way to refuse it. Lifesteal
+     *     and evasion cannot work without it; every other primitive ignores it.
+     */
+    public void run(
+            Ability ability,
+            UUID casterId,
+            List<UUID> targets,
+            int rank,
+            StatSnapshot snapshot,
+            EffectContext.TriggerData data) {
         for (EffectSpec spec : ability.effects()) {
             AbilityEffect effect = effects.get(spec.type());
             if (effect == null) {
@@ -66,7 +82,8 @@ public final class EffectDispatcher {
                 continue;
             }
             try {
-                effect.apply(new EffectContext(ability, spec, casterId, targets, rank, snapshot));
+                effect.apply(
+                        new EffectContext(ability, spec, casterId, targets, rank, snapshot, data));
             } catch (RuntimeException failure) {
                 // Confined to this one effect of this one trigger. The player keeps playing, the
                 // remaining effects still run, and the log names what to look at.

@@ -6,6 +6,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -55,6 +56,9 @@ final class AbilityFixture {
 
     /** The abilities the level has unlocked. */
     List<String> unlocked = new ArrayList<>();
+
+    /** Zusaetzliche Klassenbindungen, die eine Fixture-Variante mitbringt. */
+    final List<String> extraBindings = new ArrayList<>();
 
     private AbilityFixture(AbilityConfig config, Logger logger) {
         this.dispatcher = new EffectDispatcher(logger);
@@ -109,13 +113,91 @@ final class AbilityFixture {
         return fixture;
     }
 
+    /** Eine Passive mit ZWEI Effekten und 50 % Chance - fuer FR-049. */
+    static AbilityFixture withTwoEffectPassive() throws Exception {
+        Map<String, Object> document = AbilityConfigFixture.valid();
+        Map<String, Object> ability = AbilityConfigFixture.passiveAbility();
+        ability.put("trigger", "ON_KILL");
+        ability.put("chance", 0.5);
+        ability.put("display-name-key", "ability.probe.two.name");
+        ability.put("effects", new ArrayList<>(List.of(heal(20.0), manaRestore(10.0))));
+        AbilityConfigFixture.abilities(document).put("probe.two", ability);
+        return unlocked(document, "probe.two");
+    }
+
+    /** Eine Passive mit langem Cooldown - Second Life im Kleinen, fuer FR-048. */
+    static AbilityFixture withCooldownPassive() throws Exception {
+        Map<String, Object> document = AbilityConfigFixture.valid();
+        Map<String, Object> ability = AbilityConfigFixture.passiveAbility();
+        ability.put("trigger", "ON_DEATH");
+        ability.put("cooldown-ms", 600000);
+        ability.put("display-name-key", "ability.probe.guarded.name");
+        ability.put("effects", new ArrayList<>(List.of(heal(300.0))));
+        AbilityConfigFixture.abilities(document).put("probe.guarded", ability);
+        return unlocked(document, "probe.guarded");
+    }
+
+    /** Eine abschaltbare Passive - fuer FR-052d. */
+    static AbilityFixture withTogglePassive() throws Exception {
+        Map<String, Object> document = AbilityConfigFixture.valid();
+        Map<String, Object> ability = AbilityConfigFixture.passiveAbility();
+        ability.put("trigger", "ON_KILL");
+        ability.put("player-toggle", true);
+        ability.put("display-name-key", "ability.probe.toggle.name");
+        ability.put("effects", new ArrayList<>(List.of(heal(10.0))));
+        AbilityConfigFixture.abilities(document).put("probe.toggle", ability);
+        return unlocked(document, "probe.toggle");
+    }
+
+    /** Ausweichen NUR gegen magischen Schaden - fuer FR-016a. */
+    static AbilityFixture withMagicEvade() throws Exception {
+        Map<String, Object> document = AbilityConfigFixture.valid();
+        Map<String, Object> ability = AbilityConfigFixture.passiveAbility();
+        ability.put("trigger", "ON_DAMAGE_TAKEN");
+        ability.put("display-name-key", "ability.probe.evade.name");
+        Map<String, Object> evade = new LinkedHashMap<>();
+        evade.put("type", "EVADE");
+        evade.put("damage-type", "MAGIC");
+        evade.put("amount", 1.0);
+        ability.put("effects", new ArrayList<>(List.of(evade)));
+        AbilityConfigFixture.abilities(document).put("probe.evade", ability);
+        return unlocked(document, "probe.evade");
+    }
+
+    private static Map<String, Object> heal(double amount) {
+        Map<String, Object> effect = new LinkedHashMap<>();
+        effect.put("type", "HEAL");
+        effect.put("amount", amount);
+        return effect;
+    }
+
+    private static Map<String, Object> manaRestore(double amount) {
+        Map<String, Object> effect = new LinkedHashMap<>();
+        effect.put("type", "MANA_RESTORE");
+        effect.put("amount", amount);
+        return effect;
+    }
+
+    /** Bindet das Dokument und schaltet genau diese eine Faehigkeit frei. */
+    private static AbilityFixture unlocked(Map<String, Object> document, String abilityId)
+            throws Exception {
+        Logger logger = Logger.getLogger(AbilityFixture.class.getName());
+        logger.setLevel(Level.OFF);
+        AbilityFixture fixture = new AbilityFixture(AbilityConfigFixture.bind(document), logger);
+        fixture.unlocked.add(abilityId);
+        fixture.extraBindings.add(abilityId);
+        return fixture;
+    }
+
     /** The ability every test in US1 uses: active, 25 mana, 9 s cooldown, one damage effect. */
     Ability strike() {
         return registry.config().require("probe.strike");
     }
 
     private List<AbilityBinding> bindingsOf(CharacterClass id) {
-        return bindingsFor(List.of("probe.strike", "probe.dash", "probe.lifesteal"));
+        List<String> all = new ArrayList<>(List.of("probe.strike", "probe.dash", "probe.lifesteal"));
+        all.addAll(extraBindings);
+        return bindingsFor(all);
     }
 
     private List<AbilityBinding> bindingsFor(List<String> ids) {
@@ -179,6 +261,8 @@ final class AbilityFixture {
     static final class FakeStats implements rpg.core.stats.StatEngine {
         double mana = 100.0;
         double maxMana = 100.0;
+        double health = 1000.0;
+        double maxHealth = 1000.0;
         double cooldownReduction;
 
         private final Map<rpg.core.stats.Attribute, Double> values = new HashMap<>();
@@ -204,7 +288,7 @@ final class AbilityFixture {
 
         @Override
         public rpg.core.stats.ResourceView resources(UUID holderId) {
-            return new rpg.core.stats.ResourceView(100.0, 100.0, mana, maxMana);
+            return new rpg.core.stats.ResourceView(health, maxHealth, mana, maxMana);
         }
 
         @Override
@@ -259,7 +343,8 @@ final class AbilityFixture {
 
         @Override
         public double changeHealth(UUID holderId, double delta) {
-            return 100.0;
+            health = Math.max(0.0, Math.min(maxHealth, health + delta));
+            return health;
         }
 
         @Override
