@@ -72,7 +72,7 @@ gegen eine echte PostgreSQL-Instanz. Testaufgaben stehen deshalb je Geschichte *
 
 - [ ] T018 `ZoneConfig` in `rpg-core/.../zone/ZoneConfig.java` — der ausgelesene Stand: Zonen, Ausweichpunkt, `provisional`-Kennzeichen
 - [ ] T019 `ZoneConfigSchema` in `rpg-core/.../zone/ZoneConfigSchema.java` — Auslesen und Prüfen nach [contracts/zone-config.md](./contracts/zone-config.md), Fail-Fast mit einer Meldung, die die verantwortliche Stelle benennt (FR-013, Prinzip V)
-- [ ] T020 `ZoneConfigSchemaTest` in `rpg-core/src/test/java/rpg/core/zone/` — **je Startverweigerung ein Fall**, alle zehn aus [data-model.md §5](./data-model.md): überlappende Zonen (FR-012), doppelte Zonenkennung (FR-003), Schutzkern ausserhalb seiner Zone (FR-009), Spawn-Bereich ausserhalb der Zone oder im Kern (FR-055), doppelte Spawn-Kennung, Kristall ohne Schutzkern (FR-051c), Kristall-Auslösebereich ausserhalb seiner Zone (FR-051d), doppelte Kristallkennung, fehlender Message-Schlüssel (FR-003c), keine oder zwei Startregionen (FR-037a)
+- [ ] T020 `ZoneConfigSchemaTest` in `rpg-core/src/test/java/rpg/core/zone/` — **je Startverweigerung ein Fall**, alle elf aus [data-model.md §5](./data-model.md): **unbekannter Weltname (FR-002a)**, überlappende Zonen (FR-012), doppelte Zonenkennung (FR-003), Schutzkern ausserhalb seiner Zone (FR-009), Spawn-Bereich ausserhalb der Zone oder im Kern (FR-055), doppelte Spawn-Kennung, Kristall ohne Schutzkern (FR-051c), Kristall-Auslösebereich ausserhalb seiner Zone (FR-051d), doppelte Kristallkennung, fehlender Message-Schlüssel (FR-003c), keine oder zwei Startregionen (FR-037a)
 - [ ] T021 `ZoneMessageKeys` in `rpg-core/.../zone/ZoneMessageKeys.java` — alle Schlüssel dieses Blocks als Konstanten; der Zonenname wird als `zone.<key>.name` gebildet (FR-003a)
 - [ ] T022 `ZoneNameKeyTest` in `rpg-core/src/test/java/rpg/core/zone/` — zu jeder konfigurierten Zone existiert ein Message-Schlüssel, und **kein** Anzeigename steht in `zones.yml` (FR-003a, FR-003c)
 
@@ -319,6 +319,7 @@ sind namentlich abfragbar.
 - [ ] T120 [US7] `ZoneWorldCondition` in `rpg-core/.../zone/ZoneWorldCondition.java` — löst B08s `WorldCondition.isOpenWorld` ein. Javadoc: die Antwort ist eine **Entscheidung**, keine unfertige Umsetzung, und sie ändert sich, sobald eine Instanzwelt dazukommt (FR-052)
 - [ ] T121 [US7] Einsetzen in `rpg-plugin/src/main/java/rpg/plugin/RpgPlugin.java` an der Stelle, an der bisher `WorldCondition.everywhere()` steht (ADR-012)
 - [ ] T122 [US7] `spawnAreasOf` in `rpg-core/src/main/java/rpg/core/zone/DefaultZones.java` (FR-054)
+- [ ] T122a [P] [US7] `ZoneDisplayHandoffTest` in `rpg-core/src/test/java/rpg/core/zone/` — was B13 zum Anzeigen bekommt, ist **Kennung und Ereignis**, nie ein fertiger Anzeigetext; kein Rückgabewert dieses Blocks trägt einen aufgelösten Zonennamen (FR-058, FR-003a)
 - [ ] T123 [US7] Im `package-info.java` festhalten, dass `XpSource.ZONE_OBJECTIVE` und `SourceKind` für zonengebundene Effekte **unbefüllt bleiben** — der erste braucht Zonenziele, der zweite den herausgenommenen Schwierigkeitsmodifikator. Zwei der vier wartenden Schnittstellen sind eingelöst, zwei warten weiter, und das steht da (research.md R12)
 
 **Checkpoint**: alle sieben Geschichten laufen.
@@ -334,6 +335,7 @@ sind namentlich abfragbar.
 - [ ] T126 [P] `SeventhRegionTest` in `rpg-core/src/test/java/rpg/core/zone/` — eine siebte Region entsteht durch Konfiguration allein (SC-003)
 - [ ] T127 [P] `ZoneInOwnWorldTest` in `rpg-core/src/test/java/rpg/core/zone/` — die `world:`-Zeile verschiebt eine Zone in eine eigene Welt, ohne Codeänderung (SC-004, ADR-006)
 - [ ] T128 [P] `NoBukkitInCoreTest` in `rpg-core/src/test/java/rpg/core/zone/` — kein Typ aus `org.bukkit` im Zonenpaket der Domänenschicht (FR-059, Prinzip III), nach dem Muster der vorhandenen Quelltests
+- [ ] T128a [P] `ZoneSourceInvariantsTest` in `rpg-core/src/test/java/rpg/core/zone/` — kein Block greift am Vertrag vorbei: `ChunkZoneIndex`, `ZoneConfig` und `DefaultZones` werden ausserhalb von `rpg.core.zone` nicht benutzt, und `zones.yml` wird nur von diesem Paket gelesen (FR-060, Prinzip III). Nach dem Muster von `ClassSourceInvariantsTest`
 - [ ] T129 [P] `NoDatabaseInGameplayPathTest` in `rpg-core/src/test/java/rpg/core/zone/` — keine Bewegung, kein Zonenwechsel und keine Warnung erzeugt einen Datenbankzugriff (FR-063)
 - [ ] T130 `FullBootstrapTest` in `rpg-plugin/src/test/java/` erweitern (ADR-012) — Modul registriert, **alle sechs Listener** angemeldet, `setPermission` gesetzt, `ZoneWorldCondition` eingesetzt, `applyReloadedConfig` aufgerufen, der Aggregattyp verdrahtet
 

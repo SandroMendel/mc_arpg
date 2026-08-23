@@ -615,13 +615,20 @@ Zonenziel-Erfahrung sind anschließbar.
   weitere Region entsteht ohne Codeänderung.
 - **FR-002**: Eine Zone MUSS als `(worldId, Geometrie)` modelliert sein. Eine Zone ist **niemals**
   eine Welt, und kein Verbraucher darf aus einer Zone auf eine Welt schließen müssen.
+- **FR-002a**: Die Weltangabe einer Zone MUSS beim Start gegen die tatsächlich vorhandenen Welten
+  geprüft werden. Eine Zone in einer **unbekannten Welt** MUSS den Start verhindern, mit einer
+  Meldung, die Zone und Weltnamen benennt.
+  *(Ergänzt am 2026-08-23 nach `/analyze`. Diese Prüfung existierte als Teil der ursprünglichen
+  FR-051c — dort galt sie für die Zielwelt eines Kristalls. Als der Kristall bei `/clarify` sein
+  eigenes Ziel verlor, wurde FR-051c umgeschrieben und die Weltprüfung fiel dabei weg, ohne dass
+  jemand sie ersetzte. Sie gehört zu FR-002, nicht zu den Kristallen.)*
 - **FR-003**: Eine Zone MUSS eine **technische Kennung**, ein Levelband mit einschließender Unter- und
   Obergrenze und einen Regelsatz tragen. Die Kennung ist innerhalb einer Welt eindeutig; eine
   doppelte Kennung verhindert den Start.
 - **FR-003a**: Der **sichtbare Name** einer Zone MUSS über einen Message-Schlüssel laufen. Die
   Konfiguration der Zone trägt keinen Spielertext, sondern nur die Kennung, aus der der Schlüssel
   folgt (Prinzip V, ADR-005).
-- **FR-003b**: Jeder Verweis auf eine Zone — aus dem Ankunftsort eines Kristalls, einem Spawn-Bereich oder einem
+- **FR-003b**: Jeder Verweis auf eine Zone — aus einem Kristall, einem Spawn-Bereich oder einem
   späteren Block — MUSS über die technische Kennung laufen, nie über den sichtbaren Namen.
 - **FR-003c**: Fehlt der Message-Schlüssel zu einer konfigurierten Zone, MUSS das den Start
   verhindern. Eine Zone, deren Name im Spiel als Schlüsselzeichenkette erscheint, ist ein Fehler, der
@@ -883,7 +890,8 @@ Zonenziel-Erfahrung sind anschließbar.
 - **SC-003**: Eine **siebte Region** entsteht durch Konfiguration allein — keine Codeänderung, kein
   Neubau, nur ein Neustart oder ein Neuladen.
 - **SC-004**: Eine Zone wird per Konfiguration von der Kontinent-Welt in eine eigene Welt verschoben,
-  ohne dass eine Zeile Code angefasst wird.
+  ohne dass eine Zeile Code angefasst wird — und ein **Tippfehler im Weltnamen** verhindert den
+  Start, statt erst zur Laufzeit aufzufallen.
 - **SC-005**: Ein Grenzübertritt erzeugt genau ein Zonenereignis — beim Laufen, beim Teleport, bei
   der Anmeldung und nach einem Neuladen der Konfiguration.
 - **SC-006**: Das Verlassen des Schutzkerns erzeugt genau ein Kernereignis und **keinen**
@@ -903,8 +911,8 @@ Zonenziel-Erfahrung sind anschließbar.
   Mobs, nicht aus dem Kern heraus, nicht von der Umwelt — und keinen Spawn-Bereich. Auch dann nicht,
   wenn die Region `pvp: true` trägt.
 - **SC-013**: Jede fehlerhafte Zonenkonfiguration — Überlappung, Kern außerhalb seiner Zone,
-  Spawn-Bereich im Kern, Kristall-Ankunftsort in unbekannter Welt — verhindert den Start mit einer Meldung, die
-  die verantwortliche Stelle benennt.
+  Spawn-Bereich im Kern, Kristall ohne Schutzkern, unbekannter Weltname — verhindert den Start mit
+  einer Meldung, die die verantwortliche Stelle benennt.
 - **SC-014**: Die gesamte Zonenlogik ist ohne laufenden Server geprüft.
 - **SC-015**: Kein Spielertext dieses Blocks steht im Code — der sichtbare Name einer Region
   eingeschlossen.

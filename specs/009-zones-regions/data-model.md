@@ -186,6 +186,7 @@ Was den Start **verhindert**:
 
 | Fehler | Anforderung |
 |---|---|
+| Eine Zone verweist auf eine **unbekannte Welt** | FR-002a |
 | Zwei Zonen mit überlappenden Quadern in derselben Welt | FR-012 |
 | Doppelte Zonenkennung | FR-003 |
 | Schutzkern nicht vollständig in seiner Zone | FR-009 |
