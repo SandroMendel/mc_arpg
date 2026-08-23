@@ -118,6 +118,6 @@ ist mit Minecraft 1.21.3 entfallen. Gleiche Attribute, aktuelle Namen.
 - Die Caps (40 %, ±50 %, ±30 %) stehen als Pflichtfelder in `stats.yml` und sind für das Balancing
   änderbar; ein fehlender oder unplausibler Wert bricht den Start ab.
 
-**Offen:** Der Lasttest-Nachweis auf einem echten Paper-Server (Abschnitt 8 des
-Validierungsleitfadens) steht noch aus — sinnvoll gemeinsam mit den offenen Serverprüfungen aus
-B02 und B03.
+**Offen:** Der Durchlauf auf einem echten Paper-Server (Abschnitt 8 des Validierungsleitfadens) steht
+noch aus — sinnvoll gemeinsam mit den offenen Serverprüfungen aus B02 und B03. Der Teil davon, der
+**Last** verlangt, ist seit ADR-031 an B15s Lasttestphase übergeben und hält diesen Block nicht offen.

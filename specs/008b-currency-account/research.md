@@ -259,7 +259,22 @@ betroffenen Spieler und eine freie Detailkarte und passt ohne Änderung.
 
 ---
 
-## R8 · Wird der Block lasttestpflichtig? — *Entscheidung ausstehend*
+## R8 · Wird der Block lasttestpflichtig? — *Entschieden am 2026-08-23: die Frage entfällt*
+
+> **Antwort (ADR-031).** Der Auftraggeber hat nicht „ja" oder „nein" gesagt, sondern: *Lasttests
+> kommen am Ende, wenn alles fertig ist.* Damit ist die unten empfohlene Aufnahme in die Liste
+> gegenstandslos — **die Liste selbst entfällt.** Lasttests sind keine Bedingung mehr dafür, dass ein
+> Block fertig ist; sie laufen gebündelt in B15s Phase. Constitution 1.0.0 → 1.1.0.
+>
+> Der Grund war stärker als die Empfehlung unten: ein Lasttest braucht Spieler, Mobs und Inhalt —
+> also gerade das, was die späteren Blöcke erst liefern. Die alte Regel hätte B08b auf einen Nachweis
+> warten lassen, den B10 erst möglich macht. Genau das hatte T133 schon festgehalten.
+>
+> Nebenbefund: **B05 war nach dem Buchstaben der alten Regel nie fertig.** Er ist ausgeliefert, ohne
+> Lasttest. Die Abweichung war nie beschlossen — sie war einfach passiert, und die Prüfung dieser
+> Frage hat sie sichtbar gemacht.
+
+*Der Stand vor der Entscheidung, unverändert erhalten:*
 
 **Sachlage.** Prinzip VII nennt zwei Blöcke namentlich: B05 (Kampf-Pipeline) und B10 (Mobs &
 Horden-Spawning). B08b ist nicht genannt — der Steckbrief entstand, als der Block nur buchen sollte.

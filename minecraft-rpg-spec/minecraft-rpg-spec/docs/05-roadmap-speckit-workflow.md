@@ -80,8 +80,14 @@ Anschließend `/constitution` mit dem Inhalt von `constitution.md` ausführen.
 ## Empfohlener nächster Schritt
 
 *(Stand 2026-08-23)* B01 bis **B08b** sind implementiert und verdrahtet. Offen
-sind dort nur noch Validierungsläufe und Lasttests, die einen echten
-Paper-Server brauchen — kein Code.
+sind dort nur noch Validierungsläufe auf einem echten Paper-Server — kein Code.
+
+**Die Lasttests sind aus den Blöcken herausgelöst** *(ADR-031, 2026-08-23)*. Sie
+laufen gebündelt in **B15s Lasttestphase**, wenn die inhaltlichen Blöcke stehen,
+und sind keine Bedingung mehr dafür, dass ein Block fertig ist. Grund: ein
+Lasttest braucht Spieler, Mobs und Inhalt — also gerade das, was die späteren
+Blöcke erst liefern. Die alte Regel hätte B08b auf einen Nachweis warten lassen,
+den B10 erst möglich macht, und sie war für B05 faktisch schon gebrochen.
 
 **B08b hat zwei ausgelieferte Blöcke abgeschlossen**, und das war sein Zweck:
 B07 reichte `cost: { coins: 500 }` undurchsichtig durch, B08s Rangaufstieg

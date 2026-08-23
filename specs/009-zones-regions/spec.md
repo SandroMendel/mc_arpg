@@ -578,7 +578,8 @@ Zonenziel-Erfahrung sind anschließbar.
 
 ### Measurable Outcomes
 
-- **SC-001**: Die Zonenzuordnung für 200 Spieler ist in **unter 0,5 ms** ermittelt.
+- **SC-001**: Die Zonenzuordnung für 200 Spieler ist in **unter 0,5 ms** ermittelt — als
+  wiederholbare Messung ohne laufenden Server, nicht als Lasttest (ADR-031).
 - **SC-002**: Der Block hält im Normalbetrieb ein Tickbudget von **≤ 5 ms** ein und läuft ohne eine
   einzige wiederkehrende Aufgabe je Spieler.
 - **SC-003**: Eine **siebte Region** entsteht durch Konfiguration allein — keine Codeänderung, kein
@@ -657,10 +658,12 @@ Zonenziel-Erfahrung sind anschließbar.
    das ist zu belegen, nicht zu behaupten.
 4. **Ob der Schutzkern ein eigener Ereignistyp ist** oder ein Feld am Zonenereignis. FR-016 verlangt
    nur, dass es kein Zonenwechsel ist.
-5. **Lasttestpflicht.** Prinzip VII nennt B05 und B10 namentlich, nicht B09. SC-001 ist eine
-   Messung, kein Lasttest. Ob die Zonenabfrage unter Kampflast zusätzlich nachzuweisen ist, hängt an
-   derselben Frage, die für B08b noch offen ist (T122 dort) — beide sollten dieselbe Antwort
-   bekommen.
+5. **Lasttestpflicht — geklärt am 2026-08-23 (ADR-031), hier nur noch zur Ausführung.** Lasttests
+   sind keine Bedingung dafür, dass ein Block fertig ist; sie laufen gebündelt in B15s Phase, wenn
+   die inhaltlichen Blöcke stehen. Für B09 heisst das: **SC-001 ist eine Messung, kein Lasttest**, und
+   sie ist ohne laufenden Server zu erbringen — der Index ist reine Rechnung. Der Plan muss dafür eine
+   wiederholbare Messung vorsehen, keine Behauptung. Was sich erst unter 150 Spielern und 800 Mobs
+   zeigt, ist an B15 übergeben.
 6. **Der vierte Todesgrund.** ADR-030 ist angenommen; der Wert im ausgelieferten Enum ist beim
    Planen als Eingriff in B05 zu behandeln, mit dem Compiler als Nachweis, dass jede auswertende
    Stelle den neuen Fall kennt.

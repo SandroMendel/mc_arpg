@@ -1454,3 +1454,68 @@ ADR-pflichtig erklärt hat.
   der einen normalen Tod ausmacht, braucht B11 — bis dahin bleibt die Regel spürbar mild, und das ist
   eine benannte Lücke (Regel 5), keine stille.
 - Die acht Sekunden gehören B05. B09 **liest** sie und legt keine zweite Zahl daneben.
+
+---
+
+## ADR-031: Lasttests sind eine Phase am Ende, keine Bedingung je Block
+
+**Status:** Angenommen · **Datum:** 2026-08-23 · **Blöcke:** alle (Constitution Prinzip VII), B15
+(Eigentümer der Phase) · **Constitution:** 1.0.0 → 1.1.0 (MINOR)
+
+**Kontext.** Prinzip VII nannte zwei Blöcke namentlich lasttestpflichtig — B05 und B10 —, und zwar
+*bevor sie als fertig gelten*. Die Regel geriet gleich dreifach unter Druck:
+
+- **B05 ist ausgeliefert, ohne Lasttest.** Nach dem Buchstaben der alten Regel hätte er nicht als
+  fertig gelten dürfen. Die Abweichung war nie beschlossen, sie ist einfach passiert.
+- **B08b setzt seit der Entscheidung „Coins fallen" ein Entity je Kill in die Welt.** Damit stand die
+  Frage im Raum, ob er in die Liste gehört (T122, `research.md` R8 dort) — und mit ihr die Frage, wer
+  die Liste künftig pflegt.
+- **B09 benennt ein Leistungsziel** (Zonenzuordnung für 200 Spieler unter 0,5 ms), das mit einem
+  Lasttest gar nichts zu tun hat: es ist mit einer Messung zu belegen, nicht mit 150 Spielern.
+
+Die eigentliche Schwäche lag tiefer als die Liste. Ein Lasttest braucht Spieler, Mobs und Inhalt —
+also genau das, was die *späteren* Blöcke erst liefern. Eine Regel, die einen Block auf einen Nachweis
+warten lässt, den ein anderer Block erst möglich macht, ist nicht erfüllbar. Genau das hielt T133 für
+B08b schon fest: der Nachweis für SC-006 braucht B10s Horden und ist bis dahin nicht zu erbringen.
+
+**Entscheidung.** Lasttests sind **keine Bedingung dafür, dass ein Block fertig ist**. Sie laufen
+gebündelt in einer eigenen Phase, wenn die inhaltlichen Blöcke stehen, und gehören **B15**, der den
+Lasttest-Aufbau mit simulierten Spielern ohnehin besitzt. Kein Block wird wegen eines fehlenden
+Lasttests offen gehalten.
+
+Ein Leistungsziel, das ein Block für sich benennt, braucht dennoch einen Beleg — aber nur einen, der
+**ohne Volllast** zu erbringen ist: eine wiederholbare Messung der eigenen Rechenarbeit. Was sich erst
+unter 150 Spielern und 800 Mobs zeigt, wird in der Lasttestphase geprüft und vorher nicht behauptet.
+
+*Warum nicht die Liste erweitern:* sie hätte bei jedem neuen Block wieder angefasst werden müssen,
+ohne dass irgendwo stünde, woran man die Zugehörigkeit erkennt. Beim dritten Mal wäre die Frage
+dieselbe gewesen wie beim ersten.
+
+*Warum nicht die Liste durch ein Kriterium ersetzen:* das war der naheliegende Gegenvorschlag und
+hätte die Pflege gelöst, aber nicht das eigentliche Problem — dass ein früher Block auf einen späteren
+wartet. Ein Kriterium hätte B08b korrekt eingeordnet und ihn genauso lange offen gehalten.
+
+*Warum nicht ganz darauf verzichten:* die Zielwerte in B15 bleiben verbindlich. Aufgegeben wird der
+Zeitpunkt des Nachweises, nicht der Nachweis.
+
+**Der Preis ist benannt und angenommen.** Ein Leistungsfehler zeigt sich später, und je später er
+auffällt, desto teurer ist die Umkehr — vor allem, wenn er in einer Architekturentscheidung steckt.
+Was dagegen steht, ist Prinzip II: Tickbudget, kein Datenbankzugriff je Spielereignis, keine
+wiederkehrende Aufgabe je Spieler oder Entity, räumlicher Index statt linearer Suche. Diese Vorgaben
+gelten für jeden Block **vor** dem Lasttest und sind je Block prüfbar. Der Lasttest bestätigt sie am
+Ende; er ersetzt sie nicht.
+
+**Auswirkung.**
+
+- Prinzip VII Punkt 3 ist neu gefasst; die namentliche Pflicht für B05 und B10 entfällt. Constitution
+  auf **1.1.0**, in beiden geführten Fassungen.
+- **T122 aus B08b ist damit beantwortet** — aber anders als dort vorgesehen: B08b wird nicht in eine
+  Liste aufgenommen, weil es keine Liste mehr gibt. Die zusätzliche Abnahmebedingung, die T122 für
+  diesen Fall vorsah, entfällt.
+- **B08bs SC-006 wartet nicht länger auf B10.** Der Block ist nach dem Serverdurchlauf (T132)
+  abschliessbar; der Lastnachweis wanderte in die Phase.
+- **B05 ist rückwirkend nicht mehr im Widerspruch** zur Constitution. Das war der stillste der drei
+  Punkte und der Grund, aus dem die Regel überhaupt geprüft wurde.
+- B15 trägt die Phase. Die Zeile „Lasttests sind Teil der Definition of Done für B05 und B10" in
+  seinem Steckbrief entfällt und wird durch die Phase ersetzt.
+- B09s SC-001 bleibt, wird aber ausdrücklich als **Messung** geführt, nicht als Lasttest.

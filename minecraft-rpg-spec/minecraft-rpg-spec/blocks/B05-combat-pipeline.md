@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Schicht** | 1 — Regel-Engine |
-| **Status** | Implementiert (2026-08-20) — 120 Aufgaben, 570 Tests grün; Lasttest steht aus |
+| **Status** | Implementiert (2026-08-20) — 120 Aufgaben, 570 Tests grün; Lasttest an B15s Phase übergeben (ADR-031) |
 | **Abhängig von** | B04 |
 | **Benötigt von** | B08, B10, B12 |
 
@@ -113,5 +113,12 @@ keinen Schaden durchlassen, sondern erzeugt eine Protokollzeile.
 - Vanilla-Erfahrungskugeln und Vanilla-Beute werden beim Mob-Tod unterdrückt.
 - Mobs verletzen einander nicht; die Erlaubnis fällt an genau einer Stelle, die B09 ersetzt.
 
-**Offen:** Der Lasttest (150 Spieler gegen 800 Mobs, p95 MSPT < 40 ms). Prinzip VII nennt B05
-ausdrücklich als lasttestpflichtig — bis dahin gilt der Block nicht als abgenommen.
+**Offen:** Der Lasttest (150 Spieler gegen 800 Mobs, p95 MSPT < 40 ms) — **an B15s Lasttestphase
+übergeben** *(ADR-031, 2026-08-23)*. Er hält den Block nicht mehr offen.
+
+Bis dahin stand hier, Prinzip VII nenne B05 ausdrücklich als lasttestpflichtig und der Block gelte bis
+zum Nachweis nicht als abgenommen. Das war der Buchstabe der alten Regel — und er wurde nicht
+eingehalten: B05 ist seit dem 2026-08-20 ausgeliefert, ohne Lasttest, ohne dass die Abweichung
+irgendwo beschlossen worden wäre. Bei der Klärung von T122 fiel das auf und war der stillste der drei
+Gründe für ADR-031. Der Nachweis bleibt fällig, nur an der richtigen Stelle: ein Lasttest braucht 800
+Mobs, und die liefert erst B10.

@@ -50,7 +50,10 @@ Hack'n'Slash-Horden erzeugt, ohne den Server-Tick zu überlasten.
 
 ## Akzeptanzkriterien (Entwurf)
 
-- Lasttest: 800 aktive Custom-Mobs bei 150 Spielern halten p95 MSPT < 40 ms.
+- Lasttest: 800 aktive Custom-Mobs bei 150 Spielern halten p95 MSPT < 40 ms. Der
+  **Zielwert bleibt verbindlich**, aber der Nachweis gehört seit ADR-031 (2026-08-23)
+  in B15s Lasttestphase und ist keine Bedingung dafür, dass dieser Block fertig ist.
+  Zuvor nannte Prinzip VII B10 namentlich als lasttestpflichtig.
 - Das Spawn-Budget wird unter keiner Bedingung überschritten, auch nicht bei
   plötzlichem Spielerandrang.
 - Nach Verlassen einer Zone durch alle Spieler sind deren Mobs binnen definierter

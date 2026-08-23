@@ -18,6 +18,25 @@ Sync Impact Report
     concretely tests against Nebenläufigkeit/Performance/Architektur below.
 - Deferred TODOs: none — RATIFICATION_DATE set to the date of this formal adoption
   into Spec-Kit, since no earlier ratification date exists for this document.
+
+Sync Impact Report — 2026-08-23
+- Version change: 1.0.0 → 1.1.0 (MINOR — bestehende Vorgabe wesentlich geändert)
+- Modified principles: VII. Tests — Punkt 3 neu gefasst. Lasttests sind keine
+  Bedingung mehr dafür, dass ein Block fertig ist; sie laufen gebündelt in einer
+  eigenen Phase am Ende und gehören B15. Neu ergänzt: ein blockeigenes
+  Leistungsziel braucht einen Beleg ohne Volllast.
+- Added sections: none
+- Removed sections: die namentliche Lasttestpflicht für B05 und B10
+- Entscheidung des Auftraggebers vom 2026-08-23, festgehalten als ADR-031.
+  Löst T122 aus B08b ohne die dort vorgesehene Aufnahme von B08b in die Liste —
+  die Liste selbst entfällt.
+- Templates requiring alignment:
+  ✅ plan-template.md — Constitution Check liest diese Datei zur Laufzeit
+  ✅ spec-template.md / tasks-template.md — keine Verweise auf die Lasttestregel
+- Nachgezogen: blocks/B15-performance-observability.md (die Zeile „Lasttests sind
+  Teil der Definition of Done für B05 und B10" entfällt), blocks/B08b (SC-006
+  wartet nicht länger auf B10), specs/009-zones-regions/spec.md (SC-001 ist eine
+  Messung, kein Lasttest).
 -->
 
 # Minecraft RPG Plugin Constitution
@@ -121,15 +140,32 @@ bei Minecraft-Versionswechseln auf eine Stelle.
 
 Jede Formel und jede Regel der Domänenschicht hat Unit-Tests ohne laufenden
 Server. Persistenz wird gegen eine echte PostgreSQL-Instanz getestet
-(Testcontainers), nicht gegen Mocks. Performancekritische Blöcke (B05
-Kampf-Pipeline, B10 Mobs & Horden-Spawning) benötigen einen
-Lasttest-Nachweis, bevor sie als fertig gelten.
+(Testcontainers), nicht gegen Mocks.
+
+**Lasttests sind keine Bedingung dafür, dass ein Block fertig ist.** Sie laufen
+gebündelt in einer eigenen Phase, wenn die inhaltlichen Blöcke stehen, und
+gehören **B15**. Kein Block wird wegen eines fehlenden Lasttests offen gehalten.
+Ein Leistungsziel, das ein Block für sich benennt, braucht dennoch einen Beleg —
+aber nur einen, der **ohne Volllast** zu erbringen ist: eine wiederholbare
+Messung der eigenen Rechenarbeit. Was sich erst unter 150 Spielern und 800 Mobs
+zeigt, wird in der Lasttestphase geprüft, nicht vorher behauptet.
 
 **Rationale**: Domänenlogik ohne Bukkit-Abhängigkeit (Prinzip III) ist nur
 dann tatsächlich verlässlich, wenn sie auch tatsächlich serverlos getestet
 wird. Mocks gegen die Datenbank hätten in der Vergangenheit divergierendes
 Verhalten zwischen Test und Produktion verdeckt — echte Testcontainer-Instanzen
 sind daher Pflicht.
+
+Zur Lasttestphase: die frühere Fassung machte B05 und B10 namentlich
+lasttestpflichtig, *bevor* sie als fertig gelten durften. In der Praxis war das
+nicht einlösbar — ein Lasttest braucht Spieler, Mobs und Inhalt, also gerade
+das, was die späteren Blöcke erst liefern. Die Regel hätte einen Block auf einen
+Nachweis warten lassen, den ein anderer Block erst möglich macht. Gebündelt am
+Ende ist der Nachweis aussagekräftiger, weil er das Zusammenspiel misst und
+nicht ein Subsystem in einer künstlich leeren Welt. Der Preis ist benannt und
+angenommen: ein Leistungsfehler zeigt sich später, und die Gegenmaßnahme dagegen
+sind die Vorgaben aus Prinzip II, die für jeden Block *vor* dem Lasttest gelten.
+Ausführlich in ADR-031.
 
 ### VIII. Sprache
 
@@ -162,4 +198,4 @@ Formulierungskorrekturen ohne inhaltliche Änderung.
 Prinzipien (Constitution Check). Jede in der Umsetzung getroffene
 Architekturentscheidung wird als ADR in `02-decisions.md` nachgetragen.
 
-**Version**: 1.0.0 | **Ratified**: 2026-08-19 | **Last Amended**: 2026-08-19
+**Version**: 1.1.0 | **Ratified**: 2026-08-19 | **Last Amended**: 2026-08-23

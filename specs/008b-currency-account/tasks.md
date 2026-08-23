@@ -301,7 +301,7 @@ Eingriff, der im Verlauf mit Verursacher erscheint.
 
 - [X] T120 **ADR-028** in `02-decisions.md`: Kommando **und Fenster** in einem Schicht-1-Block. Angenommen am 2026-08-22, vor Beginn der Umsetzung — die Governance-Regel der Constitution verlangt für eine Abweichung von Prinzip III eine ausdrückliche, begründete Ausnahme, und die liegt vor
 - [X] T121 **ADR-029** in `02-decisions.md`: die Herauslösung des Anteilsrechners aus `XpDistributor`. Verhaltensneutral, abgesichert durch T043; die Regel bleibt in B06s Paket, weil ein Besitzer nicht umzieht, nur weil ein zweiter Nutzer dazukommt
-- [ ] T122 Die Entscheidung zu **research.md R8** einholen und festhalten: wird B08b lasttestpflichtig? Bei Ja eine MINOR-Änderung von Prinzip VII in `.specify/memory/constitution.md` und `constitution.md`, plus eine Abnahmebedingung mehr für diesen Block
+- [X] T122 Die Entscheidung zu **research.md R8** einholen und festhalten: wird B08b lasttestpflichtig? **Beantwortet am 2026-08-23 — anders als hier vorgesehen.** Die Antwort des Auftraggebers war nicht „ja" oder „nein", sondern: *Lasttests kommen am Ende, wenn alles fertig ist.* Damit entfällt die namentliche Liste in Prinzip VII ganz, statt um B08b erweitert zu werden; Lasttests sind keine Bedingung mehr dafür, dass ein Block fertig ist, und die Phase gehört B15 (**ADR-031**, Constitution 1.0.0 → 1.1.0 in beiden geführten Fassungen). Die hier vorgesehene zusätzliche Abnahmebedingung für diesen Block entfällt deshalb. **Folge: SC-006 wartet nicht länger auf B10** — siehe T133
 
 ### Dokumentation
 
@@ -318,7 +318,7 @@ Eingriff, der im Verlauf mit Verursacher erscheint.
 - [X] T130 `./gradlew test` vollständig — **0 Fehler, 0 übersprungen**. Auf übersprungene Tests achten: MockBukkit meldet Nicht-Implementiertes als *skipped*, nicht als Fehler
 - [X] T131 [quickstart.md](./quickstart.md) Abschnitt 1 und 2 durchlaufen und die Ergebnisse festhalten
 - [ ] T132 [quickstart.md](./quickstart.md) Abschnitt 3 auf einem echten Paper-Server durchlaufen — die zweiundzwanzig Prüfschritte, besonders 4 (Charakterwechsel), 12 (offline Eingriff), 14 (Eingriff überlebt Flush) und 17 (Blättern ohne doppelte Buchung). Grüne Tests beweisen nichts über Papers `libraries:`-Klassenlader; nur der echte Start tut das
-- [X] T133 Abschnitt 4 (Last) als **offen** in `minecraft-rpg-spec/minecraft-rpg-spec/blocks/B08b-currency-account.md` festhalten — der Nachweis für SC-006 braucht B10s Horden und ist bis dahin nicht zu erbringen
+- [X] T133 Abschnitt 4 (Last) als **offen** in `minecraft-rpg-spec/minecraft-rpg-spec/blocks/B08b-currency-account.md` festhalten — der Nachweis für SC-006 braucht B10s Horden und ist bis dahin nicht zu erbringen. *(Nachtrag 2026-08-23: genau diese Beobachtung hat ADR-031 ausgelöst. Der Nachweis bleibt offen, hält aber den Block nicht mehr offen — er ist an B15s Lasttestphase übergeben. Damit ist T132 die letzte Aufgabe dieses Blocks.)*
 
 ---
 
