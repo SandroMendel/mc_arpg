@@ -258,45 +258,50 @@ hinlaufen, dort freischalten, zurückreisen — Coins gesunken, Freischaltung ü
 
 ### Eingriff in einen abgeschlossenen Block
 
-- [ ] T088 [US6] **`WAYPOINT_TRAVEL(Direction.DEBIT)` und `WAYPOINT_REFUND(Direction.CREDIT)`** in `rpg-core/src/main/java/rpg/core/currency/BookingReason.java` ergänzen — **Eingriff in B08b, gedeckt durch ADR-032**. Zwei Gründe, nicht einer: ohne den zweiten wäre eine Rückbuchung im Verlauf nicht von einer Gutschrift zu unterscheiden (FR-050d, research.md R1)
-- [ ] T089 [US6] `WaypointBookingReasonTest` in `rpg-core/src/test/java/rpg/core/currency/` — der Verlauf trennt eine Reise von einem Einkauf und von einer Reparatur, und eine Rückbuchung von einer Gutschrift (SC-022)
+- [X] T088 [US6] **`WAYPOINT_TRAVEL(Direction.DEBIT)` und `WAYPOINT_REFUND(Direction.CREDIT)`** in `rpg-core/src/main/java/rpg/core/currency/BookingReason.java` ergänzen — **Eingriff in B08b, gedeckt durch ADR-032**. Zwei Gründe, nicht einer: ohne den zweiten wäre eine Rückbuchung im Verlauf nicht von einer Gutschrift zu unterscheiden (FR-050d, research.md R1)
+- [X] T089 [US6] `WaypointBookingReasonTest` in `rpg-core/src/test/java/rpg/core/currency/` — der Verlauf trennt eine Reise von einem Einkauf und von einer Reparatur, und eine Rückbuchung von einer Gutschrift (SC-022)
 
 ### Freischaltungen
 
-- [ ] T090 [P] [US6] `Waypoints` in `rpg-core/.../zone/Waypoints.java` — `isUnlocked`, `unlock` (idempotent), `unlockedBy` nach [contracts/zone-api.md](./contracts/zone-api.md)
-- [ ] T091 [P] [US6] `WaypointUnlockRepository` als Schnittstelle in `rpg-core/src/main/java/rpg/core/zone/WaypointUnlockRepository.java`
-- [ ] T092 [US6] `JdbcWaypointUnlockRepository` in `rpg-persistence/src/main/java/rpg/persistence/zone/JdbcWaypointUnlockRepository.java` — Schreiben über B02s Puffer, Tabelle aus T071. **Kein Fremdschlüssel auf eine Zone**: eine verwaiste Zeile ist ein gültiger Zustand (FR-051b, data-model.md §4)
-- [ ] T093 [P] [US6] `WaypointUnlockTest` in `rpg-core/src/test/java/rpg/core/zone/` — je Charakter, nie je Account (FR-051a); ein zweiter `unlock` ändert nichts; nie entzogen ausser mit dem Charakter (FR-051b2)
-- [ ] T094 [P] [US6] `WaypointPersistenceTest` in `rpg-persistence/src/test/java/rpg/persistence/zone/` — **Testcontainers**: Freischaltung übersteht Neustart (SC-019); ein zweiter Charakter desselben Accounts erbt nichts (SC-019); Löschen des Charakters räumt ab (SC-027); ein Kristall, der aus der Konfiguration verschwindet und zurückkommt, wirkt wieder (FR-051b)
+- [X] T090 [P] [US6] `Waypoints` in `rpg-core/.../zone/Waypoints.java` — `isUnlocked`, `unlock` (idempotent), `unlockedBy` nach [contracts/zone-api.md](./contracts/zone-api.md)
+- [X] T091 [P] [US6] `WaypointUnlockRepository` als Schnittstelle in `rpg-core/src/main/java/rpg/core/zone/WaypointUnlockRepository.java`
+  > **Geändert: keine eigene Schnittstelle.** Die Freischaltungen sind Teil von `ZoneCharacterState` und werden über `ZoneStateRepository` geschrieben — research.md R8 hat *ein* Aggregat mit zwei Tabellen entschieden, und eine zweite Repository-Schnittstelle daneben wäre ein zweiter Schreibweg auf dasselbe Aggregat gewesen.
+- [X] T092 [US6] `JdbcWaypointUnlockRepository` in `rpg-persistence/src/main/java/rpg/persistence/zone/JdbcWaypointUnlockRepository.java` — Schreiben über B02s Puffer, Tabelle aus T071. **Kein Fremdschlüssel auf eine Zone**: eine verwaiste Zeile ist ein gültiger Zustand (FR-051b, data-model.md §4)
+  > **Geändert: kein eigener Jdbc-Typ.** `JdbcZoneStateRepository` schreibt beide Tabellen in einer Transaktion. Die Zusage der Aufgabe — kein Fremdschlüssel auf eine Zone — steht unverändert und wird von `WaypointPersistenceTest` geprüft.
+- [X] T093 [P] [US6] `WaypointUnlockTest` in `rpg-core/src/test/java/rpg/core/zone/` — je Charakter, nie je Account (FR-051a); ein zweiter `unlock` ändert nichts; nie entzogen ausser mit dem Charakter (FR-051b2)
+- [X] T094 [P] [US6] `WaypointPersistenceTest` in `rpg-persistence/src/test/java/rpg/persistence/zone/` — **Testcontainers**: Freischaltung übersteht Neustart (SC-019); ein zweiter Charakter desselben Accounts erbt nichts (SC-019); Löschen des Charakters räumt ab (SC-027); ein Kristall, der aus der Konfiguration verschwindet und zurückkommt, wirkt wieder (FR-051b)
+  > **Befund:** dieser Test hat aufgedeckt, dass `JdbcZoneStateRepository.write` nie `commit()` gerufen hat. Der Schreib-Pool gibt Verbindungen mit `autoCommit=false` heraus, also hat jeder Flush stillschweigend zurückgerollt. Keine Modulprüfung konnte das sehen; erst der echte Schreibweg gegen echtes PostgreSQL.
 
 ### Reisen
 
-- [ ] T095 [P] [US6] `Travel` und `TravelResult` in `rpg-core/.../zone/Travel.java` — die sieben Ausgänge aus [contracts/zone-api.md](./contracts/zone-api.md), Rückgabe statt Ausnahme
-- [ ] T096 [US6] `DefaultTravel` in `rpg-core/.../zone/DefaultTravel.java` — **die Reihenfolge ist Vertrag**: freigeschaltet prüfen → Kampf prüfen → `debit(WAYPOINT_TRAVEL)` → versetzen → bei Fehlschlag `credit(WAYPOINT_REFUND)`. Alles in derselben Tickphase (FR-050, FR-050e, FR-050f, research.md R1)
-- [ ] T097 [P] [US6] `TravelOrderTest` in `rpg-core/src/test/java/rpg/core/zone/` — gesperrtes Ziel: keine Buchung, keine Versetzung (FR-049); im Kampf: keine Buchung, keine Versetzung (FR-051f, SC-023); zu wenig Coins: Stand und Ort unverändert (FR-050a, SC-020)
-- [ ] T098 [P] [US6] **`TravelRefundTest`** in `rpg-core/src/test/java/rpg/core/zone/` — **die wichtigste Zusicherung dieser Geschichte**: scheitert die Versetzung nach erfolgter Abbuchung, steht der Stand danach wieder auf dem Ausgangswert, und der Verlauf zeigt **beide** Buchungen mit unterschiedlichem Grund (FR-050b, FR-050f, SC-020a)
-- [ ] T099 [P] [US6] `TravelInCombatReadsB05Test` in `rpg-core/src/test/java/rpg/core/zone/` — die Kampfprüfung liest **denselben** Zustand wie FR-039, kein zweites Zeitfenster (FR-051g)
-- [ ] T100 [P] [US6] `TravelTargetIsZoneRespawnTest` in `rpg-core/src/test/java/rpg/core/zone/` — gereist wird an den Respawn-Punkt der Zone des Kristalls; ein Kristall trägt **kein** eigenes Ziel (FR-045a)
-- [ ] T101 [US6] `zone-travel`-Preise in `zones.yml` je Kristall — **in der Zonenkonfiguration, nicht in `currency.yml`** und nicht in einem zentralen Katalog (FR-050c, ADR-027)
-- [ ] T102 [P] [US6] `PriceLivesWithTheZoneTest` in `rpg-core/src/test/java/rpg/core/zone/` — `currency.yml` kennt keinen Reisepreis, und es gibt keinen zentralen Katalog (SC-021, ADR-027)
+- [X] T095 [P] [US6] `Travel` und `TravelResult` in `rpg-core/.../zone/Travel.java` — die sieben Ausgänge aus [contracts/zone-api.md](./contracts/zone-api.md), Rückgabe statt Ausnahme
+  > **Korrigiert: sechs Ausgänge, nicht sieben** — der Vertrag nennt sechs, und der Vertrag gilt. Ausserdem trägt `travelTo` **beide** Kennungen (Halter und Charakter): der Vertrag nannte nur den Charakter, aber Kampfzustand und Körper hängen am Spieler, und `rpg-core` darf die Übersetzung nicht kennen.
+- [X] T096 [US6] `DefaultTravel` in `rpg-core/.../zone/DefaultTravel.java` — **die Reihenfolge ist Vertrag**: freigeschaltet prüfen → Kampf prüfen → `debit(WAYPOINT_TRAVEL)` → versetzen → bei Fehlschlag `credit(WAYPOINT_REFUND)`. Alles in derselben Tickphase (FR-050, FR-050e, FR-050f, research.md R1)
+- [X] T097 [P] [US6] `TravelOrderTest` in `rpg-core/src/test/java/rpg/core/zone/` — gesperrtes Ziel: keine Buchung, keine Versetzung (FR-049); im Kampf: keine Buchung, keine Versetzung (FR-051f, SC-023); zu wenig Coins: Stand und Ort unverändert (FR-050a, SC-020)
+- [X] T098 [P] [US6] **`TravelRefundTest`** in `rpg-core/src/test/java/rpg/core/zone/` — **die wichtigste Zusicherung dieser Geschichte**: scheitert die Versetzung nach erfolgter Abbuchung, steht der Stand danach wieder auf dem Ausgangswert, und der Verlauf zeigt **beide** Buchungen mit unterschiedlichem Grund (FR-050b, FR-050f, SC-020a)
+- [X] T099 [P] [US6] `TravelInCombatReadsB05Test` in `rpg-core/src/test/java/rpg/core/zone/` — die Kampfprüfung liest **denselben** Zustand wie FR-039, kein zweites Zeitfenster (FR-051g)
+- [X] T100 [P] [US6] `TravelTargetIsZoneRespawnTest` in `rpg-core/src/test/java/rpg/core/zone/` — gereist wird an den Respawn-Punkt der Zone des Kristalls; ein Kristall trägt **kein** eigenes Ziel (FR-045a)
+- [X] T101 [US6] `zone-travel`-Preise in `zones.yml` je Kristall — **in der Zonenkonfiguration, nicht in `currency.yml`** und nicht in einem zentralen Katalog (FR-050c, ADR-027)
+- [X] T102 [P] [US6] `PriceLivesWithTheZoneTest` in `rpg-core/src/test/java/rpg/core/zone/` — `currency.yml` kennt keinen Reisepreis, und es gibt keinen zentralen Katalog (SC-021, ADR-027)
 
 ### Eingabe und Fenster — die befristete Ausnahme
 
-- [ ] T103 [US6] Kristall-Index in `ChunkZoneIndex` ergänzen — eine zweite, gleich gebaute Abbildung Chunk → Kristalle, damit ein Rechtsklick **nicht** alle Kristalle prüft (Prinzip II, research.md R5)
-- [ ] T104 [P] [US6] `CrystalIndexTest` in `rpg-core/src/test/java/rpg/core/zone/` — der Klick findet seinen Kristall über einen Lookup; ein Klick ohne Kristall kostet nichts
-- [ ] T105 [US6] `CrystalInteractListener` in `rpg-platform/.../zone/CrystalInteractListener.java` — `PlayerInteractEvent`, Rechtsklick auf einen Block, Index-Lookup. **Kein Blocktyp-Vergleich**: der Kristall ist ein Bauwerk, und das Reisen darf nicht daran hängen, dass niemand den Stein abbaut. Kopfkommentar mit der Falle aus `AbilityTriggerListener` (Interact auf Luft ist von Geburt an abgebrochen) — FR-046, research.md R5
-- [ ] T106 [US6] Ratensperre für das Öffnen — zeitstempelbasiert je Spieler, lazy ausgewertet, **keine** wiederkehrende Aufgabe. Ohne sie wäre gedrückt gehaltene rechte Maustaste ein Fenster je Tick (Prinzip VI, research.md R5)
-- [ ] T107 [P] [US6] `InteractRateLimitTest` in `rpg-platform/src/test/java/rpg/platform/zone/` — mehrere Rechtsklicks in Folge öffnen das Fenster nicht mehrfach
-- [ ] T108 [US6] In `rpg-platform/src/main/java/rpg/platform/zone/CrystalInteractListener.java`: der **erste** Rechtsklick schaltet frei und öffnet **kein** Fenster; jeder weitere öffnet es (FR-047, FR-048)
-- [ ] T109 [US6] `WaypointMenu` in `rpg-platform/.../zone/WaypointMenu.java` — **befristete Ausnahme nach ADR-032**, nach dem Muster von `CurrencyMenu` aus ADR-028. Zeigt **alle** Kristalle: freigeschaltete wählbar, übrige sichtbar und gesperrt (FR-048)
-- [ ] T110 [US6] In `rpg-platform/src/main/java/rpg/platform/zone/WaypointMenu.java`: gesperrte Einträge tragen **Name und Levelband** ihrer Region, aufgelöst über `zone.<key>.name` — **kein zweiter Ort für Zonennamen** (FR-048a, FR-048b, SC-026)
-- [ ] T111 [US6] `WaypointMenuListener` in `rpg-platform/.../zone/WaypointMenuListener.java` — Klick auf gesperrt → Meldung, sonst `Travel.travelTo`. Prüfung beim **Klicken**, nicht beim Öffnen: ein Ziel kann zwischen Öffnen und Klick weggefallen sein (Randfall, `NO_SUCH_CRYSTAL`)
-- [ ] T112 [P] [US6] `WaypointMenuTest` in `rpg-platform/src/test/java/rpg/platform/zone/` — alle sechs erscheinen; die gesperrten sind gesperrt und tragen Name und Band; ein Klick darauf bucht nichts (FR-049, SC-026)
-- [ ] T113 [US6] In `rpg-platform/src/main/java/rpg/platform/zone/WaypointMenu.java`: der eigene Standort erscheint als gewählt, nicht als Ziel — niemand zahlt für nichts (Randfall)
-- [ ] T114 [US6] Alle Meldungen dieser Geschichte in `rpg-plugin/src/main/resources/messages.yml` und `rpg-core/src/main/java/rpg/core/zone/ZoneMessageKeys.java` eintragen: Freischaltung, Sperre, fehlende Coins, Kampf, ausgefallenes Ziel, Fenstertitel, Reise, Rückbuchung (FR-051e)
-- [ ] T115 [US6] Je Region **ein** Kristall in `zones.yml`, in ihrem Schutzkern (FR-051)
-- [ ] T116 [US6] `CrystalInteractListener` und `WaypointMenuListener` in `rpg-plugin/src/main/java/rpg/plugin/RpgPlugin.java` anmelden (ADR-012)
-- [ ] T117 [US6] **Übereinstimmung mit ADR-032 in `02-decisions.md` prüfen** — die Umsetzung entspricht dem, was das ADR zugesagt hat: Fenster und Eingabe sind als befristet gekennzeichnet und im Quelltext mit dem Verweis auf B13 versehen, die zwei Buchungsgründe sind da, die Persistenz hängt am Charakter. **Das ADR ist bereits geschrieben** — hier wird nur abgeglichen
+- [X] T103 [US6] Kristall-Index in `ChunkZoneIndex` ergänzen — eine zweite, gleich gebaute Abbildung Chunk → Kristalle, damit ein Rechtsklick **nicht** alle Kristalle prüft (Prinzip II, research.md R5)
+- [X] T104 [P] [US6] `CrystalIndexTest` in `rpg-core/src/test/java/rpg/core/zone/` — der Klick findet seinen Kristall über einen Lookup; ein Klick ohne Kristall kostet nichts
+- [X] T105 [US6] `CrystalInteractListener` in `rpg-platform/.../zone/CrystalInteractListener.java` — `PlayerInteractEvent`, Rechtsklick auf einen Block, Index-Lookup. **Kein Blocktyp-Vergleich**: der Kristall ist ein Bauwerk, und das Reisen darf nicht daran hängen, dass niemand den Stein abbaut. Kopfkommentar mit der Falle aus `AbilityTriggerListener` (Interact auf Luft ist von Geburt an abgebrochen) — FR-046, research.md R5
+  > **Korrigiert:** der erste Entwurf nahm auch `RIGHT_CLICK_AIR` und benutzte dabei die Position des Spielers. Damit bediente ein Schlag ins Leere innerhalb des Auslösebereichs den Kristall — und jeder Fähigkeitsgegenstand, dessen ganze Eingabe ein Rechtsklick in die Luft ist, hörte im Schutzkern auf zu wirken. `FullBootstrapTest` hat es gefunden. Jetzt nur `RIGHT_CLICK_BLOCK` und die Position des geklickten Blocks.
+- [X] T106 [US6] Ratensperre für das Öffnen — zeitstempelbasiert je Spieler, lazy ausgewertet, **keine** wiederkehrende Aufgabe. Ohne sie wäre gedrückt gehaltene rechte Maustaste ein Fenster je Tick (Prinzip VI, research.md R5)
+- [X] T107 [P] [US6] `InteractRateLimitTest` in `rpg-platform/src/test/java/rpg/platform/zone/` — mehrere Rechtsklicks in Folge öffnen das Fenster nicht mehrfach
+- [X] T108 [US6] In `rpg-platform/src/main/java/rpg/platform/zone/CrystalInteractListener.java`: der **erste** Rechtsklick schaltet frei und öffnet **kein** Fenster; jeder weitere öffnet es (FR-047, FR-048)
+- [X] T109 [US6] `WaypointMenu` in `rpg-platform/.../zone/WaypointMenu.java` — **befristete Ausnahme nach ADR-032**, nach dem Muster von `CurrencyMenu` aus ADR-028. Zeigt **alle** Kristalle: freigeschaltete wählbar, übrige sichtbar und gesperrt (FR-048)
+- [X] T110 [US6] In `rpg-platform/src/main/java/rpg/platform/zone/WaypointMenu.java`: gesperrte Einträge tragen **Name und Levelband** ihrer Region, aufgelöst über `zone.<key>.name` — **kein zweiter Ort für Zonennamen** (FR-048a, FR-048b, SC-026)
+- [X] T111 [US6] `WaypointMenuListener` in `rpg-platform/.../zone/WaypointMenuListener.java` — Klick auf gesperrt → Meldung, sonst `Travel.travelTo`. Prüfung beim **Klicken**, nicht beim Öffnen: ein Ziel kann zwischen Öffnen und Klick weggefallen sein (Randfall, `NO_SUCH_CRYSTAL`)
+- [X] T112 [P] [US6] `WaypointMenuTest` in `rpg-platform/src/test/java/rpg/platform/zone/` — alle sechs erscheinen; die gesperrten sind gesperrt und tragen Name und Band; ein Klick darauf bucht nichts (FR-049, SC-026)
+- [X] T113 [US6] In `rpg-platform/src/main/java/rpg/platform/zone/WaypointMenu.java`: der eigene Standort erscheint als gewählt, nicht als Ziel — niemand zahlt für nichts (Randfall)
+- [X] T114 [US6] Alle Meldungen dieser Geschichte in `rpg-plugin/src/main/resources/messages.yml` und `rpg-core/src/main/java/rpg/core/zone/ZoneMessageKeys.java` eintragen: Freischaltung, Sperre, fehlende Coins, Kampf, ausgefallenes Ziel, Fenstertitel, Reise, Rückbuchung (FR-051e)
+- [X] T115 [US6] Je Region **ein** Kristall in `zones.yml`, in ihrem Schutzkern (FR-051)
+- [X] T116 [US6] `CrystalInteractListener` und `WaypointMenuListener` in `rpg-plugin/src/main/java/rpg/plugin/RpgPlugin.java` anmelden (ADR-012)
+- [X] T117 [US6] **Übereinstimmung mit ADR-032 in `02-decisions.md` prüfen** — die Umsetzung entspricht dem, was das ADR zugesagt hat: Fenster und Eingabe sind als befristet gekennzeichnet und im Quelltext mit dem Verweis auf B13 versehen, die zwei Buchungsgründe sind da, die Persistenz hängt am Charakter. **Das ADR ist bereits geschrieben** — hier wird nur abgeglichen
 
 **Checkpoint**: Reisen funktioniert, kostet, und verliert kein Geld.
 

@@ -165,8 +165,13 @@ public class RpgPlugin extends JavaPlugin {
     private rpg.core.zone.Teleporter zoneTeleporter;
     private rpg.core.zone.RespawnRouting zoneRespawnRouting;
     private rpg.core.zone.CombatLogoutRule zoneCombatLogout;
-    /** Cleans up after a character that left - the level-band guard, and later the travel limit. */
+    /** Cleans up after a character that left - the level-band guard's repeat block. */
     private java.util.function.Consumer<java.util.UUID> zoneForget = characterId -> {};
+
+    private rpg.core.zone.Travel zoneTravel;
+
+    /** The same for the two player-keyed maps of US6: the click cooldown and the open window. */
+    private java.util.function.Consumer<java.util.UUID> zoneForgetPlayer = playerId -> {};
     private ClassesModule classesModule;
     private AbilityModule abilityModule;
     private rpg.core.ability.AbilityRuntime abilityRuntime;
@@ -550,6 +555,50 @@ public class RpgPlugin extends JavaPlugin {
                                 (player, key) -> player.sendMessage(messages.get(key))),
                         this);
 
+        // US6: waypoint crystals (ADR-032). The travel sequence is domain logic and stays here; the
+        // right-click and the window are the two pieces the ADR marks as temporary and hands to B13.
+        zoneTravel =
+                new rpg.core.zone.DefaultTravel(
+                        zoneModule::zones,
+                        zonePersistenceModule.store(),
+                        holderId -> combatModule.pipeline().isInCombat(holderId),
+                        currencyModule.currency(),
+                        zoneTeleporter);
+        java.util.function.Function<java.util.UUID, java.util.Optional<java.util.UUID>>
+                characterOfPlayer =
+                        playerId -> {
+                            org.bukkit.entity.Player online = getServer().getPlayer(playerId);
+                            return online == null
+                                    ? java.util.Optional.empty()
+                                    : characterIdOf(online);
+                        };
+        rpg.platform.zone.WaypointMenuListener waypointMenu =
+                new rpg.platform.zone.WaypointMenuListener(
+                        new rpg.platform.zone.WaypointMenu(messages),
+                        zoneModule::zones,
+                        zonePersistenceModule.store(),
+                        zoneTravel,
+                        characterOfPlayer,
+                        messages);
+        rpg.platform.zone.CrystalInteractListener crystalInteract =
+                new rpg.platform.zone.CrystalInteractListener(
+                        zoneModule::zones,
+                        zonePersistenceModule.store(),
+                        characterOfPlayer,
+                        waypointMenu::open,
+                        messages,
+                        System::currentTimeMillis);
+        getServer().getPluginManager().registerEvents(waypointMenu, this);
+        getServer().getPluginManager().registerEvents(crystalInteract, this);
+        // Both keep a small map per player - a cooldown stamp and an open window. Neither would ever
+        // shrink on its own, so the session end clears them, the same way the warning's repeat block
+        // is cleared.
+        zoneForgetPlayer =
+                playerId -> {
+                    crystalInteract.forget(playerId);
+                    waypointMenu.forget(playerId);
+                };
+
         zoneModule.onReload(
                 () -> {
                     java.util.List<rpg.core.zone.ZoneTracker.Presence> present =
@@ -770,19 +819,6 @@ public class RpgPlugin extends JavaPlugin {
                 });
     }
 
-    /**
-     * Assembles the Paper-facing half of B07, and hands back the seam B03 drives it through.
-     *
-     * <p>Four listeners and one observer. The observer is why this runs before
-     * {@link #registerSessionListeners}: B07 has to act the moment a session is ready - open the
-     * selection, or put the class equipment back on - and B03 permits exactly one join handler
-     * (FR-007). So the class layer does not listen for joins; it is told about them.
-     *
-     * <p>{@link ClassSelectionListener} gets a {@link rpg.platform.classes.CharacterEntry} that is the
-     * only path from "class chosen" to "in the game state": activating the character on the session runs
-     * every attachment - B04's holder, B06's level, B07's tiers - and the equipment goes on afterwards,
-     * because it is built from those tiers.
-     */
     /**
      * Assembles the Paper-facing half of B08 (T056).
      *
@@ -1095,6 +1131,19 @@ public class RpgPlugin extends JavaPlugin {
                 .map(rpg.core.session.PlayerCharacter::characterId);
     }
 
+    /**
+     * Assembles the Paper-facing half of B07, and hands back the seam B03 drives it through.
+     *
+     * <p>Four listeners and one observer. The observer is why this runs before
+     * {@link #registerSessionListeners}: B07 has to act the moment a session is ready - open the
+     * selection, or put the class equipment back on - and B03 permits exactly one join handler
+     * (FR-007). So the class layer does not listen for joins; it is told about them.
+     *
+     * <p>{@link ClassSelectionListener} gets a {@link rpg.platform.classes.CharacterEntry} that is the
+     * only path from "class chosen" to "in the game state": activating the character on the session runs
+     * every attachment - B04's holder, B06's level, B07's tiers - and the equipment goes on afterwards,
+     * because it is built from those tiers.
+     */
     private SessionObserver assembleClassLayer() {
         ClassRegistry classes = classesModule.registry();
         NoCharacterGuardListener guard = new NoCharacterGuardListener(getLogger());
@@ -1192,6 +1241,7 @@ public class RpgPlugin extends JavaPlugin {
                                 characterId ->
                                         zoneCombatLogout.onSessionEnding(playerId, characterId));
                 zoneTracker.forgetHolder(playerId).ifPresent(zoneForget::accept);
+                zoneForgetPlayer.accept(playerId);
                 // Before B03 starts the unload: the player is still here, so their inventory can still
                 // be read - and this is the last moment that is true. The observer runs on the quit
                 // event, which is the player's own tick.
@@ -1203,24 +1253,6 @@ public class RpgPlugin extends JavaPlugin {
         };
     }
 
-    /**
-     * Takes a freshly chosen character into play.
-     *
-     * <p>Activation first, equipment second, and the order is the whole point: the items are built from
-     * the tiers, and the tiers only exist once the session activated the character.
-     *
-     * <p>A failure to put the equipment on is <b>not</b> a failure to enter. The character exists, has
-     * stats and a level, and can play; the applier logs what it could not place, and the next login
-     * applies it again. Refusing the entry over it would leave a stored character no session can reach.
-     */
-    /**
-     * Puts this character's ability items into the hotbar (T123, T124).
-     *
-     * <p><b>Laid out from the reached level, never patched from an event.</b> Called on entry and
-     * again on every level-up, and both calls do the same complete thing - so a level-up that was
-     * missed, or one that happened while the ability layer was still starting, cannot leave a slot
-     * empty for the rest of the session. There is no state here to get out of step.
-     */
     /**
      * Tells the player which abilities the new level opened (FR-060).
      *
@@ -1332,6 +1364,14 @@ public class RpgPlugin extends JavaPlugin {
                 .ifPresent(action);
     }
 
+    /**
+     * Puts this character's ability items into the hotbar (T123, T124).
+     *
+     * <p><b>Laid out from the reached level, never patched from an event.</b> Called on entry and
+     * again on every level-up, and both calls do the same complete thing - so a level-up that was
+     * missed, or one that happened while the ability layer was still starting, cannot leave a slot
+     * empty for the rest of the session. There is no state here to get out of step.
+     */
     private void layOutAbilities(org.bukkit.entity.Player player, java.util.UUID characterId) {
         if (abilityHotbar == null || abilityModule == null) {
             return;
@@ -1339,6 +1379,16 @@ public class RpgPlugin extends JavaPlugin {
         abilityHotbar.layOut(player, abilityModule.registry().unlockedFor(characterId));
     }
 
+    /**
+     * Takes a freshly chosen character into play.
+     *
+     * <p>Activation first, equipment second, and the order is the whole point: the items are built from
+     * the tiers, and the tiers only exist once the session activated the character.
+     *
+     * <p>A failure to put the equipment on is <b>not</b> a failure to enter. The character exists, has
+     * stats and a level, and can play; the applier logs what it could not place, and the next login
+     * applies it again. Refusing the entry over it would leave a stored character no session can reach.
+     */
     private boolean enterGameState(
             org.bukkit.entity.Player player,
             rpg.core.session.PlayerCharacter character,

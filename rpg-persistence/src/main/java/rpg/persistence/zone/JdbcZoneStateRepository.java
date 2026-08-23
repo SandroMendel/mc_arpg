@@ -208,29 +208,46 @@ public final class JdbcZoneStateRepository implements ZoneStateRepository, Batch
         coordinator.markDirty(AggregateType.CHARACTER_ZONE_STATE, characterId.toString());
     }
 
+    /**
+     * Writes one transaction for the whole batch.
+     *
+     * <p><b>One connection and one commit, not one per mark.</b> The write pool hands out
+     * connections with auto-commit switched off (ConnectionPools) - every write here lives inside an
+     * explicit transaction, and a batch that ended without {@code commit()} would roll back silently
+     * on close. Nothing would fail, nothing would be logged, and every flush would quietly write
+     * nothing. That is what happened to the first version of this method, and only a test against a
+     * real PostgreSQL could show it.
+     */
     @Override
     public List<DirtyMark> write(DataSource dataSource, List<DirtyMark> marks) {
         List<DirtyMark> written = new ArrayList<>();
         Timestamp now = Timestamp.from(clock.instant());
-        for (DirtyMark mark : marks) {
-            UUID characterId = UUID.fromString(mark.aggregateId());
-            Optional<ZoneCharacterState> state = liveSource.apply(characterId);
-            if (state.isEmpty()) {
-                // The character left before the flush and the memory copy is gone. Reporting the
-                // mark as written is right: there is nothing left to persist, and keeping it would
-                // retry forever against a source that will never answer again.
-                written.add(mark);
-                continue;
-            }
-            try (Connection connection = dataSource.getConnection()) {
-                writeOne(connection, state.get(), now);
-                written.add(mark);
+        try (Connection connection = dataSource.getConnection()) {
+            connection.setAutoCommit(false);
+            try {
+                for (DirtyMark mark : marks) {
+                    UUID characterId = UUID.fromString(mark.aggregateId());
+                    Optional<ZoneCharacterState> state = liveSource.apply(characterId);
+                    if (state.isEmpty()) {
+                        // The character left before the flush and the memory copy is gone.
+                        // Reporting the mark as written is right: there is nothing left to
+                        // persist, and keeping it would retry forever against a source that will
+                        // never answer again.
+                        written.add(mark);
+                        continue;
+                    }
+                    writeOne(connection, state.get(), now);
+                    written.add(mark);
+                }
+                connection.commit();
             } catch (SQLException failure) {
-                // Left out of the returned list on purpose: the buffer keeps it and the next round
-                // tries again, which is the contract of this method.
-                throw new PersistenceException(
-                        "could not write zone state of character " + characterId, failure);
+                connection.rollback();
+                throw failure;
             }
+        } catch (SQLException failure) {
+            // Thrown rather than returned: the buffer keeps the marks and the next round tries
+            // again, which is the contract of this method.
+            throw new PersistenceException("zone state batch failed", failure);
         }
         return written;
     }

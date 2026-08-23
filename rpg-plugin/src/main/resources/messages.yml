@@ -291,8 +291,8 @@ zone:
   waypoint:
     menu-title: 'Waypoints'
     unlocked: 'Waypoint discovered: {zone}.'
-    locked: 'You have not discovered this waypoint yet.'
-    not-enough-coins: 'You need {missing} more coins to travel there.'
+    locked: 'You have not discovered {zone} yet.'
+    not-enough-coins: 'Travelling to {zone} costs {price} coins - you do not have enough.'
     in-combat: 'You cannot travel while in combat.'
     gone: 'That waypoint no longer exists.'
     travelled: 'You travelled to {zone} for {price} coins.'
@@ -300,6 +300,6 @@ zone:
     # (FR-050f, research.md R1). A journey never ends at a loss.
     refunded: 'The journey failed. Your {price} coins were returned.'
     # Shown in the window on a locked entry (FR-048a)
-    entry-unlocked: '{zone} - level {min}-{max}'
-    entry-locked: '{zone} - level {min}-{max} (not discovered)'
+    entry-unlocked: '{zone} - level {band-min}-{band-max} ({price} coins)'
+    entry-locked: '{zone} - level {band-min}-{band-max} (not discovered)'
     entry-here: '{zone} - you are here'

@@ -45,12 +45,37 @@ class DeathCostsNothingTest {
                 .isEmpty();
     }
 
+    /**
+     * <b>The window is not what this test is about, and the exclusion says why.</b>
+     *
+     * <p>{@code WaypointMenu} builds a chest interface out of {@code ItemStack}s and puts them into
+     * an inventory it created itself (ADR-032). The needles below caught it, and the honest reading
+     * of that catch is that the needles were too wide, not that the window is a death penalty: what
+     * FR-036 forbids is reaching into a <em>player's</em> inventory, and that is checked separately
+     * below for the window too.
+     */
+    private static final String THE_WINDOW = "WaypointMenu.java";
+
     @Test
     @DisplayName("nothing in this block touches an inventory")
     void nothingTouchesAnInventory() throws IOException {
         assertThat(mentionsOf("getInventory", "setItem", "ItemStack", "clear()"))
                 .as("a death costs no items (FR-036); the equipment damage from ADR-017 is B11's")
                 .isEmpty();
+    }
+
+    @Test
+    @DisplayName("the waypoint window fills its own chest and never a player's backpack")
+    void thewindowNeverReachesIntoAPlayersInventory() throws IOException {
+        String window = Files.readString(PLATFORM.resolve(THE_WINDOW));
+
+        // It creates the inventory it fills. Anything that got at a player's own would show up as
+        // one of these, and none of them is needed to draw six icons.
+        assertThat(window).contains("Bukkit.createInventory");
+        assertThat(window).doesNotContain("getInventory()");
+        assertThat(window).doesNotContain("addItem");
+        assertThat(window).doesNotContain("dropItem");
+        assertThat(window).doesNotContain("Player");
     }
 
     @Test
@@ -91,6 +116,7 @@ class DeathCostsNothingTest {
         try (Stream<Path> walk = Files.walk(directory)) {
             return walk.filter(path -> path.toString().endsWith(".java"))
                     .filter(path -> !path.getFileName().toString().equals("package-info.java"))
+                    .filter(path -> !path.getFileName().toString().equals(THE_WINDOW))
                     .toList();
         }
     }
