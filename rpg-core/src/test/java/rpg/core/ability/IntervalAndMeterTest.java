@@ -163,7 +163,8 @@ class IntervalAndMeterTest {
                             original.buildPerHit(),
                             original.idleBefore(),
                             original.decayPerSecond(),
-                            original.asFraction());
+                            original.asFraction(),
+                            original.phase());
             return new Ability(
                     ability.id(),
                     ability.kind(),
@@ -308,7 +309,7 @@ class IntervalAndMeterTest {
                     new EffectSpec(
                             EffectType.METER, 30.0, 0.0, null, null, 1, null,
                             Attribute.PHYSICAL_DAMAGE, null, null, null, 20.0,
-                            Duration.ofSeconds(4), 5.0, false);
+                            Duration.ofSeconds(4), 5.0, false, rpg.core.ability.EffectPhase.CAST);
         }
 
         @Test
@@ -467,7 +468,8 @@ class IntervalAndMeterTest {
                 null,
                 null,
                 null,
-                false);
+                false,
+                rpg.core.ability.EffectPhase.CAST);
     }
 
     private static StatSnapshot snapshot() {

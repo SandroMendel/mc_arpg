@@ -235,7 +235,17 @@ public final class AbilityConfigSchema {
                 optionalBoxedDouble(block, "build-per-hit", at + ".build-per-hit"),
                 optionalMillis(block, "idle-before-ms", at + ".idle-before-ms"),
                 optionalBoxedDouble(block, "decay-per-second", at + ".decay-per-second"),
-                optionalBoolean(block, "as-fraction"));
+                optionalBoolean(block, "as-fraction"),
+                readPhase(block, at));
+    }
+
+    /** {@code when: cast | summon-end | landing}. Absent means at the cast. */
+    private static EffectPhase readPhase(Map<?, ?> block, String at) {
+        String key = optionalString(block, "when", at + ".when");
+        // Hyphens, because the rest of this file is written that way: `summon-end`, not SUMMON_END.
+        return key == null
+                ? EffectPhase.CAST
+                : readEnum(EffectPhase.class, key.replace('-', '_'));
     }
 
     private static Attribute readAttribute(Map<?, ?> block, String at) {

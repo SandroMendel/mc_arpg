@@ -893,9 +893,24 @@ public class RpgPlugin extends JavaPlugin {
         // silently absent.
         rpg.platform.ability.PaperSummons summons =
                 new rpg.platform.ability.PaperSummons(getServer(), scheduler, getLogger());
-        effects.register(
-                rpg.core.ability.EffectType.SUMMON,
-                new rpg.core.ability.effect.SummonEffect(summons));
+        rpg.core.ability.effect.SummonEffect summonEffect =
+                new rpg.core.ability.effect.SummonEffect(summons);
+        // Was der Klon hinterlaesst, wenn er geht (FR-016c). Aufgeloest wird um IHN herum, nicht um
+        // den Rogue: dass die beiden auseinanderstehen, ist der ganze Zweck der Faehigkeit.
+        summonEffect.setFarewell(
+                (ability, summonerId, creatureId, rank, snapshot) ->
+                        resolver.positionOf(creatureId)
+                                .ifPresent(
+                                        where ->
+                                                effects.runAt(
+                                                        ability,
+                                                        rpg.core.ability.EffectPhase.SUMMON_END,
+                                                        summonerId,
+                                                        resolver.resolveAt(
+                                                                summonerId, where, ability.target()),
+                                                        rank,
+                                                        snapshot)));
+        effects.register(rpg.core.ability.EffectType.SUMMON, summonEffect);
         effects.register(
                 rpg.core.ability.EffectType.INVISIBILITY,
                 new rpg.core.ability.effect.InvisibilityEffect(summons));

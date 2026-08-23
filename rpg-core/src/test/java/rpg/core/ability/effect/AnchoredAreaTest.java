@@ -91,7 +91,8 @@ class AnchoredAreaTest {
                         null,
                         null,
                         null,
-                        false);
+                        false,
+                        rpg.core.ability.EffectPhase.CAST);
         storm = storm(rain);
     }
 

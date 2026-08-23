@@ -9,6 +9,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import rpg.core.ability.Ability;
+import rpg.core.ability.EffectPhase;
 import rpg.core.ability.EffectSpec;
 import rpg.core.ability.EffectType;
 import rpg.core.scheduler.WorldPosition;
@@ -156,6 +157,34 @@ public final class EffectDispatcher {
     }
 
     /**
+     * Applies the effects of one deferred phase, at a place, later (FR-016c, FR-045d).
+     *
+     * <p>Everything the ability declared for this phase and nothing else: the clone's explosion runs
+     * when the clone goes, and its SUMMON does not run a second time. The targets are resolved by the
+     * caller, because only the caller knows the place - the creature that just vanished, the ground
+     * the warrior came down on.
+     *
+     * @param casterId whose ability it was, still, however far away they are by now
+     */
+    public void runAt(
+            Ability ability,
+            EffectPhase phase,
+            UUID casterId,
+            List<UUID> targets,
+            int rank,
+            StatSnapshot snapshot) {
+        if (targets.isEmpty()) {
+            return;
+        }
+        for (EffectSpec spec : ability.effects()) {
+            if (spec.phase() != phase) {
+                continue;
+            }
+            runOne(ability, spec, casterId, targets, rank, snapshot);
+        }
+    }
+
+    /**
      * The same, for a passive fired by an event.
      *
      * @param data what the trigger brought - the amount that landed, and a way to refuse it. Lifesteal
@@ -180,6 +209,12 @@ public final class EffectDispatcher {
             EffectContext.TriggerData data,
             WorldPosition anchor) {
         for (EffectSpec spec : ability.effects()) {
+            if (spec.phase().deferred()) {
+                // Not now. The clone's farewell and the leap's impact are applied by whoever sees
+                // the moment arrive - the summon when it goes, the landing watcher when the caster
+                // touches ground - and both go through runAt below.
+                continue;
+            }
             // An effect with an interval is handed to the shared sweep instead of applied here. Not a
             // special case in each primitive: DAMAGE with an interval is a poison, MANA_RESTORE with
             // one is the mana potion, and neither primitive should have to know that.

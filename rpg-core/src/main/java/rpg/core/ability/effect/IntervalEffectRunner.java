@@ -302,7 +302,8 @@ public final class IntervalEffectRunner {
                         spec.buildPerHit(),
                         spec.idleBefore(),
                         spec.decayPerSecond(),
-                        spec.asFraction());
+                        spec.asFraction(),
+                        spec.phase());
 
         // The one place where the two kinds part. A creature-bound instance knows its target and has
         // known it since the cast; an anchored one asks the ground, every single time, because that

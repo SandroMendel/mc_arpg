@@ -112,7 +112,8 @@ class AbilityRankCostTest {
                 null,
                 null,
                 null,
-                false);
+                false,
+                rpg.core.ability.EffectPhase.CAST);
     }
 
     private static Ability ability(Map<String, Object> rankCost) {

@@ -352,12 +352,28 @@ abilities:
     cast-time-ms: 0
     max-rank: 5
     rank-cost: { coins: 1 }
-    target: { mode: SELF }
+    # Der Klon steht bei ihm, die Explosion trifft um IHN herum - deshalb eine Flaeche und nicht
+    # SELF. Beim Wirken waehlt sie niemanden aus: der SUMMON-Effekt braucht kein Ziel, und der
+    # Schaden wartet auf das Ende (FR-016c).
+    target:
+      mode: RADIUS
+      range: 4.0
+      max-targets: 8
     effects:
       - type: SUMMON
         amount: 60.0
         per-rank: 20.0
         duration-ms: 10000
+      # Der Knall am Ende. `when: summon-end` heisst: nicht jetzt, sondern wenn der Klon geht, und
+      # dort, wo er dann steht.
+      - type: DAMAGE
+        when: summon-end
+        damage-type: MAGIC
+        amount: 1.6
+        per-rank: 0.25
+      - type: KNOCKBACK
+        when: summon-end
+        amount: 0.9
 
   # Second Life, the unique. Passive, and that is the whole reason ADR-022 let the unique be passive:
   # forcing it active would have meant a button for "do not die", which is not the ability.
