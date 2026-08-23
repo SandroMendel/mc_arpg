@@ -82,6 +82,10 @@ public final class FlushCycle implements WriteBehindCoordinator {
                     // single queue id rather than one mark per entry - see AUDIT_LOG, which solves
                     // the same shape.
                     AggregateType.COIN_LEDGER,
+                    // B09's zone state references a character as well - registration 2 of 3
+                    // (ADR-015). The other two are the AggregateType constant and the repository
+                    // wired in ZonePersistenceModule.
+                    AggregateType.CHARACTER_ZONE_STATE,
                     AggregateType.ITEM_INSTANCE,
                     AggregateType.STATISTICS,
                     AggregateType.AUDIT_LOG);

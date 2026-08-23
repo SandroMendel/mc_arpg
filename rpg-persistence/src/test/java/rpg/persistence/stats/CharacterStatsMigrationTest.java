@@ -113,7 +113,9 @@ class CharacterStatsMigrationTest {
     }
 
     @Test
-    @DisplayName("the version space stays ordered: 1 < 3.1 < 3.2 < 4.1 < 6.1 < 7.1 < 7.2 < 8.1 < 8.2 < 8.3")
+    @DisplayName(
+            "the version space stays ordered: 1 < 3.1 < 3.2 < 4.1 < 6.1 < 7.1 < 7.2 < 8.1 < 8.2 < 8.3"
+                    + " < 9.1")
     void versionSpaceOrdering() throws Exception {
         try (Connection connection = PostgresContainer.openConnection();
                 Statement statement = connection.createStatement();
@@ -128,7 +130,11 @@ class CharacterStatsMigrationTest {
             }
             // 6.1 belongs to B06, 7.x to B07. The point of this assertion is the ORDER: Flyway must
             // read the underscore as a version separator, so a block numbering past 9 stays sorted.
-            assertThat(versions).containsExactly("1", "3.1", "3.2", "4.1", "6.1", "7.1", "7.2", "8.1", "8.2", "8.3");
+            // 9.1 is B09, and it is the assertion this test was written for: the comment above says
+            // "a block numbering past 9 stays sorted", and until now nothing numbered past 8.
+            assertThat(versions)
+                    .containsExactly(
+                            "1", "3.1", "3.2", "4.1", "6.1", "7.1", "7.2", "8.1", "8.2", "8.3", "9.1");
         }
     }
 

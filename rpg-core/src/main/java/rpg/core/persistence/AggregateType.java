@@ -105,5 +105,23 @@ public enum AggregateType {
      *
      * <p>Registration 1 of 3 (ADR-015), as above.
      */
-    COIN_LEDGER
+    COIN_LEDGER,
+
+    /**
+     * What a character carries out of the zone block (B09).
+     *
+     * <p><b>Two tables under one type</b>, and that is the unusual part: the discovered waypoint
+     * crystals and the pending respawn left by a combat logout. They belong to the same character and
+     * are written in the same moment, so two types would mean two positions in the write order for
+     * one thing. {@link #CHARACTER_INVENTORY} already shows an aggregate may carry more than one
+     * table.
+     *
+     * <p><b>Absence of a row means this block has never placed that character</b> - which is exactly
+     * what tells a new character from a returning one, and therefore what makes the start region
+     * apply exactly once (B09/FR-037b). The same inference {@link #CHARACTER_BALANCE} makes from a
+     * missing balance row.
+     *
+     * <p>Registration 1 of 3 (ADR-015), as above.
+     */
+    CHARACTER_ZONE_STATE
 }

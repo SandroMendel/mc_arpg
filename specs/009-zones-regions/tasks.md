@@ -213,14 +213,14 @@ später ausloggen → nichts.
 
 ### Eingriff in einen abgeschlossenen Block
 
-- [ ] T069 [US5] **`DeathCause.LOGOUT`** in `rpg-core/src/main/java/rpg/core/combat/DeathCause.java` ergänzen — **Eingriff in B05, gedeckt durch ADR-030**. Das Javadoc der Aufzählung begründet, dass sie Fälle *unterscheiden* soll; der vierte Wert passt dazu. Danach jede Stelle behandeln, die über die Werte verzweigt — **der Compiler zeigt sie**
-- [ ] T070 [US5] `DeathCauseLogoutTest` in `rpg-core/src/test/java/rpg/core/combat/` — der Logout-Tod ist von einem gewöhnlichen Kampftod unterscheidbar (FR-040, SC-011)
+- [X] T069 [US5] **`DeathCause.LOGOUT`** in `rpg-core/src/main/java/rpg/core/combat/DeathCause.java` ergänzen — **Eingriff in B05, gedeckt durch ADR-030**. Das Javadoc der Aufzählung begründet, dass sie Fälle *unterscheiden* soll; der vierte Wert passt dazu. Danach jede Stelle behandeln, die über die Werte verzweigt — **der Compiler zeigt sie**
+- [X] T070 [US5] `DeathCauseLogoutTest` in `rpg-core/src/test/java/rpg/core/combat/` — der Logout-Tod ist von einem gewöhnlichen Kampftod unterscheidbar (FR-040, SC-011)
 
 ### Persistenz (Grundlage auch für US6)
 
-- [ ] T071 [US5] Migration `V9_1__character_zone_state.sql` in `rpg-persistence/src/main/resources/db/migration/` — `rpg.character_waypoints` (Primärschlüssel `character_id, crystal_key`) und `rpg.character_zone_state` (`character_id` als Primärschlüssel, `pending_respawn_zone` nullable), beide `REFERENCES rpg.character (character_id) ON DELETE CASCADE`. Kommentar wie in `V4_1` und `V6_1`: dieselbe Zeile erledigt die Anonymisierung (data-model.md §4)
-- [ ] T072 [US5] **Eintragung 1 von 3** (ADR-015 Punkt 7): `AggregateType.CHARACTER_ZONE_STATE` in `rpg-core/src/main/java/rpg/core/persistence/AggregateType.java` — mit Javadoc nach dem Muster von `CHARACTER_BALANCE`
-- [ ] T073 [US5] **Eintragung 2 von 3**: der Platz in `FlushCycle.WRITE_ORDER` in `rpg-persistence/src/main/java/rpg/persistence/FlushCycle.java` — nach `CHARACTER`, weil der Fremdschlüssel darauf zeigt. Eine fehlende Eintragung lässt die Marken bei jedem Flush als fehlgeschlagen zählen; das steht als Warnung im Javadoc von `AggregateType`
+- [X] T071 [US5] Migration `V9_1__character_zone_state.sql` in `rpg-persistence/src/main/resources/db/migration/` — `rpg.character_waypoints` (Primärschlüssel `character_id, crystal_key`) und `rpg.character_zone_state` (`character_id` als Primärschlüssel, `pending_respawn_zone` nullable), beide `REFERENCES rpg.character (character_id) ON DELETE CASCADE`. Kommentar wie in `V4_1` und `V6_1`: dieselbe Zeile erledigt die Anonymisierung (data-model.md §4)
+- [X] T072 [US5] **Eintragung 1 von 3** (ADR-015 Punkt 7): `AggregateType.CHARACTER_ZONE_STATE` in `rpg-core/src/main/java/rpg/core/persistence/AggregateType.java` — mit Javadoc nach dem Muster von `CHARACTER_BALANCE`
+- [X] T073 [US5] **Eintragung 2 von 3**: der Platz in `FlushCycle.WRITE_ORDER` in `rpg-persistence/src/main/java/rpg/persistence/FlushCycle.java` — nach `CHARACTER`, weil der Fremdschlüssel darauf zeigt. Eine fehlende Eintragung lässt die Marken bei jedem Flush als fehlgeschlagen zählen; das steht als Warnung im Javadoc von `AggregateType`
 - [ ] T074 [US5] **Eintragung 3 von 3**: `persistence.flushCycle().register(AggregateType.CHARACTER_ZONE_STATE, repository)` in `rpg-persistence/.../zone/ZonePersistenceModule.java`, nach dem Muster von `AbilityModule` und `ClassesModule`
 - [ ] T075 [US5] `PendingRespawn` in `rpg-core/.../zone/PendingRespawn.java` und `PendingRespawnRepository` als Schnittstelle
 - [ ] T076 [US5] `JdbcPendingRespawnRepository` in `rpg-persistence/src/main/java/rpg/persistence/zone/JdbcPendingRespawnRepository.java` — Schreiben über B02s Puffer, kein Datenbankzugriff im Spielereignis (FR-063)

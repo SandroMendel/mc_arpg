@@ -54,7 +54,8 @@ class CharacterMigrationTest {
             MigrationOutcome first = new SchemaMigrator(pools.writePool(), QUIET).migrateToLatest();
             MigrationOutcome second = new SchemaMigrator(pools.writePool(), QUIET).migrateToLatest();
 
-            assertThat(first.applied()).isEqualTo(10); // V1, V3_1, V3_2, V4_1, V6_1, V7_1, V7_2, V8_1, V8_2, V8_3
+            // V1, V3_1, V3_2, V4_1, V6_1, V7_1, V7_2, V8_1, V8_2, V8_3, V9_1
+            assertThat(first.applied()).isEqualTo(11);
             assertThat(second.applied()).isZero();
         }
     }
