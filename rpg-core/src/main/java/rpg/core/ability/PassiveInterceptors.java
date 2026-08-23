@@ -28,9 +28,41 @@ public final class PassiveInterceptors {
 
     private PassiveInterceptors() {}
 
+    /**
+     * Told when a passive actually took something off an incoming hit.
+     *
+     * <p><b>Why this exists.</b> A mitigation is the hardest kind of ability to believe in: it never
+     * refuses a blow, it only makes it smaller, and a smaller number among other numbers looks like
+     * nothing at all. Magic Life softens ten to twenty percent - nobody can tell that apart from a
+     * mob rolling low, which is exactly why it was reported as broken while working.
+     *
+     * <p>So the block says so. Not a debug switch that gets left on: the same argument holds in play.
+     */
+    @FunctionalInterface
+    public interface MitigationNotice {
+
+        /**
+         * @param before what the hit would have been
+         * @param after what is left of it
+         */
+        void softened(UUID holderId, double before, double after);
+
+        /** Says nothing. The default, and what the domain tests run against. */
+        static MitigationNotice silent() {
+            return (holderId, before, after) -> {};
+        }
+    }
+
     /** Evasion and anything else that reacts to being hit (FR-046, {@code ON_DAMAGE_TAKEN}). */
     public static DamageInterceptor damageTaken(PassiveDispatcher passives) {
+        return damageTaken(passives, MitigationNotice.silent());
+    }
+
+    /** The same, and it reports what was softened. */
+    public static DamageInterceptor damageTaken(
+            PassiveDispatcher passives, MitigationNotice notice) {
         Objects.requireNonNull(passives, "passives");
+        Objects.requireNonNull(notice, "notice");
         return new DamageInterceptor() {
             @Override
             public String id() {
@@ -44,6 +76,10 @@ public final class PassiveInterceptors {
 
             @Override
             public void intercept(DamageView damage) {
+                // Read before and after rather than adding up what each mitigation claims: two of
+                // them on one hit each take a share of what the previous one left, and the sum of
+                // the shares is not the sum of the damage.
+                double before = damage.rawDamage();
                 passives.fire(
                         damage.targetId(),
                         AbilityTrigger.ON_DAMAGE_TAKEN,
@@ -59,6 +95,12 @@ public final class PassiveInterceptors {
                                 share ->
                                         damage.setRawDamage(damage.rawDamage() * (1.0 - share)),
                                 damage.attackerId().orElse(null)));
+                double after = damage.rawDamage();
+                if (after < before && !damage.isCancelled()) {
+                    // Not on a cancelled hit: an evasion turned the blow away whole, and calling
+                    // that "softened by 100 percent" would describe the wrong ability.
+                    notice.softened(damage.targetId(), before, after);
+                }
             }
         };
     }

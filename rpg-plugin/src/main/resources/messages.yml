@@ -152,6 +152,11 @@ ability:
 
   unlocked: 'New ability unlocked: {ability}.'
 
+  # Said whenever a passive really took something off an incoming hit. A mitigation is invisible by
+  # nature - it makes a number smaller, and a smaller number among other numbers looks like nothing,
+  # which is why Magic Life was reported as broken while working.
+  mitigated: 'Absorbed {absorbed} damage ({left} got through).'
+
   rank:
     advanced: '{ability} is now rank {rank}.'
     at-maximum: '{ability} is already at its highest rank.'

@@ -1000,7 +1000,25 @@ public class RpgPlugin extends JavaPlugin {
         // pipeline, it is what the pipeline concludes, and B05 announces it.
         new rpg.core.ability.OnKillSubscriber(passives).subscribeTo(eventBus);
 
-        pipeline.registerInterceptor(rpg.core.ability.PassiveInterceptors.damageTaken(passives));
+        // Mit der Rueckmeldung, was eine Milderung wirklich abgefangen hat. Magisches Leben nimmt
+        // zehn bis zwanzig Prozent und lehnt nie einen Schlag ab - ohne diese Zeile ist es von
+        // einem Mob, der niedrig wuerfelt, nicht zu unterscheiden, und genau deshalb galt es als
+        // kaputt, waehrend es lief.
+        pipeline.registerInterceptor(
+                rpg.core.ability.PassiveInterceptors.damageTaken(
+                        passives,
+                        (holderId, before, after) -> {
+                            org.bukkit.entity.Player hurt = getServer().getPlayer(holderId);
+                            if (hurt == null) {
+                                return;
+                            }
+                            hurt.sendMessage(
+                                    messages.get(
+                                            rpg.core.ability.AbilityMessageKeys.MITIGATED,
+                                            java.util.Map.of(
+                                                    "absorbed", oneDecimal(before - after),
+                                                    "left", oneDecimal(after))));
+                        }));
         pipeline.registerInterceptor(rpg.core.ability.PassiveInterceptors.damageDealt(passives));
         pipeline.registerInterceptor(
                 rpg.core.ability.PassiveInterceptors.lethalBlow(
@@ -1817,6 +1835,17 @@ public class RpgPlugin extends JavaPlugin {
      */
     public rpg.core.ability.ResourceRegeneration abilityRegeneration() {
         return abilityModule == null ? null : abilityModule.regeneration();
+    }
+
+    /**
+     * Eine Nachkommastelle, mit Punkt statt Komma.
+     *
+     * <p>Ganze Zahlen wären hier falsch: eine Milderung von zehn Prozent auf einen Schlag von vier
+     * Herzen ist 0,4 — gerundet null, und die Meldung sagte dann, es sei nichts abgefangen worden.
+     * {@code Locale.ROOT}, weil ein deutsches Komma in einer englischen Zeile falsch aussieht.
+     */
+    private static String oneDecimal(double value) {
+        return String.format(java.util.Locale.ROOT, "%.1f", value);
     }
 
     /**
