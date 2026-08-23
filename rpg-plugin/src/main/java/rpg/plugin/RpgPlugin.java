@@ -170,6 +170,9 @@ public class RpgPlugin extends JavaPlugin {
 
     private rpg.core.zone.Travel zoneTravel;
 
+    /** Wer gerade in der Luft ist und beim Aufkommen noch etwas ausloest (FR-045d). */
+    private rpg.platform.ability.LandingWatcher abilityLandings;
+
     /** The same for the two player-keyed maps of US6: the click cooldown and the open window. */
     private java.util.function.Consumer<java.util.UUID> zoneForgetPlayer = playerId -> {};
     private ClassesModule classesModule;
@@ -924,6 +927,27 @@ public class RpgPlugin extends JavaPlugin {
 
         rpg.platform.ability.PaperMovementEffects movement =
                 new rpg.platform.ability.PaperMovementEffects(getServer(), getLogger());
+        // Was ein Sprung anrichtet, richtet er beim Aufkommen an (FR-045d). Der Waechter reitet auf
+        // PlayerMoveEvent mit und kostet einen int-Vergleich, solange niemand in der Luft ist - eine
+        // Aufgabe je Sprung waere die wiederkehrende Aufgabe, die Prinzip II ausschliesst.
+        abilityLandings =
+                new rpg.platform.ability.LandingWatcher(
+                        (ability, holderId, rank, snapshot) ->
+                                resolver.positionOf(holderId)
+                                        .ifPresent(
+                                                where ->
+                                                        effects.runAt(
+                                                                ability,
+                                                                rpg.core.ability.EffectPhase.LANDING,
+                                                                holderId,
+                                                                resolver.resolveAt(
+                                                                        holderId,
+                                                                        where,
+                                                                        ability.target()),
+                                                                rank,
+                                                                snapshot)));
+        movement.setLandingWatcher(abilityLandings);
+        getServer().getPluginManager().registerEvents(abilityLandings, this);
         effects.register(rpg.core.ability.EffectType.DASH, movement.dash());
         effects.register(rpg.core.ability.EffectType.KNOCKBACK, movement.knockback());
         effects.register(rpg.core.ability.EffectType.TELEPORT, movement.teleport());
@@ -1288,6 +1312,11 @@ public class RpgPlugin extends JavaPlugin {
                                         zoneCombatLogout.onSessionEnding(playerId, characterId));
                 zoneTracker.forgetHolder(playerId).ifPresent(zoneForget::accept);
                 zoneForgetPlayer.accept(playerId);
+                if (abilityLandings != null) {
+                    // Wer mitten im Sprung geht, kommt beim naechsten Login auf dem Boden an - und
+                    // ein Aufprall mitten in einen Login hinein ist nicht, was die Faehigkeit meint.
+                    abilityLandings.forget(playerId);
+                }
                 // Before B03 starts the unload: the player is still here, so their inventory can still
                 // be read - and this is the last moment that is true. The observer runs on the quit
                 // event, which is the player's own tick.

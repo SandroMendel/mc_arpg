@@ -123,11 +123,16 @@ class FullBootstrapTest {
         // single table access - and only in the handful of chunks a border runs through
         // (MovementGuard, research.md R4). A zone lookup on every step would have been the one
         // addition this list should have refused.
+        //
+        // The sixth is B08's landing watcher, and it earns its place the same way: one int read says
+        // "nobody is mid-leap", which is true of every player almost all of the time. It exists
+        // because a leap's impact happens where the warrior comes down, and no timer can say when
+        // that is - a jump over a cliff takes as long as the cliff is deep (FR-045d).
         assertThat(handlerCount(PlayerMoveEvent.getHandlerList()))
                 .as(
-                        "B03's safe-state hold, B07's no-character hold, B08's double jump and its"
-                                + " cast interruption, B09's movement guard")
-                .isEqualTo(5);
+                        "B03's safe-state hold, B07's no-character hold, B08's double jump, its cast"
+                                + " interruption and its landing watcher, B09's movement guard")
+                .isEqualTo(6);
     }
 
     @Test

@@ -35,6 +35,19 @@ public final class PaperMovementEffects {
         this.logger = Objects.requireNonNull(logger, "logger");
     }
 
+    /**
+     * Told when a dash begins, so somebody can wait for the landing.
+     *
+     * <p>Installed at startup. Without it a dash is just an impulse, which is what it was - and the
+     * leap's impact happened at take-off, on whatever stood in front of the warrior before he jumped.
+     */
+    private volatile LandingWatcher landings;
+
+    /** Installs the watcher. At startup, not during play. */
+    public void setLandingWatcher(LandingWatcher landings) {
+        this.landings = Objects.requireNonNull(landings, "landings");
+    }
+
     /** A push in the caster's view direction - the warrior's Leap. */
     public AbilityEffect dash() {
         return context -> {
@@ -45,7 +58,28 @@ public final class PaperMovementEffects {
             Vector direction = caster.getLocation().getDirection().normalize();
             // A little upward lift, or the dash scrapes along the floor and stops at the first slab.
             caster.setVelocity(direction.multiply(context.value()).setY(Math.max(0.35, direction.getY())));
+
+            // If this ability has anything to do on landing, this is where the waiting starts. Asked
+            // per dash rather than assumed: a dash is not necessarily a leap, and an ability with no
+            // landing effects must not put its caster on a watch list for nothing.
+            LandingWatcher watcher = landings;
+            if (watcher != null && hasLandingEffects(context)) {
+                watcher.expect(
+                        context.casterId(),
+                        context.ability(),
+                        context.rank(),
+                        context.snapshot());
+            }
         };
+    }
+
+    private static boolean hasLandingEffects(EffectContext context) {
+        for (rpg.core.ability.EffectSpec spec : context.ability().effects()) {
+            if (spec.phase() == rpg.core.ability.EffectPhase.LANDING) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** A push away from the caster - what the whirl does at its edge. */

@@ -137,11 +137,12 @@ abilities:
     interrupt-on-move: false
     max-rank: 5
     rank-cost: { coins: 1 }
+    # RADIUS um den LANDEPUNKT, nicht LINE vom Absprung aus. Was ein Sprung anrichtet, richtet er
+    # dort an, wo er aufkommt - eine Linie in Blickrichtung beschrieb den Weg dorthin, und der Weg
+    # ist nicht der Aufprall (FR-045d).
     target:
-      # LINE, not LOOK_DIRECTION: the leap goes where you look, but the landing hits everything
-      # along it, and LOOK_DIRECTION returns exactly one target by definition.
-      mode: LINE
-      range: 12.0
+      mode: RADIUS
+      range: 4.0
       max-targets: 6
     effects:
       # Der Schub in Blickrichtung. 1.4 war ein Schritt, kein Sprung - der Warrior kam kaum weiter
@@ -149,11 +150,15 @@ abilities:
       - type: DASH
         amount: 2.6
         per-rank: 0.2
+      # Beide erst beim Aufkommen. Vorher trafen sie, was VOR dem Sprung vor ihm stand, und der
+      # Rueckstoss drueckte vom Absprungpunkt weg - beides sichtbar falsch, sobald man weit springt.
       - type: DAMAGE
+        when: landing
         damage-type: PHYSICAL
         amount: 1.1
         per-rank: 0.15
       - type: KNOCKBACK
+        when: landing
         amount: 0.7
 
   # Lifesteal. A share of the damage that ACTUALLY landed, which is why it hangs on APPLICATION and
