@@ -130,9 +130,10 @@ abilities:
     description-key: 'ability.warrior.leap.description'
     item: 'FEATHER'
     mana-cost: 25.0
-    # Fortbewegung, mit 600 ms Wirkzeit ohnehin selbstbegrenzt.
+    # Fortbewegung. Die Abklingzeit begrenzt sie; eine Wirkzeit tat es zusaetzlich und war das
+    # Falsche - ein Sprung, der eine halbe Sekunde nach dem Klick losgeht, kommt immer zu spaet.
     cooldown-ms: 600
-    cast-time-ms: 600
+    cast-time-ms: 0
     interrupt-on-move: false
     max-rank: 5
     rank-cost: { coins: 1 }
@@ -373,9 +374,11 @@ abilities:
     rank-cost: { coins: 1 }
     target: { mode: SELF }
     effects:
+      # Rang 1 haelt die Haelfte, Rang 5 die volle Leiste. Vorher 35 bis 55 Prozent - eine
+      # Wiederbelebung, nach der man beim naechsten Schlag wieder liegt, ist keine.
       - type: HEAL
-        amount: 0.35
-        per-rank: 0.05
+        amount: 0.50
+        per-rank: 0.125
         as-fraction: true
 
   # ============================== MAGE - mana, magic damage, area ==================================
@@ -425,8 +428,10 @@ abilities:
     display-name-key: 'ability.mage.lightning.name'
     description-key: 'ability.mage.lightning.description'
     item: 'BLAZE_ROD'
-    mana-cost: 30.0
-    # Der Grundangriff des Magiers - das Untergrenze des Bandes.
+    # Der Grundangriff des Magiers, und Grundangriffe muessen bezahlbar sein: mit 30 Mana waren die
+    # Vorraete nach vier Blitzen leer und der Magier stand ohne alles da.
+    mana-cost: 5.0
+    # Die Untergrenze des Abklingbandes.
     cooldown-ms: 500
     cast-time-ms: 0
     max-rank: 5
@@ -532,9 +537,9 @@ abilities:
     kind: PASSIVE
     display-name-key: 'ability.mage.rise-and-fall.name'
     description-key: 'ability.mage.rise-and-fall.description'
-    # Two markers for one ability: the Wind Charge is the jump, the potion is the fall. With a
-    # three-way toggle - on, off, jump without slow fall - those two are what the player reads.
-    item: ['WIND_CHARGE', 'POTION']
+    # EIN Marker, nicht zwei. Der Wind Charge ist der Sprung; der Trank daneben belegte einen
+    # zweiten Platz in der Leiste fuer dieselbe Faehigkeit, und Plaetze sind knapp.
+    item: 'WIND_CHARGE'
     trigger: ALWAYS
     player-toggle: true
     cooldown-ms: 6000
@@ -542,9 +547,10 @@ abilities:
     rank-cost: { coins: 1 }
     target: { mode: SELF }
     effects:
+      # Hoeher als vorher (0.8): der Doppelsprung war ein Huepfer und keine Fortbewegung.
       - type: DOUBLE_JUMP
-        amount: 0.8
-        per-rank: 0.04
+        amount: 1.15
+        per-rank: 0.06
       - type: STATUS_EFFECT
         status-effect: 'SLOW_FALLING'
         amount: 0.0

@@ -104,17 +104,17 @@ class AbilityHotbarTest {
         }
 
         @Test
-        @DisplayName("Mage: vier aktive und drei Marker - sieben belegte Slots von acht")
+        @DisplayName("Mage: vier aktive und zwei Marker - sechs belegte Slots von acht")
         void mage() throws Exception {
             hotbar.layOut(player, allOf(CharacterClass.MAGE));
 
-            // Aufstieg & Fall trägt zwei: die Wind Charge für den Sprung, den Trank für den Fall.
-            // Ein Slot je Marker, nicht je Fähigkeit - sonst wäre die dreistufige Einstellung
-            // (an / aus / nur Sprung) für den Spieler nicht ablesbar.
-            assertThat(occupied()).isEqualTo(7);
+            // Aufstieg & Fall trug zwei Marker: die Wind Charge fuer den Sprung, den Trank fuer den
+            // Fall. Jetzt einen. Die dreistufige Einstellung (an / aus / nur Sprung) laesst sich am
+            // Trank ohnehin nicht ablesen - sie steht in der Zeile unter dem Gegenstand -, und ein
+            // zweiter Platz fuer dieselbe Faehigkeit ist in einer achtstelligen Leiste zu teuer.
+            assertThat(occupied()).isEqualTo(6);
             assertThat(materialsFrom(1))
-                    .endsWith(
-                            Material.GLISTERING_MELON_SLICE, Material.WIND_CHARGE, Material.POTION);
+                    .endsWith(Material.GLISTERING_MELON_SLICE, Material.WIND_CHARGE);
         }
     }
 
@@ -163,13 +163,13 @@ class AbilityHotbarTest {
         @DisplayName("ein zweiter Aufbau lässt keine Reste stehen")
         void layingOutTwiceLeavesNoLeftovers() throws Exception {
             hotbar.layOut(player, allOf(CharacterClass.MAGE));
-            assertThat(occupied()).isEqualTo(7);
+            assertThat(occupied()).isEqualTo(6);
 
             // Neu aufbauen statt nachbessern - die Zusage ist, dass der Stand allein aus dem folgt,
             // was freigeschaltet ist. Ein Rest aus dem vorherigen Aufbau würde genau das brechen.
             hotbar.layOut(player, only("mage.magic-life", "mage.lightning"));
 
-            // Zwei statt sieben: der Blitz und der Marker von Magisches Leben. Haette der vorherige
+            // Zwei statt sechs: der Blitz und der Marker von Magisches Leben. Haette der vorherige
             // Aufbau etwas stehen lassen, stuende hier mehr.
             assertThat(occupied()).isEqualTo(2);
         }
