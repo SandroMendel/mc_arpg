@@ -190,7 +190,7 @@ class AnchoredAreaTest {
                 false,
                 java.util.Set.of(),
                 1.0,
-                new TargetSpec(TargetMode.GROUND_AREA, 16.0, null, 10, null, 5.0),
+                new TargetSpec(TargetMode.GROUND_AREA, 16.0, null, 10, null, 5.0, null),
                 List.of(effect),
                 1,
                 Map.of(),

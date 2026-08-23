@@ -203,7 +203,8 @@ public final class AbilityConfigSchema {
                 // vergessene Zeile von einer Entscheidung ununterscheidbar machen.
                 (int) optionalDouble(block, "max-targets", where + ".max-targets", 0.0),
                 optionalBoxedDouble(block, "hop-range", where + ".hop-range"),
-                optionalBoxedDouble(block, "area-radius", where + ".area-radius"));
+                optionalBoxedDouble(block, "area-radius", where + ".area-radius"),
+                optionalBoxedDouble(block, "height", where + ".height"));
     }
 
     private static List<EffectSpec> readEffects(Map<?, ?> block, String where) {

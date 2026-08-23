@@ -204,7 +204,7 @@ class SummonFarewellTest {
                 false,
                 java.util.Set.of(),
                 1.0,
-                new TargetSpec(TargetMode.RADIUS, 4.0, null, 8, null, null),
+                new TargetSpec(TargetMode.RADIUS, 4.0, null, 8, null, null, null),
                 effects,
                 1,
                 Map.of(),

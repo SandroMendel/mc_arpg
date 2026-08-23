@@ -252,7 +252,15 @@ public final class PaperTargetResolver implements TargetResolver {
     /** The same spec seen from the anchor: the area radius becomes the reach. */
     private static TargetSpec withRadius(TargetSpec spec) {
         return new TargetSpec(
-                TargetMode.RADIUS, spec.areaRadius(), null, spec.maxTargets(), null, null);
+                TargetMode.RADIUS,
+                spec.areaRadius(),
+                null,
+                spec.maxTargets(),
+                null,
+                null,
+                // Die Hoehe reist mit: eine verankerte Flaeche mit Hoehe ist ein stehender Zylinder
+                // auf dem Boden, kein Ball, der zur Haelfte im Gestein steckt.
+                spec.height());
     }
 
     private UUID nearestFrom(UUID casterId, Location origin, double reach, Set<UUID> exclude) {
@@ -283,21 +291,42 @@ public final class PaperTargetResolver implements TargetResolver {
      * <p>Extracted because getting any one of those four wrong is invisible until a fight goes
      * strangely, and four copies would be four chances to.
      */
+    /**
+     * Sphere or cylinder, depending on whether the spec names a height.
+     *
+     * <p>Without one, nothing changes: the distance in all three axes has to be within the range,
+     * which is a sphere. With one, the two questions are asked separately - as far sideways as the
+     * range allows, no matter how high, and only as high as the height allows.
+     */
+    private static boolean inShape(
+            Location at, Location origin, TargetSpec spec, double rangeSquared, double vertical) {
+        if (spec.height() == null) {
+            return at.distanceSquared(origin) <= rangeSquared;
+        }
+        double dx = at.getX() - origin.getX();
+        double dz = at.getZ() - origin.getZ();
+        return dx * dx + dz * dz <= rangeSquared && Math.abs(at.getY() - origin.getY()) <= vertical;
+    }
+
     private List<UUID> pick(
             UUID casterId,
             Location origin,
             TargetSpec spec,
             java.util.function.Predicate<Entity> extra) {
         double range = spec.range();
+        // With a height the shape is a cylinder, and the box has to be as flat as the cylinder is -
+        // asking for a range-tall box and filtering afterwards would walk chunk sections that cannot
+        // contain a target.
+        double vertical = spec.height() == null ? range : spec.height();
         List<Entity> candidates =
-                new ArrayList<>(origin.getWorld().getNearbyEntities(origin, range, range, range));
+                new ArrayList<>(origin.getWorld().getNearbyEntities(origin, range, vertical, range));
 
         double rangeSquared = range * range;
         List<Entity> eligible = new ArrayList<>(candidates.size());
         for (Entity candidate : candidates) {
             if (candidate.getUniqueId().equals(casterId)
                     || !(candidate instanceof LivingEntity)
-                    || candidate.getLocation().distanceSquared(origin) > rangeSquared
+                    || !inShape(candidate.getLocation(), origin, spec, rangeSquared, vertical)
                     || !mayAttack.test(casterId, candidate.getUniqueId())
                     || !extra.test(candidate)) {
                 continue;

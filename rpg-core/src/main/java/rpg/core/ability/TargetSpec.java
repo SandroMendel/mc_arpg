@@ -13,6 +13,13 @@ import java.util.Objects;
  * @param hopRange required for {@link TargetMode#CHAIN} - the radius searched around the last target
  *     hit, not around the caster
  * @param areaRadius required for {@link TargetMode#GROUND_AREA} - the size of the anchored patch
+ * @param height optional, and only for the two area modes: with it the area is a <b>cylinder</b> of
+ *     this half-height instead of a sphere.
+ *     <p>The difference is not cosmetic. A sphere's sideways reach shrinks with every block of
+ *     height: a whirl of 4.5 reaches 4.5 blocks at your feet and 3.3 at a mob standing three blocks
+ *     up. On a hillside that reads as "sometimes it hits and sometimes it does not", and no player
+ *     can predict it. A cylinder says something you can remember - everything around you, at your
+ *     level and a bit above and below.
  */
 public record TargetSpec(
         TargetMode mode,
@@ -20,7 +27,8 @@ public record TargetSpec(
         Double angle,
         int maxTargets,
         Double hopRange,
-        Double areaRadius) {
+        Double areaRadius,
+        Double height) {
 
     public TargetSpec {
         Objects.requireNonNull(mode, "mode");
@@ -80,20 +88,33 @@ public record TargetSpec(
             throw new IllegalArgumentException(
                     mode + ": area-radius means nothing outside GROUND_AREA");
         }
+
+        if (height != null) {
+            if (!Double.isFinite(height) || height <= 0.0) {
+                throw new IllegalArgumentException(
+                        mode + ": height must be greater than zero, but was " + height);
+            }
+            if (mode != TargetMode.RADIUS && mode != TargetMode.GROUND_AREA) {
+                // A cone and a line already carry a shape of their own; a height on top of one would
+                // be a second answer to the same question.
+                throw new IllegalArgumentException(
+                        mode + ": height means nothing outside RADIUS and GROUND_AREA");
+            }
+        }
     }
 
     /** The single-target shorthand - {@code maxTargets} is 1 and everything optional is absent. */
     public static TargetSpec single(TargetMode mode, double range) {
-        return new TargetSpec(mode, range, null, 1, null, null);
+        return new TargetSpec(mode, range, null, 1, null, null, null);
     }
 
     /** The caster, with no reach at all. */
     public static TargetSpec self() {
-        return new TargetSpec(TargetMode.SELF, 0.0, null, 1, null, null);
+        return new TargetSpec(TargetMode.SELF, 0.0, null, 1, null, null, null);
     }
 
     /** An area around the caster, with its required ceiling. */
     public static TargetSpec radius(double range, int maxTargets) {
-        return new TargetSpec(TargetMode.RADIUS, range, null, maxTargets, null, null);
+        return new TargetSpec(TargetMode.RADIUS, range, null, maxTargets, null, null, null);
     }
 }

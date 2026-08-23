@@ -153,7 +153,7 @@ class PaperTargetResolverTest {
         @DisplayName("SELF ist immer genau der Auslöser, auch ohne irgendwen in Reichweite")
         void selfIsAlwaysTheCaster() {
             assertThat(resolver.resolve(caster.getUniqueId(), new TargetSpec(
-                            TargetMode.SELF, 0.0, null, 1, null, null)))
+                            TargetMode.SELF, 0.0, null, 1, null, null, null)))
                     .containsExactly(caster.getUniqueId());
         }
 
@@ -166,12 +166,72 @@ class PaperTargetResolverTest {
 
     // --- helpers ---
 
+
+    @Nested
+    @DisplayName("Zylinder statt Kugel - die Hoehe wird getrennt gemessen")
+    class Cylinder {
+
+        @Test
+        @DisplayName("bei einer Kugel schrumpft die seitliche Reichweite mit der Hoehe")
+        void aSphereLosesReachWithHeight() {
+            // 5.8 zur Seite und 2 nach oben: die echte Entfernung ist 6.13 und damit ausserhalb
+            // einer Kugel von 6 - waagerecht steht er aber klar innerhalb. Genau diese Mobs hat der
+            // Wirbel am Hang verfehlt.
+            spawnAt(5.8, 66.0, 0.0);
+
+            assertThat(resolver.resolve(caster.getUniqueId(), radius(6.0, 10))).isEmpty();
+        }
+
+        @Test
+        @DisplayName("derselbe Mob wird von einem Zylinder getroffen")
+        void acylinderReachesHim() {
+            LivingEntity onALedge = spawnAt(5.8, 66.0, 0.0);
+
+            assertThat(resolver.resolve(caster.getUniqueId(), cylinder(6.0, 3.0, 10)))
+                    .containsExactly(onALedge.getUniqueId());
+        }
+
+        @Test
+        @DisplayName("die Hoehe begrenzt trotzdem - vier Bloecke ueber dir sind zu hoch")
+        void theheightStillLimits() {
+            spawnAt(1.0, 68.0, 0.0);
+
+            assertThat(resolver.resolve(caster.getUniqueId(), cylinder(6.0, 3.0, 10)))
+                    .as("sonst waere es kein Zylinder, sondern eine Saeule ohne Deckel")
+                    .isEmpty();
+        }
+
+        @Test
+        @DisplayName("und die Seite auch - sieben Bloecke sind ausserhalb, egal auf welcher Hoehe")
+        void thesideStillLimits() {
+            spawnAt(7.0, 64.0, 0.0);
+
+            assertThat(resolver.resolve(caster.getUniqueId(), cylinder(6.0, 3.0, 10))).isEmpty();
+        }
+
+        @Test
+        @DisplayName("unter dir zaehlt genauso wie ueber dir")
+        void belowCountsLikeAbove() {
+            LivingEntity inAPit = spawnAt(4.0, 62.0, 0.0);
+
+            assertThat(resolver.resolve(caster.getUniqueId(), cylinder(6.0, 3.0, 10)))
+                    .containsExactly(inAPit.getUniqueId());
+        }
+    }
     private LivingEntity spawnAt(double x, double z) {
-        return (LivingEntity)
-                world.spawnEntity(new Location(world, x, 64.0, z), EntityType.ZOMBIE);
+        return spawnAt(x, 64.0, z);
+    }
+
+    private LivingEntity spawnAt(double x, double y, double z) {
+        return (LivingEntity) world.spawnEntity(new Location(world, x, y, z), EntityType.ZOMBIE);
     }
 
     private static TargetSpec radius(double range, int maxTargets) {
-        return new TargetSpec(TargetMode.RADIUS, range, null, maxTargets, null, null);
+        return new TargetSpec(TargetMode.RADIUS, range, null, maxTargets, null, null, null);
+    }
+
+    /** Derselbe Umkreis als ZYLINDER: volle Reichweite zur Seite, begrenzte Hoehe. */
+    private static TargetSpec cylinder(double range, double height, int maxTargets) {
+        return new TargetSpec(TargetMode.RADIUS, range, null, maxTargets, null, null, height);
     }
 }

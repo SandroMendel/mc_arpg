@@ -195,10 +195,18 @@ abilities:
     duration-ms: 5000
     max-rank: 5
     rank-cost: { coins: 1 }
+    # Ein ZYLINDER, keine Kugel. Bei einer Kugel schrumpft die seitliche Reichweite mit jedem Block
+    # Hoehe - 4.5 zu Fuessen, 3.3 bei einem Mob drei Bloecke hoeher -, und am Hang liest sich das
+    # als "mal trifft er, mal nicht". Ein Zylinder sagt etwas, das man sich merken kann: alles im
+    # Umkreis, auf deiner Hoehe und ein Stueck darueber und darunter.
+    #
+    # BALANCING: 6.0 statt 4.5 waagerecht - fast die doppelte Flaeche. Die Obergrenze von zehn
+    # Zielen bleibt die harte Grenze fuers Tickbudget, nicht der Radius.
     target:
       mode: RADIUS
-      range: 4.5
-      max-targets: 8
+      range: 6.0
+      height: 3.0
+      max-targets: 10
     effects:
       - type: DAMAGE
         damage-type: PHYSICAL
