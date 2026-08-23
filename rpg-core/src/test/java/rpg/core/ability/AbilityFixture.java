@@ -248,6 +248,32 @@ final class AbilityFixture {
         return unlocked(document, "probe.two");
     }
 
+    /**
+     * Eine Passive, die NICHT auf sich selbst zielt - die Vergiftete Klinge im Kleinen.
+     *
+     * <p>Der einzige Fall unter den achtzehn, und deshalb der, der uebersehen wurde: sie vergiftet,
+     * was der Rogue trifft, und sagte das mit ihrem Zielmodus - waehrend der Dispatcher pauschal den
+     * Traeger einsetzte und den Rogue sich selbst vergiften liess.
+     */
+    static AbilityFixture withCounterpartPassive() throws Exception {
+        Map<String, Object> document = AbilityConfigFixture.valid();
+        Map<String, Object> ability = AbilityConfigFixture.passiveAbility();
+        ability.put("trigger", "ON_DAMAGE_DEALT");
+        ability.put("display-name-key", "ability.probe.poison.name");
+        Map<String, Object> target = new LinkedHashMap<>();
+        target.put("mode", "NEAREST");
+        target.put("range", 4.0);
+        target.put("max-targets", 1);
+        ability.put("target", target);
+        Map<String, Object> effect = new LinkedHashMap<>();
+        effect.put("type", "DAMAGE");
+        effect.put("damage-type", "PHYSICAL");
+        effect.put("amount", 0.2);
+        ability.put("effects", new ArrayList<>(List.of(effect)));
+        AbilityConfigFixture.abilities(document).put("probe.poison", ability);
+        return unlocked(document, "probe.poison");
+    }
+
     /** Eine Passive mit langem Cooldown - Second Life im Kleinen, fuer FR-048. */
     static AbilityFixture withCooldownPassive() throws Exception {
         Map<String, Object> document = AbilityConfigFixture.valid();
@@ -285,6 +311,29 @@ final class AbilityFixture {
         ability.put("effects", new ArrayList<>(List.of(evade)));
         AbilityConfigFixture.abilities(document).put("probe.evade", ability);
         return unlocked(document, "probe.evade");
+    }
+
+    /**
+     * Magisches Leben, wie es seit ADR-027 aussieht: ein Anteil statt eines Ausweichens, gefiltert
+     * ueber die HERKUNFT statt ueber den Schadenstyp.
+     *
+     * <p>Rang 1 mildert zehn Prozent, jeder weitere fuenf - eine groebere Stufung als die
+     * ausgelieferte, damit ein Test den Rangunterschied an einer runden Zahl ablesen kann.
+     */
+    static AbilityFixture withAutoAttackMitigation() throws Exception {
+        Map<String, Object> document = AbilityConfigFixture.valid();
+        Map<String, Object> ability = AbilityConfigFixture.passiveAbility();
+        ability.put("trigger", "ON_DAMAGE_TAKEN");
+        ability.put("display-name-key", "ability.probe.mitigate.name");
+        ability.put("max-rank", 5);
+        Map<String, Object> mitigate = new LinkedHashMap<>();
+        mitigate.put("type", "MITIGATE");
+        mitigate.put("amount", 0.10);
+        mitigate.put("per-rank", 0.05);
+        mitigate.put("origins", new ArrayList<>(List.of("MELEE", "PROJECTILE")));
+        ability.put("effects", new ArrayList<>(List.of(mitigate)));
+        AbilityConfigFixture.abilities(document).put("probe.mitigate", ability);
+        return unlocked(document, "probe.mitigate");
     }
 
     private static Map<String, Object> heal(double amount) {

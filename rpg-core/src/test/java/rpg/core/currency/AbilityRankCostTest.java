@@ -111,6 +111,7 @@ class AbilityRankCostTest {
                 null,
                 null,
                 null,
+                null,
                 false);
     }
 
@@ -119,6 +120,7 @@ class AbilityRankCostTest {
                 "probe.strike",
                 AbilityKind.ACTIVE,
                 MessageKey.of("ability.probe-strike.name"),
+                null,
                 0.0,
                 Duration.ZERO,
                 Duration.ZERO,

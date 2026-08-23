@@ -92,6 +92,14 @@ public final class CoinPickupListener implements Listener {
 
         registry.forget(pile);
         pile.remove();
+        // Der Ton, bevor die Zeile kommt: aufheben ist eine Handlung, und eine Handlung ohne Geraeusch
+        // fuehlt sich an, als waere sie nicht passiert. Vanilla-Ton, kein Ressourcenpaket (ADR-005).
+        player.playSound(
+                player.getLocation(),
+                org.bukkit.Sound.ENTITY_EXPERIENCE_ORB_PICKUP,
+                org.bukkit.SoundCategory.PLAYERS,
+                0.8f,
+                1.4f);
         player.sendMessage(
                 messages.get(
                         CurrencyMessageKeys.PILE_PICKED_UP,

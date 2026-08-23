@@ -67,7 +67,6 @@ import rpg.platform.combat.VanillaDamageListener;
 import rpg.platform.combat.VanillaDamageMapping;
 import rpg.platform.config.YamlConfigLoader;
 import rpg.platform.hud.StatusActionBar;
-import rpg.platform.hud.TargetReport;
 import rpg.platform.progression.ExperienceBar;
 import rpg.platform.progression.PaperProximityCheck;
 import rpg.platform.progression.ProgressionDeathListener;
@@ -133,6 +132,15 @@ public class RpgPlugin extends JavaPlugin {
      * and {@link #enterCharacter} - see there for why the second one exists.
      */
     private rpg.platform.classes.CharacterEntry characterEntry;
+
+    /** The puff and the click that tell a player their ability took hold. */
+    private rpg.platform.ability.AbilityFeedback abilityFeedback;
+
+    /**
+     * The counter behind Rage. Held because the action bar draws it, and only this class sees both
+     * the effect that keeps it and the readout that wants it.
+     */
+    private rpg.core.ability.effect.MeterEffect abilityMeter;
 
     private DefaultModuleRegistry registry;
     private EventBus eventBus;
@@ -513,7 +521,8 @@ public class RpgPlugin extends JavaPlugin {
                                                     resources.maxHealth(),
                                                     resources.currentMana(),
                                                     resources.maxMana(),
-                                                    snapshot.get(rpg.core.stats.Attribute.DEFENSE));
+                                                    snapshot.get(rpg.core.stats.Attribute.DEFENSE),
+                                                    meterOf(holderId));
                                         });
 
         StatusActionBar actionBar =
@@ -523,10 +532,18 @@ public class RpgPlugin extends JavaPlugin {
         // whichever module happens to keep a map of them.
         actionBar.startRefresh(this::playersInPlay);
 
-        TargetReport targets =
-                new TargetReport(getServer(), statusSource, scheduler, messages, getLogger());
-        targets.subscribeTo(eventBus);
+        // Und die dritte Anzeige: was eine Kreatur ist und wie viel von ihr uebrig ist, ueber ihrem
+        // Kopf. Ebenfalls nur bis B13. Eine Zeile, kein zweiter Entitaetstyp je Mob (Prinzip II).
+        new rpg.platform.hud.MobNameplate(
+                        getServer(), stats, statusSource, scheduler, messages, getLogger())
+                .subscribeTo(eventBus);
 
+        // KEINE Zielzeile im Chat mehr. Sie sagte dasselbe wie das Namensschild ueber der Kreatur,
+        // nur einmal je halber Sekunde und untereinander - bei einem laengeren Kampf war der Chat
+        // voll und die Zahl trotzdem schwerer zu lesen als ueber dem Kopf des Gegners.
+        //
+        // Der Sweep darunter bleibt: er schliesst die Schadensfenster, und daran haengen spaeter
+        // Statistik und Quests. Ohne ihn hoert niemand mehr von einem Kampf, der einfach aufhoert.
         startDamageWindowSweep(combatModule.config().aggregationWindow(), combatModule.pipeline());
     }
 
@@ -670,11 +687,18 @@ public class RpgPlugin extends JavaPlugin {
                 new rpg.core.ability.effect.ManaRestoreEffect(statsModule.engine()));
         effects.register(
                 rpg.core.ability.EffectType.EVADE, new rpg.core.ability.effect.EvadeEffect());
+        effects.register(
+                rpg.core.ability.EffectType.MITIGATE,
+                new rpg.core.ability.effect.MitigateEffect());
         // The shield keeps the absorption pool itself, so the instance is held rather than discarded -
         // the pipeline has to be able to ask it what it can take.
         rpg.core.ability.effect.ShieldEffect shields =
                 new rpg.core.ability.effect.ShieldEffect(Clock.systemUTC());
         effects.register(rpg.core.ability.EffectType.SHIELD, shields);
+        // UND der Abnehmer dazu. Ohne ihn fuellte sich der Vorrat bei jedem Wirken und niemand las
+        // ihn je: Block und Magieschild waren acht Sekunden lang nichts. Registriert VOR den
+        // Passiven, damit Zweites Leben sieht, was nach dem Schild uebrig ist.
+        pipeline.registerInterceptor(shields.interceptor());
 
         // Buff and debuff differ only in who they land on, and the targeting decided that already.
         rpg.core.ability.effect.BuffEffect buffs =
@@ -683,6 +707,7 @@ public class RpgPlugin extends JavaPlugin {
         effects.register(rpg.core.ability.EffectType.DEBUFF, buffs);
         rpg.core.ability.effect.MeterEffect meter =
                 new rpg.core.ability.effect.MeterEffect(statsModule.engine(), Clock.systemUTC());
+        abilityMeter = meter;
         effects.register(rpg.core.ability.EffectType.METER, meter);
 
         // The three that need the world. The two B10 gaps - mob aggression towards a clone, mobs
@@ -718,6 +743,17 @@ public class RpgPlugin extends JavaPlugin {
         // Both directions: the dispatcher hands periodic effects TO the runner, and the runner hands
         // each due application back THROUGH the dispatcher, so it stays behind the same error barrier.
         effects.setIntervalRunner(intervals);
+        // Und der Beobachter, der zeichnet, was gelandet ist. Er haengt hier und nicht in den
+        // Primitiven: die leben in rpg-core und koennen einen Partikel gar nicht sehen.
+        effects.setObserver(
+                (ability, spec, casterId, targets) ->
+                        abilityFeedback.showImpact(ability, casterId, targets));
+        // The sweep runs off the tick; a due application must not. It walks the combat pipeline,
+        // which publishes a death, which reaches listeners that look up entities - and that is a
+        // chunk read. Bound to the caster, who is a player and therefore resolvable from any thread.
+        intervals.setOnTick(
+                (casterId, task) ->
+                        scheduler.runSyncOnEntity(new rpg.core.scheduler.EntityRef(casterId), task));
         startAbilitySweep(intervals, buffs, projectiles);
 
         abilityRuntime =
@@ -742,6 +778,22 @@ public class RpgPlugin extends JavaPlugin {
                                 new rpg.core.scheduler.EntityRef(holderId), delay, task));
 
         abilityHotbar = new rpg.platform.ability.AbilityHotbar(messages, getLogger());
+        abilityFeedback = new rpg.platform.ability.AbilityFeedback(getServer(), getLogger());
+        // Die Haltung einer gehaltenen Faehigkeit - beim Warrior der hochgehaltene Schild. Beide
+        // Enden, weil nur der Runtime weiss, wann sie aufhoert: nach ihrer Dauer ODER durch einen
+        // zweiten Rechtsklick.
+        abilityRuntime.setSustain(
+                new rpg.core.ability.AbilityRuntime.Sustain() {
+                    @Override
+                    public void started(java.util.UUID characterId, rpg.core.ability.Ability ability) {
+                        withPlayer(characterId, player -> abilityFeedback.holdPose(player, ability));
+                    }
+
+                    @Override
+                    public void ended(java.util.UUID characterId, rpg.core.ability.Ability ability) {
+                        withPlayer(characterId, player -> abilityFeedback.releasePose(player, ability));
+                    }
+                });
 
         // The passive triggers, hung on the three hooks B05 already has (research.md R6). Which stage
         // each one uses is not interchangeable - see PassiveInterceptors.
@@ -780,11 +832,31 @@ public class RpgPlugin extends JavaPlugin {
                 .getPluginManager()
                 .registerEvents(
                         new rpg.platform.ability.AbilityTriggerListener(
-                                (player, abilityId) ->
-                                        abilityRuntime.trigger(
-                                                characterIdOf(player).orElse(player.getUniqueId()),
-                                                abilityId),
-                                (player, key) -> player.sendMessage(messages.get(key)),
+                                (player, abilityId) -> {
+                                    java.util.UUID characterId =
+                                            characterIdOf(player).orElse(player.getUniqueId());
+                                    rpg.core.ability.AbilityResult result =
+                                            abilityRuntime.trigger(characterId, abilityId);
+                                    if (result.isSuccess()) {
+                                        // Nur bei Erfolg. Eine Ablehnung hat schon Worte für sich,
+                                        // und ein Puff dazu ließe "noch im Cooldown" aussehen wie
+                                        // eine Fähigkeit, die gewirkt hat.
+                                        abilities.find(abilityId)
+                                                .ifPresent(
+                                                        ability ->
+                                                                abilityFeedback.show(player, ability));
+                                    }
+                                    // Asked straight after the trigger, while the state that caused
+                                    // the refusal is still the state: the cooldown still running, the
+                                    // sustained ability still sustaining.
+                                    return new rpg.platform.ability.AbilityTriggerListener.Outcome(
+                                            result,
+                                            resolveNames(
+                                                    abilityRuntime.placeholdersFor(
+                                                            characterId, abilityId, result)));
+                                },
+                                (player, key, values) ->
+                                        player.sendMessage(messages.get(key, values)),
                                 getLogger()),
                         this);
 
@@ -1019,6 +1091,74 @@ public class RpgPlugin extends JavaPlugin {
                                                                 "ability",
                                                                 messages.get(
                                                                         ability.displayNameKey()))))));
+    }
+
+    /**
+     * Turns the one placeholder value that is a message key into the text it names.
+     *
+     * <p>B08 owns no wording (Constitution V), so when a refusal has to name an ability - "Finish
+     * Whirl first" - the block hands over the display-name KEY and this is where it becomes a word.
+     * Everything else in the map is already a number and passes through untouched.
+     */
+    private java.util.Map<String, String> resolveNames(java.util.Map<String, String> values) {
+        String abilityKey = values.get("ability");
+        if (abilityKey == null) {
+            return values;
+        }
+        java.util.Map<String, String> resolved = new java.util.HashMap<>(values);
+        resolved.put("ability", messages.get(rpg.core.message.MessageKey.of(abilityKey)));
+        return resolved;
+    }
+
+    /**
+     * Der Zaehler dieses Traegers, oder null, wenn er keinen hat.
+     *
+     * <p><b>Ohne die Klasse zu nennen.</b> Ein Charakter hat einen Zaehler, wenn eine seiner
+     * freigeschalteten Faehigkeiten einen METER-Effekt traegt - heute die Raserei des Warriors,
+     * morgen vielleicht etwas anderes, ohne dass hier eine Zeile geaendert werden muss. Genau so
+     * fragt der Doppelsprung nach seiner Faehigkeit, statt {@code mage.rise-and-fall} in den Code zu
+     * schreiben (SC-001).
+     *
+     * <p>Null fuer jeden anderen: ein Mob, ein Magier, ein Rogue. Die Actionbar laesst den Teil dann
+     * weg, statt eine Null zu zeigen, die nichts bedeutet.
+     */
+    private double meterOf(java.util.UUID holderId) {
+        if (abilityModule == null || abilityMeter == null) {
+            return 0.0;
+        }
+        java.util.UUID characterId =
+                statsModule.engine().characterIdOf(holderId).orElse(null);
+        if (characterId == null) {
+            return 0.0;
+        }
+        return abilityModule
+                .registry()
+                .capability(characterId, rpg.core.ability.EffectType.METER)
+                .flatMap(
+                        ability ->
+                                ability.effects().stream()
+                                        .filter(
+                                                spec ->
+                                                        spec.type()
+                                                                == rpg.core.ability.EffectType.METER)
+                                        .findFirst())
+                .map(spec -> abilityMeter.valueAt(holderId, spec, Clock.systemUTC().instant()))
+                .orElse(0.0);
+    }
+
+    /**
+     * Fuehrt etwas am Spieler hinter einem Charakter aus, wenn er da ist.
+     *
+     * <p>Ueber den Halter, denn das ist die Id, unter der ein Spieler adressierbar ist - und die
+     * Uebersetzung gehoert dem Stat-Engine (siehe {@code StatEngine#holderOf}).
+     */
+    private void withPlayer(
+            java.util.UUID characterId, java.util.function.Consumer<org.bukkit.entity.Player> action) {
+        statsModule
+                .engine()
+                .holderOf(characterId)
+                .map(getServer()::getPlayer)
+                .ifPresent(action);
     }
 
     private void layOutAbilities(org.bukkit.entity.Player player, java.util.UUID characterId) {

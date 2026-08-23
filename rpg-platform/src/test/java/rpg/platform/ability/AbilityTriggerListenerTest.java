@@ -41,6 +41,12 @@ class AbilityTriggerListenerTest {
 
     private AbilityResult nextResult = AbilityResult.TRIGGERED;
 
+    /** Die Werte, die der Runtime zu dieser Ablehnung mitgibt. */
+    private java.util.Map<String, String> nextValues = java.util.Map.of();
+
+    /** Was der Melder tatsächlich zu SEHEN bekam - Schlüssel und Werte. */
+    private final List<java.util.Map<String, String>> notifiedValues = new ArrayList<>();
+
     @BeforeEach
     void setUp() {
         server = MockBukkit.mock();
@@ -52,9 +58,12 @@ class AbilityTriggerListenerTest {
                 new AbilityTriggerListener(
                         (who, abilityId) -> {
                             triggered.add(abilityId);
-                            return nextResult;
+                            return new AbilityTriggerListener.Outcome(nextResult, nextValues);
                         },
-                        (who, key) -> notified.add(key.value()),
+                        (who, key, values) -> {
+                            notified.add(key.value());
+                            notifiedValues.add(values);
+                        },
                         logger);
     }
 
@@ -126,6 +135,32 @@ class AbilityTriggerListenerTest {
     }
 
     @Test
+    @DisplayName("die Ablehnung bringt ihre Werte mit - sonst liest der Spieler die Klammern")
+    void aRejectionCarriesItsValues() {
+        // Der Melder bekam frueher NUR den Schluessel. Der Text dahinter lautet "still on cooldown
+        // for {seconds}s", und genau so stand er im Chat: mit den geschweiften Klammern. Ein
+        // Platzhalter ohne Wert ist kein Schoenheitsfehler, sondern eine Zahl, die dem Spieler fehlt.
+        nextResult = AbilityResult.ON_COOLDOWN;
+        nextValues = java.util.Map.of("seconds", "3");
+
+        listener.onInteract(interact(abilityItem("probe.strike"), Action.RIGHT_CLICK_AIR));
+
+        assertThat(notifiedValues).containsExactly(java.util.Map.of("seconds", "3"));
+    }
+
+    @Test
+    @DisplayName("ein Erfolg meldet nichts - auch nicht mit Werten")
+    void aSuccessNotifiesNothing() {
+        nextResult = AbilityResult.TRIGGERED;
+        nextValues = java.util.Map.of("seconds", "3");
+
+        listener.onInteract(interact(abilityItem("probe.strike"), Action.RIGHT_CLICK_AIR));
+
+        assertThat(notified).isEmpty();
+        assertThat(notifiedValues).isEmpty();
+    }
+
+    @Test
     @DisplayName("ein Erfolg meldet nichts - eine Fähigkeit, die wirkt, kommentiert sich nicht")
     void aSuccessSaysNothing() {
         listener.onInteract(interact(abilityItem("probe.strike"), Action.RIGHT_CLICK_AIR));
@@ -141,7 +176,7 @@ class AbilityTriggerListenerTest {
                         (who, abilityId) -> {
                             throw new IllegalStateException("probe");
                         },
-                        (who, key) -> notified.add(key.value()),
+                        (who, key, values) -> notified.add(key.value()),
                         quietLogger());
 
         // Kein Wurf nach draußen: Prinzip VI verlangt, dass ein Fehler den Spieler nicht in einen

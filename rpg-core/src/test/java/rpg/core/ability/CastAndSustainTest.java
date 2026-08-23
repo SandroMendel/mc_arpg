@@ -313,4 +313,67 @@ class CastAndSustainTest {
             assertThat(casting.scheduling.cancelled).isEqualTo(1);
         }
     }
+    @Nested
+    @DisplayName("Die Haltung einer gehaltenen Faehigkeit - beide Enden")
+    class Pose {
+
+        @Test
+        @DisplayName("sie beginnt beim Auslösen und endet, wenn die Dauer abgelaufen ist")
+        void itStartsAndEndsWithTheDuration() throws Exception {
+            // Genau das, was der Block des Warriors tun soll: X Sekunden halten und dann von allein
+            // loslassen. Bis diese Naht existierte, gab es fuer das ZWEITE Ereignis keinen Melder -
+            // der Vorrat lief ab, und der Spieler stand weiter da, als blockte er.
+            AbilityFixture fixture = AbilityFixture.withSustained();
+            List<String> pose = new ArrayList<>();
+            fixture.runtime.setSustain(
+                    new AbilityRuntime.Sustain() {
+                        @Override
+                        public void started(UUID characterId, Ability ability) {
+                            pose.add("start:" + ability.id());
+                        }
+
+                        @Override
+                        public void ended(UUID characterId, Ability ability) {
+                            pose.add("end:" + ability.id());
+                        }
+                    });
+
+            assertThat(fixture.runtime.trigger(fixture.character, "probe.whirl"))
+                    .isEqualTo(AbilityResult.SUSTAINING);
+            assertThat(pose).containsExactly("start:probe.whirl");
+
+            fixture.runtime.expire(fixture.character);
+
+            assertThat(pose).containsExactly("start:probe.whirl", "end:probe.whirl");
+        }
+
+        @Test
+        @DisplayName("ein zweiter Rechtsklick beendet sie vorzeitig - und meldet es genauso")
+        void aSecondClickEndsItEarly() throws Exception {
+            AbilityFixture fixture = AbilityFixture.withSustained();
+            List<String> pose = new ArrayList<>();
+            fixture.runtime.setSustain(
+                    new AbilityRuntime.Sustain() {
+                        @Override
+                        public void started(UUID characterId, Ability ability) {
+                            pose.add("start");
+                        }
+
+                        @Override
+                        public void ended(UUID characterId, Ability ability) {
+                            pose.add("end");
+                        }
+                    });
+            fixture.runtime.trigger(fixture.character, "probe.whirl");
+
+            // Der zweite Klick. Beide Wege muessen melden, sonst bleibt die Haltung je nach Ausgang
+            // stehen - und welcher Ausgang eintritt, entscheidet der Spieler.
+            assertThat(fixture.runtime.end(fixture.character, EndCause.PLAYER))
+                    .isEqualTo(AbilityResult.ENDED);
+
+            assertThat(pose).containsExactly("start", "end");
+        }
+    }
+
+
 }

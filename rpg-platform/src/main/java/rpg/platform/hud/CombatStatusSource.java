@@ -27,7 +27,30 @@ public interface CombatStatusSource {
      * @param defense the mitigation attribute, shown as a number rather than a percentage because it
      *     is the value a player compares between two pieces of equipment
      */
-    record Status(double health, double maxHealth, double mana, double maxMana, double defense) {
+    record Status(
+            double health,
+            double maxHealth,
+            double mana,
+            double maxMana,
+            double defense,
+            double meter) {
+
+        /** Ohne Zaehler - Mobs, Magier und Rogues. */
+        public Status(
+                double health, double maxHealth, double mana, double maxMana, double defense) {
+            this(health, maxHealth, mana, maxMana, defense, 0.0);
+        }
+
+        /**
+         * Ob dieser Traeger einen Zaehler hat.
+         *
+         * <p>Nicht "ist ein Warrior": das steht nirgends im Code. Er hat einen, wenn eine seiner
+         * Faehigkeiten einen METER-Effekt traegt - heute die Raserei, morgen vielleicht etwas
+         * anderes, ohne dass diese Zeile sich aendert.
+         */
+        public boolean hasMeter() {
+            return meter > 0.0;
+        }
 
         /** In {@code [0, 1]}; zero for a maximum of zero, which no live holder has. */
         public double fraction() {

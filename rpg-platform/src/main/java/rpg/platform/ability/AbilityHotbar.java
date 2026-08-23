@@ -122,6 +122,17 @@ public final class AbilityHotbar {
             return null;
         }
         meta.displayName(Component.text(messages.get(ability.displayNameKey())));
+        if (ability.descriptionKey() != null) {
+            // Eine Zeile darunter, in Grau und ohne Kursiv. Minecraft schreibt Lore sonst kursiv,
+            // was wie ein Zauber-Effekt aussieht statt wie eine Erklaerung.
+            meta.lore(
+                    java.util.List.of(
+                            Component.text(messages.get(ability.descriptionKey()))
+                                    .color(net.kyori.adventure.text.format.NamedTextColor.GRAY)
+                                    .decoration(
+                                            net.kyori.adventure.text.format.TextDecoration.ITALIC,
+                                            false)));
+        }
 
         // An ability item may be an axe. Without this it would carry the material's attack damage and
         // become a ninth value source - the trap ADR-017 and B07's FR-046 are about. Empty and NOT

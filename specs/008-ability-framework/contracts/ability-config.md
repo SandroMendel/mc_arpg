@@ -136,8 +136,10 @@ abilities:
 | **V38** | `interval-ms` ≤ `duration-ms` | sonst wirkt der Effekt kein einziges Mal |
 | **V39** | `max-stacks` > 1 nur mit `interval-ms` | ein einmaliger Effekt stapelt nicht, er wirkt zweimal |
 | **V40** | bei `max-stacks` > 1 ist `stack-cap` Pflicht | ohne Deckel wäre die Vergiftete Klinge bei genug Treffern unbegrenzt |
-| **V41** | `damage-type` als **Filter** nur bei `SHIELD` und `EVADE`; bei `DAMAGE` ist er Pflichtangabe und kein Filter | zwei Bedeutungen desselben Feldes gehören auseinandergehalten |
+| **V41** | `damage-type` als **Filter** nur bei `SHIELD`, `EVADE` und `MITIGATE`; bei `DAMAGE` ist er Pflichtangabe und kein Filter | zwei Bedeutungen desselben Feldes gehören auseinandergehalten |
 | **V42** | `METER` trägt `build-per-hit`, `idle-before-ms`, `decay-per-second` und ein `attribute` | ein Zähler ohne Aufbau oder ohne Zerfall ist keiner |
+| **V43** | `origins` nur bei `SHIELD`, `EVADE` und `MITIGATE` | der Dispatcher liest ihn sonst nie — die Datei behauptete einen Filter, den es nicht gibt (ADR-027) |
+| **V44** | `MITIGATE` trägt `amount` in (0, 1] und `per-rank` ≤ 1 | ein Anteil über 1 ist keine stärkere Milderung, sondern eine Heilung, die als Schaden ankommt |
 
 ### Abgleich mit den Klassenbindungen
 

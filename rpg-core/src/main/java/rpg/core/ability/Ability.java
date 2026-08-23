@@ -18,6 +18,8 @@ import rpg.core.message.MessageKey;
  * @param id unique across all abilities, opaque to B07 which only names it
  * @param kind active or passive; must match what the class binding says (FR-007)
  * @param displayNameKey a message key, never text (FR-009)
+ * @param descriptionKey a message key for the line under the name on the hotbar item, or {@code null}
+ *     for an ability that carries none. A key, never text, for the same reason the name is one
  * @param manaCost zero for a passive - a passive is not triggered and costs nothing (FR-047)
  * @param cooldown zero or more; for a passive it gates how often its trigger may fire (FR-048)
  * @param castTime zero means it takes effect in the same tick, with no cast state at all (FR-044)
@@ -45,6 +47,7 @@ public record Ability(
         String id,
         AbilityKind kind,
         MessageKey displayNameKey,
+        MessageKey descriptionKey,
         double manaCost,
         Duration cooldown,
         Duration castTime,

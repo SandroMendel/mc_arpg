@@ -2,7 +2,9 @@ package rpg.core.ability;
 
 import java.time.Duration;
 import java.util.Objects;
+import java.util.Set;
 
+import rpg.core.combat.DamageOrigin;
 import rpg.core.combat.DamageType;
 import rpg.core.stats.Attribute;
 
@@ -22,8 +24,12 @@ import rpg.core.stats.Attribute;
  * @param maxStacks how often it may stack; only meaningful with an interval (FR-010c)
  * @param stackCap ceiling on the combined effect per interval across all stacks
  * @param attribute required for {@code BUFF}, {@code DEBUFF} and {@code METER}
- * @param damageType required for {@code DAMAGE}; on {@code SHIELD} and {@code EVADE} it is an
- *     optional <b>filter</b> instead, and {@code null} there means "every kind"
+ * @param damageType required for {@code DAMAGE}; on {@code SHIELD}, {@code EVADE} and {@code
+ *     MITIGATE} it is an optional <b>filter</b> instead, and {@code null} there means "every kind"
+ * @param origins the second filter on those same three: <b>where</b> the hit came from, empty
+ *     meaning "from anywhere". A damage type says a fireball and a lightning bolt are alike; an
+ *     origin says a sword swing and a cast fireball are not, which is the only way to write "answers
+ *     auto-attacks" without naming abilities one by one
  * @param statusEffect required for {@code STATUS_EFFECT} - a vanilla effect name
  * @param buildPerHit required for {@code METER} - how far one hit raises the counter
  * @param idleBefore required for {@code METER} - how long without damage before it starts falling
@@ -42,6 +48,7 @@ public record EffectSpec(
         Double stackCap,
         Attribute attribute,
         DamageType damageType,
+        Set<DamageOrigin> origins,
         String statusEffect,
         Double buildPerHit,
         Duration idleBefore,
@@ -65,11 +72,15 @@ public record EffectSpec(
             throw new IllegalArgumentException(
                     type + ": max-stacks must be at least 1, but was " + maxStacks);
         }
+        // Copied, not adopted - the same rule the ability's own lists follow. A caller that keeps its
+        // set and adds to it afterwards must not be able to widen a filter that is already in play.
+        origins = origins == null ? Set.of() : Set.copyOf(origins);
         requireNonNegative(type, "duration", duration);
         requireNonNegative(type, "interval", interval);
         requireNonNegative(type, "idle-before", idleBefore);
         validateInterval(type, duration, interval, maxStacks, stackCap);
-        validateParameters(type, attribute, damageType, statusEffect);
+        validateParameters(type, attribute, damageType, origins, statusEffect);
+        validateMitigation(type, amount, perRank);
         validateMeter(type, attribute, buildPerHit, idleBefore, decayPerSecond);
         if (asFraction && type != EffectType.HEAL && type != EffectType.MANA_RESTORE) {
             throw new IllegalArgumentException(
@@ -113,9 +124,35 @@ public record EffectSpec(
         }
     }
 
+    /**
+     * A mitigation is a share, and a share above 1 is not a stronger one - it is a heal that arrives
+     * as damage.
+     *
+     * <p>Checked at rank 1 and at the growth rate rather than at the top rank, because the spec does
+     * not know the ability's {@code max-rank}. Five ranks of two percent cannot overshoot; the
+     * primitive clamps what does anyway, so this catches the typo and the clamp catches the rest.
+     */
+    private static void validateMitigation(EffectType type, double amount, double perRank) {
+        if (type != EffectType.MITIGATE) {
+            return;
+        }
+        if (amount <= 0.0 || amount > 1.0) {
+            throw new IllegalArgumentException(
+                    type + ": amount is a share between 0 and 1, but was " + amount);
+        }
+        if (perRank > 1.0) {
+            throw new IllegalArgumentException(
+                    type + ": per-rank is a share between 0 and 1, but was " + perRank);
+        }
+    }
+
     /** V16 to V18 and V41 - which parameter belongs to which primitive. */
     private static void validateParameters(
-            EffectType type, Attribute attribute, DamageType damageType, String statusEffect) {
+            EffectType type,
+            Attribute attribute,
+            DamageType damageType,
+            Set<DamageOrigin> origins,
+            String statusEffect) {
         switch (type) {
             case BUFF, DEBUFF, METER -> require(attribute != null, type, "an attribute");
             case DAMAGE -> require(damageType != null, type, "a damage-type");
@@ -125,15 +162,24 @@ public record EffectSpec(
                             type,
                             "a status-effect name");
             default -> {
-                // Nothing required. The filter on SHIELD and EVADE is optional by design: absent
-                // means "every kind of damage", which is the mage's Magic Shield.
+                // Nothing required. The filter on SHIELD, EVADE and MITIGATE is optional by design:
+                // absent means "every kind of damage", which is the mage's Magic Shield.
             }
+        }
+        // V43: an origin filter on anything but the three filterable primitives is a silent lie -
+        // the dispatcher never reads it, so the ability would answer everything while the file says
+        // otherwise. Refusing at load is the only place this can still be seen.
+        if (!origins.isEmpty() && !isFilterable(type)) {
+            throw new IllegalArgumentException(
+                    type
+                            + ": origins is a filter on SHIELD, EVADE and MITIGATE - it means nothing"
+                            + " here");
         }
         if (damageType != null && type != EffectType.DAMAGE && !isFilterable(type)) {
             throw new IllegalArgumentException(
                     type
                             + ": damage-type is a required value on DAMAGE and an optional filter on"
-                            + " SHIELD and EVADE - it means nothing here");
+                            + " SHIELD, EVADE and MITIGATE - it means nothing here");
         }
     }
 
@@ -154,7 +200,29 @@ public record EffectSpec(
     }
 
     private static boolean isFilterable(EffectType type) {
-        return type == EffectType.SHIELD || type == EffectType.EVADE;
+        return type == EffectType.SHIELD
+                || type == EffectType.EVADE
+                || type == EffectType.MITIGATE;
+    }
+
+    /**
+     * Whether this effect answers a hit of that kind and from there.
+     *
+     * <p>An absent filter says yes - both of them, independently. Magic Life sets origins and leaves
+     * the damage type open, so it answers a sword and a skeleton's arrow alike and ignores what a
+     * caster threw.
+     */
+    public boolean matches(DamageType damageType, DamageOrigin origin) {
+        // On everything else a damage type is a required VALUE, not a filter - the poisoned blade
+        // deals POISON, and reading that as "only answers poison" would silence it against anything
+        // that is not already poison.
+        if (!isFilterable(type)) {
+            return true;
+        }
+        if (this.damageType != null && this.damageType != damageType) {
+            return false;
+        }
+        return origins.isEmpty() || (origin != null && origins.contains(origin));
     }
 
     private static void require(boolean condition, EffectType type, String what) {

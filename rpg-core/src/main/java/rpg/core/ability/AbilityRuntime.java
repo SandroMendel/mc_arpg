@@ -96,6 +96,43 @@ public final class AbilityRuntime {
         }
     }
 
+    /**
+     * Told while a sustained ability runs, so the platform can show it.
+     *
+     * <p><b>Warum eine Naht und kein Effekt.</b> Was der Warrior beim Block macht - den Schild
+     * hochhalten - ist keine Wirkung, sondern eine Haltung: sie aendert keine Zahl, sie sagt dem
+     * Spieler und allen um ihn herum, dass er gerade blockt. Ein Effekt haette sie einmal ausgeloest
+     * und nie beendet, und genau daran ist die erste Fassung gescheitert: der Vorrat lief acht
+     * Sekunden, der Spieler stand daneben, als waere nichts.
+     *
+     * <p>Beide Enden, weil beide Enden gebraucht werden: der Runtime weiss allein, wann eine
+     * gehaltene Faehigkeit aufhoert - nach ihrer Dauer ODER durch einen zweiten Rechtsklick -, und
+     * ohne das zweite Ereignis bliebe die Haltung stehen.
+     */
+    public interface Sustain {
+        void started(UUID characterId, Ability ability);
+
+        void ended(UUID characterId, Ability ability);
+
+        /** Zeigt nichts. Der Standard, und was jeder Test benutzt. */
+        static Sustain none() {
+            return new Sustain() {
+                @Override
+                public void started(UUID characterId, Ability ability) {}
+
+                @Override
+                public void ended(UUID characterId, Ability ability) {}
+            };
+        }
+    }
+
+    private volatile Sustain sustain = Sustain.none();
+
+    /** Installs the sustain hook. At startup, not during play. */
+    public void setSustain(Sustain sustain) {
+        this.sustain = Objects.requireNonNull(sustain, "sustain");
+    }
+
     /** Installs the scheduling. At startup, not during play. */
     public void setScheduling(Scheduling scheduling) {
         this.scheduling = Objects.requireNonNull(scheduling, "scheduling");
@@ -257,6 +294,73 @@ public final class AbilityRuntime {
     }
 
     /**
+     * The values that belong to a rejection, so the text a player reads has numbers in it.
+     *
+     * <p><b>Why this is a second call rather than part of the result.</b> {@link AbilityResult} is an
+     * enum - one instance per outcome, shared by every character - so it cannot carry anybody's
+     * seconds or anybody's mana. Until this existed the notifier passed the key alone and a player
+     * read "still on cooldown for {seconds}s" with the braces still in it.
+     *
+     * <p>Asked immediately after {@link #trigger}, while the state it reads is still the state that
+     * caused the refusal: the cooldown is still running, the sustained ability is still sustaining.
+     *
+     * <p><b>One value is a message key, not a text:</b> {@code ability}, because an ability's display
+     * name lives in messages.yml and this block owns no wording (Constitution V). The caller resolves
+     * that one entry before substituting - the plugin does it in the trigger seam.
+     *
+     * <p>Empty for every outcome that needs no values, success included.
+     */
+    public Map<String, String> placeholdersFor(
+            UUID characterId, String abilityId, AbilityResult result) {
+        Objects.requireNonNull(characterId, "characterId");
+        Objects.requireNonNull(abilityId, "abilityId");
+        Objects.requireNonNull(result, "result");
+
+        switch (result) {
+            case ON_COOLDOWN -> {
+                Duration left =
+                        registry.remainingCooldown(characterId, abilityId).orElse(Duration.ZERO);
+                // Rounded UP: at 200 ms left, "0s" reads as a bug, and telling somebody to wait a
+                // moment longer than they must is the harmless direction.
+                long seconds = Math.max(1L, (left.toMillis() + 999L) / 1000L);
+                return Map.of("seconds", Long.toString(seconds));
+            }
+            case NOT_ENOUGH_MANA -> {
+                return registry
+                        .find(abilityId)
+                        .map(ability -> Map.of("cost", whole(ability.manaCost())))
+                        .orElseGet(Map::of);
+            }
+            case NOT_UNLOCKED -> {
+                java.util.OptionalInt level = registry.unlockLevelOf(characterId, abilityId);
+                return level.isPresent()
+                        ? Map.of("level", Integer.toString(level.getAsInt()))
+                        : Map.of();
+            }
+            case ALREADY_SUSTAINING, ALREADY_CASTING -> {
+                // The one already running, not the one that was refused - "Finish X first" has to
+                // name X.
+                //
+                // The KEY, not the text: this block owns no wording (Constitution V), and the
+                // display name of an ability lives in messages.yml like every other string. The
+                // caller resolves it - see the note on the whole method.
+                return running(characterId)
+                        .flatMap(current -> registry.find(current.abilityId()))
+                        .map(ability -> Map.of("ability", ability.displayNameKey().value()))
+                        .orElseGet(Map::of);
+            }
+            default -> {
+                return Map.of();
+            }
+        }
+    }
+
+    /** No decimals: a mana cost of 20.0 reads as 20. */
+    private static String whole(double value) {
+        return Long.toString(Math.round(value));
+    }
+
+    /**
      * Ends whatever this character has running (FR-045c to FR-045e).
      *
      * <p><b>The state decides what it costs, not the caller.</b> Winding up refunds and starts no
@@ -286,6 +390,12 @@ public final class AbilityRuntime {
             return AbilityResult.ENDED;
         }
         // It did happen, and stopping it early does not undo that (FR-045e).
+        // Und die Haltung faellt - HIER, weil hier beide Wege zusammenlaufen: der zweite Rechtsklick
+        // und die abgelaufene Dauer. Eine der beiden Stellen zu vergessen hiesse, dass der Warrior
+        // je nach Ausgang den Schild nie wieder herunternimmt.
+        if (ability.sustained()) {
+            sustain.ended(characterId, ability);
+        }
         startCooldown(characterId, ability, clock.instant());
         return AbilityResult.ENDED;
     }
@@ -333,6 +443,7 @@ public final class AbilityRuntime {
                             endsAt,
                             0.0,
                             scheduleEnd(characterId, ability.duration())));
+            sustain.started(characterId, ability);
             // No cooldown yet: it starts when the ability actually ends, however that happens.
             return AbilityResult.SUSTAINING;
         }

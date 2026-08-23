@@ -53,6 +53,18 @@ final class HudFixture {
             byHolder.put(holderId, new Status(health, maxHealth, mana, maxMana, defense));
         }
 
+        /** Ein Spieler MIT Zaehler - heute nur der Berserker. */
+        void giveWithMeter(
+                UUID holderId,
+                double health,
+                double maxHealth,
+                double mana,
+                double maxMana,
+                double defense,
+                double meter) {
+            byHolder.put(holderId, new Status(health, maxHealth, mana, maxMana, defense, meter));
+        }
+
         @Override
         public Optional<Status> statusOf(UUID holderId) {
             return Optional.ofNullable(byHolder.get(holderId));
@@ -137,9 +149,8 @@ final class HudFixture {
                 CombatMessageKeys.STATUS_ACTION_BAR_NO_MANA.value(),
                 "{health}/{max} HP ({percent}%) DEF {defense}");
         texts.put(
-                CombatMessageKeys.TARGET_REPORT.value(),
-                "{target} {health}/{max} ({percent}%) DEF {defense} -{damage}");
-        texts.put(CombatMessageKeys.TARGET_SLAIN.value(), "{target} slain -{damage}");
+                CombatMessageKeys.STATUS_ACTION_BAR_WITH_METER.value(),
+                "{health}/{max} HP ({percent}%) {mana}/{maxMana} MP DEF {defense} RAGE {meter}");
         return new MapMessages(texts);
     }
 }

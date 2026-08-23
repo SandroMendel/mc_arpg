@@ -3,6 +3,7 @@ package rpg.core.ability.effect;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.function.DoubleConsumer;
 
 import rpg.core.ability.Ability;
 import rpg.core.ability.EffectSpec;
@@ -41,15 +42,32 @@ public record EffectContext(
      * @param damage the amount at this point in the pipeline - after mitigation on the application
      *     stage, before it on the modifier stage
      * @param cancel refuses the damage event; only meaningful before it has been applied
+     * @param reduce takes a <b>share</b> off the damage event and leaves the rest standing - what
+     *     {@code cancel} cannot express. Given the same share twice it takes it twice, so two
+     *     mitigations on one hit compound instead of the larger one winning; only meaningful before
+     *     the damage has been applied
      * @param counterpart the other party in the event - the target when the holder dealt the damage,
      *     the attacker when they took it, and {@code null} when there is nobody (a fall, a kill with
      *     no attributable killer). The positional condition needs it and nothing else does
      */
-    public record TriggerData(double damage, Runnable cancel, UUID counterpart) {
+    public record TriggerData(
+            double damage, Runnable cancel, DoubleConsumer reduce, UUID counterpart) {
+
+        public TriggerData {
+            // A trigger that cannot be reduced is the normal case, not an error: only the
+            // damage-taken hook sits on a stage where the number can still be changed. Defaulting
+            // here rather than at each call site keeps a mitigation from needing a null check.
+            reduce = reduce == null ? share -> {} : reduce;
+        }
+
+        /** Without a way to reduce - for hooks past the stage where the number can still change. */
+        public TriggerData(double damage, Runnable cancel, UUID counterpart) {
+            this(damage, cancel, null, counterpart);
+        }
 
         /** Without a counterpart - for triggers where there is no second party. */
         public TriggerData(double damage, Runnable cancel) {
-            this(damage, cancel, null);
+            this(damage, cancel, null, null);
         }
     }
 
@@ -90,5 +108,19 @@ public record EffectContext(
         if (trigger != null) {
             trigger.cancel().run();
         }
+    }
+
+    /**
+     * Takes {@code share} off the damage event behind the trigger. A no-op when there is none.
+     *
+     * <p>Clamped here rather than trusted from the configuration: a share above 1 would turn a hit
+     * into a heal, and a negative one would sharpen the blow the ability is supposed to soften. The
+     * schema already refuses both at load - this is the second line, for the ranks it cannot see.
+     */
+    public void reduceTrigger(double share) {
+        if (trigger == null) {
+            return;
+        }
+        trigger.reduce().accept(Math.clamp(share, 0.0, 1.0));
     }
 }

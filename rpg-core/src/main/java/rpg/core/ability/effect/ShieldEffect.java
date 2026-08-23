@@ -76,6 +76,50 @@ public final class ShieldEffect implements AbilityEffect {
         return damage - taken;
     }
 
+    /**
+     * The interceptor that actually spends the pool.
+     *
+     * <p><b>Without this the shield was a number nobody read.</b> {@link #absorb} was written, tested
+     * and never called: the pool filled on every cast, the comment at the wiring said "the pipeline
+     * has to be able to ask it what it can take", and nothing ever asked. Block and Magic Shield were
+     * eight seconds of nothing happening.
+     *
+     * <p>Lives here rather than next to the passives' interceptors because the pool lives here. A
+     * consumer in another class would need the map handed to it, and that is how the first one got
+     * forgotten.
+     *
+     * <p><b>APPLICATION, and before Second Life.</b> Defence has already been paid by then, so the
+     * number this takes is the number that would otherwise have come off health - and Second Life,
+     * which asks whether the blow is lethal, has to see what is left AFTER the shield, or a shield
+     * that would have survived the hit still burns the rogue's one save.
+     */
+    public rpg.core.combat.DamageInterceptor interceptor() {
+        return new rpg.core.combat.DamageInterceptor() {
+            @Override
+            public String id() {
+                return "abilities.shield";
+            }
+
+            @Override
+            public rpg.core.combat.PipelineStage stage() {
+                return rpg.core.combat.PipelineStage.APPLICATION;
+            }
+
+            @Override
+            public void intercept(rpg.core.combat.DamageView damage) {
+                double left =
+                        absorb(
+                                damage.targetId(),
+                                damage.type(),
+                                damage.finalDamage(),
+                                clock.instant());
+                if (left != damage.finalDamage()) {
+                    damage.setFinalDamage(left);
+                }
+            }
+        };
+    }
+
     /** What is left, for the display in B13. */
     public double remaining(UUID targetId, Instant now) {
         Absorption shield = shields.get(targetId);

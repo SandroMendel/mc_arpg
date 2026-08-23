@@ -176,6 +176,26 @@ class AbilityHotbarTest {
     }
 
     @Test
+    @DisplayName("jeder Gegenstand trägt eine Zeile darunter, die sagt was die Fähigkeit tut")
+    void everyItemCarriesItsDescription() throws Exception {
+        // Der Name allein beantwortet "was ist das" nicht: "Block", "Wirbel", "Aufstieg & Fall" sind
+        // Namen, keine Erklärungen. Die achtzehn Beschreibungen standen längst in messages.yml und
+        // wurden von nichts gelesen - der Gegenstand trug nur seinen Namen.
+        hotbar.layOut(player, allOf(CharacterClass.WARRIOR));
+
+        for (int slot = 1; slot < 9; slot++) {
+            ItemStack item = player.getInventory().getItem(slot);
+            if (item == null) {
+                continue;
+            }
+            assertThat(item.getItemMeta().lore())
+                    .as("Slot %d", slot)
+                    .isNotNull()
+                    .hasSize(1);
+        }
+    }
+
+    @Test
     @DisplayName("die Gegenstände tragen beide Kennzeichen - das von B07 und das von B08")
     void theItemsCarryBothTags() throws Exception {
         hotbar.layOut(player, allOf(CharacterClass.WARRIOR));

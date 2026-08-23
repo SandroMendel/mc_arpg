@@ -34,6 +34,45 @@ import rpg.core.stats.StatSnapshot;
  */
 public final class IntervalEffectRunner {
 
+    /**
+     * Where a due application actually runs.
+     *
+     * <p><b>The sweep decides WHAT is due; this decides WHERE it happens</b>, and the two are not the
+     * same thread. Deciding is arithmetic over a map and belongs off the tick. Applying is not: a
+     * damage application walks the whole combat pipeline, which publishes a death, which reaches
+     * listeners that look up entities - and {@code Server#getEntity} walks the chunk structure, which
+     * Paper's AsyncCatcher refuses off the owning thread.
+     *
+     * <p>That was not a theory. A single poison ticking on a dying mob produced a stack trace per
+     * tick from three different listeners - experience distribution, the coin drop, the backstab
+     * check - each one a different symptom of the same missing hop.
+     *
+     * <p>Bound to the <b>caster</b>, not the target: a caster is a player, and a player is resolvable
+     * from any thread, while a mob is not (see {@code PaperSchedulerAdapter.resolve}). Their targets
+     * are within an ability's range of them, so on a region-threaded server they are in the caster's
+     * region anyway.
+     *
+     * <p>One task per caster per sweep, not one per instance: two hundred poisons from one player are
+     * still one hop. Constitution II rules out a recurring task per effect, and this is not one - it
+     * is the same entity-bound single-shot ADR-024 already uses for cast times.
+     */
+    @FunctionalInterface
+    public interface OnTick {
+        void run(UUID casterId, Runnable task);
+
+        /** Runs it right here. The default, and what every test uses. */
+        static OnTick inline() {
+            return (casterId, task) -> task.run();
+        }
+    }
+
+    private volatile OnTick onTick = OnTick.inline();
+
+    /** Installs the hop. At startup, not during play. */
+    public void setOnTick(OnTick onTick) {
+        this.onTick = Objects.requireNonNull(onTick, "onTick");
+    }
+
     /** One running instance: what applies, to whom, how often and until when. */
     private record Instance(
             Ability ability,
@@ -124,6 +163,10 @@ public final class IntervalEffectRunner {
      */
     public int sweep() {
         Instant now = clock.instant();
+        // Collected first, applied after: the bookkeeping below is arithmetic and stays here, the
+        // applications go to the caster's tick through OnTick. Grouped by caster so that a player
+        // with several effects running costs one hop, not one per effect.
+        Map<UUID, List<Instance>> due = new java.util.LinkedHashMap<>();
         int applied = 0;
         for (Iterator<Map.Entry<Key, Instance>> it = instances.entrySet().iterator(); it.hasNext(); ) {
             Map.Entry<Key, Instance> entry = it.next();
@@ -134,7 +177,7 @@ public final class IntervalEffectRunner {
             // expiry first swallowed it, and the effect quietly did five sixths of what its
             // configuration says.
             if (!instance.nextAt().isAfter(now)) {
-                apply(instance);
+                due.computeIfAbsent(instance.casterId(), id -> new ArrayList<>()).add(instance);
                 applied++;
                 entry.setValue(instance.advanced(now));
             }
@@ -142,6 +185,12 @@ public final class IntervalEffectRunner {
                 it.remove();
             }
         }
+        for (Map.Entry<UUID, List<Instance>> entry : due.entrySet()) {
+            List<Instance> batch = entry.getValue();
+            onTick.run(entry.getKey(), () -> batch.forEach(this::apply));
+        }
+        // How many were HANDED OVER, not how many landed: once the hop exists, the answer to
+        // "did it land" belongs to the tick that runs it, and no caller here can wait for that.
         return applied;
     }
 
@@ -180,6 +229,7 @@ public final class IntervalEffectRunner {
                         null,
                         spec.attribute(),
                         spec.damageType(),
+                        spec.origins(),
                         spec.statusEffect(),
                         spec.buildPerHit(),
                         spec.idleBefore(),

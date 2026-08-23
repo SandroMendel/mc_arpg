@@ -78,6 +78,33 @@ class StatusActionBarTest {
     }
 
     @Test
+    @DisplayName("wer einen Zaehler hat, liest ihn mit - beim Berserker die Wut")
+    void aHolderWithAMeterReadsItToo() {
+        PlayerMock player = server.addPlayer();
+        statuses.giveWithMeter(player.getUniqueId(), 620.0, 2000.0, 75.0, 300.0, 148.0, 47.0);
+
+        bar.show(player.getUniqueId());
+
+        assertThat(actionBarOf(player)).isEqualTo("620/2000 HP (31%) 75/300 MP DEF 148 RAGE 47");
+    }
+
+    @Test
+    @DisplayName("wer keinen hat, bekommt auch keine Null - Magier und Rogue lesen drei Zahlen")
+    void withoutAMeterThatPartIsOmitted() {
+        // Kein Platzhalter, der leer bleibt, und keine Null, die nichts bedeutet: dieselbe
+        // Entscheidung wie beim Mana eines Mobs. WELCHE Klasse einen Zaehler hat, steht dabei
+        // nirgends im Code - sie hat einen, wenn eine ihrer Faehigkeiten einen METER-Effekt traegt.
+        PlayerMock player = server.addPlayer();
+        statuses.give(player.getUniqueId(), 620.0, 2000.0, 75.0, 300.0, 148.0);
+
+        bar.show(player.getUniqueId());
+
+        assertThat(actionBarOf(player))
+                .isEqualTo("620/2000 HP (31%) 75/300 MP DEF 148")
+                .doesNotContain("RAGE");
+    }
+
+    @Test
     @DisplayName("gerundet, nicht mit Nachkommastellen - die Bruchteile sind Rauschen")
     void valuesAreRounded() {
         PlayerMock player = server.addPlayer();

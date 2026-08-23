@@ -76,6 +76,25 @@ public final class AbilityRegistry {
         return resolve(unlockedOf.apply(characterId));
     }
 
+    /**
+     * The level at which this character's class unlocks this ability, or empty if it is not theirs.
+     *
+     * <p>Read from the class binding rather than stored here (FR-061). Exists so that "You unlock that
+     * ability at level {level}" can actually name the level instead of printing the placeholder.
+     */
+    public java.util.OptionalInt unlockLevelOf(UUID characterId, String abilityId) {
+        CharacterClass id = classOf.apply(characterId);
+        if (id == null) {
+            return java.util.OptionalInt.empty();
+        }
+        for (AbilityBinding binding : bindingsOf.apply(id)) {
+            if (binding.abilityId().equals(abilityId)) {
+                return java.util.OptionalInt.of(binding.unlockLevel());
+            }
+        }
+        return java.util.OptionalInt.empty();
+    }
+
     /** The rank this character has on this ability. 1 when it was never raised. */
     public int rankOf(UUID characterId, String abilityId) {
         return stateOf(characterId, abilityId).rank();

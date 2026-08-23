@@ -1,5 +1,6 @@
 package rpg.platform.ability;
 
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiFunction;
@@ -32,18 +33,33 @@ import rpg.core.message.MessageKey;
  */
 public final class AbilityTriggerListener implements Listener {
 
-    private final BiFunction<Player, String, AbilityResult> trigger;
+    private final BiFunction<Player, String, Outcome> trigger;
     private final Notifier notifier;
     private final Logger logger;
+
+    /**
+     * What a trigger answered, and the values that go with it.
+     *
+     * <p><b>Two fields, because {@link AbilityResult} is an enum</b> - one instance per outcome,
+     * shared by every player - and therefore cannot carry anybody's seconds or anybody's mana. The
+     * listener used to pass the key alone, and a player read "still on cooldown for &#123;seconds&#125;s"
+     * with the braces still in it.
+     */
+    public record Outcome(AbilityResult result, Map<String, String> values) {
+        public Outcome {
+            Objects.requireNonNull(result, "result");
+            values = Map.copyOf(Objects.requireNonNull(values, "values"));
+        }
+    }
 
     /** Tells the player why a trigger was refused. B13 will draw it properly. */
     @FunctionalInterface
     public interface Notifier {
-        void notify(Player player, MessageKey key);
+        void notify(Player player, MessageKey key, Map<String, String> values);
     }
 
     public AbilityTriggerListener(
-            BiFunction<Player, String, AbilityResult> trigger, Notifier notifier, Logger logger) {
+            BiFunction<Player, String, Outcome> trigger, Notifier notifier, Logger logger) {
         this.trigger = Objects.requireNonNull(trigger, "trigger");
         this.notifier = Objects.requireNonNull(notifier, "notifier");
         this.logger = Objects.requireNonNull(logger, "logger");
@@ -107,9 +123,10 @@ public final class AbilityTriggerListener implements Listener {
 
     private void fire(Player player, String abilityId) {
         try {
-            AbilityResult result = trigger.apply(player, abilityId);
+            Outcome outcome = trigger.apply(player, abilityId);
+            AbilityResult result = outcome.result();
             if (!result.isSuccess()) {
-                notifier.notify(player, result.messageKey());
+                notifier.notify(player, result.messageKey(), outcome.values());
             }
         } catch (RuntimeException failure) {
             // Confined to this one click. An exception here must not put the player into an

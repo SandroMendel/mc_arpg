@@ -62,6 +62,7 @@ abilities:
     # Clicking it says so (AbilityResult.PASSIVE) instead of pretending it is locked.
     item: 'BLAZE_POWDER'
     display-name-key: 'ability.warrior.rage.name'
+    description-key: 'ability.warrior.rage.description'
     trigger: [ON_DAMAGE_DEALT, ON_DAMAGE_TAKEN]
     cooldown-ms: 0
     max-rank: 5
@@ -90,9 +91,11 @@ abilities:
   warrior.shield:
     kind: ACTIVE
     display-name-key: 'ability.warrior.shield.name'
+    description-key: 'ability.warrior.shield.description'
     item: 'SHIELD'
     mana-cost: 20.0
-    cooldown-ms: 18000
+    # Defensiv und haltend; erneutes Auslösen scheitert ohnehin am ALREADY_SUSTAINING.
+    cooldown-ms: 800
     cast-time-ms: 0
     sustained: true
     duration-ms: 8000
@@ -111,9 +114,11 @@ abilities:
   warrior.leap:
     kind: ACTIVE
     display-name-key: 'ability.warrior.leap.name'
+    description-key: 'ability.warrior.leap.description'
     item: 'FEATHER'
     mana-cost: 25.0
-    cooldown-ms: 14000
+    # Fortbewegung, mit 600 ms Wirkzeit ohnehin selbstbegrenzt.
+    cooldown-ms: 600
     cast-time-ms: 600
     interrupt-on-move: false
     max-rank: 5
@@ -124,9 +129,11 @@ abilities:
       range: 12.0
       max-targets: 6
     effects:
+      # Der Schub in Blickrichtung. 1.4 war ein Schritt, kein Sprung - der Warrior kam kaum weiter
+      # als beim Laufen, und eine Faehigkeit mit Wirkzeit und Manakosten muss sich lohnen.
       - type: DASH
-        amount: 1.4
-        per-rank: 0.1
+        amount: 2.6
+        per-rank: 0.2
       - type: DAMAGE
         damage-type: PHYSICAL
         amount: 1.1
@@ -142,6 +149,7 @@ abilities:
     # Clicking it says so (AbilityResult.PASSIVE) instead of pretending it is locked.
     item: 'GHAST_TEAR'
     display-name-key: 'ability.warrior.lifesteal.name'
+    description-key: 'ability.warrior.lifesteal.description'
     trigger: ON_DAMAGE_DEALT
     cooldown-ms: 0
     max-rank: 5
@@ -156,9 +164,11 @@ abilities:
   warrior.whirl:
     kind: ACTIVE
     display-name-key: 'ability.warrior.whirl.name'
+    description-key: 'ability.warrior.whirl.description'
     item: 'IRON_AXE'
     mana-cost: 35.0
-    cooldown-ms: 22000
+    # Haltend und flächig - das obere Mittelfeld.
+    cooldown-ms: 900
     cast-time-ms: 0
     sustained: true
     duration-ms: 5000
@@ -180,9 +190,11 @@ abilities:
   warrior.call-of-the-berserker:
     kind: ACTIVE
     display-name-key: 'ability.warrior.call-of-the-berserker.name'
+    description-key: 'ability.warrior.call-of-the-berserker.description'
     item: 'GOAT_HORN'
     mana-cost: 45.0
-    cooldown-ms: 90000
+    # Die Ultimative des Warriors - die Obergrenze des Bandes.
+    cooldown-ms: 1000
     cast-time-ms: 0
     sustained: true
     duration-ms: 12000
@@ -214,6 +226,7 @@ abilities:
     # Clicking it says so (AbilityResult.PASSIVE) instead of pretending it is locked.
     item: 'SPIDER_EYE'
     display-name-key: 'ability.rogue.poisoned-blade.name'
+    description-key: 'ability.rogue.poisoned-blade.description'
     trigger: ON_DAMAGE_DEALT
     chance: 0.35
     cooldown-ms: 0
@@ -237,9 +250,11 @@ abilities:
   rogue.teleport:
     kind: ACTIVE
     display-name-key: 'ability.rogue.teleport.name'
+    description-key: 'ability.rogue.teleport.description'
     item: 'ENDER_PEARL'
     mana-cost: 20.0
-    cooldown-ms: 16000
+    # Zwei Ladungen; der Cooldown greift erst, wenn der Vorrat leer ist.
+    cooldown-ms: 500
     cast-time-ms: 0
     charges: 2
     charge-window-ms: 10000
@@ -260,6 +275,7 @@ abilities:
     # Clicking it says so (AbilityResult.PASSIVE) instead of pretending it is locked.
     item: 'FLINT'
     display-name-key: 'ability.rogue.backstab.name'
+    description-key: 'ability.rogue.backstab.description'
     trigger: ON_DAMAGE_DEALT
     requires-behind-target: true
     cooldown-ms: 0
@@ -283,9 +299,11 @@ abilities:
   rogue.invisibility:
     kind: ACTIVE
     display-name-key: 'ability.rogue.invisibility.name'
+    description-key: 'ability.rogue.invisibility.description'
     item: 'GLASS_BOTTLE'
     mana-cost: 30.0
-    cooldown-ms: 45000
+    # Haltend, endet beim Zuschlagen.
+    cooldown-ms: 800
     cast-time-ms: 0
     sustained: true
     duration-ms: 6000
@@ -301,9 +319,11 @@ abilities:
   rogue.clone:
     kind: ACTIVE
     display-name-key: 'ability.rogue.clone.name'
+    description-key: 'ability.rogue.clone.description'
     item: 'ARMOR_STAND'
     mana-cost: 40.0
-    cooldown-ms: 60000
+    # Beschwörung; teurer als ein Schlag, billiger als eine Ultimative.
+    cooldown-ms: 900
     cast-time-ms: 0
     max-rank: 5
     target: { mode: SELF }
@@ -321,6 +341,7 @@ abilities:
   rogue.second-life:
     kind: PASSIVE
     display-name-key: 'ability.rogue.second-life.name'
+    description-key: 'ability.rogue.second-life.description'
     item: 'TOTEM_OF_UNDYING'
     trigger: ON_DEATH
     chance: 0.20
@@ -336,32 +357,53 @@ abilities:
 
   # ============================== MAGE - mana, magic damage, area ==================================
 
-  # Magic Life. Refuses incoming MAGIC damage outright, which is why it hangs on MODIFIERS: by
-  # APPLICATION the damage can only be reduced, no longer refused (FR-016a). Physical goes through.
+  # Magisches Leben. Nimmt einen ANTEIL vom Auto-Angriff und laesst den Rest stehen. Haengt aus dem
+  # Grund an MODIFIERS, aus dem das Ausweichen dort haengt: ab APPLICATION ist der Schlag gelandet.
+  #
+  # Es war vorher ein EVADE mit `damage-type: MAGIC` und 15 Prozent Chance - und tat damit im Spiel
+  # nie etwas. Nicht, weil es kaputt war: Mobs schlagen PHYSICAL zu, und der Typfilter liess genau
+  # das durch. Was blieb, war eine Faehigkeit, die auf dem Papier wirkte und am Zombie nicht.
+  #
+  # Jetzt filtert es andersherum. Der Schadenstyp ist offen - physisch wie magisch -, gefiltert wird
+  # die HERKUNFT: ein Schwertschlag und ein Skelettpfeil werden gemildert, ein gewirkter Feuerball
+  # trifft voll. Ohne diesen Filter waere die Faehigkeit eine pauschale Schadensreduktion und damit
+  # etwas anderes als das, was ihr Name verspricht.
   mage.magic-life:
     kind: PASSIVE
     # A marker, not a trigger: Reacts to damage taken. The slot says the reaction exists.
     # Clicking it says so (AbilityResult.PASSIVE) instead of pretending it is locked.
     item: 'GLISTERING_MELON_SLICE'
     display-name-key: 'ability.mage.magic-life.name'
+    description-key: 'ability.mage.magic-life.description'
     trigger: ON_DAMAGE_TAKEN
     cooldown-ms: 0
+    # KEINE Chance mehr, und das ist der Unterschied zwischen den beiden Primitiven: eine Milderung
+    # wirkt IMMER und dafuer anteilig. Ein `chance` hier wuerde sie wieder in ein Ausweichen mit
+    # kleinerer Zahl verwandeln - selten und dann stark, statt verlaesslich und dafuer weniger.
     max-rank: 5
     target: { mode: SELF }
     effects:
-      - type: EVADE
-        damage-type: MAGIC
-        amount: 0.15
-        per-rank: 0.03
+      - type: MITIGATE
+        # Die Spanne kommt vom Rang: Rang 1 mildert 10 Prozent, jeder weitere 2.5 mehr, Rang 5 also
+        # 20. BALANCING - die beiden Zahlen sind gesetzt, damit die Mechanik im Spiel messbar ist,
+        # nicht weil sie ausgespielt waeren.
+        amount: 0.10
+        per-rank: 0.025
+        # Der Auto-Angriff, und das sind zwei Herkuenfte: der Schlag des Zombies und der Pfeil des
+        # Skeletts sind dasselbe Ereignis aus Sicht dessen, der getroffen wird. ABILITY fehlt hier
+        # absichtlich - gegen gewirkten Schaden steht das Magieschild, nicht diese Faehigkeit.
+        origins: [MELEE, PROJECTILE]
 
   # Lightning. Hops from the target it hit to the next one nearby - each further hop is looked for
   # around the LAST one hit, which is what makes it a chain and not eight nearest targets (FR-019a).
   mage.lightning:
     kind: ACTIVE
     display-name-key: 'ability.mage.lightning.name'
+    description-key: 'ability.mage.lightning.description'
     item: 'BLAZE_ROD'
     mana-cost: 30.0
-    cooldown-ms: 8000
+    # Der Grundangriff des Magiers - das Untergrenze des Bandes.
+    cooldown-ms: 500
     cast-time-ms: 0
     max-rank: 5
     target:
@@ -380,12 +422,23 @@ abilities:
   mage.magic-shield:
     kind: ACTIVE
     display-name-key: 'ability.mage.magic-shield.name'
+    description-key: 'ability.mage.magic-shield.description'
     item: 'AMETHYST_SHARD'
     mana-cost: 30.0
-    cooldown-ms: 24000
+    cooldown-ms: 800
     cast-time-ms: 0
-    sustained: true
-    duration-ms: 8000
+    # NICHT sustained - anders als der Block des Warriors, und das ist der Unterschied zwischen den
+    # beiden Schilden.
+    #
+    # `sustained` heisst: die Faehigkeit BELEGT den Spieler, solange sie laeuft. Beim Warrior ist das
+    # richtig - er haelt den Schild hoch, steht in der Blockhaltung und macht nichts anderes, und ein
+    # zweiter Rechtsklick nimmt ihn herunter. Der Magier haelt nichts; sein Schild ist ein Zauber, der
+    # acht Sekunden anhaelt, waehrend er weiterzaubert. Solange das hier true stand, wies ihm jede
+    # weitere Faehigkeit ein "Beende erst Magieschild" ab.
+    #
+    # Die acht Sekunden stehen deshalb NUR noch am Effekt: dort gehoeren sie hin, denn was acht
+    # Sekunden haelt, ist der Vorrat, nicht der Spieler.
+    sustained: false
     max-rank: 5
     target: { mode: SELF }
     effects:
@@ -399,9 +452,11 @@ abilities:
   mage.mana-potion:
     kind: ACTIVE
     display-name-key: 'ability.mage.mana-potion.name'
+    description-key: 'ability.mage.mana-potion.description'
     item: 'HONEY_BOTTLE'
     mana-cost: 0.0
-    cooldown-ms: 40000
+    # Haltend, endet bei jedem Treffer - der Schaden ist die eigentliche Grenze.
+    cooldown-ms: 700
     cast-time-ms: 0
     sustained: true
     duration-ms: 5000
@@ -419,9 +474,11 @@ abilities:
   mage.lightning-storm:
     kind: ACTIVE
     display-name-key: 'ability.mage.lightning-storm.name'
+    description-key: 'ability.mage.lightning-storm.description'
     item: 'TRIDENT'
     mana-cost: 55.0
-    cooldown-ms: 45000
+    # Die Ultimative des Magiers - die Obergrenze des Bandes.
+    cooldown-ms: 1000
     cast-time-ms: 0
     max-rank: 5
     target:
@@ -446,6 +503,7 @@ abilities:
   mage.rise-and-fall:
     kind: PASSIVE
     display-name-key: 'ability.mage.rise-and-fall.name'
+    description-key: 'ability.mage.rise-and-fall.description'
     # Two markers for one ability: the Wind Charge is the jump, the potion is the fall. With a
     # three-way toggle - on, off, jump without slow fall - those two are what the player reads.
     item: ['WIND_CHARGE', 'POTION']

@@ -143,24 +143,28 @@ public final class StatusActionBar {
      */
     private Component line(CombatStatusSource.Status current) {
         int percent = current.percent();
-        Map<String, String> values =
-                current.hasMana()
-                        ? Map.of(
-                                "health", whole(current.health()),
-                                "max", whole(current.maxHealth()),
-                                "percent", Integer.toString(percent),
-                                "mana", whole(current.mana()),
-                                "maxMana", whole(current.maxMana()),
-                                "defense", whole(current.defense()))
-                        : Map.of(
-                                "health", whole(current.health()),
-                                "max", whole(current.maxHealth()),
-                                "percent", Integer.toString(percent),
-                                "defense", whole(current.defense()));
-        MessageKey key =
-                current.hasMana()
-                        ? CombatMessageKeys.STATUS_ACTION_BAR
-                        : CombatMessageKeys.STATUS_ACTION_BAR_NO_MANA;
+        Map<String, String> values = new java.util.HashMap<>();
+        values.put("health", whole(current.health()));
+        values.put("max", whole(current.maxHealth()));
+        values.put("percent", Integer.toString(percent));
+        values.put("defense", whole(current.defense()));
+        if (current.hasMana()) {
+            values.put("mana", whole(current.mana()));
+            values.put("maxMana", whole(current.maxMana()));
+        }
+        if (current.hasMeter()) {
+            values.put("meter", whole(current.meter()));
+        }
+        // Drei Zeilen, nicht eine mit Luecken. Welche gilt, folgt aus dem Traeger und nicht aus einem
+        // Schalter, den jemand zu setzen vergessen kann.
+        MessageKey key;
+        if (!current.hasMana()) {
+            key = CombatMessageKeys.STATUS_ACTION_BAR_NO_MANA;
+        } else if (current.hasMeter()) {
+            key = CombatMessageKeys.STATUS_ACTION_BAR_WITH_METER;
+        } else {
+            key = CombatMessageKeys.STATUS_ACTION_BAR;
+        }
         return Component.text(messages.get(key, values)).color(colourFor(percent));
     }
 

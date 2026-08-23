@@ -76,9 +76,26 @@ public enum EffectType {
      * A chance to avoid incoming damage entirely, with the same damage-type filter as {@link #SHIELD}.
      *
      * <p>Hangs on the modifiers stage, not the application stage: evasion has to <em>prevent</em> the
-     * damage, and by application it has already landed. This is the mage's Magic Life (FR-016a).
+     * damage, and by application it has already landed (FR-016a).
      */
     EVADE,
+
+    /**
+     * Takes a <b>share</b> off an incoming hit instead of the whole of it - the mage's Magic Life.
+     *
+     * <p><b>Why this is not {@link #EVADE} with a smaller number.</b> Evasion is all or nothing: it
+     * either refuses the blow or leaves it untouched, and its {@code amount} is not even read. A
+     * mitigation always applies, and its {@code amount} is the share it takes - so a rank-up is felt
+     * on every hit rather than on one hit in seven.
+     *
+     * <p>Carries the damage-type filter of {@link #SHIELD} and an origin filter on top of it. Magic
+     * Life uses the second one to answer auto-attacks and leave a cast fireball at full force.
+     *
+     * <p>Hangs on the modifiers stage for the reason evasion does: past it the damage has landed, and
+     * the only move left would be healing it back, which is a different mechanic with different
+     * numbers.
+     */
+    MITIGATE,
 
     /**
      * A counter from 0 to 100 that rises with damage dealt or taken, falls after an idle window, and

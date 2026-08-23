@@ -2,6 +2,7 @@ package rpg.core.ability;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -10,6 +11,7 @@ import java.util.Map;
 import java.util.Set;
 
 import rpg.core.classes.AbilityKind;
+import rpg.core.combat.DamageOrigin;
 import rpg.core.combat.DamageType;
 import rpg.core.config.ConfigSchema;
 import rpg.core.config.ConfigView;
@@ -74,6 +76,16 @@ public final class AbilityConfigSchema {
                 view.getDouble("runtime.regeneration.mana-combat-factor"));
     }
 
+    /** Ein Schluessel, wenn er dasteht - sonst nichts. */
+    private static MessageKey optionalKey(Map<?, ?> block, String field) {
+        Object raw = block.get(field);
+        if (raw == null) {
+            return null;
+        }
+        String value = String.valueOf(raw).trim();
+        return value.isEmpty() ? null : MessageKey.of(value);
+    }
+
     private static Ability readAbility(String id, Map<?, ?> block) {
         String where = "abilities." + id;
         AbilityKind kind = readEnum(AbilityKind.class, requireString(block, "kind", where + ".kind"));
@@ -81,6 +93,9 @@ public final class AbilityConfigSchema {
                 id,
                 kind,
                 MessageKey.of(requireString(block, "display-name-key", where + ".display-name-key")),
+                // Optional: eine Faehigkeit ohne Beschreibung traegt eben keine. Ein fehlender
+                // Eintrag ist damit kein Startfehler, sondern ein leerer Gegenstands-Untertitel.
+                optionalKey(block, "description-key"),
                 optionalDouble(block, "mana-cost", where + ".mana-cost", 0.0),
                 millis(block, "cooldown-ms", where + ".cooldown-ms"),
                 millis(block, "cast-time-ms", where + ".cast-time-ms"),
@@ -211,6 +226,7 @@ public final class AbilityConfigSchema {
                 optionalBoxedDouble(block, "stack-cap", at + ".stack-cap"),
                 readAttribute(block, at),
                 readDamageType(block, at),
+                readOrigins(block, at),
                 optionalString(block, "status-effect", at + ".status-effect"),
                 optionalBoxedDouble(block, "build-per-hit", at + ".build-per-hit"),
                 optionalMillis(block, "idle-before-ms", at + ".idle-before-ms"),
@@ -235,6 +251,35 @@ public final class AbilityConfigSchema {
     private static DamageType readDamageType(Map<?, ?> block, String at) {
         String name = optionalString(block, "damage-type", at + ".damage-type");
         return name == null ? null : readEnum(DamageType.class, name);
+    }
+
+    /**
+     * The origin filter - a list, because "an auto-attack" is two origins and not one.
+     *
+     * <p>A single name is accepted where a list is expected, for the same reason every other
+     * configuration format does it: {@code origins: MELEE} is what somebody writes, and refusing it
+     * over a pair of brackets teaches nothing.
+     */
+    private static Set<DamageOrigin> readOrigins(Map<?, ?> block, String at) {
+        Object raw = block.get("origins");
+        if (raw == null) {
+            return Set.of();
+        }
+        List<?> names = raw instanceof List<?> list ? list : List.of(raw);
+        if (names.isEmpty()) {
+            // An empty list is not "nothing gets through" - it is somebody who meant to write a
+            // filter and left it open. Read as absent, which is what the field means when missing.
+            return Set.of();
+        }
+        Set<DamageOrigin> origins = EnumSet.noneOf(DamageOrigin.class);
+        for (Object name : names) {
+            if (!(name instanceof String text)) {
+                throw new IllegalArgumentException(
+                        at + ".origins must be origin names, but held " + describe(name));
+            }
+            origins.add(readEnum(DamageOrigin.class, text));
+        }
+        return origins;
     }
 
     // ---- raw reading ------------------------------------------------------------------------------

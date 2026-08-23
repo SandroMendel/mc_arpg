@@ -395,6 +395,12 @@ class FullBootstrapTest {
                         "abilities.on-damage-taken",
                         "abilities.on-damage-dealt",
                         "abilities.on-death");
+        assertThat(ids)
+                .as(
+                        "und der Schild. Er fehlte hier, und deshalb fiel ein Jahr lang nicht auf, "
+                                + "dass sein Vorrat sich fuellte und ihn niemand las - Block und "
+                                + "Magieschild waren acht Sekunden lang nichts")
+                .contains("abilities.shield");
     }
 
     @Test

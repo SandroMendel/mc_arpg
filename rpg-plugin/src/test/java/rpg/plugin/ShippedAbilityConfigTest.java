@@ -198,6 +198,18 @@ class ShippedAbilityConfigTest {
         }
 
         @Test
+        @DisplayName("jede der achtzehn nennt eine Beschreibung - sonst bliebe die Lore leer")
+        void everyAbilityNamesADescription() throws Exception {
+            AbilityConfig abilities = shippedAbilities();
+            for (CharacterClass id : CharacterClass.values()) {
+                for (AbilityBinding binding : bindings(id)) {
+                    Ability ability = abilities.require(binding.abilityId());
+                    assertThat(ability.descriptionKey()).as("%s", ability.id()).isNotNull();
+                }
+            }
+        }
+
+        @Test
         @DisplayName("keine Klasse belegt mehr als neun Slots - die Hotbar hat nicht mehr")
         void nobodyOverrunsTheHotbar() throws Exception {
             for (CharacterClass id : CharacterClass.values()) {

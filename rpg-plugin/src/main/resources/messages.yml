@@ -71,11 +71,14 @@ combat:
     # A mob has no mana. Its own text rather than a placeholder that stays empty: 0/0 would take
     # space from three numbers that mean something.
     action-bar-no-mana: '{health}/{max} HP ({percent}%)   DEF {defense}'
-  target:
-    # One line per half-second window, not per hit - B05 aggregates, so a fast weapon does not
-    # write a wall of text. {damage} is the sum of that window, {hits} how many blows it took.
-    report: '{target}  {health}/{max} ({percent}%)  DEF {defense}   -{damage}'
-    slain: '{target} slain   -{damage}'
+    # Ein Spieler mit Zaehler - heute nur der Berserker. Eigener Text statt eines Platzhalters,
+    # der bei Magier und Rogue leer bliebe: drei Zahlen, die etwas sagen, sollen ihren Platz
+    # nicht an eine vierte verlieren, die nichts sagt.
+    action-bar-with-meter: '{health}/{max} HP ({percent}%)   {mana}/{maxMana} MP   DEF {defense}   RAGE {meter}'
+  mob:
+    # Über jeder Kreatur. EINE Zeile - vanilla gibt einer Entität genau einen Namen, und eine
+    # Lebensleiste DARUNTER wäre eine zweite Entität je Mob (ADR-005, Prinzip II).
+    nameplate: "{name}  {health}/{max}  DEF {defense}"
 
 class:
   # Display names. The enum constant stays WARRIOR; "Berserker" is a value here, never in code
@@ -209,7 +212,7 @@ ability:
   mage:
     magic-life:
       name: 'Magic Life'
-      description: 'Incoming magic sometimes misses you entirely. Physical does not.'
+      description: 'Softens every blow and arrow that reaches you. Cast damage comes through in full.'
     lightning:
       name: 'Lightning'
       description: 'Strikes your target and jumps on to the next, up to eight.'
