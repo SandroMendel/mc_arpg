@@ -1,0 +1,174 @@
+# B09 - zones and regions. Every balancing number lives here, never in code (Principle V).
+#
+# A Zone is NEVER a World (ADR-006). A zone is (worldId, geometry), so moving a zone into its own
+# world is the `world:` line below and nothing else - no rebuild, no code change.
+#
+# Prices for waypoint travel live HERE, with whoever demands them. There is no central price
+# catalogue (ADR-027) and `currency.yml` knows nothing about travel.
+#
+# Zone names are NOT here. This file carries the technical key; what a player reads lives in
+# `messages.yml` under `zone.<key>.name` (FR-003a). Renaming a region is one line there, and no
+# crystal, spawn area or later block has to be touched for it.
+#
+# Every error in this file refuses the start with a message naming the offending place (FR-013):
+# an unknown world, overlapping regions, a core outside its region, a spawn area in a core, a
+# crystal without a core, a trigger area outside its zone, a duplicate crystal key, a missing
+# message key, or anything other than exactly one start region. There is no runtime precedence
+# rule - what must not happen is rejected at start, not quietly resolved.
+
+# ---------------------------------------------------------------------------------------------
+# WARNING: the coordinates below are PLACEHOLDERS on a test world.
+#
+# The hand-built continent from ADR-006 does not exist yet. These boxes are a 3x2 grid of
+# 1000x1000 regions, chosen so the six borders, the six safe cores and the six crystals can be
+# walked on foot - they are NOT a preview of the map design.
+#
+# While `provisional: true` the server logs a warning on EVERY start (FR-065b). Removing the
+# flag changes nothing except the warning (FR-065c) - it is a notice, not a second mode.
+# ---------------------------------------------------------------------------------------------
+provisional: true
+
+# Where a character appears when they die outside every zone (FR-034), and the fallback when a
+# zone disappears between death and respawn (FR-037).
+fallback-point:
+  world: world
+  x: 0.5
+  y: 64.0
+  z: 0.5
+
+# How long the same border stays quiet after warning once (FR-024). Without it, walking a border
+# would warn on every step.
+warning-cooldown-seconds: 30
+
+# ADR-030: logging out while in combat is a death. `none` switches the rule off without a code
+# change (FR-042). The eight seconds themselves belong to B05 and are read from `combat.yml` -
+# there is deliberately no second time value here (FR-039).
+combat-logout: death
+
+# The six regions. Their level bands cover 1 to the maximum level from `progression.yml` with no
+# gap and no overlap (FR-065d) - extend the experience curve without adding a region here and
+# SixRegionsCoverTheCurveTest fails.
+#
+# Each region: a 1000x1000 area, a 120x120 safe core at its centre, one crystal in that core, and
+# two spawn areas in the danger zone for B10 to fill. `min-y`/`max-y` are omitted on areas, so
+# they cover the full world height - a player in a cave is in the region too (FR-004).
+zones:
+
+  greenfields:
+    world: world
+    start-region: true          # exactly one zone carries this (FR-037a)
+    level-band: { min: 1, max: 10 }
+    pvp: false                  # default; the safe core refuses it regardless (FR-028)
+    area:
+      - { min-x: -500, min-z: -500, max-x: 500, max-z: 500 }
+    safe-core:
+      area:
+        - { min-x: -60, min-z: -60, max-x: 60, max-z: 60 }
+      # The one arrival point of this region: start of the game, death, and travel (FR-037d).
+      respawn-point: { x: 0.5, y: 65.0, z: 0.5 }
+    crystal:
+      key: greenfields-crystal
+      price: 25
+      trigger-area:
+        - { min-x: -2, min-y: 64, min-z: -2, max-x: 2, max-y: 67, max-z: 2 }
+    spawn-areas:
+      - { key: greenfields-east, area: [ { min-x: 120, min-z: -80, max-x: 300, max-z: 80 } ] }
+      - { key: greenfields-west, area: [ { min-x: -300, min-z: -80, max-x: -120, max-z: 80 } ] }
+
+  dustlands:
+    world: world
+    level-band: { min: 11, max: 20 }
+    pvp: false
+    area:
+      - { min-x: 1000, min-z: -500, max-x: 2000, max-z: 500 }
+    safe-core:
+      area:
+        - { min-x: 1440, min-z: -60, max-x: 1560, max-z: 60 }
+      respawn-point: { x: 1500.5, y: 65.0, z: 0.5 }
+    crystal:
+      key: dustlands-crystal
+      price: 25
+      trigger-area:
+        - { min-x: 1498, min-y: 64, min-z: -2, max-x: 1502, max-y: 67, max-z: 2 }
+    spawn-areas:
+      - { key: dustlands-east, area: [ { min-x: 1620, min-z: -80, max-x: 1800, max-z: 80 } ] }
+      - { key: dustlands-west, area: [ { min-x: 1180, min-z: -80, max-x: 1360, max-z: 80 } ] }
+
+  safari-plains:
+    world: world
+    level-band: { min: 21, max: 30 }
+    pvp: false
+    area:
+      - { min-x: 2500, min-z: -500, max-x: 3500, max-z: 500 }
+    safe-core:
+      area:
+        - { min-x: 2940, min-z: -60, max-x: 3060, max-z: 60 }
+      respawn-point: { x: 3000.5, y: 65.0, z: 0.5 }
+    crystal:
+      key: safari-plains-crystal
+      price: 25
+      trigger-area:
+        - { min-x: 2998, min-y: 64, min-z: -2, max-x: 3002, max-y: 67, max-z: 2 }
+    spawn-areas:
+      - { key: safari-plains-east, area: [ { min-x: 3120, min-z: -80, max-x: 3300, max-z: 80 } ] }
+      - { key: safari-plains-west, area: [ { min-x: 2680, min-z: -80, max-x: 2860, max-z: 80 } ] }
+
+  terracotta-canyons:
+    world: world
+    level-band: { min: 31, max: 40 }
+    pvp: false
+    area:
+      - { min-x: -500, min-z: 1000, max-x: 500, max-z: 2000 }
+    safe-core:
+      area:
+        - { min-x: -60, min-z: 1440, max-x: 60, max-z: 1560 }
+      respawn-point: { x: 0.5, y: 65.0, z: 1500.5 }
+    crystal:
+      key: terracotta-canyons-crystal
+      price: 25
+      trigger-area:
+        - { min-x: -2, min-y: 64, min-z: 1498, max-x: 2, max-y: 67, max-z: 1502 }
+    spawn-areas:
+      - { key: terracotta-canyons-east, area: [ { min-x: 120, min-z: 1420, max-x: 300, max-z: 1580 } ] }
+      - { key: terracotta-canyons-west, area: [ { min-x: -300, min-z: 1420, max-x: -120, max-z: 1580 } ] }
+
+  darkforest:
+    world: world
+    level-band: { min: 41, max: 50 }
+    pvp: false
+    area:
+      - { min-x: 1000, min-z: 1000, max-x: 2000, max-z: 2000 }
+    safe-core:
+      area:
+        - { min-x: 1440, min-z: 1440, max-x: 1560, max-z: 1560 }
+      respawn-point: { x: 1500.5, y: 65.0, z: 1500.5 }
+    crystal:
+      key: darkforest-crystal
+      price: 25
+      trigger-area:
+        - { min-x: 1498, min-y: 64, min-z: 1498, max-x: 1502, max-y: 67, max-z: 1502 }
+    spawn-areas:
+      - { key: darkforest-east, area: [ { min-x: 1620, min-z: 1420, max-x: 1800, max-z: 1580 } ] }
+      - { key: darkforest-west, area: [ { min-x: 1180, min-z: 1420, max-x: 1360, max-z: 1580 } ] }
+
+  pale-wilds:
+    world: world
+    level-band: { min: 51, max: 60 }
+    # End-game region. PvP stays OFF here too: the swap of the damage rule is what this block
+    # proves, not a new piece of content (FR-031, SC-008). Turning it on is one line - and then
+    # the questions this block cannot answer start (ADR-032 context in the spec).
+    pvp: false
+    area:
+      - { min-x: 2500, min-z: 1000, max-x: 3500, max-z: 2000 }
+    safe-core:
+      area:
+        - { min-x: 2940, min-z: 1440, max-x: 3060, max-z: 1560 }
+      respawn-point: { x: 3000.5, y: 65.0, z: 1500.5 }
+    crystal:
+      key: pale-wilds-crystal
+      price: 25
+      trigger-area:
+        - { min-x: 2998, min-y: 64, min-z: 1498, max-x: 3002, max-y: 67, max-z: 1502 }
+    spawn-areas:
+      - { key: pale-wilds-east, area: [ { min-x: 3120, min-z: 1420, max-x: 3300, max-z: 1580 } ] }
+      - { key: pale-wilds-west, area: [ { min-x: 2680, min-z: 1420, max-x: 2860, max-z: 1580 } ] }

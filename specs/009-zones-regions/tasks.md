@@ -36,11 +36,11 @@ gegen eine echte PostgreSQL-Instanz. Testaufgaben stehen deshalb je Geschichte *
 
 **Purpose**: die Blockgrenzen benennen, bevor etwas darin entsteht
 
-- [ ] T001 [P] Paket `rpg-core/src/main/java/rpg/core/zone/` mit `package-info.java` anlegen — die Blockgrenze benennen: Geometrie, Index und Regeln gehören hierher, **Paper nirgends**, und Schwierigkeitsmodifikator wie Loot-Zuordnung ausdrücklich **nicht** (FR-056, FR-057), nach dem Muster von `rpg/core/currency/package-info.java`
-- [ ] T002 [P] Paket `rpg-platform/src/main/java/rpg/platform/zone/` mit `package-info.java` anlegen — Kopfkommentar: hier und nur hier wird Paper angefasst
-- [ ] T003 [P] Paket `rpg-persistence/src/main/java/rpg/persistence/zone/` mit `package-info.java` anlegen
-- [ ] T004 [P] `rpg-plugin/src/main/resources/zones.yml` als Gerüst anlegen nach [contracts/zone-config.md](./contracts/zone-config.md) — mit `provisional: true`, `fallback-point` und leerem `zones`-Baum, Kopfkommentar mit ADR-006 („eine Zone ist niemals eine World") und ADR-027 („prices live here, there is no central catalogue")
-- [ ] T005 [P] `rpg-plugin/src/main/resources/messages.yml` um den `zone.*`-Baum erweitern — alle Schlüssel aus [contracts/zone-config.md](./contracts/zone-config.md), zunächst mit den sechs Zonennamen und den acht Meldungen (FR-025, FR-035, FR-051e, FR-061)
+- [X] T001 [P] Paket `rpg-core/src/main/java/rpg/core/zone/` mit `package-info.java` anlegen — die Blockgrenze benennen: Geometrie, Index und Regeln gehören hierher, **Paper nirgends**, und Schwierigkeitsmodifikator wie Loot-Zuordnung ausdrücklich **nicht** (FR-056, FR-057), nach dem Muster von `rpg/core/currency/package-info.java`
+- [X] T002 [P] Paket `rpg-platform/src/main/java/rpg/platform/zone/` mit `package-info.java` anlegen — Kopfkommentar: hier und nur hier wird Paper angefasst
+- [X] T003 [P] Paket `rpg-persistence/src/main/java/rpg/persistence/zone/` mit `package-info.java` anlegen
+- [X] T004 [P] `rpg-plugin/src/main/resources/zones.yml` als Gerüst anlegen nach [contracts/zone-config.md](./contracts/zone-config.md) — mit `provisional: true`, `fallback-point` und leerem `zones`-Baum, Kopfkommentar mit ADR-006 („eine Zone ist niemals eine World") und ADR-027 („prices live here, there is no central catalogue")
+- [X] T005 [P] `rpg-plugin/src/main/resources/messages.yml` um den `zone.*`-Baum erweitern — alle Schlüssel aus [contracts/zone-config.md](./contracts/zone-config.md), zunächst mit den sechs Zonennamen und den acht Meldungen (FR-025, FR-035, FR-051e, FR-061)
 
 ---
 
@@ -52,42 +52,42 @@ gegen eine echte PostgreSQL-Instanz. Testaufgaben stehen deshalb je Geschichte *
 
 ### Werte und Geometrie
 
-- [ ] T006 [P] `Cuboid` in `rpg-core/src/main/java/rpg/core/zone/Cuboid.java` — zwei Ecken, normalisiert, `minY`/`maxY` optional; `contains(x,y,z)` als sechs Ganzzahlvergleiche ohne Allokation (FR-004, data-model.md §1)
-- [ ] T007 [P] `LevelBand` in `rpg-core/.../zone/LevelBand.java` — `min` und `max`, beide **einschliessend** (FR-003)
-- [ ] T008 `Area` in `rpg-core/.../zone/Area.java` — Liste von Quadern, mindestens einer, plus `touchedChunks()` **nur für den Ladepfad** (FR-004). Hängt an T006
-- [ ] T009 [P] `CuboidTest` in `rpg-core/src/test/java/rpg/core/zone/` — Normalisierung, Y offen gegen Y begrenzt, Grenzen einschliessend, ein Punkt über einem Y-begrenzten Quader liegt **draussen** (FR-004, Randfall „Y-Achse")
-- [ ] T010 [P] `AreaTest` in `rpg-core/src/test/java/rpg/core/zone/` — mehrere Teile, `touchedChunks()` deckt alle berührten Chunks ab, auch bei negativen Koordinaten
-- [ ] T011 [P] `SafeCore` in `rpg-core/.../zone/SafeCore.java` — Bereich plus **der eine** `respawnPoint` als `WorldPosition` aus `rpg.core.scheduler` (**nicht** neu erfinden, research.md R2; FR-032, FR-037d)
-- [ ] T012 [P] `SpawnArea` in `rpg-core/.../zone/SpawnArea.java` — Kennung und Geometrie, **und nichts sonst**; keine Rolle, keine Art, keine Zahl (FR-053a)
-- [ ] T013 [P] `WaypointCrystal` in `rpg-core/.../zone/WaypointCrystal.java` — Kennung, Auslösebereich, Preis; **kein Ziel** (FR-045, FR-045a)
-- [ ] T014 `Zone` in `rpg-core/.../zone/Zone.java` — Kennung, `worldId`, Area, Levelband, optionaler Schutzkern, Spawn-Bereiche, optionaler Kristall, `pvp`, `startRegion`. **Kein `displayName`** (FR-003a). Hängt an T006–T013
+- [X] T006 [P] `Cuboid` in `rpg-core/src/main/java/rpg/core/zone/Cuboid.java` — zwei Ecken, normalisiert, `minY`/`maxY` optional; `contains(x,y,z)` als sechs Ganzzahlvergleiche ohne Allokation (FR-004, data-model.md §1)
+- [X] T007 [P] `LevelBand` in `rpg-core/.../zone/LevelBand.java` — `min` und `max`, beide **einschliessend** (FR-003)
+- [X] T008 `Area` in `rpg-core/.../zone/Area.java` — Liste von Quadern, mindestens einer, plus `touchedChunks()` **nur für den Ladepfad** (FR-004). Hängt an T006
+- [X] T009 [P] `CuboidTest` in `rpg-core/src/test/java/rpg/core/zone/` — Normalisierung, Y offen gegen Y begrenzt, Grenzen einschliessend, ein Punkt über einem Y-begrenzten Quader liegt **draussen** (FR-004, Randfall „Y-Achse")
+- [X] T010 [P] `AreaTest` in `rpg-core/src/test/java/rpg/core/zone/` — mehrere Teile, `touchedChunks()` deckt alle berührten Chunks ab, auch bei negativen Koordinaten
+- [X] T011 [P] `SafeCore` in `rpg-core/.../zone/SafeCore.java` — Bereich plus **der eine** `respawnPoint` als `WorldPosition` aus `rpg.core.scheduler` (**nicht** neu erfinden, research.md R2; FR-032, FR-037d)
+- [X] T012 [P] `SpawnArea` in `rpg-core/.../zone/SpawnArea.java` — Kennung und Geometrie, **und nichts sonst**; keine Rolle, keine Art, keine Zahl (FR-053a)
+- [X] T013 [P] `WaypointCrystal` in `rpg-core/.../zone/WaypointCrystal.java` — Kennung, Auslösebereich, Preis; **kein Ziel** (FR-045, FR-045a)
+- [X] T014 `Zone` in `rpg-core/.../zone/Zone.java` — Kennung, `worldId`, Area, Levelband, optionaler Schutzkern, Spawn-Bereiche, optionaler Kristall, `pvp`, `startRegion`. **Kein `displayName`** (FR-003a). Hängt an T006–T013
 
 ### Der Index
 
-- [ ] T015 `ChunkZoneIndex` in `rpg-core/.../zone/ChunkZoneIndex.java` — gepackter `long`-Schlüssel `(chunkX << 32) | (chunkZ & 0xFFFFFFFFL)`, Kandidatenfelder, **Grenzchunk-Marker**; beim Laden gebaut, zur Laufzeit nur gelesen. Kein Boxing (FR-005, FR-006, Prinzip II, research.md R3)
-- [ ] T016 `ChunkZoneIndexTest` in `rpg-core/src/test/java/rpg/core/zone/` — ein Kandidat braucht **keinen** Quadertest; zwei Kandidaten im selben Chunk werden exakt aufgelöst; ein von Zone und Schutzkern berührter Chunk ist als **Grenzchunk** markiert; ein Chunk ohne Zone liefert leer (FR-007)
-- [ ] T017 `ZoneIndexNoIterationTest` in `rpg-core/src/test/java/rpg/core/zone/` — ein Quelltest, der belegt, dass keine Zonenabfrage über alle Zonen iteriert; nach dem Muster von `SinglePermissionPointTest` (FR-005, Prinzip II)
+- [X] T015 `ChunkZoneIndex` in `rpg-core/.../zone/ChunkZoneIndex.java` — gepackter `long`-Schlüssel `(chunkX << 32) | (chunkZ & 0xFFFFFFFFL)`, Kandidatenfelder, **Grenzchunk-Marker**; beim Laden gebaut, zur Laufzeit nur gelesen. Kein Boxing (FR-005, FR-006, Prinzip II, research.md R3)
+- [X] T016 `ChunkZoneIndexTest` in `rpg-core/src/test/java/rpg/core/zone/` — ein Kandidat braucht **keinen** Quadertest; zwei Kandidaten im selben Chunk werden exakt aufgelöst; ein von Zone und Schutzkern berührter Chunk ist als **Grenzchunk** markiert; ein Chunk ohne Zone liefert leer (FR-007)
+- [X] T017 `ZoneIndexNoIterationTest` in `rpg-core/src/test/java/rpg/core/zone/` — ein Quelltest, der belegt, dass keine Zonenabfrage über alle Zonen iteriert; nach dem Muster von `SinglePermissionPointTest` (FR-005, Prinzip II)
 
 ### Konfiguration
 
-- [ ] T018 `ZoneConfig` in `rpg-core/.../zone/ZoneConfig.java` — der ausgelesene Stand: Zonen, Ausweichpunkt, `provisional`-Kennzeichen
-- [ ] T019 `ZoneConfigSchema` in `rpg-core/.../zone/ZoneConfigSchema.java` — Auslesen und Prüfen nach [contracts/zone-config.md](./contracts/zone-config.md), Fail-Fast mit einer Meldung, die die verantwortliche Stelle benennt (FR-013, Prinzip V)
-- [ ] T020 `ZoneConfigSchemaTest` in `rpg-core/src/test/java/rpg/core/zone/` — **je Startverweigerung ein Fall**, alle elf aus [data-model.md §5](./data-model.md): **unbekannter Weltname (FR-002a)**, überlappende Zonen (FR-012), doppelte Zonenkennung (FR-003), Schutzkern ausserhalb seiner Zone (FR-009), Spawn-Bereich ausserhalb der Zone oder im Kern (FR-055), doppelte Spawn-Kennung, Kristall ohne Schutzkern (FR-051c), Kristall-Auslösebereich ausserhalb seiner Zone (FR-051d), doppelte Kristallkennung, fehlender Message-Schlüssel (FR-003c), keine oder zwei Startregionen (FR-037a)
-- [ ] T021 `ZoneMessageKeys` in `rpg-core/.../zone/ZoneMessageKeys.java` — alle Schlüssel dieses Blocks als Konstanten; der Zonenname wird als `zone.<key>.name` gebildet (FR-003a)
-- [ ] T022 `ZoneNameKeyTest` in `rpg-core/src/test/java/rpg/core/zone/` — zu jeder konfigurierten Zone existiert ein Message-Schlüssel, und **kein** Anzeigename steht in `zones.yml` (FR-003a, FR-003c)
+- [X] T018 `ZoneConfig` in `rpg-core/.../zone/ZoneConfig.java` — der ausgelesene Stand: Zonen, Ausweichpunkt, `provisional`-Kennzeichen
+- [X] T019 `ZoneConfigSchema` in `rpg-core/.../zone/ZoneConfigSchema.java` — Auslesen und Prüfen nach [contracts/zone-config.md](./contracts/zone-config.md), Fail-Fast mit einer Meldung, die die verantwortliche Stelle benennt (FR-013, Prinzip V)
+- [X] T020 `ZoneConfigSchemaTest` in `rpg-core/src/test/java/rpg/core/zone/` — **je Startverweigerung ein Fall**, alle elf aus [data-model.md §5](./data-model.md): **unbekannter Weltname (FR-002a)**, überlappende Zonen (FR-012), doppelte Zonenkennung (FR-003), Schutzkern ausserhalb seiner Zone (FR-009), Spawn-Bereich ausserhalb der Zone oder im Kern (FR-055), doppelte Spawn-Kennung, Kristall ohne Schutzkern (FR-051c), Kristall-Auslösebereich ausserhalb seiner Zone (FR-051d), doppelte Kristallkennung, fehlender Message-Schlüssel (FR-003c), keine oder zwei Startregionen (FR-037a)
+- [X] T021 `ZoneMessageKeys` in `rpg-core/.../zone/ZoneMessageKeys.java` — alle Schlüssel dieses Blocks als Konstanten; der Zonenname wird als `zone.<key>.name` gebildet (FR-003a)
+- [X] T022 **Verschoben nach `rpg-plugin/src/test/java/rpg/plugin/ZoneMessageKeyResolutionTest.java`** (die ausgelieferten `zones.yml` und `messages.yml` liegen in `rpg-plugin`, und die Abhängigkeitsrichtung `plugin → core` lässt einen Kerntest nicht an sie heran; Namenskonvention wie `AbilityMessageKeyResolutionTest`). Zusätzlich prüft `ProvisionalWarningTest` in `rpg-core` die Verweigerung selbst — zu jeder konfigurierten Zone existiert ein Message-Schlüssel, und **kein** Anzeigename steht in `zones.yml` (FR-003a, FR-003c)
 
 ### Abfrage und Modul
 
-- [ ] T023 `Zones` in `rpg-core/.../zone/Zones.java` — die Schnittstelle aus [contracts/zone-api.md](./contracts/zone-api.md): `zoneAt`, `zoneKeyAt`, `inSafeCore`, `byKey`, `all`, `startPoint`, `respawnPointOf`, `fallbackPoint`, `spawnAreasOf`. Javadoc mit der Zusage „ab jetzt ADR-pflichtig"
-- [ ] T024 `DefaultZones` in `rpg-core/.../zone/DefaultZones.java` — Umsetzung über den Index. Hängt an T015, T023
-- [ ] T025 `DefaultZonesTest` in `rpg-core/src/test/java/rpg/core/zone/` — `zoneAt` gibt für eine Position im Schutzkern die **Region** zurück, nie den Kern (FR-011); `inSafeCore` beantwortet den Kern getrennt (FR-010); Position ohne Zone liefert leer (FR-007); `zoneKeyAt` allokiert nicht (Prinzip II)
-- [ ] T026 `ZoneModule` in `rpg-core/.../zone/ZoneModule.java` — `start()` und `applyReloadedConfig()` nach dem Muster von `StatsModule` und `CombatModule` (research.md R6)
-- [ ] T027 Die **Startwarnung** über die vorläufigen Koordinaten in `ZoneModule.start()` — **nicht** in `applyReloadedConfig()`, damit sie bei `/rpg reload` nicht erneut läuft; Protokollform `[config] phase=START ...` (FR-065a, FR-065b, research.md R7)
-- [ ] T028 `ProvisionalWarningTest` in `rpg-core/src/test/java/rpg/core/zone/` — bei `provisional: true` warnt der Start **einmal**, ein Neuladen **nicht**; ohne das Kennzeichen ändert sich nichts ausser der Warnung (FR-065b, FR-065c)
-- [ ] T029 Die **sechs Regionen** in `zones.yml` ausformulieren — Kennungen `greenfields`, `dustlands`, `safari-plains`, `terracotta-canyons`, `darkforest`, `pale-wilds`, Levelbänder 1–10 bis 51–60 lückenlos, `greenfields` als `start-region`, alle `pvp: false`, je ein Schutzkern mit Respawn-Punkt, je ein Kristall, je mehrere Spawn-Bereiche. Koordinaten **vorläufig** auf einer Testwelt (FR-065, FR-055a)
-- [ ] T030 `SixRegionsCoverTheCurveTest` in `rpg-core/src/test/java/rpg/core/zone/` — die Levelbänder der ausgelieferten Zonen decken **1 bis zur Maximalstufe aus `progression.yml` lückenlos und ohne Überlappung** ab (FR-065d). Bricht absichtlich, wenn jemand die XP-Kurve verlängert, ohne eine Region zu ergänzen
-- [ ] T031 [P] `BukkitPositions` in `rpg-platform/src/main/java/rpg/platform/zone/BukkitPositions.java` — `org.bukkit.Location` → `WorldPosition` und zurück. Die **einzige** Stelle, an der ein Paper-Ort in einen Kernwert übersetzt wird (Prinzip III, research.md R2)
-- [ ] T032 `ZoneModule` im Plugin verdrahten — `rpg-plugin/src/main/java/rpg/plugin/RpgPlugin.java`: Konfiguration registrieren, Modul starten, und `zoneModule.applyReloadedConfig()` in `reloadConfiguration()` **neben** dem vorhandenen `statsModule.applyReloadedConfig()` (ADR-012, research.md R6)
+- [X] T023 `Zones` in `rpg-core/.../zone/Zones.java` — die Schnittstelle aus [contracts/zone-api.md](./contracts/zone-api.md): `zoneAt`, `zoneKeyAt`, `inSafeCore`, `byKey`, `all`, `startPoint`, `respawnPointOf`, `fallbackPoint`, `spawnAreasOf`. Javadoc mit der Zusage „ab jetzt ADR-pflichtig"
+- [X] T024 `DefaultZones` in `rpg-core/.../zone/DefaultZones.java` — Umsetzung über den Index. Hängt an T015, T023
+- [X] T025 `DefaultZonesTest` in `rpg-core/src/test/java/rpg/core/zone/` — `zoneAt` gibt für eine Position im Schutzkern die **Region** zurück, nie den Kern (FR-011); `inSafeCore` beantwortet den Kern getrennt (FR-010); Position ohne Zone liefert leer (FR-007); `zoneKeyAt` allokiert nicht (Prinzip II)
+- [X] T026 `ZoneModule` in `rpg-core/.../zone/ZoneModule.java` — `start()` und `applyReloadedConfig()` nach dem Muster von `StatsModule` und `CombatModule` (research.md R6)
+- [X] T027 Die **Startwarnung** über die vorläufigen Koordinaten in `ZoneModule.start()` — **nicht** in `applyReloadedConfig()`, damit sie bei `/rpg reload` nicht erneut läuft; Protokollform `[config] phase=START ...` (FR-065a, FR-065b, research.md R7)
+- [X] T028 `ProvisionalWarningTest` in `rpg-core/src/test/java/rpg/core/zone/` — bei `provisional: true` warnt der Start **einmal**, ein Neuladen **nicht**; ohne das Kennzeichen ändert sich nichts ausser der Warnung (FR-065b, FR-065c)
+- [X] T029 Die **sechs Regionen** in `zones.yml` ausformulieren — Kennungen `greenfields`, `dustlands`, `safari-plains`, `terracotta-canyons`, `darkforest`, `pale-wilds`, Levelbänder 1–10 bis 51–60 lückenlos, `greenfields` als `start-region`, alle `pvp: false`, je ein Schutzkern mit Respawn-Punkt, je ein Kristall, je mehrere Spawn-Bereiche. Koordinaten **vorläufig** auf einer Testwelt (FR-065, FR-055a)
+- [X] T030 **Verschoben nach `rpg-plugin/src/test/java/rpg/plugin/ShippedZoneConfigTest.java`** (dieselbe Begründung wie T022; Namenskonvention wie `ShippedProgressionConfigTest`) — die Levelbänder der ausgelieferten Zonen decken **1 bis zur Maximalstufe aus `progression.yml` lückenlos und ohne Überlappung** ab (FR-065d). Bricht absichtlich, wenn jemand die XP-Kurve verlängert, ohne eine Region zu ergänzen
+- [X] T031 [P] `BukkitPositions` in `rpg-platform/src/main/java/rpg/platform/zone/BukkitPositions.java` — `org.bukkit.Location` → `WorldPosition` und zurück. Die **einzige** Stelle, an der ein Paper-Ort in einen Kernwert übersetzt wird (Prinzip III, research.md R2)
+- [X] T032 `ZoneModule` im Plugin verdrahten — `rpg-plugin/src/main/java/rpg/plugin/RpgPlugin.java`: Konfiguration registrieren, Modul starten, und `zoneModule.applyReloadedConfig()` in `reloadConfiguration()` **neben** dem vorhandenen `statsModule.applyReloadedConfig()` (ADR-012, research.md R6)
 
 **Checkpoint**: Zonen sind konfigurierbar, abfragbar und indiziert. Die Geschichten können beginnen.
 

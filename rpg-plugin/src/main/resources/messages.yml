@@ -257,3 +257,49 @@ currency:
     page-next: 'Next page'
     page-previous: 'Previous page'
     empty: 'No bookings yet.'
+
+# B09 - zones and regions.
+#
+# Zone names are keys here and NOWHERE else: `zones.yml` carries the technical key, this file
+# carries what the player reads (FR-003a). Renaming a region is one line here, and no portal,
+# spawn area or later block has to be touched for it (SC-017).
+#
+# A missing key refuses the start (FR-003c). A zone whose name shows up in game as a key string
+# is a mistake that should surface at start, not in front of a player.
+zone:
+  greenfields:
+    name: 'The Greenfields'
+  dustlands:
+    name: 'The Dustlands'
+  safari-plains:
+    name: 'The Safari Plains'
+  terracotta-canyons:
+    name: 'The Terracotta Canyons'
+  darkforest:
+    name: 'The Darkforest'
+  pale-wilds:
+    name: 'The Pale Wilds'
+
+  # Entering a region below its level band (FR-021). Warns once, never blocks (FR-022, FR-024).
+  too-dangerous: 'This area is too dangerous for you. Recommended level: {min}-{max}.'
+  # Death (FR-035). Costs no experience and no items (FR-036).
+  died: 'You died.'
+  # First login after a combat logout (ADR-030, FR-041)
+  died-logout: 'You logged out in combat and died.'
+
+  # Waypoint crystals. Input and window are temporary here and belong to B13 (ADR-032).
+  waypoint:
+    menu-title: 'Waypoints'
+    unlocked: 'Waypoint discovered: {zone}.'
+    locked: 'You have not discovered this waypoint yet.'
+    not-enough-coins: 'You need {missing} more coins to travel there.'
+    in-combat: 'You cannot travel while in combat.'
+    gone: 'That waypoint no longer exists.'
+    travelled: 'You travelled to {zone} for {price} coins.'
+    # Shown when the teleport failed after the debit went through and the coins came back
+    # (FR-050f, research.md R1). A journey never ends at a loss.
+    refunded: 'The journey failed. Your {price} coins were returned.'
+    # Shown in the window on a locked entry (FR-048a)
+    entry-unlocked: '{zone} - level {min}-{max}'
+    entry-locked: '{zone} - level {min}-{max} (not discovered)'
+    entry-here: '{zone} - you are here'

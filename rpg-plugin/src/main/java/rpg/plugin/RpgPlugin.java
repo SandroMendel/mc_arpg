@@ -15,6 +15,8 @@ import rpg.core.classes.ClassMessageKeys;
 import rpg.core.classes.ClassRegistry;
 import rpg.core.combat.CombatMessageKeys;
 import rpg.core.combat.CombatModule;
+import rpg.core.zone.ZoneMessageKeys;
+import rpg.core.zone.ZoneModule;
 import rpg.core.combat.CombatPipeline;
 import rpg.core.config.ConfigLoader;
 import rpg.core.config.ConfigValidationException;
@@ -80,6 +82,7 @@ import rpg.platform.session.SessionPreLoadListener;
 import rpg.platform.session.SessionQuitListener;
 import rpg.platform.stats.PaperVanillaAttributeBridge;
 import rpg.platform.stats.VanillaRegenerationGuard;
+import rpg.platform.zone.BukkitPositions;
 
 /**
  * Plugin entry point: wires the five modules together and hands control to
@@ -123,7 +126,8 @@ public class RpgPlugin extends JavaPlugin {
                     "progression.yml",
                     "classes.yml",
                     "abilities.yml",
-                    "currency.yml");
+                    "currency.yml",
+                    "zones.yml");
 
     private final BootstrapState bootstrapState = new BootstrapState();
 
@@ -154,6 +158,7 @@ public class RpgPlugin extends JavaPlugin {
     private CombatModule combatModule;
     private ProgressionModule progressionModule;
     private CurrencyModule currencyModule;
+    private ZoneModule zoneModule;
     private ClassesModule classesModule;
     private AbilityModule abilityModule;
     private rpg.core.ability.AbilityRuntime abilityRuntime;
@@ -276,6 +281,12 @@ public class RpgPlugin extends JavaPlugin {
             if (statsModule != null) {
                 statsModule.applyReloadedConfig();
             }
+            // B09 holds a chunk index derived from zones.yml, so it has to be told as well: the
+            // index is rebuilt and everyone present is re-evaluated once (FR-014, research.md R6).
+            // One pass is not a recurring task - this block registers nothing with the scheduler.
+            if (zoneModule != null) {
+                zoneModule.applyReloadedConfig();
+            }
             getLogger().info("[config] phase=RELOAD state=APPLIED - all modules reloaded");
             return true;
         } catch (ConfigValidationException rejected) {
@@ -313,6 +324,9 @@ public class RpgPlugin extends JavaPlugin {
         declared.addAll(CombatMessageKeys.all());
         declared.addAll(AbilityMessageKeys.all());
         declared.addAll(CurrencyMessageKeys.all());
+        // B09s per-zone name keys are NOT listed here: the zone keys are only known once
+        // zones.yml has been read, so ZoneModule.start verifies them itself (FR-003c).
+        declared.addAll(ZoneMessageKeys.all(List.of()));
         MessageKeyValidator.verifyAllPresent(loaded, declared);
 
         getLogger().info("[messages] " + declared.size() + " declared key(s) resolved");
@@ -361,6 +375,10 @@ public class RpgPlugin extends JavaPlugin {
         // B07 and B08 instead of queueing behind them.
         currencyModule =
                 new CurrencyModule(persistenceModule, sessionModule, getLogger(), Clock.systemUTC());
+        // B09. Layer 2, and it depends on nothing but B01 - the world resolver is the only thing it
+        // needs from Paper, and it gets it as a function so `rpg-core` never sees a World
+        // (Constitution III.1, FR-002a).
+        zoneModule = new ZoneModule(getLogger(), BukkitPositions.resolver(), messages);
         return List.of(
                 persistenceModule,
                 sessionModule,
@@ -370,7 +388,8 @@ public class RpgPlugin extends JavaPlugin {
                 classesModule,
                 inventoryModule,
                 abilityModule,
-                currencyModule);
+                currencyModule,
+                zoneModule);
     }
 
     /**
