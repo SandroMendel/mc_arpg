@@ -41,6 +41,17 @@ runtime:
 # from configuration alone") only proves something if the code was done first. It held for
 # seventeen of them; Rage needed one addition to the vocabulary, and that addition is a list where
 # there used to be a single value, not a Java class. See warrior.rage below.
+#
+# `rank-cost` STEHT UEBERALL AUF EINEM COIN, UND DAS IST KEINE BALANCING-ENTSCHEIDUNG.
+#
+# Es ist ein Platzhalter (T103). Achtzehnmal dieselbe Eins heisst: die Kostenpruefung ist
+# verdrahtet und laesst sich im Spiel ausloesen, ohne dass jemand ein Preisgefuege behauptet, das
+# nie besprochen wurde. Ein Rangaufstieg kostet damit spuerbar etwas - naemlich, dass man ueberhaupt
+# Coins haben muss - und nichts darueber hinaus.
+#
+# Wer die Preise setzt, ersetzt hier achtzehn Zeilen und keinen Code: fehlt der Block, ist der
+# Aufstieg gratis (FR-054); steht er da, prueft AbilityRuntime ihn ZULETZT, nach Freischaltung und
+# Hoechstrang, damit "zu teuer" nie eine Ablehnung verdeckt, die einen anderen Grund hat.
 # ---------------------------------------------------------------------------------------------
 abilities:
 
@@ -66,6 +77,7 @@ abilities:
     trigger: [ON_DAMAGE_DEALT, ON_DAMAGE_TAKEN]
     cooldown-ms: 0
     max-rank: 5
+    rank-cost: { coins: 1 }
     target: { mode: SELF }
     effects:
       # A full meter is worth +12 physicalDamage at rank 1. Twelve hits fill it; five idle seconds
@@ -100,6 +112,7 @@ abilities:
     sustained: true
     duration-ms: 8000
     max-rank: 5
+    rank-cost: { coins: 1 }
     target: { mode: SELF }
     effects:
       - type: SHIELD
@@ -122,6 +135,7 @@ abilities:
     cast-time-ms: 600
     interrupt-on-move: false
     max-rank: 5
+    rank-cost: { coins: 1 }
     target:
       # LINE, not LOOK_DIRECTION: the leap goes where you look, but the landing hits everything
       # along it, and LOOK_DIRECTION returns exactly one target by definition.
@@ -153,6 +167,7 @@ abilities:
     trigger: ON_DAMAGE_DEALT
     cooldown-ms: 0
     max-rank: 5
+    rank-cost: { coins: 1 }
     target: { mode: SELF }
     effects:
       - type: LIFESTEAL
@@ -173,6 +188,7 @@ abilities:
     sustained: true
     duration-ms: 5000
     max-rank: 5
+    rank-cost: { coins: 1 }
     target:
       mode: RADIUS
       range: 4.5
@@ -199,6 +215,7 @@ abilities:
     sustained: true
     duration-ms: 12000
     max-rank: 5
+    rank-cost: { coins: 1 }
     target: { mode: SELF }
     effects:
       - type: BUFF
@@ -231,6 +248,7 @@ abilities:
     chance: 0.35
     cooldown-ms: 0
     max-rank: 5
+    rank-cost: { coins: 1 }
     target:
       mode: NEAREST
       range: 4.0
@@ -259,6 +277,7 @@ abilities:
     charges: 2
     charge-window-ms: 10000
     max-rank: 5
+    rank-cost: { coins: 1 }
     target:
       mode: CURSOR
       range: 20.0
@@ -280,6 +299,7 @@ abilities:
     requires-behind-target: true
     cooldown-ms: 0
     max-rank: 5
+    rank-cost: { coins: 1 }
     target: { mode: SELF }
     effects:
       - type: BUFF
@@ -308,6 +328,7 @@ abilities:
     sustained: true
     duration-ms: 6000
     max-rank: 5
+    rank-cost: { coins: 1 }
     target: { mode: SELF }
     effects:
       - type: INVISIBILITY
@@ -326,6 +347,7 @@ abilities:
     cooldown-ms: 900
     cast-time-ms: 0
     max-rank: 5
+    rank-cost: { coins: 1 }
     target: { mode: SELF }
     effects:
       - type: SUMMON
@@ -348,6 +370,7 @@ abilities:
     open-world-only: true
     cooldown-ms: 600000
     max-rank: 5
+    rank-cost: { coins: 1 }
     target: { mode: SELF }
     effects:
       - type: HEAL
@@ -381,6 +404,7 @@ abilities:
     # wirkt IMMER und dafuer anteilig. Ein `chance` hier wuerde sie wieder in ein Ausweichen mit
     # kleinerer Zahl verwandeln - selten und dann stark, statt verlaesslich und dafuer weniger.
     max-rank: 5
+    rank-cost: { coins: 1 }
     target: { mode: SELF }
     effects:
       - type: MITIGATE
@@ -406,6 +430,7 @@ abilities:
     cooldown-ms: 500
     cast-time-ms: 0
     max-rank: 5
+    rank-cost: { coins: 1 }
     target:
       mode: CHAIN
       range: 18.0
@@ -440,6 +465,7 @@ abilities:
     # Sekunden haelt, ist der Vorrat, nicht der Spieler.
     sustained: false
     max-rank: 5
+    rank-cost: { coins: 1 }
     target: { mode: SELF }
     effects:
       - type: SHIELD
@@ -461,6 +487,7 @@ abilities:
     sustained: true
     duration-ms: 5000
     max-rank: 5
+    rank-cost: { coins: 1 }
     target: { mode: SELF }
     effects:
       - type: MANA_RESTORE
@@ -481,6 +508,7 @@ abilities:
     cooldown-ms: 1000
     cast-time-ms: 0
     max-rank: 5
+    rank-cost: { coins: 1 }
     target:
       mode: GROUND_AREA
       range: 16.0
@@ -511,6 +539,7 @@ abilities:
     player-toggle: true
     cooldown-ms: 6000
     max-rank: 5
+    rank-cost: { coins: 1 }
     target: { mode: SELF }
     effects:
       - type: DOUBLE_JUMP

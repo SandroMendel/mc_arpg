@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Schicht** | 1 — Regel-Engine |
-| **Status** | Implementiert (2026-08-22) — 178 Aufgaben, davon 173 erledigt; 0 Fehler, 0 übersprungen. Offen allein: fünf Punkte, die einen laufenden Paper-Server brauchen. Spec unter `specs/008-ability-framework/`. **Durch B08b abgeschlossen** *(2026-08-22)*: der Rangaufstieg kostet jetzt Coins, `RankResult` hat sein `NOT_ENOUGH_COINS`, und die Preise stehen in `abilities.yml` unter `rank-cost` |
+| **Status** | Implementiert (2026-08-22) — 178 Aufgaben, davon 173 erledigt; 0 Fehler, 0 übersprungen. Offen allein: fünf Punkte, die einen laufenden Paper-Server brauchen. Spec unter `specs/008-ability-framework/`. **Durch B08b abgeschlossen** *(2026-08-22)*: der Rangaufstieg kostet jetzt Coins, `RankResult` hat sein `NOT_ENOUGH_COINS`, und die Preise stehen in `abilities.yml` unter `rank-cost` — **als Platzhalter auf je einen Coin** (2026-08-23), damit die Prüfung auslösbar ist, ohne ein nie besprochenes Preisgefüge zu behaupten |
 | **Abhängig von** | B04, B05, B07 |
 | **Benötigt von** | B13 |
 

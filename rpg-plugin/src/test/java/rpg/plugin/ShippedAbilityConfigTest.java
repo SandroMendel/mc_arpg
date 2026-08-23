@@ -209,6 +209,32 @@ class ShippedAbilityConfigTest {
             }
         }
 
+        /**
+         * T103: jede der achtzehn nennt einen Rangpreis, und zwar denselben.
+         *
+         * <p><b>Die Eins ist ein Platzhalter, und dieser Test hält genau das fest.</b> Fehlt der
+         * Block, ist der Aufstieg gratis (FR-054) - eine vergessene Zeile sähe also aus wie eine
+         * Entscheidung und fiele nur im Spiel auf, wenn überhaupt. Solange alle achtzehn gleich
+         * sind, ist die Zusicherung "hier wurde noch nichts ausbalanciert" prüfbar.
+         *
+         * <p>Wer die Preise wirklich setzt, lässt diesen Test fallen und schreibt an seine Stelle
+         * die Aussage, die dann gilt - so wie die Freischaltleiter oben ersetzt wurde, statt
+         * gelöscht zu werden.
+         */
+        @Test
+        @DisplayName("T103: alle achtzehn kosten einen Coin - der Platzhalter, nicht das Balancing")
+        void everyAbilityNamesAPlaceholderRankCost() throws Exception {
+            AbilityConfig abilities = shippedAbilities();
+            for (CharacterClass id : CharacterClass.values()) {
+                for (AbilityBinding binding : bindings(id)) {
+                    Ability ability = abilities.require(binding.abilityId());
+                    assertThat(ability.rankCost())
+                            .as("%s - ohne rank-cost waere der Aufstieg gratis", ability.id())
+                            .containsExactly(Map.entry("coins", 1));
+                }
+            }
+        }
+
         @Test
         @DisplayName("keine Klasse belegt mehr als neun Slots - die Hotbar hat nicht mehr")
         void nobodyOverrunsTheHotbar() throws Exception {
