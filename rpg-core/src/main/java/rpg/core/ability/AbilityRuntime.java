@@ -62,10 +62,10 @@ public final class AbilityRuntime {
      * Sustained abilities that do NOT occupy their caster (FR-045a).
      *
      * <p>Keyed by character AND ability, because several can hold at once - that is the whole point
-     * of them. { #running} stays single-slot and keeps its meaning: at most one thing the
+     * of them. {@link #running} stays single-slot and keeps its meaning: at most one thing the
      * character is <em>doing</em>. A shield that lasts eight seconds is not something he is doing.
      *
-     * <p>Why not one map with a flag: every read of { running} asks "may he act", and an entry
+     * <p>Why not one map with a flag: every read of {@code running} asks "may he act", and an entry
      * that sometimes means yes and sometimes no is the kind of answer that gets tested once and
      * misread forever.
      */
@@ -715,8 +715,27 @@ public final class AbilityRuntime {
             return;
         }
         StatSnapshot snapshot = stats.snapshot(casterId);
-        List<UUID> resolved = targets.resolve(casterId, ability.target());
-        effects.run(ability, casterId, resolved, rank, snapshot);
+        if (!ability.target().mode().anchored()) {
+            effects.run(ability, casterId, targets.resolve(casterId, ability.target()), rank, snapshot);
+            return;
+        }
+        // An anchored ability picks a PLACE, and the place has to survive the cast: everything
+        // periodic on it is re-resolved there, tick after tick. Resolved once here as well, so the
+        // first application lands immediately rather than one interval late.
+        rpg.core.scheduler.WorldPosition anchor =
+                targets.anchorFor(casterId, ability.target()).orElse(null);
+        if (anchor == null) {
+            // No ground in sight and no caster to fall back on. Nothing to do, and nothing wrong -
+            // the mana is spent and the cooldown runs, exactly as for an area that finds nobody.
+            return;
+        }
+        effects.runAnchored(
+                ability,
+                casterId,
+                targets.resolveAt(casterId, anchor, ability.target()),
+                rank,
+                snapshot,
+                anchor);
     }
 
     /**

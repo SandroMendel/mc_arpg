@@ -13,6 +13,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import rpg.core.ability.Ability;
 import rpg.core.ability.EffectSpec;
+import rpg.core.ability.TargetResolver;
+import rpg.core.scheduler.WorldPosition;
 import rpg.core.stats.StatSnapshot;
 
 /**
@@ -73,12 +75,21 @@ public final class IntervalEffectRunner {
         this.onTick = Objects.requireNonNull(onTick, "onTick");
     }
 
-    /** One running instance: what applies, to whom, how often and until when. */
+    /**
+     * One running instance: what applies, to whom <b>or where</b>, how often and until when.
+     *
+     * <p>Exactly one of {@code targetId} and {@code anchor} is set. A poison travels inside the
+     * creature it is in; a storm stays on the ground it was called down onto and asks every tick who
+     * is standing there <em>now</em>. The second kind cannot be expressed by remembering creatures,
+     * and trying to was the bug: whoever walked out of Lightning Storm kept burning and whoever
+     * walked in stayed dry.
+     */
     private record Instance(
             Ability ability,
             EffectSpec spec,
             UUID casterId,
             UUID targetId,
+            WorldPosition anchor,
             int rank,
             StatSnapshot snapshot,
             int stacks,
@@ -91,6 +102,7 @@ public final class IntervalEffectRunner {
                     spec,
                     casterId,
                     targetId,
+                    anchor,
                     rank,
                     snapshot,
                     stacks,
@@ -100,7 +112,16 @@ public final class IntervalEffectRunner {
 
         Instance stacked(int newStacks, Instant newEnd) {
             return new Instance(
-                    ability, spec, casterId, targetId, rank, snapshot, newStacks, nextAt, newEnd);
+                    ability,
+                    spec,
+                    casterId,
+                    targetId,
+                    anchor,
+                    rank,
+                    snapshot,
+                    newStacks,
+                    nextAt,
+                    newEnd);
         }
     }
 
@@ -110,6 +131,9 @@ public final class IntervalEffectRunner {
     private final Map<Key, Instance> instances = new ConcurrentHashMap<>();
     private final EffectDispatcher dispatcher;
     private final Clock clock;
+
+    /** Only an anchored instance ever asks it; a poison knows its target already. */
+    private volatile TargetResolver targets = TargetResolver.none();
 
     public IntervalEffectRunner(EffectDispatcher dispatcher, Clock clock) {
         this.dispatcher = Objects.requireNonNull(dispatcher, "dispatcher");
@@ -140,6 +164,7 @@ public final class IntervalEffectRunner {
                             spec,
                             casterId,
                             targetId,
+                            null,
                             rank,
                             snapshot,
                             1,
@@ -151,6 +176,49 @@ public final class IntervalEffectRunner {
         // going, it does not make it stronger (FR-010c).
         int stacks = Math.min(spec.maxStacks(), existing.stacks() + 1);
         instances.put(key, existing.stacked(stacks, endsAt));
+    }
+
+    /**
+     * Starts a periodic effect on a <b>place</b> rather than on a creature (FR-019b).
+     *
+     * <p>One instance for the whole area, not one per creature that happened to be standing in it -
+     * so the storm keeps raining where it was called down, hits whoever walks in, and stops hitting
+     * whoever walks out. Keyed by caster instead of by target, because there is no target yet: a
+     * second cast by the same mage refreshes his storm rather than starting a parallel one.
+     *
+     * <p><b>No stacking.</b> Two storms on one spot would be two instances if two mages cast them,
+     * and one refreshed instance if the same mage did - and neither case wants a doubled number.
+     */
+    public void startArea(
+            Ability ability,
+            EffectSpec spec,
+            UUID casterId,
+            WorldPosition anchor,
+            int rank,
+            StatSnapshot snapshot) {
+        if (!spec.isPeriodic()) {
+            throw new IllegalArgumentException(ability.id() + ": " + spec.type() + " has no interval");
+        }
+        Objects.requireNonNull(anchor, "anchor");
+        Instant now = clock.instant();
+        instances.put(
+                new Key(ability.id(), spec, casterId),
+                new Instance(
+                        ability,
+                        spec,
+                        casterId,
+                        null,
+                        anchor,
+                        rank,
+                        snapshot,
+                        1,
+                        now.plus(spec.interval()),
+                        now.plus(spec.duration())));
+    }
+
+    /** Installs the lookup an anchored instance needs. At startup, not during play. */
+    public void setTargets(TargetResolver targets) {
+        this.targets = Objects.requireNonNull(targets, "targets");
     }
 
     /**
@@ -236,7 +304,20 @@ public final class IntervalEffectRunner {
                         spec.decayPerSecond(),
                         spec.asFraction());
 
-        List<UUID> target = List.of(instance.targetId());
+        // The one place where the two kinds part. A creature-bound instance knows its target and has
+        // known it since the cast; an anchored one asks the ground, every single time, because that
+        // is the whole meaning of standing in a storm.
+        List<UUID> target =
+                instance.anchor() == null
+                        ? List.of(instance.targetId())
+                        : targets.resolveAt(
+                                instance.casterId(),
+                                instance.anchor(),
+                                instance.ability().target());
+        if (target.isEmpty()) {
+            // Nobody in the area this tick. Ordinary, and not a reason to stop raining.
+            return;
+        }
         dispatcher.runOne(
                 instance.ability(), resolved, instance.casterId(), target, 1, instance.snapshot());
     }

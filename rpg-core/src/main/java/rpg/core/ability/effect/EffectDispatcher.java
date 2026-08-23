@@ -11,6 +11,7 @@ import java.util.logging.Logger;
 import rpg.core.ability.Ability;
 import rpg.core.ability.EffectSpec;
 import rpg.core.ability.EffectType;
+import rpg.core.scheduler.WorldPosition;
 import rpg.core.stats.StatSnapshot;
 
 /**
@@ -136,7 +137,22 @@ public final class EffectDispatcher {
      */
     public void run(
             Ability ability, UUID casterId, List<UUID> targets, int rank, StatSnapshot snapshot) {
-        run(ability, casterId, targets, rank, snapshot, null);
+        run(ability, casterId, targets, rank, snapshot, null, null);
+    }
+
+    /**
+     * The same, for an ability whose area is pinned to a place (FR-019b).
+     *
+     * @param anchor where the area sits, or {@code null} for everything that follows its caster
+     */
+    public void runAnchored(
+            Ability ability,
+            UUID casterId,
+            List<UUID> targets,
+            int rank,
+            StatSnapshot snapshot,
+            WorldPosition anchor) {
+        run(ability, casterId, targets, rank, snapshot, null, anchor);
     }
 
     /**
@@ -152,6 +168,17 @@ public final class EffectDispatcher {
             int rank,
             StatSnapshot snapshot,
             EffectContext.TriggerData data) {
+        run(ability, casterId, targets, rank, snapshot, data, null);
+    }
+
+    private void run(
+            Ability ability,
+            UUID casterId,
+            List<UUID> targets,
+            int rank,
+            StatSnapshot snapshot,
+            EffectContext.TriggerData data,
+            WorldPosition anchor) {
         for (EffectSpec spec : ability.effects()) {
             // An effect with an interval is handed to the shared sweep instead of applied here. Not a
             // special case in each primitive: DAMAGE with an interval is a poison, MANA_RESTORE with
@@ -161,8 +188,15 @@ public final class EffectDispatcher {
             // target - which is exactly what makes stacking work. A radius poison starts one
             // instance per target it found.
             if (spec.isPeriodic() && intervals != null) {
-                for (UUID target : targets) {
-                    intervals.start(ability, spec, casterId, target, rank, snapshot);
+                if (anchor != null) {
+                    // An anchored area: ONE instance on the ground, which asks every tick who is
+                    // standing there. Starting one per creature found at the cast would remember the
+                    // wrong thing - see IntervalEffectRunner.Instance.
+                    intervals.startArea(ability, spec, casterId, anchor, rank, snapshot);
+                } else {
+                    for (UUID target : targets) {
+                        intervals.start(ability, spec, casterId, target, rank, snapshot);
+                    }
                 }
                 continue;
             }

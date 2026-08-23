@@ -921,6 +921,10 @@ public class RpgPlugin extends JavaPlugin {
         // Both directions: the dispatcher hands periodic effects TO the runner, and the runner hands
         // each due application back THROUGH the dispatcher, so it stays behind the same error barrier.
         effects.setIntervalRunner(intervals);
+        // Und die Zielsuche, die eine verankerte Flaeche braucht: der Blitzsturm fragt bei JEDEM Tick
+        // neu, wer auf der Stelle steht. Ohne das merkte er sich die Mobs statt den Ort - wer
+        // hinauslief, brannte weiter, und wer hineinlief, blieb trocken (FR-019b).
+        intervals.setTargets(resolver);
         // Und der Beobachter, der zeichnet, was gelandet ist. Er haengt hier und nicht in den
         // Primitiven: die leben in rpg-core und koennen einen Partikel gar nicht sehen.
         effects.setObserver(

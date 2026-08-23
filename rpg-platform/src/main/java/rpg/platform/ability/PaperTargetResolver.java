@@ -171,9 +171,24 @@ public final class PaperTargetResolver implements TargetResolver {
      * called down. {@code range} is how far the anchor may be, {@code areaRadius} how wide it is.
      */
     private List<UUID> groundArea(UUID casterId, TargetSpec spec) {
+        return anchorFor(casterId, spec)
+                .map(anchor -> resolveAt(casterId, anchor, spec))
+                .orElseGet(List::of);
+    }
+
+    /**
+     * Where the crosshair puts the anchor - and the only place that decides it.
+     *
+     * <p>Separate from the resolution so the same point can be asked for once and then <b>kept</b>:
+     * Lightning Storm rains on the spot for six seconds, and every tick after the first has to look
+     * at the same ground rather than at wherever the mage is pointing now.
+     */
+    @Override
+    public java.util.Optional<rpg.core.scheduler.WorldPosition> anchorFor(
+            UUID casterId, TargetSpec spec) {
         Entity caster = server.getEntity(casterId);
         if (caster == null) {
-            return List.of();
+            return java.util.Optional.empty();
         }
         Location eye =
                 caster instanceof LivingEntity living ? living.getEyeLocation() : caster.getLocation();
@@ -198,7 +213,40 @@ public final class PaperTargetResolver implements TargetResolver {
                         // Freie Sicht: das Ende der Reichweite, so wie bisher.
                         ? eye.clone().add(direction.clone().multiply(spec.range()))
                         : hit.getHitPosition().toLocation(caster.getWorld());
-        return pick(casterId, anchor, withRadius(spec), candidate -> true);
+        return java.util.Optional.of(
+                new rpg.core.scheduler.WorldPosition(
+                        anchor.getWorld().getUID(), anchor.getX(), anchor.getY(), anchor.getZ()));
+    }
+
+    /**
+     * Who stands around a remembered place right now.
+     *
+     * <p>No caster is involved and none is excluded: by the time this is asked the mage may be two
+     * regions away, and a storm does not spare him for having called it.
+     */
+    @Override
+    public List<UUID> resolveAt(
+            UUID casterId, rpg.core.scheduler.WorldPosition anchor, TargetSpec spec) {
+        org.bukkit.World world = server.getWorld(anchor.worldId());
+        if (world == null) {
+            // The world was unloaded under the storm. It stops; nothing else to do.
+            return List.of();
+        }
+        Location at = new Location(world, anchor.x(), anchor.y(), anchor.z());
+        return pick(null, at, withRadius(spec), candidate -> true);
+    }
+
+    /** Where this entity is, for remembering a spot it stood on. */
+    @Override
+    public java.util.Optional<rpg.core.scheduler.WorldPosition> positionOf(UUID entityId) {
+        Entity entity = server.getEntity(entityId);
+        if (entity == null) {
+            return java.util.Optional.empty();
+        }
+        Location at = entity.getLocation();
+        return java.util.Optional.of(
+                new rpg.core.scheduler.WorldPosition(
+                        at.getWorld().getUID(), at.getX(), at.getY(), at.getZ()));
     }
 
     /** The same spec seen from the anchor: the area radius becomes the reach. */
