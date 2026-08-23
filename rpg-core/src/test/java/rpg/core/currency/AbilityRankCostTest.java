@@ -125,6 +125,8 @@ class AbilityRankCostTest {
                 Duration.ZERO,
                 Duration.ZERO,
                 false,
+                // exclusive: ohne sustained bedeutungslos, aber der Datensatz verlangt einen Wert
+                true,
                 Duration.ZERO,
                 1,
                 // Kein Ladefenster bei einer einzigen Ladung - das bedeutete nichts.

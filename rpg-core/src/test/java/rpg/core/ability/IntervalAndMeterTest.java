@@ -173,6 +173,7 @@ class IntervalAndMeterTest {
                     ability.cooldown(),
                     ability.castTime(),
                     ability.sustained(),
+                    ability.exclusive(),
                     ability.duration(),
                     ability.charges(),
                     ability.chargeWindow(),

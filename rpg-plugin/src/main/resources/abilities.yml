@@ -214,6 +214,9 @@ abilities:
     cooldown-ms: 1000
     cast-time-ms: 0
     sustained: true
+    # NICHT exklusiv. Der Ruf ist ein Kampfschrei, kein Zustand, in dem der Warrior feststeckt -
+    # zwoelf Sekunden ohne jede andere Faehigkeit waeren keine Ultimative, sondern eine Strafe.
+    exclusive: false
     duration-ms: 12000
     max-rank: 5
     rank-cost: { coins: 1 }
@@ -466,9 +469,15 @@ abilities:
     # acht Sekunden anhaelt, waehrend er weiterzaubert. Solange das hier true stand, wies ihm jede
     # weitere Faehigkeit ein "Beende erst Magieschild" ab.
     #
-    # Die acht Sekunden stehen deshalb NUR noch am Effekt: dort gehoeren sie hin, denn was acht
-    # Sekunden haelt, ist der Vorrat, nicht der Spieler.
-    sustained: false
+    # Beides zusammen ist die Antwort: die Faehigkeit LAEUFT acht Sekunden, damit ein zweiter
+    # Rechtsklick sie abbrechen kann und der Spieler sieht, dass sie laeuft - aber sie BELEGT ihn
+    # nicht. Solange nur `sustained: true` stand, wies ihm jede weitere Faehigkeit ein "Beende erst
+    # Magieschild" ab; solange nur `sustained: false` stand, gab es nichts zum Abbrechen.
+    sustained: true
+    exclusive: false
+    # Die acht Sekunden stehen jetzt an BEIDEN Stellen, und das ist kein Doppel: hier sagen sie,
+    # wie lange die Faehigkeit laeuft und abbrechbar ist, am Effekt, wie lange der Vorrat haelt.
+    duration-ms: 8000
     max-rank: 5
     rank-cost: { coins: 1 }
     target: { mode: SELF }

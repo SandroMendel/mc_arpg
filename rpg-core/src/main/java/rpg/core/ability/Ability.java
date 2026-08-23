@@ -24,6 +24,14 @@ import rpg.core.message.MessageKey;
  * @param cooldown zero or more; for a passive it gates how often its trigger may fire (FR-048)
  * @param castTime zero means it takes effect in the same tick, with no cast state at all (FR-044)
  * @param sustained whether it runs for a duration and can be ended by a second right-click (FR-045a)
+ * @param exclusive whether running it OCCUPIES the character, so nothing else can be triggered
+ *     while it lasts. Only meaningful together with {@code sustained}, and <b>true unless the
+ *     configuration says otherwise</b> - the safe direction for anything already written.
+ *     <p>The two used to be one flag, and that was wrong for half the abilities that carry it. The
+ *     warrior's Block occupies him: he stands in the blocking stance and does nothing else. The
+ *     Call of the Berserker does not - it is a buff, and twelve seconds without a single other
+ *     ability is not an ultimate, it is a penalty. The mage's Magic Shield is the same: a spell
+ *     that holds for eight seconds while he keeps casting.
  * @param duration required when {@code sustained}
  * @param charges more than one means the cooldown only starts once the last is spent (FR-045i)
  * @param chargeWindow required above one charge - after it the pool springs back (FR-045j)
@@ -52,6 +60,7 @@ public record Ability(
         Duration cooldown,
         Duration castTime,
         boolean sustained,
+        boolean exclusive,
         Duration duration,
         int charges,
         Duration chargeWindow,
