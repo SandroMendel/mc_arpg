@@ -34,3 +34,7 @@ permissions:
   rpg.currency.admin:
     description: "Open another player's window, and change a balance."
     default: op
+  rpg.admin.no-class:
+    description: 'Enter the world without choosing a class, in Creative. For moderating.'
+    # Not for everyone, obviously - it is a way into the world that plays no character at all.
+    default: op

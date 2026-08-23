@@ -42,6 +42,15 @@ public final class ClassSelectionMenu {
 
     static final int[] OFFER_SLOTS = {2, 4, 6};
 
+    /**
+     * The operator way in, at the far right and away from the three offers.
+     *
+     * <p>Slot 8 rather than one next to the classes: it is not a fourth class and must not be
+     * misclicked as one. Only built for somebody who holds the permission - a player who does not
+     * sees the menu exactly as before.
+     */
+    static final int ADMIN_SLOT = 8;
+
     private final ClassRegistry registry;
     private final Messages messages;
 
@@ -61,6 +70,15 @@ public final class ClassSelectionMenu {
      *     but a fourth one later hits this instead of silently losing an entry
      */
     public Inventory build(List<ClassSlot> slots) {
+        return build(slots, false);
+    }
+
+    /**
+     * The same, with the operator entry when {@code withAdminEntry}.
+     *
+     * @param withAdminEntry whether the viewer may enter without a class at all
+     */
+    public Inventory build(List<ClassSlot> slots, boolean withAdminEntry) {
         Objects.requireNonNull(slots, "slots");
         if (slots.size() > OFFER_SLOTS.length) {
             throw new IllegalArgumentException(
@@ -79,7 +97,28 @@ public final class ClassSelectionMenu {
         for (int i = 0; i < ordered.size(); i++) {
             inventory.setItem(OFFER_SLOTS[i], itemFor(ordered.get(i)));
         }
+        if (withAdminEntry) {
+            inventory.setItem(ADMIN_SLOT, adminEntry());
+        }
         return inventory;
+    }
+
+    /** Whether a click on this slot is the operator entry rather than a class. */
+    public static boolean isAdminEntry(int slot) {
+        return slot == ADMIN_SLOT;
+    }
+
+    private ItemStack adminEntry() {
+        ItemStack item = new ItemStack(Material.ENDER_EYE);
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            meta.displayName(
+                    Component.text(messages.get(ClassMessageKeys.SELECTION_ADMIN_ENTRY))
+                            .color(NamedTextColor.RED)
+                            .decoration(TextDecoration.ITALIC, false));
+            item.setItemMeta(meta);
+        }
+        return item;
     }
 
     /** Which class a click on {@code slot} means, if any. */

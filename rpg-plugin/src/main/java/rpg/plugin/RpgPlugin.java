@@ -1256,6 +1256,11 @@ public class RpgPlugin extends JavaPlugin {
                         classesModule::slotsFor,
                         new SelectionTimeout(getServer(), scheduler, messages),
                         scheduler,
+                        // Der Betreiber-Zugang. Die Berechtigung wird HIER geprueft und nicht im
+                        // Listener: eine Berechtigung ist Paper-Sache, und der Listener soll die
+                        // Antwort bekommen, nicht die Frage stellen muessen.
+                        player -> player.hasPermission("rpg.admin.no-class"),
+                        messages,
                         getLogger());
 
         getServer().getPluginManager().registerEvents(guard, this);
@@ -1300,6 +1305,9 @@ public class RpgPlugin extends JavaPlugin {
             @Override
             public void onSessionEnded(java.util.UUID playerId) {
                 selection.onSessionEnded(playerId);
+                // Und die Merkliste des Betreiber-Zugangs. Sie waechst sonst die ganze
+                // Serverlaufzeit lang, und ein Wiedereinstieg soll ohnehin frisch entscheiden.
+                selection.forget(playerId);
                 // The tracker keys on the character, but a session ends with a player id - it keeps
                 // the last translation itself for exactly this moment, and hands it back so the
                 // warning's repeat block can be cleared too. Without that, the block's map would grow

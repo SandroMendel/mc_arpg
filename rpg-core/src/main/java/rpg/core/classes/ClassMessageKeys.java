@@ -79,6 +79,20 @@ public final class ClassMessageKeys {
     public static final MessageKey SELECTION_TIMEOUT_KICK =
             MessageKey.of("class.selection.timeout.kick");
 
+    /**
+     * The operator entry in the selection - a way in that chooses no class at all.
+     *
+     * <p>Only shown to somebody who holds the permission, and it exists because moderating needs
+     * somebody in the world who is not playing: no character, no stats, no equipment, and Creative so
+     * they can actually get somewhere. The alternative was an operator who has to burn one of their
+     * three character slots to look at a build.
+     */
+    public static final MessageKey SELECTION_ADMIN_ENTRY =
+            MessageKey.of("class.selection.admin-entry");
+
+    public static final MessageKey SELECTION_ADMIN_ENTERED =
+            MessageKey.of("class.selection.admin-entered");
+
     private ClassMessageKeys() {}
 
     /** Every key this block can emit, for the resolution test in the plugin module. */
@@ -107,6 +121,8 @@ public final class ClassMessageKeys {
                 SLOT_EMPTY,
                 SLOT_CREATE,
                 SELECTION_TIMEOUT_WARNING,
-                SELECTION_TIMEOUT_KICK);
+                SELECTION_TIMEOUT_KICK,
+                SELECTION_ADMIN_ENTRY,
+                SELECTION_ADMIN_ENTERED);
     }
 }

@@ -96,6 +96,10 @@ class:
     # Shown when a player tries to leave the selection. Before the choice there is no game state
     # at all (ADR-020), so there is nothing to go back to.
     locked: 'Choose a class first.'
+    # Der Betreiber-Zugang. Nur sichtbar mit rpg.admin.no-class, und er waehlt keine Klasse: kein
+    # Charakter, keine Werte, keine Ausruestung - dafuer Creative, damit Moderieren ueberhaupt geht.
+    admin-entry: 'Enter without a class (operator)'
+    admin-entered: 'You entered without a class. No character, no stats - Creative.'
     error:
       class-taken: 'You already have a {class} on this account.'
       unknown-class: 'That class does not exist.'
