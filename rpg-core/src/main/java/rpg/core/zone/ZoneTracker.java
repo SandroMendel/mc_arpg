@@ -3,6 +3,7 @@ package rpg.core.zone;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
@@ -144,16 +145,24 @@ public final class ZoneTracker {
     }
 
     /**
-     * Drops the state belonging to a holder whose session ended.
+     * Drops the state belonging to a holder whose session ended, and says whose it was.
      *
      * <p>The session end arrives with the player id, not the character - see
-     * {@link #characterByHolder}.
+     * {@link #characterByHolder}. The forgotten character is <b>returned</b> rather than made
+     * available through a second accessor, because everyone else who has to clean up after that
+     * character - the level-band guard's repeat block, later the travel rate limit - needs exactly
+     * this one answer at exactly this one moment. An accessor would invite asking at some other time,
+     * when it is already gone.
+     *
+     * @return the character that holder was playing, or empty when there was none
      */
-    public void forgetHolder(UUID holderId) {
+    public Optional<UUID> forgetHolder(UUID holderId) {
         UUID characterId = characterByHolder.remove(holderId);
-        if (characterId != null) {
-            lastKnown.remove(characterId);
+        if (characterId == null) {
+            return Optional.empty();
         }
+        lastKnown.remove(characterId);
+        return Optional.of(characterId);
     }
 
     /** The zone this character was last seen in, or {@code null}. For tests and diagnostics. */

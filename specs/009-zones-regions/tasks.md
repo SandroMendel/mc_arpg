@@ -134,15 +134,15 @@ Stille.
 
 ### Tests für US2
 
-- [ ] T046 [P] [US2] `LevelBandWarningTest` in `rpg-core/src/test/java/rpg/core/zone/` — unter `min` genau eine Warnung; innerhalb des Bandes keine; **über** `max` keine (FR-021, FR-023); Stufe genau auf `min` löst keine aus (Bandgrenze schliesst ein)
-- [ ] T047 [P] [US2] `WarningCooldownTest` in `rpg-core/src/test/java/rpg/core/zone/` — mehrfaches Überschreiten derselben Grenze in kurzer Folge wiederholt die Warnung nicht; zeitstempelbasiert und lazy, **keine** wiederkehrende Aufgabe (FR-024, Prinzip II)
-- [ ] T048 [P] [US2] `NoGateTest` in `rpg-core/src/test/java/rpg/core/zone/` — der Zutritt wird nie verweigert, verzögert oder zurückgesetzt (FR-022)
+- [X] T046 **Zusammengelegt in `LevelBandWarningTest`** (T046, T047 und T048 prüfen dasselbe Objekt; zwölf Fälle in einer Klasse statt drei Klassen mit demselben Aufbau) — unter `min` genau eine Warnung; innerhalb des Bandes keine; **über** `max` keine (FR-021, FR-023); Stufe genau auf `min` löst keine aus (Bandgrenze schliesst ein)
+- [X] T047 **In `LevelBandWarningTest`**, siehe T046 — mehrfaches Überschreiten derselben Grenze in kurzer Folge wiederholt die Warnung nicht; zeitstempelbasiert und lazy, **keine** wiederkehrende Aufgabe (FR-024, Prinzip II)
+- [X] T048 **In `LevelBandWarningTest`**, siehe T046 — der Zutritt wird nie verweigert, verzögert oder zurückgesetzt (FR-022)
 
 ### Umsetzung US2
 
-- [ ] T049 [US2] `LevelBandGuard` in `rpg-core/.../zone/LevelBandGuard.java` — hört auf `ZoneChangedEvent`, fragt B06s Levelabfrage, entscheidet über die Warnung. Hängt an T038
-- [ ] T050 [US2] Die Wiederholungssperre je Charakter und Zone — zeitstempelbasiert, Dauer konfigurierbar in `zones.yml` (FR-024, FR-062)
-- [ ] T051 [US2] In `rpg-core/src/main/java/rpg/core/zone/LevelBandGuard.java` die Warnung über den Message-Schlüssel `zone.too-dangerous` mit `{min}` und `{max}` ausgeben (FR-025, FR-061)
+- [X] T049 [US2] `LevelBandGuard` in `rpg-core/.../zone/LevelBandGuard.java` — hört auf `ZoneChangedEvent`, fragt B06s Levelabfrage, entscheidet über die Warnung. Hängt an T038
+- [X] T050 [US2] Die Wiederholungssperre je Charakter und Zone — zeitstempelbasiert, Dauer konfigurierbar in `zones.yml` (FR-024, FR-062)
+- [X] T051 [US2] In `rpg-core/src/main/java/rpg/core/zone/LevelBandGuard.java` die Warnung über den Message-Schlüssel `zone.too-dangerous` mit `{min}` und `{max}` ausgeben (FR-025, FR-061)
 
 **Checkpoint**: US1 und US2 laufen unabhängig.
 

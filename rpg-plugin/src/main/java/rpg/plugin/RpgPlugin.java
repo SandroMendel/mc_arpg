@@ -160,6 +160,8 @@ public class RpgPlugin extends JavaPlugin {
     private CurrencyModule currencyModule;
     private ZoneModule zoneModule;
     private rpg.core.zone.ZoneTracker zoneTracker;
+    /** Cleans up after a character that left - the level-band guard, and later the travel limit. */
+    private java.util.function.Consumer<java.util.UUID> zoneForget = characterId -> {};
     private ClassesModule classesModule;
     private AbilityModule abilityModule;
     private rpg.core.ability.AbilityRuntime abilityRuntime;
@@ -483,6 +485,24 @@ public class RpgPlugin extends JavaPlugin {
                         new rpg.platform.zone.ZoneMovementListener(
                                 zoneModule::zones, zoneTracker, characters),
                         this);
+
+        // US2: the warning under the level band. It hears the zone change on B01's bus rather than
+        // being called by the tracker - the tracker announces what happened, it does not decide what
+        // anybody makes of it (FR-021).
+        rpg.core.zone.LevelBandGuard levelBandGuard =
+                new rpg.core.zone.LevelBandGuard(
+                        zoneModule::zones,
+                        characterId -> progressionModule.progression().levelOf(characterId),
+                        (characterId, key, placeholders) -> {
+                            org.bukkit.entity.Player target = playerOfCharacter(characterId);
+                            if (target != null) {
+                                target.sendMessage(messages.get(key, placeholders));
+                            }
+                        },
+                        Clock.systemUTC(),
+                        () -> zoneModule.config().warningCooldown());
+        eventBus.subscribe(rpg.core.zone.ZoneChangedEvent.class, levelBandGuard::onZoneChanged);
+        zoneForget = levelBandGuard::forget;
 
         zoneModule.onReload(
                 () -> {
@@ -1001,6 +1021,25 @@ public class RpgPlugin extends JavaPlugin {
                                         characterId, rpg.core.ability.EffectType.DOUBLE_JUMP));
     }
 
+    /**
+     * The player currently playing this character, or {@code null}.
+     *
+     * <p>The counterpart of {@link #characterIdOf}, and it goes through {@code StatEngine.holderOf}
+     * rather than scanning the online players: the engine owns that relation and keeps a reverse
+     * index for it. B08 once handed character ids to methods expecting holder ids and the result was
+     * a server on which nothing worked - the translation belongs at the one place that owns it.
+     */
+    private org.bukkit.entity.Player playerOfCharacter(java.util.UUID characterId) {
+        if (statsModule == null) {
+            return null;
+        }
+        return statsModule
+                .engine()
+                .holderOf(characterId)
+                .map(getServer()::getPlayer)
+                .orElse(null);
+    }
+
     /** The character a player is currently playing, for the trigger path. */
     private java.util.Optional<java.util.UUID> characterIdOf(org.bukkit.entity.Player player) {
         return sessionModule
@@ -1097,8 +1136,10 @@ public class RpgPlugin extends JavaPlugin {
             public void onSessionEnded(java.util.UUID playerId) {
                 selection.onSessionEnded(playerId);
                 // The tracker keys on the character, but a session ends with a player id - it keeps
-                // the last translation itself for exactly this moment.
-                zoneTracker.forgetHolder(playerId);
+                // the last translation itself for exactly this moment, and hands it back so the
+                // warning's repeat block can be cleared too. Without that, the block's map would grow
+                // for the whole uptime of the server.
+                zoneTracker.forgetHolder(playerId).ifPresent(zoneForget::accept);
                 // Before B03 starts the unload: the player is still here, so their inventory can still
                 // be read - and this is the last moment that is true. The observer runs on the quit
                 // event, which is the player's own tick.
