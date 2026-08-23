@@ -181,20 +181,20 @@ Wildnis sterben.
 
 ### Tests für US4
 
-- [ ] T058 [P] [US4] `RespawnPointTest` in `rpg-core/src/test/java/rpg/core/zone/` — der Respawn-Punkt einer Zone liegt in ihrem Schutzkern; eine Zone ohne Kern hat keinen (FR-032, FR-034)
-- [ ] T059 [P] [US4] `DeathRoutingTest` in `rpg-core/src/test/java/rpg/core/zone/` — Tod in einer Zone führt an deren Punkt (FR-033); ausserhalb aller Zonen an den Ausweichpunkt (FR-034); verschwindet die Zone zwischen Tod und Erscheinen, greift der Ausweichpunkt und die Anmeldung scheitert **nicht** (FR-037)
-- [ ] T060 [P] [US4] `DeathCostsNothingTest` in `rpg-core/src/test/java/rpg/core/zone/` — Erfahrung und Inventar sind nach dem Tod unverändert (FR-036)
+- [X] T058 **In `DeathRoutingTest`** zusammengelegt mit T059 und T067 (alle drei prüfen `RespawnRouting` mit demselben Aufbau) — der Respawn-Punkt einer Zone liegt in ihrem Schutzkern; eine Zone ohne Kern hat keinen (FR-032, FR-034)
+- [X] T059 [P] [US4] `DeathRoutingTest` in `rpg-core/src/test/java/rpg/core/zone/` — Tod in einer Zone führt an deren Punkt (FR-033); ausserhalb aller Zonen an den Ausweichpunkt (FR-034); verschwindet die Zone zwischen Tod und Erscheinen, greift der Ausweichpunkt und die Anmeldung scheitert **nicht** (FR-037)
+- [X] T060 [P] [US4] `DeathCostsNothingTest` in `rpg-core/src/test/java/rpg/core/zone/` — Erfahrung und Inventar sind nach dem Tod unverändert (FR-036)
 
 ### Umsetzung US4
 
-- [ ] T061 [P] [US4] `Teleporter` in `rpg-core/.../zone/Teleporter.java` — Schnittstelle; die Domäne liefert Orte und versetzt nicht selbst (FR-037c, Prinzip III)
-- [ ] T062 [P] [US4] `BukkitTeleporter` in `rpg-platform/.../zone/BukkitTeleporter.java` — die Umsetzung, im Tick, mit einem ehrlichen Rückgabewert für einen gescheiterten Teleport (Vorbereitung für FR-050f)
-- [ ] T063 [US4] `respawnPointOf` und `fallbackPoint` in `rpg-core/src/main/java/rpg/core/zone/DefaultZones.java` (FR-032, FR-034)
-- [ ] T064 [US4] `ZoneRespawnListener` in `rpg-platform/.../zone/ZoneRespawnListener.java` — Tod → Schutzkern der Zone, in der gestorben wurde, plus Meldung `zone.died` (FR-033, FR-035)
-- [ ] T065 [US4] **Die Startregion**: `startPoint()` in `rpg-core/src/main/java/rpg/core/zone/DefaultZones.java`, und die Abfrage aus der Charaktererstellung heraus bedienen — dieser Block **liefert** den Ort, er setzt den Charakter nicht (FR-037b, FR-037c, SC-025)
-- [ ] T066 [US4] `StartRegionTest` in `rpg-core/src/test/java/rpg/core/zone/` — genau eine Startregion ist Pflicht (FR-037a); ein neuer Charakter erhält deren Respawn-Punkt, **unabhängig vom Weltspawn** (FR-037b)
-- [ ] T067 [US4] `OnePointThreePurposesTest` in `rpg-core/src/test/java/rpg/core/zone/` — Spielbeginn, Tod und Reiseziel derselben Region liefern **dieselbe** Koordinate; es gibt je Region nur einen Ankunftsort in der Konfiguration (FR-037d, SC-024)
-- [ ] T068 [US4] `ZoneRespawnListener` in `rpg-plugin/src/main/java/rpg/plugin/RpgPlugin.java` anmelden (ADR-012)
+- [X] T061 [P] [US4] `Teleporter` in `rpg-core/.../zone/Teleporter.java` — Schnittstelle; die Domäne liefert Orte und versetzt nicht selbst (FR-037c, Prinzip III)
+- [X] T062 [P] [US4] `BukkitTeleporter` in `rpg-platform/.../zone/BukkitTeleporter.java` — die Umsetzung, im Tick, mit einem ehrlichen Rückgabewert für einen gescheiterten Teleport (Vorbereitung für FR-050f)
+- [X] T063 [US4] `respawnPointOf` und `fallbackPoint` in `rpg-core/src/main/java/rpg/core/zone/DefaultZones.java` (FR-032, FR-034)
+- [X] T064 [US4] `ZoneRespawnListener` in `rpg-platform/.../zone/ZoneRespawnListener.java` — Tod → Schutzkern der Zone, in der gestorben wurde, plus Meldung `zone.died` (FR-033, FR-035)
+- [X] T065 **Abfrage fertig, Verdrahtung an US5 übergeben.** `startPoint()` liefert den Ort. Wer ihn braucht, muss aber wissen, ob ein Charakter **neu** ist — und dieses Signal ist ein fehlender Datensatz in B09s eigener Persistenz, die erst mit T071–T078 entsteht (B08b leitet Neuheit genauso aus `stored.isEmpty()` ab). Jetzt zu verdrahten hiesse Neuheit zu erraten, und ein bei jedem Login nach Hause teleportierter Spieler ist schlimmer als eine Funktion eine Geschichte später. Begründung im `StartRegionTest`. Ursprünglich: **Die Startregion**: `startPoint()` in `rpg-core/src/main/java/rpg/core/zone/DefaultZones.java`, und die Abfrage aus der Charaktererstellung heraus bedienen — dieser Block **liefert** den Ort, er setzt den Charakter nicht (FR-037b, FR-037c, SC-025)
+- [X] T066 [US4] `StartRegionTest` in `rpg-core/src/test/java/rpg/core/zone/` — genau eine Startregion ist Pflicht (FR-037a); ein neuer Charakter erhält deren Respawn-Punkt, **unabhängig vom Weltspawn** (FR-037b)
+- [X] T067 **In `DeathRoutingTest`**, Fall „start, death and travel share one coordinate" — Spielbeginn, Tod und Reiseziel derselben Region liefern **dieselbe** Koordinate; es gibt je Region nur einen Ankunftsort in der Konfiguration (FR-037d, SC-024)
+- [X] T068 [US4] `ZoneRespawnListener` in `rpg-plugin/src/main/java/rpg/plugin/RpgPlugin.java` anmelden (ADR-012)
 
 **Checkpoint**: der Tod hat ein Ziel, und die Startregion auch.
 

@@ -160,6 +160,8 @@ public class RpgPlugin extends JavaPlugin {
     private CurrencyModule currencyModule;
     private ZoneModule zoneModule;
     private rpg.core.zone.ZoneTracker zoneTracker;
+    /** Moves a player. Held because US6 travel needs the same one the respawn path uses. */
+    private rpg.core.zone.Teleporter zoneTeleporter;
     /** Cleans up after a character that left - the level-band guard, and later the travel limit. */
     private java.util.function.Consumer<java.util.UUID> zoneForget = characterId -> {};
     private ClassesModule classesModule;
@@ -513,6 +515,21 @@ public class RpgPlugin extends JavaPlugin {
                 .pipeline()
                 .setPermission(
                         new rpg.core.zone.ZoneDamagePermission(zoneTracker, zoneModule::zones));
+
+        // US4: a death goes back to the safe core of the region it happened in (FR-033). NORMAL
+        // priority, because B05 already listens on this event at MONITOR to refill health and mana -
+        // and MONITOR means look, do not touch, so the location has to be set before it runs. The two
+        // answer different questions and neither reads the other's answer.
+        zoneTeleporter = new rpg.platform.zone.BukkitTeleporter(getServer(), getLogger());
+        rpg.core.zone.RespawnRouting respawnRouting =
+                new rpg.core.zone.RespawnRouting(zoneTracker, zoneModule::zones);
+        getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new rpg.platform.zone.ZoneRespawnListener(
+                                respawnRouting,
+                                (player, key) -> player.sendMessage(messages.get(key))),
+                        this);
 
         zoneModule.onReload(
                 () -> {
