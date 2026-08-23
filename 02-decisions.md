@@ -1519,3 +1519,78 @@ Ende; er ersetzt sie nicht.
 - B15 trägt die Phase. Die Zeile „Lasttests sind Teil der Definition of Done für B05 und B10" in
   seinem Steckbrief entfällt und wird durch die Phase ersetzt.
 - B09s SC-001 bleibt, wird aber ausdrücklich als **Messung** geführt, nicht als Lasttest.
+
+---
+
+## ADR-032: Wegpunkt-Kristalle in B09 — Eingabe, Fenster, Persistenz und ein neuer Buchungsgrund
+
+**Status:** Angenommen · **Datum:** 2026-08-23 · **Blöcke:** B09 (Eigentümer), B02, B08b und B13
+(Eingriffe) · **Befristet bis:** B13 (Fenster und Eingabe)
+
+**Kontext.** Für das Reisen zwischen den sechs Regionen war am Morgen des 2026-08-23 entschieden:
+Portale als Konfigurationsquader, ein Quader mit Zielkoordinate, kostenlos, ohne Bedienoberfläche.
+Diese Fassung war so geschnitten, dass B09 seine Schicht nicht verlässt.
+
+Bei `/clarify` hat der Auftraggeber das ersetzt: **Wegpunkt-Kristalle, wie in einem Hack'n'Slash.**
+Ein Kristall wird per Rechtsklick zunächst freigeschaltet; ein weiterer Rechtsklick öffnet ein
+Fenster mit allen Kristallen, in dem nur die freigeschalteten wählbar sind — die übrigen bleiben
+sichtbar und melden beim Anklicken, dass sie noch nicht freigeschaltet sind. Eine Reise kostet Coins.
+
+Das ist spielerisch das stärkere Modell, weil es die **erste Reise erhält**: jede Region muss einmal
+zu Fuß erreicht worden sein, bevor sie ein Ziel wird. Sichtbare, aber gesperrte Ziele sind dabei
+genau der Anreiz, sie zu suchen — ein verborgenes Ziel wäre keiner.
+
+Architektonisch kostet es vier Dinge, die B09 nach seinem Zuschnitt nicht haben durfte:
+
+| Was hinzukommt | Wem es gehört |
+|---|---|
+| Eine Eingabe (Rechtsklick) | B13 |
+| Ein Auswahlfenster | B13 |
+| Dauerhafter Zustand je Charakter (Freischaltungen) | B02 |
+| Ein neuer Buchungsgrund für die Reise | B08b — **abgeschlossen** |
+
+**Entscheidung.** Die Kristalle entstehen in B09, mit allen vier Eingriffen. Fenster und Eingabe sind
+**befristet** und gehen an B13, sobald es existiert — dieselbe Anordnung wie bei ADR-028, wo B08b ein
+Kommando und ein Fenster in einem Schicht-1-Block bekam, weil eine Schnittstelle ohne Aufrufweg für
+den Betreiber unbenutzbar gewesen wäre. Hier gilt dasselbe Argument in der Spielerrichtung: ein
+Wegpunktsystem ohne Auswahlmöglichkeit ist kein Wegpunktsystem.
+
+Vier Festlegungen folgen aus bereits getroffenen Entscheidungen und wurden deshalb nicht neu
+verhandelt:
+
+1. **Der Preis steht in der Zonenkonfiguration**, bei dem, der ihn verlangt. ADR-027 verbietet einen
+   zentralen Preiskatalog; `currency.yml` ist nicht der Ort für Reisepreise.
+2. **Freischaltungen hängen am Charakter**, nicht am Account (ADR-011). Wer mit dem Warrior überall
+   war, fängt mit dem Mage bei null an.
+3. **Der Buchungsgrund ist eigenständig**, damit der Verlauf eine Reise von einem Einkauf und einer
+   Reparatur trennt — dieselbe Zusage, die B08b für jede Buchung gibt.
+4. **Der Kristall ist gebaut, nicht gesetzt.** Die Konfiguration beschreibt den Bereich um ein
+   Bauwerk, in dem ein Rechtsklick zählt. B09 setzt keine Blöcke und erkennt keinen Blocktyp — sonst
+   hinge das Reisen daran, dass niemand den Stein abbaut.
+
+*Warum nicht auf B13 warten:* dann gäbe es bis dahin kein Reisen, und der Rückweg vom *Pale Wilds*
+ins *Greenfields* führte jedes Mal über fünf Regionen. Das Reisen ist kein Beiwerk dieses Blocks,
+sondern der Grund, warum sechs getrennte Regionen überhaupt bewohnbar sind.
+
+*Warum die Coins und nicht kostenlos:* ausdrückliche Entscheidung des Auftraggebers. Die Empfehlung
+lautete kostenlos — das Freischalten ist bereits ein Preis, und eine Gebühr trifft den frischen
+Charakter am härtesten, der das Reisen am meisten braucht. Der Auftraggeber hat die Coin-Senke
+vorgezogen; die Zahl ist konfigurierbar und damit jederzeit auf null stellbar, falls sich das im
+Spiel als zu hart erweist.
+
+**Die eine Stelle, die im Plan nicht schiefgehen darf.** Buchung und Versetzung müssen zusammen
+gelten. Gebucht und nicht gereist ist ein Diebstahl; gereist und nicht gebucht ein Freifahrtschein.
+Bei zu geringem Kontostand passiert **nichts** ausser einer Meldung, die den fehlenden Betrag benennt
+— dieselbe Form, die B08b für den Rangaufstieg schon hat.
+
+**Auswirkung.**
+
+- B09 wächst um Eingabe, Fenster und einen persistierten Aggregattyp. Ob die Freischaltungen ein
+  eigener Aggregattyp werden (ADR-015 Punkt 7: drei Eintragungen) oder am Charakter hängen, entscheidet
+  `/plan` an B02s Mustern.
+- **B08b bekommt einen weiteren Buchungsgrund** — der zweite Eingriff in diesen abgeschlossenen Block
+  nach ADR-030s Todesgrund in B05. Beide Male gilt dieselbe Regel: der Compiler zeigt die Stellen.
+- B13 erbt Fenster und Eingabe. Der Steckbrief von B13 trägt diese Schuld ab jetzt, wie er schon
+  ADR-028s Kontofenster trägt.
+- Die Entscheidung „Portale als Config-Quader" vom Morgen des 2026-08-23 ist **überholt** und im
+  Steckbrief als solche gekennzeichnet, nicht gelöscht.

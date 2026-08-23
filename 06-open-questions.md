@@ -174,11 +174,20 @@ stehen im Steckbrief `minecraft-rpg-spec/minecraft-rpg-spec/blocks/B09-zones-reg
       feuert statt zwölfmal. *(2026-08-23)*
 - [x] **Zonengeometrie**: Quader-Mengen mit Chunk-Index — zwei Ecken je Quader,
       beim Laden zu einer Abbildung `Chunk → Zone` verdichtet. Dieselbe Form
-      trägt Region, Schutzkern, Spawn-Bereich und Portal. *(2026-08-23)*
-- [x] **Reisesystem**: Portale in den Safe-Zones, kostenlos; in der
-      Konfiguration nur ein Quader mit Zielkoordinate. Wegpunkte gegen Coins
-      wären eine spätere Ergänzung und brauchten einen neuen Buchungsgrund in
-      B08b. *(2026-08-23)*
+      trägt Region, Schutzkern, Spawn-Bereich und Kristall-Auslösebereich. *(2026-08-23)*
+- [x] **Reisesystem**: **Wegpunkt-Kristalle.** Der erste Rechtsklick schaltet
+      einen Kristall für diesen Charakter frei; ein weiterer öffnet ein Fenster
+      mit allen Kristallen — wählbar nur die freigeschalteten, die übrigen
+      sichtbar und gesperrt. Eine Reise kostet Coins; der Preis steht in der
+      Zonenkonfiguration (ADR-027), die Freischaltungen hängen am Charakter
+      (ADR-011). Kostet vier Eingriffe über die Blockgrenze — Eingabe und
+      Fenster (B13, befristet), Persistenz (B02) und einen neuen Buchungsgrund
+      (B08b): **ADR-032**. *(2026-08-23, bei `/clarify`)*
+
+      *Überholt, nicht gelöscht:* am Morgen desselben Tages waren kostenlose
+      Portale als Konfigurationsquader beschlossen — ein Quader mit
+      Zielkoordinate, ohne Bedienoberfläche. Diese Fassung hielt B09 in seiner
+      Schicht und ist an den Kristallen gescheitert, nicht an einem Fehler.
 - [x] **Spieler unterhalb des Levelbereichs**: nicht blockiert, nur gewarnt —
       die Mobs setzen die Staffelung selbst durch. *(2026-08-23)*
 - [x] **PvP**: je Zone schaltbar, Vorgabe **aus**, im Schutzkern immer aus. B09
@@ -202,7 +211,7 @@ stehen im Steckbrief `minecraft-rpg-spec/minecraft-rpg-spec/blocks/B09-zones-reg
       bleibt `WorldCondition.isOpenWorld` überall bei ja und das Zweitleben des
       Rogue wirkt überall (FR-052b) — bisher eine benannte Lücke, jetzt eine
       Entscheidung. Separate Welten bleiben nach ADR-006 vorgesehen und sind
-      über ein Portal anschliessbar. *(2026-08-23)*
+      über einen Kristall anschliessbar. *(2026-08-23)*
 
 ## B10 (Mobs & Horden-Spawning) — Details offen
 

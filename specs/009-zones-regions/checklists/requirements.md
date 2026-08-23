@@ -31,10 +31,43 @@
 
 ## Notes
 
-**Alle Punkte bestanden (Stand 2026-08-23).** Der Block ist planungsreif; `/speckit-clarify` ist
-nicht erforderlich, weil beide Klärungen bei `/specify` beantwortet wurden.
+**Alle Punkte bestanden — vor und nach `/clarify` (Stand 2026-08-23).** 16 von 16, kein Punkt hat
+seinen Zustand geändert. Der Block ist planungsreif.
 
-**Die zwei Klärungen und ihre Antworten.**
+---
+
+## `/clarify` — fünf Fragen, fünf Antworten *(2026-08-23)*
+
+Der Durchlauf war **nicht** überflüssig, obwohl die Checkliste vorher schon vollständig bestanden war.
+Er hat den Zuschnitt des Blocks an zwei Stellen geschmälert und an einer erheblich erweitert:
+
+1. **Zonenidentität.** Technische Kennung plus Message-Schlüssel statt Anzeigename (FR-003 bis
+   FR-003c, SC-017). Ohne das hätte jeder Verweis aus B10, B11 und B13 an einem Spielertext gehangen.
+2. **Vorausgreifende Felder entfernt.** Schwierigkeitsmodifikator und Loot-Zuordnung fallen weg
+   (FR-056, FR-057, FR-057a). Ein Feld, dessen Bedeutung der Block nicht kennt, kann er nicht prüfen —
+   genau das Muster, das B07s `cost`-Block gekostet hat.
+3. **Spawn-Bereiche ohne Rolle.** Ausgeliefert werden sie, aber ohne Art oder Absicht (FR-053a). Ein
+   Boss-Bereich unterscheidet sich geometrisch von nichts.
+4. **Portale wurden Wegpunkt-Kristalle** (FR-045 bis FR-051e). **Die grösste Änderung des Tages** —
+   siehe unten.
+5. **Reisen kostet Coins.** Preis in der Zonenkonfiguration (ADR-027), eigener Buchungsgrund in B08b.
+
+### Der Zuschnitt ist gewachsen, und das ist ausdrücklich festgehalten
+
+Die Wegpunkt-Kristalle bringen **vier Eingriffe über die Blockgrenze**: Eingabe und Auswahlfenster
+(B13), dauerhafter Zustand je Charakter (B02) und ein neuer Buchungsgrund in **B08b, einem
+abgeschlossenen Block**. Die Spec hatte bei den Portalen wörtlich „kein Auswahlfenster" verlangt; das
+ist jetzt das Gegenteil. Deshalb **ADR-032**, nach dem Muster von ADR-028, mit Fenster und Eingabe
+befristet bis B13.
+
+Der überholte Portal-Eintrag in den Clarifications ist **stehengeblieben und als überholt markiert**,
+nicht gelöscht: seine Begründung hält fest, was der Wechsel gekostet hat.
+
+Damit sind es **85 Anforderungen und 22 Erfolgskriterien** — vorher 70 und 16.
+
+---
+
+## Die zwei Klärungen aus `/specify` und ihre Antworten
 
 1. **Wovor schützt der Schutzkern? → Vollständig schadensfrei** (FR-028a, FR-028b). Jeder Schaden
    wird abgelehnt, dessen Ziel *oder* dessen Angreifer im Kern steht, Umweltschaden eingeschlossen.
@@ -52,8 +85,9 @@ nicht erforderlich, weil beide Klärungen bei `/specify` beantwortet wurden.
    der Datei, nicht als Kommentar; solange er gesetzt ist, warnt der Server bei jedem Start. Ein
    Kopfkommentar hat bei T103 nicht gereicht — deshalb an der Stelle, wo hingesehen wird.
 
-**Zu „No implementation details".** Die Spec benennt Quader-Geometrie, Chunk-Index, die
-bukkit-freie Domänenschicht und die Namen wartender Schnittstellen. Das ist in diesem Projekt
+**Zu „No implementation details" und „technology-agnostic".** Die Spec benennt Quader-Geometrie,
+Chunk-Index, die bukkit-freie Domänenschicht, die Namen wartender Schnittstellen und einzelne
+Konfigurationsdateien (`messages.yml` in SC-017, `currency.yml` in SC-021). Das ist in diesem Projekt
 **gewollt** und folgt den acht vorangegangenen Specs: die Constitution macht Architekturvorgaben
 selbst zu Anforderungen (Prinzip II räumlicher Index, Prinzip III `rpg-core` ohne Bukkit und
 `Zone` ≠ `World`, Prinzip V Konfiguration statt Code). Eine Spec, die das ausspart, wäre gegen die
@@ -65,8 +99,16 @@ unverändert grün" formuliert und nicht als neue Zusicherung. Der Austausch der
 genau der Vorgang, für den B05 seinen Quelltest angelegt hat; ein angepasster Test wäre kein
 Nachweis, sondern dessen Umgehung.
 
-**Sechs Punkte sind an `/plan` übergeben** und stehen im Abschnitt *Offene Punkte für `/plan`* — sie
+**Zehn Punkte sind an `/plan` übergeben** und stehen im Abschnitt *Offene Punkte für `/plan`* — sie
 sind Planungsfragen, keine offenen Spezifikationsfragen: der Ort der Startwarnung, der Schnitt
 zwischen Domäne und Plattform bei der Geometrie, das Neubewerten aller Anwesenden ohne wiederkehrende
-Aufgabe, die Form des Schutzkern-Ereignisses, die Lasttestpflicht (dieselbe Frage wie T122 bei B08b)
-und der Eingriff in B05s Todesgrund-Enum.
+Aufgabe, die Form des Schutzkern-Ereignisses, die Ausführung der Messung (die Lasttestfrage selbst ist
+mit ADR-031 entschieden) und der Eingriff in B05s Todesgrund-Enum — dazu vier neue aus `/clarify`:
+das Schreiben von ADR-032, die Ablage der Freischaltungen (eigener Aggregattyp oder Anhang am
+Charakter), das Abfangen des Rechtsklicks ohne Prüfung aller Kristalle bei jedem Klick, und was
+passiert, wenn mehr Kristalle existieren als in ein Fenster passen.
+
+**Was `/plan` als erstes zu prüfen hat:** ob FR-050b haltbar ist — Buchung und Versetzung müssen
+zusammen gelten. Gebucht und nicht gereist ist ein Diebstahl, gereist und nicht gebucht ein
+Freifahrtschein. Das ist die einzige Stelle des Blocks, an der ein Fehler Spielern direkt Besitz
+nimmt.

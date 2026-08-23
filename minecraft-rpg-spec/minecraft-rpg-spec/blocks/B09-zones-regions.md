@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Schicht** | 2 — Welt & Content |
-| **Status** | Entwurf — **alle offenen Fragen geschlossen** *(2026-08-23)*, bereit für `/specify` |
+| **Status** | **Spezifiziert** *(2026-08-23)* — `specs/009-zones-regions/`, alle offenen Fragen geschlossen, `/specify` und `/clarify` durchlaufen, bereit für `/plan`. Zwei ADRs dabei entstanden: **ADR-030** (Kampf-Logout ist der Tod) und **ADR-032** (Wegpunkt-Kristalle) |
 | **Abhängig von** | B01 |
 | **Benötigt von** | B10, B11, B13 |
 
@@ -16,13 +16,18 @@ und Inhalten.
 
 - Zonendefinition mit Geometrie und Metadaten
 - Räumlich indizierte Zonenerkennung
-- Zonenregeln: Levelbereich, PvP, Schwierigkeitsmodifikator, Loot-Zuordnung,
-  Respawn-Punkt
+- Zonenregeln: Levelbereich, PvP, Respawn-Punkt — und nur diese drei.
+  **Schwierigkeitsmodifikator und Loot-Zuordnung sind bei `/clarify` am 2026-08-23
+  herausgenommen worden**: ein Feld, dessen Bedeutung dieser Block nicht kennt,
+  kann er nicht prüfen, und B07s undurchsichtig weitergereichter `cost`-Block hat
+  gezeigt, was das kostet (ADR-027). B10 ergänzt den Modifikator, B11 die
+  Loot-Zuordnung — jeder mit einer Form, die er validieren kann
 - **Schutzkern je Region** (Safe-Zone) mit überschriebenen Regeln
 - Enter-/Leave-Ereignisse, getrennt für Region und Schutzkern
 - **Benannte Spawn-Bereiche** als Anschluss für B10 — die Bereiche gehören
   hierher, die Horden nicht
-- **Portale** zwischen den Safe-Zones
+- **Wegpunkt-Kristalle** in den Safe-Zones: Freischaltung je Charakter,
+  Auswahlfenster, Reise gegen Coins (ADR-032)
 - Tod, Respawn und die Behandlung des Kampf-Logouts
 - Zonenanzeige im HUD (B13)
 
@@ -75,7 +80,7 @@ Im Schutzkern gilt: keine Mob-Spawns, kein PvP.
 
 ### Geometrie: Quader-Mengen mit Chunk-Index
 
-Ein Bereich — Region, Schutzkern, Spawn-Bereich und Portal gleichermaßen — ist
+Ein Bereich — Region, Schutzkern, Spawn-Bereich und Kristall-Auslösebereich gleichermaßen — ist
 eine **Liste von Quadern**: zwei Ecken je Quader, Y optional unbegrenzt. Beim
 Laden stempelt jeder Quader die von ihm berührten Chunks in eine Abbildung
 `Chunk → Zone`. Die Abfrage ist im Normalfall ein Lookup; nur wenn ein Chunk von
@@ -83,21 +88,36 @@ zwei Bereichen berührt wird, folgt ein exakter Quadertest.
 
 **Begründung:** von Hand schreibbar (zwei Ecken), exakte Grenzen, und die
 Vorgabe „nie durch Iteration über alle Zonen" ist damit erfüllt statt nur
-gemeint. Dieselbe Form trägt Schutzkern, Spawn-Bereich und Portal, also gibt es
+gemeint. Dieselbe Form trägt Schutzkern, Spawn-Bereich und Kristall-Auslösebereich, also gibt es
 ein Geometriesystem und nicht drei. Polygone bleiben nachrüstbar, weil die API
 nur `contains(worldId, x, y, z)` verspricht.
 
-### Reisen: Portale in den Safe-Zones
+### Reisen: Wegpunkt-Kristalle *(ersetzt bei `/clarify` am 2026-08-23 die Portale, ADR-032)*
 
-In jeder Safe-Zone steht ein gebautes Portal. In der Konfiguration ist ein
-Portal nur ein weiterer Quader mit Zielkoordinate.
+In jeder Safe-Zone steht ein **Kristall**. Der erste Rechtsklick schaltet ihn für
+diesen Charakter frei; ein weiterer öffnet ein Fenster mit **allen** Kristallen —
+wählbar sind nur die freigeschalteten, die übrigen bleiben sichtbar und melden
+beim Anklicken, dass sie noch nicht freigeschaltet sind. Eine Reise kostet Coins.
 
-**Begründung:** kein neues Teilsystem, keine Kopplung an die Währung, keine UI
-(die gehört B13, und ADR-028 brauchte für eine solche Abweichung schon eine
-befristete Ausnahme). Zugleich der natürliche Eingang, falls später doch eine
-Instanzwelt dazukommt. Wegpunkte gegen Coins bleiben eine mögliche späte
-Ergänzung — sie brauchten einen neuen Buchungsgrund in B08b, also eine Änderung
-an einem fertigen Block.
+**Begründung:** das Modell erhält die **erste Reise** — jede Region muss einmal zu
+Fuß erreicht worden sein, bevor sie ein Ziel wird. Sichtbare, aber gesperrte Ziele
+sind genau der Anreiz, sie zu suchen.
+
+**Was es kostet, und warum es trotzdem hier entsteht:** vier Eingriffe über die
+Blockgrenze hinaus — Eingabe und Auswahlfenster (B13), dauerhafter Zustand je
+Charakter (B02) und ein neuer Buchungsgrund (B08b, abgeschlossen). Festgehalten in
+**ADR-032**, Fenster und Eingabe befristet bis B13, nach dem Muster von ADR-028.
+Auf B13 zu warten hiesse, bis dahin gar kein Reisen zu haben — und der Rückweg vom
+*Pale Wilds* ins *Greenfields* führte jedes Mal über fünf Regionen.
+
+Der Preis steht in der Zonenkonfiguration, bei dem, der ihn verlangt (ADR-027);
+die Freischaltungen hängen am Charakter, nicht am Account (ADR-011).
+
+> **Überholt, nicht gelöscht:** am Morgen desselben Tages war entschieden, das
+> Reisen über **Portale als Konfigurationsquader** zu lösen — ein Quader mit
+> Zielkoordinate, kostenlos, ohne Bedienoberfläche. Diese Fassung hielt den Block
+> in seiner Schicht; sie ist an den Wegpunkt-Kristallen gescheitert, nicht an einem
+> Fehler.
 
 ### Levelgate: keine Sperre, nur eine Warnung
 
@@ -162,7 +182,7 @@ gibt es zum Start keine Instanzen, `WorldCondition.isOpenWorld` sagt weiterhin
 
 Bisher war das eine Lücke mit einer bewusst freundlichen Vorgabe; jetzt ist es
 eine Entscheidung. Separate Welten für Instanzierbares bleiben nach ADR-006
-vorgesehen und sind über ein Portal anschließbar, ohne dass das Modell sich
+vorgesehen und sind über einen Kristall anschließbar, ohne dass das Modell sich
 ändert.
 
 ## Topologie (ADR-006, bestätigt 2026-08-19)
@@ -203,7 +223,10 @@ jederzeit als Konfiguration zu.
 - [x] **Safe/Danger**: die Region ist die Zone, der Schutzkern liegt darin.
       *(2026-08-23)*
 - [x] **Zonengeometrie**: Quader-Mengen mit Chunk-Index. *(2026-08-23)*
-- [x] **Reisesystem**: Portale in den Safe-Zones, ohne Kosten. *(2026-08-23)*
+- [x] **Reisesystem**: **Wegpunkt-Kristalle** — per Rechtsklick freischaltbar, danach
+      Auswahlfenster mit allen Kristallen (gesperrte sichtbar), Reise gegen Coins.
+      *(2026-08-23, bei `/clarify`, ADR-032; ersetzt die am Morgen beschlossenen
+      kostenlosen Config-Portale)*
 - [x] **Spieler unterhalb des Levelbereichs**: nicht blockiert, nur gewarnt.
       *(2026-08-23)*
 - [x] **PvP**: je Zone schaltbar, Vorgabe aus, im Schutzkern immer aus.
@@ -215,9 +238,11 @@ jederzeit als Konfiguration zu.
 
 - **Mobs (B10):** die acht Mob-Arten je Region, ihre Attribute, ihr Level, der
   Boss und die Hordenlogik. B09 liefert die Zone, das Levelband und die
-  benannten Spawn-Bereiche; B10 füllt sie.
+  benannten Spawn-Bereiche; B10 füllt sie. **Auch der
+  Schwierigkeitsmodifikator gehört B10** — samt dem Feld, in dem er steht.
 - **Loot (B11):** die Loot-Tables der Mobs, der Ausrüstungsschaden beim Tod und
-  seine Reparatur.
+  seine Reparatur. **Auch die Loot-Zuordnung je Zone gehört B11** — samt dem
+  Feld, in dem sie steht.
 - **HUD-Text (B13):** die Anzeige des Zonennamens. B09 liefert Name und
   Ereignis.
 

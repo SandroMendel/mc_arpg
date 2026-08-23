@@ -8,16 +8,23 @@
 
 **Input**: Blocksteckbrief `blocks/B09-zones-regions.md` in der Fassung vom 2026-08-23, in der alle
 offenen Fragen geschlossen wurden — sechs benannte Regionen über die Levelbänder 1–60, jede mit einem
-Schutzkern um ihren Spawn, Geometrie als Quader mit Chunk-Index, Portale zum Reisen, Warnung statt
-Sperre unter dem Levelband, PvP als Zonenregel, und der Kampf-Logout als Tod. Hängt ab von **B01**
-(Konfiguration mit Schema-Validierung, Ereignisbus, Scheduling-Abstraktion), **B03** (`Character`,
+Schutzkern um ihren Spawn, Geometrie als Quader mit Chunk-Index, **Wegpunkt-Kristalle** zum Reisen
+(freischaltbar, gegen Coins, mit Auswahlfenster — bei `/clarify` an die Stelle der zuerst
+beschlossenen Config-Portale getreten), Warnung statt Sperre unter dem Levelband, PvP als Zonenregel,
+und der Kampf-Logout als Tod. Hängt ab von **B01**
+(Konfiguration mit Schema-Validierung, Ereignisbus, Scheduling-Abstraktion), **B02** (Persistenz der
+Freischaltungen), **B03** (`Character`,
 An- und Abmeldung), **B05** (`DamagePermission` über `CombatPipeline.setPermission`, `CombatState`,
-`DeathCause`, `CombatDeathEvent`) und **B06** (Levelabfrage für das Levelband). Löst Schnittstellen
+`DeathCause`, `CombatDeathEvent`), **B06** (Levelabfrage für das Levelband) und **B08b** (Kontostand,
+Kostenprüfung und Buchung des Reisepreises). Löst Schnittstellen
 ein, die **B08** (`WorldCondition.isOpenWorld`, FR-052b dort) und **B04** (`SourceKind` für
-zonengebundene Effekte) bereits verdrahtet bereithalten. Wird benötigt von **B10** (Spawn-Bereiche),
-**B11** (Loot-Zuordnung) und **B13** (Zonenanzeige). Verbindlich: **ADR-006** (Kontinent-Welt plus
+zonengebundene Effekte) bereits verdrahtet bereithalten. Wird benötigt von **B10** (Spawn-Bereiche)
+und **B13** (Zonenanzeige). Verbindlich: **ADR-006** (Kontinent-Welt plus
 Instanzwelten; eine `Zone` ist niemals eine `World`), **ADR-030** (ein Logout im Kampf ist der Tod,
-angenommen am 2026-08-23), Prinzip II (räumlicher Index statt linearer Suche, keine wiederkehrende
+angenommen am 2026-08-23), **ADR-032** (Wegpunkt-Kristalle: Eingabe, Fenster, Persistenz und ein
+neuer Buchungsgrund in einem Schicht-2-Block — zu schreiben vor Beginn der Umsetzung), **ADR-027**
+(Preise stehen bei dem, der sie verlangt; kein zentraler Katalog), **ADR-011** (alles hängt am
+Charakter, nicht am Account), Prinzip II (räumlicher Index statt linearer Suche, keine wiederkehrende
 Aufgabe je Spieler, ≤ 5 ms Tickbudget), Prinzip III (`rpg-core` ohne Bukkit, `Zone` ≠ `World`,
 Zugriff nur über die Blockschnittstelle), Prinzip V (Zonen vollständig konfigurationsdefiniert,
 Fail-Fast bei Schemafehlern, keine hartcodierten Spielertexte), Prinzip VI (der Server ist alleinige
@@ -60,6 +67,9 @@ Autorität), Prinzip VIII (Dokumentation deutsch, Bezeichner und Spielertexte en
   Polygone bleiben damit nachrüstbar, ohne dass ein Verbraucher etwas merkt.
 
 - Q: Reisesystem — Laufen, Portale, Wegpunkte, Kosten? → A: **Portale in den Safe-Zones, kostenlos.**
+  **⚠ Überholt am selben Tag bei `/clarify`** — ersetzt durch Wegpunkt-Kristalle gegen Coins
+  (ADR-032, siehe Session-Eintrag weiter unten). Der Eintrag bleibt stehen, weil die Begründung
+  festhält, was der Wechsel gekostet hat: die alte Fassung hielt B09 in seiner Schicht.
   In der Konfiguration ist ein Portal nur ein weiterer Quader mit Zielkoordinate — dieselbe
   Geometrie, dieselbe Datei, kein neues Teilsystem. Zugleich der natürliche Eingang, falls später
   doch eine Instanzwelt dazukommt.
@@ -102,7 +112,7 @@ Autorität), Prinzip VIII (Dokumentation deutsch, Bezeichner und Spielertexte en
   eigenen Bosswelt. Damit liefert B09 ein `WorldCondition.isOpenWorld`, das überall ja sagt — als
   **Entscheidung**, nicht als Platzhalter. Bisher war das eine benannte Lücke mit einer bewusst
   freundlichen Vorgabe; jetzt ist es eine getroffene Wahl. Separate Welten für Instanzierbares
-  bleiben nach ADR-006 vorgesehen und sind über ein Portal anschließbar, ohne dass sich das Modell
+  bleiben nach ADR-006 vorgesehen und sind über einen Kristall anschließbar, ohne dass sich das Modell
   ändert.
 
 ### Session 2026-08-23 — bei `/specify`
@@ -141,6 +151,85 @@ Autorität), Prinzip VIII (Dokumentation deutsch, Bezeichner und Spielertexte en
   *Warum eine Startwarnung und nicht nur ein Kopfkommentar:* bei T103 hat ein Kommentar nicht
   gereicht. Ein Platzhalter muss sich als solcher zu erkennen geben, und zwar dort, wo hingesehen
   wird.
+
+### Session 2026-08-23 — bei `/clarify`
+
+- Q: Wie wird eine Region identifiziert und benannt — technischer Schlüssel plus Message-Schlüssel,
+  oder direkt über den Anzeigenamen? → A: **Technischer Schlüssel plus Message-Schlüssel.** Die
+  Kennung (`greenfields`) ist das, worauf Kristalle, Spawn-Bereiche und spätere Blöcke verweisen; der
+  sichtbare Name kommt aus `messages.yml`.
+
+  **Warum das mehr als Ordnung ist:** „The Greenfields" ist ein Spielertext, und Prinzip V verlangt
+  für Spielertexte ausnahmslos Message-Schlüssel. Wäre der Anzeigename gleichzeitig die Kennung,
+  hinge jeder Verweis aus B10, B11 und B13 an einem Text — und ein Umbenennen der Region hätte sie
+  alle gebrochen. So ändert ein neuer Name eine Zeile in `messages.yml`, und kein Verweis merkt es.
+  Zugleich bleibt ADR-005s Zusage eingelöst, die Mehrsprachigkeit strukturell offenzuhalten, ohne sie
+  jetzt zu bauen.
+
+- Q: Soll B09 die Felder für Schwierigkeitsmodifikator und Loot-Zuordnung schon tragen, obwohl es sie
+  nicht auswertet? → A: **Nein, weglassen.** Der Block trägt nur, was er selbst auswertet und deshalb
+  auch prüfen kann. B10 ergänzt den Schwierigkeitsmodifikator, B11 die Loot-Zuordnung — jeder mit
+  einer Form, die er validieren kann.
+
+  **Warum, obwohl der Steckbrief beides als Umfang nennt:** genau dieses Muster hat das Projekt schon
+  einmal Geld gekostet. B07 trug `cost: { coins: 500 }` durch, ohne es auslegen zu können; die
+  Roadmap nennt es beim Namen — „reichte undurchsichtig durch" —, und erst B08b hat es mit ADR-027
+  aufgelöst. Seitdem verbietet `ClassSourceInvariantsTest` die Vokabel dort ausdrücklich. Ein Feld,
+  dessen Bedeutung ein Block nicht kennt, kann er nicht validieren; ein Tippfehler darin fällt dann
+  erst dem übernehmenden Block auf, Monate später.
+
+  *Was das kostet:* B10 und B11 erweitern das Zonenschema, wenn sie dran sind. Das ist ein Eingriff
+  in eine Konfigurationsdatei, deren Bedeutung sie dann besitzen — also billig und am richtigen Ort.
+
+  *Was daraus folgt:* der Umfang im Steckbrief `blocks/B09-zones-regions.md` ist um diese zwei Punkte
+  geschmälert und dort nachgezogen.
+
+- Q: Liefert B09 die Spawn-Bereiche mit aus, und ist der Boss-Bereich eine eigene Art? → A:
+  **Ausliefern, ohne Rolle.** Je Region werden benannte Bereiche mit Kennung und Geometrie
+  ausgeliefert — vorläufig, wie die Regionen selbst. Es gibt **keine** Unterscheidung zwischen
+  normalem Bereich und Boss-Bereich.
+
+  **Die Trennlinie:** Geometrie ist das Fach dieses Blocks, Rolle ist B10s Fach. Ein Boss-Bereich
+  unterscheidet sich geometrisch von nichts — er unterscheidet sich nur darin, was darin steht, und
+  das steht hier nicht. Eine Art „Boss" mitzuliefern hiesse zu behaupten, es gebe genau eine
+  Boss-Sorte je Region; das ist eine inhaltliche Aussage über Mobs, die dieser Block nicht besitzt.
+
+  *Warum nicht ganz weglassen:* dann wären die sechs Regionen leer, und niemand könnte vorführen, dass
+  die Abfrage überhaupt etwas liefert. Ein Bereich ohne Rolle ist prüfbar — er liegt in seiner Region
+  und ausserhalb ihres Schutzkerns, und genau das wird beim Start geprüft.
+
+- Q: Wie lösen Portale aus — sofort beim Betreten, nach Verweilen, oder auf Interaktion? → A:
+  **Keines davon. Es werden Wegpunkt-Kristalle**, wie in einem Hack'n'Slash: ein Kristall oder Stein,
+  per Rechtsklick zunächst **freischaltbar**; ein weiterer Rechtsklick öffnet ein Fenster mit allen
+  Kristallen. Wählbar sind nur die schon freigeschalteten; die übrigen sind **sichtbar, aber
+  gesperrt**, und ein Klick darauf meldet, dass sie noch nicht freigeschaltet sind.
+
+  **Das ersetzt die Entscheidung „Portale als Config-Quader" vom selben Tag** und ändert den Zuschnitt
+  des Blocks erheblich. Drei Dinge kommen hinzu, die die Spec zuvor ausdrücklich ausgeschlossen hatte:
+  eine **Eingabe** (Rechtsklick), ein **Auswahlfenster** und **dauerhafter Zustand je Charakter**.
+  Eingabe und Fenster gehören B13, Persistenz gehört B02 — dieser Block greift damit über seine
+  Schicht hinaus. Dafür gibt es einen Präzedenzfall und dieselbe Form der Ausnahme: **ADR-032**, nach
+  dem Muster von ADR-028, befristet bis B13 und B14.
+
+  *Warum die gesperrten Ziele sichtbar bleiben:* ein verborgenes Ziel ist kein Anreiz, es zu suchen.
+  Sichtbar und gesperrt ist der Grund, überhaupt hinzulaufen.
+
+  *Was das Modell im Kern richtig macht:* die **erste Reise bleibt erhalten**. Man muss jede Region
+  einmal zu Fuß erreicht haben, bevor sie ein Ziel wird.
+
+- Q: Kostet ein Teleport zwischen freigeschalteten Kristallen etwas? → A: **Ja, Coins je Reise.** Der
+  Betrag ist konfigurierbar.
+
+  **Zwei Folgen, die aus bereits getroffenen Entscheidungen zwingend sind und deshalb nicht neu
+  verhandelt wurden.** Erstens: der Preis steht in der **Zonenkonfiguration**, bei dem, der ihn
+  verlangt — ADR-027 verbietet einen zentralen Preiskatalog, und die Währungskonfiguration ist nicht
+  der Ort für Reisepreise. Zweitens: die Buchung braucht einen **eigenen Grund** in B08bs Aufzählung,
+  damit der Verlauf eine Reise von einem Einkauf trennt — und das ist ein Eingriff in einen
+  abgeschlossenen Block, also Teil von ADR-032.
+
+  *Was daran heikel ist und deshalb als Anforderung steht:* Buchung und Versetzung müssen zusammen
+  gelten (FR-050b). Gebucht und nicht gereist ist ein Diebstahl, gereist und nicht gebucht ein
+  Freifahrtschein.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -302,29 +391,46 @@ war.
 
 ---
 
-### User Story 6 - Portale bringen den Spieler von Region zu Region (Priority: P6)
+### User Story 6 - Wegpunkt-Kristalle, freigeschaltet und bezahlt (Priority: P6)
 
-In der Safe-Zone jeder Region steht ein Portal. Der Spieler betritt es und steht in der Ziel-Region.
-Der Rückweg vom *Pale Wilds* ins *Greenfields* dauert nicht mehr fünf Regionen lang.
+In der Safe-Zone jeder Region steht ein Kristall. Der Spieler klickt ihn zum ersten Mal mit der
+rechten Maustaste an und **schaltet ihn damit frei**. Klickt er ihn danach wieder an, öffnet sich ein
+Fenster mit allen Kristallen der Welt: die freigeschalteten kann er wählen, die übrigen sieht er auch,
+aber ein Klick darauf sagt ihm nur, dass sie noch nicht freigeschaltet sind. Wählt er ein Ziel,
+kostet die Reise Coins — und er steht in der Safe-Zone der Zielregion.
 
-**Why this priority**: Bequemlichkeit, kein Fundament — der Block ist ohne Portale spielbar, nur
-mühsam. Zuletzt eingeordnet, weil er auf US1s Geometrie aufsetzt und sonst nichts braucht.
+**Why this priority**: Bequemlichkeit, kein Fundament — der Block ist ohne Kristalle spielbar, nur
+mühsam. Zuletzt eingeordnet, obwohl es die aufwendigste Geschichte des Blocks ist: sie ist die
+einzige mit Eingabe, Fenster, dauerhaftem Zustand und einer Buchung.
 
-**Independent Test**: Ein Portal in *The Greenfields* mit Ziel *The Dustlands* konfigurieren,
-hineinlaufen, und prüfen: der Spieler steht am Ziel, der Zonenwechsel hat gefeuert, und ein zweites
-Auslösen im Zielportal wirft ihn nicht sofort zurück.
+**Independent Test**: Mit einem frischen Charakter im *Greenfields* den Kristall anklicken (frei),
+das Fenster öffnen, *Dustlands* anklicken (Meldung: noch nicht freigeschaltet), zu Fuß hinlaufen,
+dort freischalten, zurückreisen — und prüfen, dass der Coinstand um den konfigurierten Betrag
+gesunken ist und die Freischaltung einen Neustart übersteht.
 
 **Acceptance Scenarios**:
 
-1. **Given** ein Portal in *The Greenfields* mit Ziel in *The Dustlands*, **When** der Spieler es
-   betritt, **Then** steht er am Ziel, und der Zonenwechsel ist gefeuert.
-2. **Given** der Spieler ist eben durch ein Portal gekommen und steht im Zielbereich, **When** dort
-   ein Rückportal liegt, **Then** wird er nicht sofort zurückgeworfen.
-3. **Given** ein Portal mit einem Ziel in einer nicht geladenen oder unbekannten Welt, **When** die
-   Konfiguration geladen wird, **Then** startet der Server nicht, und die Meldung benennt Portal und
-   Ziel.
-4. **Given** ein Portal, dessen Ziel in keiner Region liegt, **When** die Konfiguration geladen wird,
-   **Then** ist das erlaubt und wird als Hinweis protokolliert — Wildnis ist ein legitimes Ziel.
+1. **Given** ein Charakter hat einen Kristall noch nie angeklickt, **When** er ihn mit der rechten
+   Maustaste anklickt, **Then** ist dieser Kristall für **diesen Charakter** freigeschaltet, und er
+   erhält eine Meldung darüber.
+2. **Given** ein Charakter hat einen Kristall freigeschaltet, **When** er ihn erneut anklickt,
+   **Then** öffnet sich ein Fenster, das **alle** Kristalle zeigt — die freigeschalteten wählbar, die
+   übrigen sichtbar aber gesperrt.
+3. **Given** das Fenster ist offen, **When** der Charakter einen **gesperrten** Kristall anklickt,
+   **Then** wird er nicht versetzt, es wird nichts gebucht, und er erhält die Meldung, dass dieser
+   Kristall noch nicht freigeschaltet ist.
+4. **Given** das Fenster ist offen und der Charakter hat genug Coins, **When** er einen
+   freigeschalteten Kristall wählt, **Then** wird der konfigurierte Betrag gebucht, er steht in der
+   Safe-Zone der Zielregion, und der Zonenwechsel ist gefeuert.
+5. **Given** der Charakter hat **zu wenig** Coins, **When** er ein Ziel wählt, **Then** wird nichts
+   gebucht, er wird nicht versetzt, und die Meldung benennt den fehlenden Betrag.
+6. **Given** eine Freischaltung wurde erteilt, **When** der Server neu startet, **Then** ist sie noch
+   da.
+7. **Given** ein Account mit mehreren Charakteren, **When** ein zweiter Charakter dasselbe Fenster
+   öffnet, **Then** sieht er **seine** Freischaltungen, nicht die des ersten (ADR-011).
+8. **Given** ein Kristall wird aus der Konfiguration entfernt, **When** ein Charakter das Fenster
+   öffnet, der ihn freigeschaltet hatte, **Then** erscheint er nicht mehr, und die Freischaltung
+   schadet nicht.
 
 ---
 
@@ -349,8 +455,11 @@ Zonenziel-Erfahrung sind anschließbar.
    jeder der sechs Regionen gefragt wird, **Then** lautet die Antwort überall ja, und das ist als
    Entscheidung dokumentiert, nicht als fehlende Umsetzung.
 2. **Given** eine Region mit benannten Spawn-Bereichen, **When** diese abgefragt werden, **Then**
-   werden sie mit Namen und Geometrie geliefert, ohne dass dieser Block etwas darin spawnt.
-3. **Given** ein Spawn-Bereich, der außerhalb seiner Region oder im Schutzkern liegt, **When** die
+   werden sie mit Kennung und Geometrie geliefert — und mit nichts sonst —, ohne dass dieser Block
+   etwas darin spawnt.
+3. **Given** die ausgelieferte Konfiguration, **When** die Spawn-Bereiche jeder der sechs Regionen
+   abgefragt werden, **Then** liefert jede mehrere, sodass B10 einen Anknüpfungspunkt vorfindet.
+4. **Given** ein Spawn-Bereich, der außerhalb seiner Region oder im Schutzkern liegt, **When** die
    Konfiguration geladen wird, **Then** startet der Server nicht, und die Meldung benennt Bereich und
    Region.
 
@@ -383,8 +492,19 @@ Zonenziel-Erfahrung sind anschließbar.
   an dem sich Fliehen wieder lohnt.
 - **Logout im Kampf, während die Region gerade entfernt wird.** Der Tod gilt, der Respawn greift auf
   den Ausweichpunkt zurück.
-- **Zwei Portale, die aufeinander zeigen.** Zulässig. Ein Spieler, der eben durch ein Portal kam,
-  löst kein Portal aus, bis er den Zielbereich verlassen hat.
+- **Reise zum Kristall, an dem man gerade steht.** Zulässig, aber sinnlos: das Fenster zeigt den
+  eigenen Standort als gewählt und nicht als Ziel — sonst zahlte jemand für nichts.
+- **Der Kontostand reicht nicht.** Nichts passiert außer einer Meldung. Kein halber Vorgang: es darf
+  nie gebucht sein, ohne dass gereist wurde.
+- **Ein Kristall verschwindet aus der Konfiguration, während ein Charakter ihn freigeschaltet hatte.**
+  Er erscheint nicht mehr im Fenster; die Freischaltung bleibt liegen und wirkt wieder, sobald der
+  Kristall zurückkommt. Freischaltungen werden nicht aufgeräumt, weil ein Aufräumen einen Kristall
+  endgültig verlieren liesse, den der Betreiber nur kurz herausgenommen hat.
+- **Zwei Charaktere desselben Accounts.** Getrennte Freischaltungen (ADR-011). Wer mit dem Warrior
+  überall war, fängt mit dem Mage wieder bei null an.
+- **Rechtsklick auf einen Kristall in einer Region, die es nicht mehr gibt.** Der Kristall gehört der
+  Konfiguration, nicht der Region — er funktioniert weiter, und sein Ankunftsort ist eine Koordinate,
+  keine Zone.
 - **Der Spieler wechselt den Charakter.** Region und Schutzkern-Zustand hängen am Charakter, nicht am
   Spielerkonto — nach dem Wechsel gilt, was für den neuen Charakter zutrifft, samt Levelband-Prüfung.
 - **200 Spieler in derselben Region.** Kein Grund für eine langsamere Antwort: der Index wird nach
@@ -400,8 +520,17 @@ Zonenziel-Erfahrung sind anschließbar.
   weitere Region entsteht ohne Codeänderung.
 - **FR-002**: Eine Zone MUSS als `(worldId, Geometrie)` modelliert sein. Eine Zone ist **niemals**
   eine Welt, und kein Verbraucher darf aus einer Zone auf eine Welt schließen müssen.
-- **FR-003**: Eine Zone MUSS einen Namen, ein Levelband mit einschließender Unter- und Obergrenze und
-  einen Regelsatz tragen.
+- **FR-003**: Eine Zone MUSS eine **technische Kennung**, ein Levelband mit einschließender Unter- und
+  Obergrenze und einen Regelsatz tragen. Die Kennung ist innerhalb einer Welt eindeutig; eine
+  doppelte Kennung verhindert den Start.
+- **FR-003a**: Der **sichtbare Name** einer Zone MUSS über einen Message-Schlüssel laufen. Die
+  Konfiguration der Zone trägt keinen Spielertext, sondern nur die Kennung, aus der der Schlüssel
+  folgt (Prinzip V, ADR-005).
+- **FR-003b**: Jeder Verweis auf eine Zone — aus dem Ankunftsort eines Kristalls, einem Spawn-Bereich oder einem
+  späteren Block — MUSS über die technische Kennung laufen, nie über den sichtbaren Namen.
+- **FR-003c**: Fehlt der Message-Schlüssel zu einer konfigurierten Zone, MUSS das den Start
+  verhindern. Eine Zone, deren Name im Spiel als Schlüsselzeichenkette erscheint, ist ein Fehler, der
+  beim Start auffallen soll und nicht im Spiel.
 - **FR-004**: Die Geometrie einer Zone MUSS eine Liste von Quadern sein, je Quader zwei Ecken, mit
   optionalen Y-Grenzen. Fehlen die Y-Grenzen, gilt der Quader über die ganze Welthöhe.
 - **FR-005**: Das System MUSS die Zone zu einer Position über einen räumlichen Index ermitteln.
@@ -502,36 +631,67 @@ Zonenziel-Erfahrung sind anschließbar.
   **ausdrücklich nicht** enthalten. Bis dahin besteht die Strafe allein im Erscheinen am
   Respawn-Punkt — eine benannte Lücke, keine stille (Regel 5).
 
-### Functional Requirements — Portale (US6)
+### Functional Requirements — Wegpunkt-Kristalle (US6)
 
-- **FR-045**: Ein Portal MUSS in der Konfiguration als Quader mit Zielort beschrieben sein — dieselbe
-  Geometrieform wie Zone und Schutzkern.
-- **FR-046**: Betritt ein Charakter einen Portalquader, MUSS er an den Zielort versetzt werden.
-- **FR-047**: Ein Portal DARF NICHT auslösen, solange der Charakter den Zielbereich seiner letzten
-  Versetzung nicht verlassen hat.
-- **FR-048**: Ein Portalziel in einer unbekannten Welt MUSS den Start verhindern.
-- **FR-049**: Ein Portalziel außerhalb aller Zonen MUSS erlaubt sein und protokolliert werden.
-- **FR-050**: Die Versetzung DARF NICHT Coins kosten und DARF KEIN Auswahlfenster erfordern — beides
-  gehört späteren Blöcken.
-- **FR-051**: Jede der sechs Regionen MUSS mit einem Portal in ihrem Schutzkern ausgeliefert werden.
+- **FR-045**: Ein Kristall MUSS in der Konfiguration eine eindeutige **Kennung**, einen
+  Auslösebereich in derselben Geometrieform wie Zone und Schutzkern, und einen Ankunftsort tragen.
+- **FR-046**: Ein Rechtsklick innerhalb des Auslösebereichs MUSS den Kristall bedienen. Es DARF KEIN
+  anderes Ereignis nötig sein und kein Vorbeilaufen etwas auslösen.
+- **FR-047**: Ist der Kristall für diesen Charakter **noch nicht freigeschaltet**, MUSS der erste
+  Rechtsklick ihn freischalten und eine Meldung erzeugen. Es öffnet sich dabei **kein** Fenster.
+- **FR-048**: Ist der Kristall freigeschaltet, MUSS der Rechtsklick ein Auswahlfenster öffnen, das
+  **alle** konfigurierten Kristalle zeigt — die freigeschalteten wählbar, die übrigen sichtbar und
+  gesperrt. Ein verborgenes Ziel wäre kein Anreiz, es zu suchen.
+- **FR-049**: Die Auswahl eines **gesperrten** Kristalls MUSS eine Meldung erzeugen und sonst nichts:
+  keine Versetzung, keine Buchung.
+- **FR-050**: Die Auswahl eines freigeschalteten Kristalls MUSS den konfigurierten Betrag buchen und
+  den Charakter danach an dessen Ankunftsort versetzen.
+- **FR-050a**: Reicht der Kontostand nicht, MUSS die Reise unterbleiben — **keine Buchung, keine
+  Versetzung** — und die Meldung MUSS den fehlenden Betrag benennen.
+- **FR-050b**: Buchung und Versetzung MÜSSEN zusammen gelten: es DARF NICHT vorkommen, dass gebucht
+  wurde und die Versetzung ausbleibt oder umgekehrt.
+- **FR-050c**: Der Preis MUSS in der Zonenkonfiguration stehen, bei dem, der ihn verlangt — **nicht**
+  in der Währungskonfiguration und **nicht** in einem zentralen Preiskatalog (ADR-027).
+- **FR-050d**: Die Buchung MUSS einen eigenen, unterscheidbaren Grund tragen, damit der Verlauf eine
+  Reise von einem Einkauf trennt.
+- **FR-051**: Jede der sechs Regionen MUSS mit einem Kristall in ihrem Schutzkern ausgeliefert werden.
+- **FR-051a**: Freischaltungen MÜSSEN **je Charakter** geführt werden, nicht je Account (ADR-011),
+  und einen Neustart überstehen.
+- **FR-051b**: Eine Freischaltung DARF NICHT verloren gehen, wenn ein Kristall vorübergehend aus der
+  Konfiguration verschwindet; sie wirkt wieder, sobald er zurückkommt.
+- **FR-051c**: Ein Kristall, dessen Ankunftsort in einer unbekannten Welt liegt, MUSS den Start
+  verhindern.
+- **FR-051d**: Ein Ankunftsort außerhalb aller Zonen MUSS erlaubt sein und beim Laden protokolliert
+  werden — Wildnis ist ein legitimes Ziel.
+- **FR-051e**: Alle Texte dieser Geschichte — Freischaltung, Sperre, fehlende Coins, Fenstertitel —
+  MÜSSEN über Message-Schlüssel laufen.
 
 ### Functional Requirements — Anschlüsse für andere Blöcke (US7)
 
 - **FR-052**: Das System MUSS die vorhandene Abfrage „ist dieser Charakter in der offenen Welt"
   bedienen. Solange es keine Instanzen gibt, lautet die Antwort überall ja — als festgehaltene
   Entscheidung, nicht als unfertige Umsetzung.
-- **FR-053**: Eine Zone MUSS benannte Spawn-Bereiche tragen können, beschrieben durch dieselbe
-  Geometrieform.
-- **FR-054**: Spawn-Bereiche MÜSSEN abfragbar sein. Dieser Block spawnt **nichts** darin; Mobarten,
-  Attribute, Bosse und Hordenlogik gehören B10.
+- **FR-053**: Eine Zone MUSS Spawn-Bereiche tragen können, je Bereich eine innerhalb der Zone
+  eindeutige **Kennung** und eine Geometrie in derselben Form wie die Zone selbst. Mehr trägt ein
+  Bereich nicht.
+- **FR-053a**: Ein Spawn-Bereich DARF KEINE Rolle, Art oder Absicht tragen — kein „normal" gegen
+  „Boss", keine Mobliste, keine Zahl. Die Kennung ist der Anknüpfungspunkt, den B10 belegt.
+- **FR-054**: Spawn-Bereiche MÜSSEN je Zone abfragbar sein. Dieser Block spawnt **nichts** darin;
+  Mobarten, Attribute, Bosse und Hordenlogik gehören B10.
 - **FR-055**: Ein Spawn-Bereich außerhalb seiner Zone oder innerhalb ihres Schutzkerns MUSS den Start
-  verhindern.
-- **FR-056**: Eine Zone MUSS einen Schwierigkeitsmodifikator tragen können, den B10 später liest.
-  Dieser Block wertet ihn nicht aus.
-- **FR-057**: Eine Zone MUSS eine Loot-Zuordnung tragen können, die B11 später liest. Dieser Block
-  wertet sie nicht aus.
-- **FR-058**: Zonenname und Zonenereignis MÜSSEN so bereitstehen, dass B13 sie anzeigen kann, ohne
-  dass dieser Block etwas darstellt.
+  verhindern. Ebenso eine doppelte Kennung innerhalb derselben Zone.
+- **FR-055a**: Die ausgelieferte Konfiguration MUSS je Region mehrere benannte Spawn-Bereiche
+  enthalten, damit die Abfrage vorführbar ist. Sie sind vorläufig wie die Regionen selbst und fallen
+  unter dieselbe Startwarnung (FR-065b).
+- **FR-056**: Eine Zone trägt **keinen** Schwierigkeitsmodifikator. B10 ergänzt ihn, wenn er die Form
+  kennt, die er braucht.
+- **FR-057**: Eine Zone trägt **keine** Loot-Zuordnung. B11 ergänzt sie, wenn er die Form kennt, die
+  er braucht.
+- **FR-057a**: Dieser Block DARF KEIN Konfigurationsfeld tragen, dessen Bedeutung er nicht kennt und
+  dessen Inhalt er deshalb nicht prüfen kann. Was er trägt, validiert er auch.
+- **FR-058**: Zonenkennung und Zonenereignis MÜSSEN so bereitstehen, dass B13 den Namen anzeigen kann,
+  ohne dass dieser Block etwas darstellt. B13 erhält die **Kennung** und löst den Text über den
+  Message-Schlüssel auf — dieser Block liefert keinen fertigen Anzeigetext.
 
 ### Functional Requirements — Rahmen
 
@@ -557,20 +717,24 @@ Zonenziel-Erfahrung sind anschließbar.
 
 ### Key Entities
 
-- **Zone (Region)**: ein benanntes Gebiet mit Weltzugehörigkeit, Geometrie, Levelband, Regelsatz,
-  optionalem Schutzkern, optionalen Spawn-Bereichen und optionalen Portalen. Sechs davon werden
-  ausgeliefert. Niemals eine Welt.
+- **Zone (Region)**: ein Gebiet mit **technischer Kennung**, Weltzugehörigkeit, Geometrie, Levelband,
+  Regelsatz, optionalem Schutzkern, optionalen Spawn-Bereichen und einem optionalen Kristall. Die Kennung
+  ist der einzige Anknüpfungspunkt für Verweise; der sichtbare Name liegt als Message-Schlüssel
+  daneben und gehört nicht zur Zone selbst. Sechs Zonen werden ausgeliefert. Niemals eine Welt.
 - **Geometrie**: eine Liste von Quadern mit optionalen Y-Grenzen. Dieselbe Form trägt Zone,
-  Schutzkern, Spawn-Bereich und Portal — ein Geometriesystem, nicht vier.
+  Schutzkern, Spawn-Bereich und Kristall-Auslösebereich — ein Geometriesystem, nicht vier.
 - **Schutzkern**: ein Bereich innerhalb einer Zone, der einzelne Regeln überschreibt: kein PvP, kein
   Mob-Spawn. Keine eigene Zone.
-- **Zonenregeln**: Levelband, PvP-Schalter, Schwierigkeitsmodifikator, Loot-Zuordnung,
-  Respawn-Punkt. Die letzten drei werden hier getragen und von späteren Blöcken gelesen.
+- **Zonenregeln**: Levelband, PvP-Schalter, Respawn-Punkt. Nur diese drei — jede ist hier auch
+  ausgewertet. Schwierigkeitsmodifikator und Loot-Zuordnung fehlen bewusst (FR-056, FR-057).
 - **Zonenindex**: die Abbildung von Chunk auf Zonenkandidaten, beim Laden gebaut, zur Laufzeit nur
   gelesen.
 - **Spawn-Bereich**: ein benannter Bereich innerhalb der Gefahrenzone, aus dem B10 später Horden
   setzt.
-- **Portal**: ein Bereich mit Zielort.
+- **Wegpunkt-Kristall**: Kennung, Auslösebereich, Ankunftsort und Reisepreis. Sechs davon werden
+  ausgeliefert, einer je Schutzkern.
+- **Freischaltung**: welcher Charakter welchen Kristall benutzen darf. Dauerhaft, je Charakter, wächst
+  nur.
 - **Zonenwechsel-Ereignis**: Charakter, alte Zone, neue Zone.
 - **Schutzkern-Ereignis**: Charakter, Zone, betreten oder verlassen.
 
@@ -605,10 +769,23 @@ Zonenziel-Erfahrung sind anschließbar.
   Mobs, nicht aus dem Kern heraus, nicht von der Umwelt — und keinen Spawn-Bereich. Auch dann nicht,
   wenn die Region `pvp: true` trägt.
 - **SC-013**: Jede fehlerhafte Zonenkonfiguration — Überlappung, Kern außerhalb seiner Zone,
-  Spawn-Bereich im Kern, Portalziel in unbekannter Welt — verhindert den Start mit einer Meldung, die
+  Spawn-Bereich im Kern, Kristall-Ankunftsort in unbekannter Welt — verhindert den Start mit einer Meldung, die
   die verantwortliche Stelle benennt.
 - **SC-014**: Die gesamte Zonenlogik ist ohne laufenden Server geprüft.
-- **SC-015**: Kein Spielertext dieses Blocks steht im Code.
+- **SC-015**: Kein Spielertext dieses Blocks steht im Code — der sichtbare Name einer Region
+  eingeschlossen.
+- **SC-017**: Eine Region umzubenennen ändert **eine Zeile in `messages.yml`**. Kein Kristall, kein
+  Spawn-Bereich und kein Verweis eines späteren Blocks muss dafür angefasst werden.
+- **SC-018**: Ein frischer Charakter kann von seinem Startkristall aus **kein** Ziel wählen. Nach dem
+  Fußweg in eine zweite Region und einem Rechtsklick dort kann er es.
+- **SC-019**: Eine erteilte Freischaltung übersteht einen Serverneustart, und ein zweiter Charakter
+  desselben Accounts erbt sie **nicht**.
+- **SC-020**: Bei zu geringem Kontostand bleibt Kontostand **und** Aufenthaltsort unverändert; die
+  Meldung benennt den fehlenden Betrag. Es gibt keinen Zustand, in dem gebucht wurde und nicht
+  gereist — oder umgekehrt.
+- **SC-021**: Der Reisepreis steht in der Zonenkonfiguration. Weder `currency.yml` noch ein zentraler
+  Katalog kennt ihn (ADR-027).
+- **SC-022**: Der Verlauf unterscheidet eine Reise von einem Einkauf und von einer Reparatur.
 - **SC-016**: Solange die Zonenkoordinaten als vorläufig markiert sind, steht bei **jedem** Serverstart
   eine Warnung im Protokoll, die sie als Platzhalter benennt. Wird die Markierung entfernt,
   verschwindet nur die Warnung — das Verhalten des Blocks bleibt gleich.
@@ -622,10 +799,15 @@ Zonenziel-Erfahrung sind anschließbar.
   Tod in der Wildnis nicht vorhersagbar.
 - **Die Warnung gilt je Betreten**, mit einer kurzen konfigurierten Sperre gegen Wiederholung an der
   Grenze. Eine Warnung „nur einmal je Charakter" wäre nach Wochen nicht mehr erklärbar.
-- **Portale sind einseitig.** Ein Rückweg entsteht durch ein zweites Portal am Ziel. Das hält die
-  Beschreibung bei einem Quader und einem Ziel.
-- **Portalauslösung endet mit dem Verlassen des Zielbereichs**, nicht nach einer Zeitspanne — eine
-  Zeitspanne wäre eine Zahl, die niemand herleiten kann.
+- **Der Kristall ist gebaut, nicht gesetzt.** Er steht als Bauwerk in der Karte; die Konfiguration
+  beschreibt nur den Bereich um ihn, in dem ein Rechtsklick zählt. Dieser Block setzt keine Blöcke und
+  erkennt keinen Blocktyp — sonst hinge das Reisen daran, dass niemand den Stein abbaut.
+- **Das Reiseziel ist eine Koordinate, keine Zone.** Ein Kristall verweist auf seinen Ankunftsort,
+  nicht auf eine Region. Damit funktioniert er auch, wenn die Zonen sich ändern.
+- **Freischaltungen werden nie automatisch entzogen.** Weder durch Tod noch durch einen Umbau der
+  Konfiguration. Nur ein Admin-Eingriff könnte das, und der ist hier nicht vorgesehen.
+- **Der Reisepreis ist eine Zahl je Kristall**, nicht je Entfernung. Eine Entfernungsformel wäre
+  Balancing, das ohne gebaute Karte niemand herleiten kann.
 - **Der Kampfzustand kommt aus B05** und wird gelesen, nicht nachgebaut. Die acht Sekunden gehören
   dort hin.
 - **Zonen werden nicht persistiert.** Sie stehen in der Konfiguration; die Zuordnung eines Spielers
@@ -639,7 +821,7 @@ Zonenziel-Erfahrung sind anschließbar.
   Angreifer stehen — nicht, wer sie sind. Damit gilt die Regel auch für Fälle, die es heute noch nicht
   gibt, ohne dass jemand sie nachträgt.
 - **Die vorläufigen Koordinaten liegen auf einer Testwelt** und sind so gewählt, dass sich die sechs
-  Grenzen, die sechs Schutzkerne und die sechs Portale zu Fuß abgehen lassen. Sie sind keine
+  Grenzen, die sechs Schutzkerne und die sechs Kristalle zu Fuß abgehen lassen. Sie sind keine
   Vorwegnahme des Kartenentwurfs.
 
 ## Offene Punkte für `/plan`
@@ -667,10 +849,27 @@ Zonenziel-Erfahrung sind anschließbar.
 6. **Der vierte Todesgrund.** ADR-030 ist angenommen; der Wert im ausgelieferten Enum ist beim
    Planen als Eingriff in B05 zu behandeln, mit dem Compiler als Nachweis, dass jede auswertende
    Stelle den neuen Fall kennt.
+7. **ADR-032 ist zu schreiben, vor Beginn der Umsetzung.** Die Wegpunkt-Kristalle bringen drei
+   Abweichungen in einem: eine Eingabe und ein Auswahlfenster in einem Schicht-2-Block (B13-Gebiet,
+   nach dem Muster von ADR-028 befristet), dauerhaften Zustand je Charakter (B02-Gebiet) und einen
+   neuen Buchungsgrund in B08b (abgeschlossener Block). Drei Eingriffe, ein Grund — ein ADR.
+8. **Wie die Freischaltungen liegen.** Ein eigener Aggregattyp oder ein Anhang am Charakter? ADR-015
+   Punkt 7 verlangt für einen neuen Aggregattyp drei Eintragungen; ein Anhang wäre billiger, aber
+   Freischaltungen wachsen und gehören nicht in einen Datensatz, der bei jedem Login vollständig
+   gelesen wird. Zu entscheiden mit B02s Mustern vor Augen, nicht nach Gefühl.
+9. **Wo der Rechtsklick abgefangen wird.** Nur in der Plattformschicht, und nur innerhalb des
+   Auslösebereichs — die Domäne darf von einem Klick nichts wissen (Prinzip III). Zu klären ist, wie
+   der Klick den Bereich findet, ohne bei jedem Rechtsklick im Spiel alle Kristalle zu prüfen
+   (Prinzip II).
+10. **Wie das Fenster mit vielen Kristallen umgeht.** Sechs passen in ein Inventar; bei zwanzig
+    Regionen später nicht mehr. Der Plan soll benennen, was dann passiert, statt eine Grenze
+    stillschweigend einzubauen.
 
 ## Dependencies
 
 - **B01** — Konfiguration mit Schema-Validierung und Fail-Fast, Ereignisbus, Scheduling-Abstraktion.
+- **B02** — Persistenz für die Freischaltungen der Wegpunkt-Kristalle: Migrationen, Schreib-Puffer und
+  die Muster für einen Aggregattyp (ADR-015 Punkt 7).
 - **B03** — `Character`, An- und Abmeldung, Charakterwechsel. Der Anknüpfungspunkt für Logout und
   Login.
 - **B05** — die eine Schadenserlaubnis, die dieser Block ersetzt; der Kampfzustand samt konfigurierter
@@ -678,6 +877,8 @@ Zonenziel-Erfahrung sind anschließbar.
 - **B06** — die Levelabfrage für das Levelband.
 - **B08** — die Abfrage „offene Welt", die dieser Block bedient.
 - **B04** — die Effektquelle für zonengebundene Effekte, die dieser Block anschlussfähig macht.
+- **B08b** — Kontostand und Buchung für den Reisepreis, samt der Kostenprüfung vor der Reise. Braucht
+  dort einen neuen Buchungsgrund (ADR-032).
 
 Wird benötigt von **B10** (Spawn-Bereiche, Schwierigkeitsmodifikator), **B11** (Loot-Zuordnung,
 Ausrüstungsschaden beim Tod) und **B13** (Zonenanzeige im HUD).
