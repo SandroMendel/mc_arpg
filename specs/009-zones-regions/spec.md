@@ -227,9 +227,16 @@ Autorität), Prinzip VIII (Dokumentation deutsch, Bezeichner und Spielertexte en
   damit der Verlauf eine Reise von einem Einkauf trennt — und das ist ein Eingriff in einen
   abgeschlossenen Block, also Teil von ADR-032.
 
-  *Was daran heikel ist und deshalb als Anforderung steht:* Buchung und Versetzung müssen zusammen
-  gelten (FR-050b). Gebucht und nicht gereist ist ein Diebstahl, gereist und nicht gebucht ein
+  *Was daran heikel ist und deshalb als Anforderung steht:* eine Reise darf nie mit Verlust enden
+  (FR-050b). Gebucht und nicht gereist ist ein Diebstahl, gereist und nicht gebucht ein
   Freifahrtschein.
+
+  **Nachtrag aus `/plan`:** die erste Fassung dieser Anforderung verlangte, dass Buchung und
+  Versetzung „zusammen gelten". `research.md` R1 hat gezeigt, dass das nicht zusagbar ist — die
+  Buchung liegt in B08b, die Versetzung in Paper, und eine gemeinsame Transaktion gibt es nicht.
+  Zusagbar ist die **Wirkung**: abbuchen, versetzen, und bei Fehlschlag mit eigenem Grund
+  zurückbuchen. Weil alle drei Schritte im selben Tick laufen, ist der Vorgang für den Spieler
+  ungeteilt.
 
 ### Session 2026-08-23 — bei `/clarify`, zweite Runde
 
@@ -753,12 +760,21 @@ Zonenziel-Erfahrung sind anschließbar.
   den Charakter danach an den Respawn-Punkt der Zone dieses Kristalls versetzen.
 - **FR-050a**: Reicht der Kontostand nicht, MUSS die Reise unterbleiben — **keine Buchung, keine
   Versetzung** — und die Meldung MUSS den fehlenden Betrag benennen.
-- **FR-050b**: Buchung und Versetzung MÜSSEN zusammen gelten: es DARF NICHT vorkommen, dass gebucht
-  wurde und die Versetzung ausbleibt oder umgekehrt.
+- **FR-050b**: Eine Reise DARF NIEMALS mit Verlust enden. Entweder sie fand statt, oder der
+  Kontostand ist wiederhergestellt — und der Verlauf erklärt beides.
+  *(Umformuliert nach `research.md` R1. Zuvor stand hier „Buchung und Versetzung MÜSSEN zusammen
+  gelten"; das ist nicht zusagbar, weil die Buchung in B08b und die Versetzung in Paper liegen und
+  keine gemeinsame Transaktion haben. Zusagbar ist die Wirkung, nicht die Unteilbarkeit.)*
+- **FR-050e**: Abbuchung, Versetzung und eine mögliche Rückbuchung MÜSSEN in **derselben** Tickphase
+  ablaufen, damit sich keine andere Buchung desselben Charakters dazwischenschieben kann.
+- **FR-050f**: Scheitert die Versetzung nach erfolgter Abbuchung, MUSS der Betrag mit einem **eigenen,
+  von einer gewöhnlichen Gutschrift unterscheidbaren Grund** zurückgebucht werden. Ohne eigenen Grund
+  könnte niemand nachsehen, wie oft der Fall eintritt.
 - **FR-050c**: Der Preis MUSS in der Zonenkonfiguration stehen, bei dem, der ihn verlangt — **nicht**
   in der Währungskonfiguration und **nicht** in einem zentralen Preiskatalog (ADR-027).
 - **FR-050d**: Die Buchung MUSS einen eigenen, unterscheidbaren Grund tragen, damit der Verlauf eine
-  Reise von einem Einkauf trennt.
+  Reise von einem Einkauf trennt. Die Rückbuchung aus FR-050f MUSS einen **zweiten**, davon
+  unterscheidbaren Grund tragen.
 - **FR-051**: Jede der sechs Regionen MUSS mit einem Kristall in ihrem Schutzkern ausgeliefert werden.
 - **FR-051a**: Freischaltungen MÜSSEN **je Charakter** geführt werden, nicht je Account (ADR-011),
   und einen Neustart überstehen.
@@ -899,8 +915,10 @@ Zonenziel-Erfahrung sind anschließbar.
 - **SC-019**: Eine erteilte Freischaltung übersteht einen Serverneustart, und ein zweiter Charakter
   desselben Accounts erbt sie **nicht**.
 - **SC-020**: Bei zu geringem Kontostand bleibt Kontostand **und** Aufenthaltsort unverändert; die
-  Meldung benennt den fehlenden Betrag. Es gibt keinen Zustand, in dem gebucht wurde und nicht
-  gereist — oder umgekehrt.
+  Meldung benennt den fehlenden Betrag.
+- **SC-020a**: Scheitert eine Versetzung nach erfolgter Abbuchung, steht der Kontostand danach
+  **wieder auf dem Ausgangswert**, und der Verlauf zeigt beide Buchungen mit unterschiedlichem Grund.
+  Kein Spieler verliert Coins für eine Reise, die nicht stattfand.
 - **SC-021**: Der Reisepreis steht in der Zonenkonfiguration. Weder `currency.yml` noch ein zentraler
   Katalog kennt ihn (ADR-027).
 - **SC-022**: Der Verlauf unterscheidet eine Reise von einem Einkauf und von einer Reparatur.

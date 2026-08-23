@@ -1578,18 +1578,36 @@ Charakter am härtesten, der das Reisen am meisten braucht. Der Auftraggeber hat
 vorgezogen; die Zahl ist konfigurierbar und damit jederzeit auf null stellbar, falls sich das im
 Spiel als zu hart erweist.
 
-**Die eine Stelle, die im Plan nicht schiefgehen darf.** Buchung und Versetzung müssen zusammen
-gelten. Gebucht und nicht gereist ist ein Diebstahl; gereist und nicht gebucht ein Freifahrtschein.
-Bei zu geringem Kontostand passiert **nichts** ausser einer Meldung, die den fehlenden Betrag benennt
-— dieselbe Form, die B08b für den Rangaufstieg schon hat.
+**Die eine Stelle, die im Plan nicht schiefgehen darf.** Gebucht und nicht gereist ist ein Diebstahl;
+gereist und nicht gebucht ein Freifahrtschein. Bei zu geringem Kontostand passiert **nichts** ausser
+einer Meldung, die den fehlenden Betrag benennt — dieselbe Form, die B08b für den Rangaufstieg schon
+hat.
+
+**Nachtrag vom 2026-08-23, aus `/plan` Phase 0 (`specs/009-zones-regions/research.md` R1).** Die
+Formulierung „Buchung und Versetzung gelten zusammen" ist **nicht zusagbar**. `debit` prüft und zieht
+in einem Schritt ab und ist unteilbar gegenüber anderen Buchungen — aber die Versetzung ist ein
+Paper-Aufruf und kein Teil derselben Buchung. B08bs Vertrag schliesst eine Reservierung sogar
+ausdrücklich aus: „zwei Fähigkeiten im selben Tick würden sonst beide dasselbe Geld ausgeben."
+
+Zusagbar ist die **Wirkung**, nicht die Unteilbarkeit: abbuchen, versetzen, und bei Fehlschlag
+zurückbuchen — alles in derselben Tickphase, in der sich keine andere Buchung dazwischenschieben
+kann. Daraus folgen **zwei** neue Buchungsgründe statt einem:
+
+- `WAYPOINT_TRAVEL` (DEBIT) — die Reise.
+- `WAYPOINT_REFUND` (CREDIT) — die Rückbuchung einer gescheiterten Reise.
+
+Der zweite ist keine Zierde. Ohne ihn wäre eine Rückbuchung im Verlauf nicht von einer gewöhnlichen
+Gutschrift zu unterscheiden, und niemand könnte nachsehen, wie oft der Fall überhaupt eintritt. Die
+Anforderung FR-050b in der Spec ist entsprechend umformuliert und trägt die Begründung.
 
 **Auswirkung.**
 
 - B09 wächst um Eingabe, Fenster und einen persistierten Aggregattyp. Ob die Freischaltungen ein
   eigener Aggregattyp werden (ADR-015 Punkt 7: drei Eintragungen) oder am Charakter hängen, entscheidet
   `/plan` an B02s Mustern.
-- **B08b bekommt einen weiteren Buchungsgrund** — der zweite Eingriff in diesen abgeschlossenen Block
-  nach ADR-030s Todesgrund in B05. Beide Male gilt dieselbe Regel: der Compiler zeigt die Stellen.
+- **B08b bekommt zwei weitere Buchungsgründe** (siehe Nachtrag oben) — der zweite Eingriff in diesen
+  abgeschlossenen Block nach ADR-030s Todesgrund in B05. Beide Male gilt dieselbe Regel: der Compiler
+  zeigt die Stellen.
 - B13 erbt Fenster und Eingabe. Der Steckbrief von B13 trägt diese Schuld ab jetzt, wie er schon
   ADR-028s Kontofenster trägt.
 - Die Entscheidung „Portale als Config-Quader" vom Morgen des 2026-08-23 ist **überholt** und im

@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Schicht** | 2 — Welt & Content |
-| **Status** | **Spezifiziert** *(2026-08-23)* — `specs/009-zones-regions/`, alle offenen Fragen geschlossen, `/specify` und `/clarify` durchlaufen, bereit für `/plan`. Zwei ADRs dabei entstanden: **ADR-030** (Kampf-Logout ist der Tod) und **ADR-032** (Wegpunkt-Kristalle) |
+| **Status** | **Geplant** *(2026-08-23)* — `specs/009-zones-regions/`, `/specify`, zwei `/clarify`-Runden und `/plan` durchlaufen, bereit für `/tasks`. Zwei ADRs dabei entstanden: **ADR-030** (Kampf-Logout ist der Tod) und **ADR-032** (Wegpunkt-Kristalle); ADR-031 (Lasttestphase) wurde dabei ausgelöst. Phase 0 hat FR-050b widerlegt und umformuliert |
 | **Abhängig von** | B01 |
 | **Benötigt von** | B10, B11, B13 |
 
