@@ -221,11 +221,11 @@ später ausloggen → nichts.
 - [X] T071 [US5] Migration `V9_1__character_zone_state.sql` in `rpg-persistence/src/main/resources/db/migration/` — `rpg.character_waypoints` (Primärschlüssel `character_id, crystal_key`) und `rpg.character_zone_state` (`character_id` als Primärschlüssel, `pending_respawn_zone` nullable), beide `REFERENCES rpg.character (character_id) ON DELETE CASCADE`. Kommentar wie in `V4_1` und `V6_1`: dieselbe Zeile erledigt die Anonymisierung (data-model.md §4)
 - [X] T072 [US5] **Eintragung 1 von 3** (ADR-015 Punkt 7): `AggregateType.CHARACTER_ZONE_STATE` in `rpg-core/src/main/java/rpg/core/persistence/AggregateType.java` — mit Javadoc nach dem Muster von `CHARACTER_BALANCE`
 - [X] T073 [US5] **Eintragung 2 von 3**: der Platz in `FlushCycle.WRITE_ORDER` in `rpg-persistence/src/main/java/rpg/persistence/FlushCycle.java` — nach `CHARACTER`, weil der Fremdschlüssel darauf zeigt. Eine fehlende Eintragung lässt die Marken bei jedem Flush als fehlgeschlagen zählen; das steht als Warnung im Javadoc von `AggregateType`
-- [ ] T074 [US5] **Eintragung 3 von 3**: `persistence.flushCycle().register(AggregateType.CHARACTER_ZONE_STATE, repository)` in `rpg-persistence/.../zone/ZonePersistenceModule.java`, nach dem Muster von `AbilityModule` und `ClassesModule`
-- [ ] T075 [US5] `PendingRespawn` in `rpg-core/.../zone/PendingRespawn.java` und `PendingRespawnRepository` als Schnittstelle
-- [ ] T076 [US5] `JdbcPendingRespawnRepository` in `rpg-persistence/src/main/java/rpg/persistence/zone/JdbcPendingRespawnRepository.java` — Schreiben über B02s Puffer, kein Datenbankzugriff im Spielereignis (FR-063)
-- [ ] T077 [US5] `ZoneStateAggregateTest` in `rpg-persistence/src/test/java/rpg/persistence/zone/` — **Testcontainers gegen echtes PostgreSQL** (Prinzip VII.2): Merker übersteht einen Neustart; `ON DELETE CASCADE` räumt beim Löschen des Charakters ab
-- [ ] T078 [US5] `AggregateRegistrationTest` in `rpg-persistence/src/test/java/rpg/persistence/zone/` — alle drei Eintragungen vorhanden; fehlt eine, schlägt der Test fehl statt der Flush (ADR-015 Punkt 7)
+- [X] T074 [US5] **Eintragung 3 von 3**: `persistence.flushCycle().register(AggregateType.CHARACTER_ZONE_STATE, repository)` in `rpg-persistence/.../zone/ZonePersistenceModule.java`, nach dem Muster von `AbilityModule` und `ClassesModule`
+- [X] T075 [US5] `PendingRespawn` in `rpg-core/.../zone/PendingRespawn.java` und `PendingRespawnRepository` als Schnittstelle
+- [X] T076 [US5] `JdbcPendingRespawnRepository` in `rpg-persistence/src/main/java/rpg/persistence/zone/JdbcPendingRespawnRepository.java` — Schreiben über B02s Puffer, kein Datenbankzugriff im Spielereignis (FR-063)
+- [X] T077 [US5] `ZoneStateAggregateTest` in `rpg-persistence/src/test/java/rpg/persistence/zone/` — **Testcontainers gegen echtes PostgreSQL** (Prinzip VII.2): Merker übersteht einen Neustart; `ON DELETE CASCADE` räumt beim Löschen des Charakters ab
+- [X] T078 [US5] `AggregateRegistrationTest` in `rpg-persistence/src/test/java/rpg/persistence/zone/` — alle drei Eintragungen vorhanden; fehlt eine, schlägt der Test fehl statt der Flush (ADR-015 Punkt 7)
 
 ### Tests für US5
 
