@@ -123,6 +123,8 @@ rpg-core/src/main/java/rpg/core/zone/
 ├── ZoneConfigSchema.java       # Fail-Fast, die zehn Startverweigerungen
 ├── ZoneChangedEvent.java
 ├── SafeAreaCrossedEvent.java
+├── ZoneTracker.java            # letzte bekannte Zuordnung je Charakter, vergleicht und meldet
+├── LevelBandGuard.java         # hört auf den Zonenwechsel, entscheidet über die Warnung
 ├── ZoneDamagePermission.java   # umschliesst B05s Vorgaberegel, ersetzt sie nicht doppelt
 ├── ZoneWorldCondition.java     # löst B08s isOpenWorld ein
 ├── Waypoints.java              # Freischaltungen (Schnittstelle)
@@ -131,6 +133,7 @@ rpg-core/src/main/java/rpg/core/zone/
 ├── DefaultTravel.java          # abbuchen → versetzen → bei Fehlschlag zurückbuchen
 ├── Teleporter.java             # Schnittstelle; die Plattform setzt sie um
 ├── PendingRespawn.java         # der Merker für den Kampf-Logout
+├── PendingRespawnRepository.java
 ├── ZoneMessageKeys.java
 └── ZoneModule.java             # start(), applyReloadedConfig()
 

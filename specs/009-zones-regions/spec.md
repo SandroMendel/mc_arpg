@@ -416,7 +416,7 @@ Schutzkern und in allen anderen Regionen weiter verboten.
 
 ### User Story 4 - Der Tod führt nach Hause (Priority: P4)
 
-Ein Spieler stirbt in *The Terracotta Canyons*. Er erscheint in der Safe-Zone dieser Region und
+Ein Spieler stirbt in *The Terracotta Canyons*. Er erscheint im Schutzkern dieser Region und
 liest, dass er gestorben ist. Er verliert keine Erfahrung und kein Item.
 
 **Why this priority**: Es ist die zweite spürbare Wirkung im Spiel und die Voraussetzung für US5 —
@@ -427,8 +427,8 @@ einem Gebiet ohne Region sterben und prüfen, dass der Ausweichpunkt greift.
 
 **Acceptance Scenarios**:
 
-1. **Given** ein Spieler in *The Terracotta Canyons*, **When** er stirbt, **Then** erscheint er in
-   der Safe-Zone dieser Region und erhält die Todesmeldung.
+1. **Given** ein Spieler in *The Terracotta Canyons*, **When** er stirbt, **Then** erscheint er im
+   Schutzkern dieser Region und erhält die Todesmeldung.
 2. **Given** ein Spieler außerhalb aller Regionen, **When** er stirbt, **Then** erscheint er am
    konfigurierten Ausweichpunkt.
 3. **Given** ein Spieler stirbt, **When** danach sein Stand geprüft wird, **Then** ist seine
@@ -446,13 +446,13 @@ einem Gebiet ohne Region sterben und prüfen, dass der Ausweichpunkt greift.
 ### User Story 5 - Wer im Kampf verschwindet, stirbt (Priority: P5)
 
 Ein Spieler kämpft und verliert. Statt zu sterben, verlässt er den Server. Beim nächsten Anmelden
-steht er in der Safe-Zone seiner Region und liest, dass er im Kampf ausgeloggt ist und deshalb
+steht er im Schutzkern seiner Region und liest, dass er im Kampf ausgeloggt ist und deshalb
 gestorben ist.
 
 **Why this priority**: Die Regel schließt die verlässlichste Fluchtmöglichkeit im Spiel. Sie braucht
 US4s Respawn-Punkt und ist deshalb danach eingeordnet, nicht weil sie unwichtiger wäre.
 
-**Independent Test**: Innerhalb der acht Kampfsekunden ausloggen und wieder anmelden — Safe-Zone plus
+**Independent Test**: Innerhalb der acht Kampfsekunden ausloggen und wieder anmelden — Schutzkern plus
 Meldung. Nach Ablauf der acht Sekunden ausloggen — nichts passiert, der Spieler erscheint dort, wo er
 war.
 
@@ -461,7 +461,7 @@ war.
 1. **Given** ein Spieler gilt als im Kampf, **When** er den Server verlässt, **Then** stirbt sein
    Charakter mit dem Todesgrund „Logout".
 2. **Given** ein Charakter ist beim Logout gestorben, **When** der Spieler sich wieder anmeldet,
-   **Then** steht er in der Safe-Zone seiner Region und erhält eine Meldung, die den Grund benennt.
+   **Then** steht er im Schutzkern seiner Region und erhält eine Meldung, die den Grund benennt.
 3. **Given** der letzte Treffer liegt länger als die konfigurierten Kampfsekunden zurück, **When**
    der Spieler den Server verlässt, **Then** passiert nichts, und er erscheint beim nächsten
    Anmelden dort, wo er war.
@@ -476,11 +476,11 @@ war.
 
 ### User Story 6 - Wegpunkt-Kristalle, freigeschaltet und bezahlt (Priority: P6)
 
-In der Safe-Zone jeder Region steht ein Kristall. Der Spieler klickt ihn zum ersten Mal mit der
+Im Schutzkern jeder Region steht ein Kristall. Der Spieler klickt ihn zum ersten Mal mit der
 rechten Maustaste an und **schaltet ihn damit frei**. Klickt er ihn danach wieder an, öffnet sich ein
 Fenster mit allen Kristallen der Welt: die freigeschalteten kann er wählen, die übrigen sieht er auch,
 aber ein Klick darauf sagt ihm nur, dass sie noch nicht freigeschaltet sind. Wählt er ein Ziel,
-kostet die Reise Coins — und er steht in der Safe-Zone der Zielregion.
+kostet die Reise Coins — und er steht im Schutzkern der Zielregion.
 
 **Why this priority**: Bequemlichkeit, kein Fundament — der Block ist ohne Kristalle spielbar, nur
 mühsam. Zuletzt eingeordnet, obwohl es die aufwendigste Geschichte des Blocks ist: sie ist die
@@ -503,8 +503,8 @@ gesunken ist und die Freischaltung einen Neustart übersteht.
    **Then** wird er nicht versetzt, es wird nichts gebucht, und er erhält die Meldung, dass dieser
    Kristall noch nicht freigeschaltet ist.
 4. **Given** das Fenster ist offen und der Charakter hat genug Coins, **When** er einen
-   freigeschalteten Kristall wählt, **Then** wird der konfigurierte Betrag gebucht, er steht in der
-   Safe-Zone der Zielregion, und der Zonenwechsel ist gefeuert.
+   freigeschalteten Kristall wählt, **Then** wird der konfigurierte Betrag gebucht, er steht im
+   Schutzkern der Zielregion, und der Zonenwechsel ist gefeuert.
 5. **Given** der Charakter hat **zu wenig** Coins, **When** er ein Ziel wählt, **Then** wird nichts
    gebucht, er wird nicht versetzt, und die Meldung benennt den fehlenden Betrag.
 6. **Given** eine Freischaltung wurde erteilt, **When** der Server neu startet, **Then** ist sie noch
@@ -852,6 +852,12 @@ Zonenziel-Erfahrung sind anschließbar.
   keinen Kartenstand darstellen. Der Start wird davon nicht verhindert.
 - **FR-065c**: Das Entfernen dieses Wertes DARF NICHTS ausser der Warnung ändern — die Vorläufigkeit
   ist ein Hinweis, keine zweite Betriebsart.
+- **FR-065d**: Die Levelbänder der ausgelieferten Zonen MÜSSEN **von Stufe 1 bis zur Maximalstufe
+  lückenlos und ohne Überlappung** reichen. Die Maximalstufe ist der höchste Schlüssel der
+  Erfahrungskurve, keine Konstante im Code — wird die Kurve verlängert, ohne eine Region zu ergänzen,
+  MUSS das auffallen.
+  *(Ergänzt am 2026-08-23 nach `/analyze`: T030 prüfte diese Zusage schon, aber keine Anforderung
+  hatte sie ausgesprochen — sie stand nur in der Prosa.)*
 
 ### Key Entities
 
@@ -862,7 +868,10 @@ Zonenziel-Erfahrung sind anschließbar.
 - **Geometrie**: eine Liste von Quadern mit optionalen Y-Grenzen. Dieselbe Form trägt Zone,
   Schutzkern, Spawn-Bereich und Kristall-Auslösebereich — ein Geometriesystem, nicht vier.
 - **Schutzkern**: ein Bereich innerhalb einer Zone, der einzelne Regeln überschreibt: kein PvP, kein
-  Mob-Spawn. Keine eigene Zone.
+  Mob-Spawn, überhaupt kein Schaden. Keine eigene Zone.
+  **Leitwort.** In den Klärungen heisst dieselbe Sache *Safe-Zone* — so hat der Auftraggeber sie
+  genannt, und dort bleibt der Wortlaut stehen. In Anforderungen, Geschichten und Kriterien steht
+  **Schutzkern**; der Konfigurationsschlüssel heisst `safe-core` (Prinzip VIII: Keys englisch).
 - **Zonenregeln**: Levelband, PvP-Schalter, Respawn-Punkt und die Markierung als Startregion. Jede ist
   hier auch ausgewertet. Schwierigkeitsmodifikator und Loot-Zuordnung fehlen bewusst (FR-056, FR-057).
 - **Respawn-Punkt**: die eine Koordinate je Region. Sie dient dem Spielbeginn (nur in der

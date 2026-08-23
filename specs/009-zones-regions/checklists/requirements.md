@@ -59,7 +59,7 @@ Die Kristalle aus Runde 1 hatten viel neue Oberfläche geschaffen; dort saßen a
    einmal richtig ausgeführten `/setworldspawn`. Damit dient die eine Koordinate je Region **dreimal**
    — Spielbeginn, Tod, Reiseziel.
 
-Nach beiden Runden: **96 Anforderungen, 27 Erfolgskriterien** (Ausgangsstand 70 und 16).
+Nach beiden Runden: **96 Anforderungen, 27 Erfolgskriterien** (Ausgangsstand 70 und 16). *Stand nach `/plan` und `/analyze`: **100 Anforderungen, 28 Erfolgskriterien**, 143 Aufgaben.*
 
 ---
 
@@ -110,7 +110,8 @@ Nach Runde 1 waren es **85 Anforderungen und 22 Erfolgskriterien** — vorher 70
 2. **Was liefert die Konfiguration aus, solange die Karte fehlt? → Sechs Regionen mit vorläufigen
    Koordinaten plus Startwarnung** (FR-065 bis FR-065c, SC-016). Die Vorläufigkeit steht als Wert in
    der Datei, nicht als Kommentar; solange er gesetzt ist, warnt der Server bei jedem Start. Ein
-   Kopfkommentar hat bei T103 nicht gereicht — deshalb an der Stelle, wo hingesehen wird.
+   Kopfkommentar hat bei **B08bs T103** nicht gereicht — deshalb an der Stelle, wo hingesehen wird.
+   *(Nicht mit T103 dieses Blocks verwechseln, das ist der Kristall-Index.)*
 
 **Zu „No implementation details" und „technology-agnostic".** Die Spec benennt Quader-Geometrie,
 Chunk-Index, die bukkit-freie Domänenschicht, die Namen wartender Schnittstellen und einzelne
@@ -135,7 +136,18 @@ das Schreiben von ADR-032, die Ablage der Freischaltungen (eigener Aggregattyp o
 Charakter), das Abfangen des Rechtsklicks ohne Prüfung aller Kristalle bei jedem Klick, und was
 passiert, wenn mehr Kristalle existieren als in ein Fenster passen.
 
-**Was `/plan` als erstes zu prüfen hat:** ob FR-050b haltbar ist — Buchung und Versetzung müssen
-zusammen gelten. Gebucht und nicht gereist ist ein Diebstahl, gereist und nicht gebucht ein
-Freifahrtschein. Das ist die einzige Stelle des Blocks, an der ein Fehler Spielern direkt Besitz
-nimmt.
+**Was `/plan` zu prüfen hatte, und was dabei herauskam.** Die Frage war, ob FR-050b haltbar ist —
+damals formuliert als „Buchung und Versetzung müssen zusammen gelten". **`research.md` R1 hat sie
+widerlegt:** die Buchung liegt in B08b, die Versetzung in Paper, eine gemeinsame Transaktion gibt es
+nicht, und B08bs Vertrag schliesst eine Reservierung ausdrücklich aus. Zusagbar ist die Wirkung —
+abbuchen, versetzen, bei Fehlschlag mit eigenem Grund zurückbuchen, alles im selben Tick. FR-050b ist
+entsprechend neu gefasst, FR-050d bis FR-050f und SC-020a kamen hinzu, und `WAYPOINT_REFUND` wurde
+der zweite neue Buchungsgrund. Bewacht von T098.
+
+Es bleibt die einzige Stelle des Blocks, an der ein Fehler Spielern direkt Besitz nimmt.
+
+**Nach `/analyze` (2026-08-23)** kam ein kritischer Befund hinzu: die Prüfung, ob die Weltangabe einer
+Zone eine existierende Welt benennt, war beim Umschreiben von FR-051c verschwunden — sie hatte an der
+falschen Anforderung gehangen. Sie steht jetzt als **FR-002a** bei FR-002. Ebenfalls ergänzt:
+**FR-065d** (die Levelbänder decken 1 bis zur Maximalstufe lückenlos ab — T030 prüfte das schon,
+ohne dass eine Anforderung es aussprach), sowie Aufgaben für FR-058 und FR-060, die keine hatten.
