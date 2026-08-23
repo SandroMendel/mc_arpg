@@ -314,7 +314,7 @@ final class AbilityFixture {
     }
 
     /**
-     * Magisches Leben, wie es seit ADR-027 aussieht: ein Anteil statt eines Ausweichens, gefiltert
+     * Magisches Leben in seiner heutigen Form: ein Anteil statt eines Ausweichens, gefiltert
      * ueber die HERKUNFT statt ueber den Schadenstyp.
      *
      * <p>Rang 1 mildert zehn Prozent, jeder weitere fuenf - eine groebere Stufung als die

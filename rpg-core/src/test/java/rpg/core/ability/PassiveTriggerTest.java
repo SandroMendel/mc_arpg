@@ -254,7 +254,7 @@ class PassiveTriggerTest {
     }
 
     /**
-     * ADR-027: Magisches Leben mildert den Auto-Angriff, statt magischem Schaden auszuweichen.
+     * Magisches Leben mildert den Auto-Angriff, statt magischem Schaden auszuweichen.
      *
      * <p>Der Filter steht hier auf der Herkunft, nicht auf dem Schadenstyp - und das ist der Kern:
      * die alte Fassung wies magischen Schaden ab und traf damit im Spiel auf nichts, weil Mobs
