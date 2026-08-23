@@ -316,16 +316,16 @@ sind namentlich abfragbar.
 
 ### Tests für US7
 
-- [ ] T118 [P] [US7] `ZoneWorldConditionTest` in `rpg-core/src/test/java/rpg/core/zone/` — ohne Instanzen lautet die Antwort überall ja, **als Entscheidung**; ein Test, der die Begründung im Javadoc mitprüft, wäre zu viel, aber der Kommentar muss sie nennen (FR-052)
-- [ ] T119 [P] [US7] `SpawnAreaQueryTest` in `rpg-core/src/test/java/rpg/core/zone/` — jede der sechs Regionen liefert mehrere Bereiche mit Kennung und Geometrie **und nichts sonst**; dieser Block spawnt nichts darin (FR-053a, FR-054)
+- [X] T118 [P] [US7] `ZoneWorldConditionTest` in `rpg-core/src/test/java/rpg/core/zone/` — ohne Instanzen lautet die Antwort überall ja, **als Entscheidung**; ein Test, der die Begründung im Javadoc mitprüft, wäre zu viel, aber der Kommentar muss sie nennen (FR-052)
+- [X] T119 [P] [US7] `SpawnAreaQueryTest` in `rpg-core/src/test/java/rpg/core/zone/` — jede der sechs Regionen liefert mehrere Bereiche mit Kennung und Geometrie **und nichts sonst**; dieser Block spawnt nichts darin (FR-053a, FR-054)
 
 ### Umsetzung US7
 
-- [ ] T120 [US7] `ZoneWorldCondition` in `rpg-core/.../zone/ZoneWorldCondition.java` — löst B08s `WorldCondition.isOpenWorld` ein. Javadoc: die Antwort ist eine **Entscheidung**, keine unfertige Umsetzung, und sie ändert sich, sobald eine Instanzwelt dazukommt (FR-052)
-- [ ] T121 [US7] Einsetzen in `rpg-plugin/src/main/java/rpg/plugin/RpgPlugin.java` an der Stelle, an der bisher `WorldCondition.everywhere()` steht (ADR-012)
-- [ ] T122 [US7] `spawnAreasOf` in `rpg-core/src/main/java/rpg/core/zone/DefaultZones.java` (FR-054)
-- [ ] T122a [P] [US7] `ZoneDisplayHandoffTest` in `rpg-core/src/test/java/rpg/core/zone/` — was B13 zum Anzeigen bekommt, ist **Kennung und Ereignis**, nie ein fertiger Anzeigetext; kein Rückgabewert dieses Blocks trägt einen aufgelösten Zonennamen (FR-058, FR-003a)
-- [ ] T123 [US7] Im `package-info.java` festhalten, dass `XpSource.ZONE_OBJECTIVE` und `SourceKind` für zonengebundene Effekte **unbefüllt bleiben** — der erste braucht Zonenziele, der zweite den herausgenommenen Schwierigkeitsmodifikator. Zwei der vier wartenden Schnittstellen sind eingelöst, zwei warten weiter, und das steht da (research.md R12)
+- [X] T120 [US7] `ZoneWorldCondition` in `rpg-core/.../zone/ZoneWorldCondition.java` — löst B08s `WorldCondition.isOpenWorld` ein. Javadoc: die Antwort ist eine **Entscheidung**, keine unfertige Umsetzung, und sie ändert sich, sobald eine Instanzwelt dazukommt (FR-052)
+- [X] T121 [US7] Einsetzen in `rpg-plugin/src/main/java/rpg/plugin/RpgPlugin.java` an der Stelle, an der bisher `WorldCondition.everywhere()` steht (ADR-012)
+- [X] T122 [US7] `spawnAreasOf` in `rpg-core/src/main/java/rpg/core/zone/DefaultZones.java` (FR-054)
+- [X] T122a [P] [US7] `ZoneDisplayHandoffTest` in `rpg-core/src/test/java/rpg/core/zone/` — was B13 zum Anzeigen bekommt, ist **Kennung und Ereignis**, nie ein fertiger Anzeigetext; kein Rückgabewert dieses Blocks trägt einen aufgelösten Zonennamen (FR-058, FR-003a)
+- [X] T123 [US7] Im `package-info.java` festhalten, dass `XpSource.ZONE_OBJECTIVE` und `SourceKind` für zonengebundene Effekte **unbefüllt bleiben** — der erste braucht Zonenziele, der zweite den herausgenommenen Schwierigkeitsmodifikator. Zwei der vier wartenden Schnittstellen sind eingelöst, zwei warten weiter, und das steht da (research.md R12)
 
 **Checkpoint**: alle sieben Geschichten laufen.
 

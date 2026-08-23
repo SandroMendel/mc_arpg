@@ -38,6 +38,21 @@
  *       difficulty modifier that is no longer here.
  * </ul>
  *
+ * <p><b>Four shipped blocks left an interface waiting for B09. Two are redeemed, two are not, and
+ * the score is written down rather than left to be worked out.</b>
+ *
+ * <ul>
+ *   <li><b>Redeemed:</b> {@code WorldCondition.isOpenWorld} from B08 - answered by
+ *       {@link rpg.core.zone.ZoneWorldCondition} (FR-052), and {@code DamagePermission} from B05 -
+ *       replaced, not duplicated, by {@link rpg.core.zone.ZoneDamagePermission} (FR-026).
+ *   <li><b>Still waiting:</b> {@code XpSource.ZONE_OBJECTIVE} from B06 and {@code SourceKind} for
+ *       zone-bound effects from B04. Neither is an oversight and neither is B09's to fill: the first
+ *       needs objectives inside a zone, which is content and not geometry; the second needed the
+ *       difficulty modifier that {@code /clarify} took out of scope. A block that filled them anyway
+ *       would be producing values nothing consumes, which is worse than an honest gap
+ *       (research.md R12).
+ * </ul>
+ *
  * <p><b>Where this block reaches past its own layer</b>, each covered by an ADR agreed before
  * implementation began:
  *

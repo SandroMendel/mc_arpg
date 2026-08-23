@@ -69,8 +69,8 @@ public record Zone(
         return safeCore.isPresent() && safeCore.get().area().contains(x, y, z);
     }
 
-    /** The message key for this zone's player-facing name (FR-003a). */
-    public String nameKey() {
-        return "zone." + key + ".name";
-    }
+    // No nameKey() here. There was one, unused, building "zone." + key + ".name" by hand - a second
+    // place that knew how a zone name is addressed, next to ZoneMessageKeys.nameOf. Two of them is
+    // one too many for a block whose whole naming promise (FR-003a, FR-048b, SC-026) is that there is
+    // exactly one. ZoneDisplayHandoffTest found it, which is what that test is for.
 }

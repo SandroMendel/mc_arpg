@@ -100,7 +100,21 @@ public final class DefaultZones implements Zones {
 
     @Override
     public Optional<Zone> byKey(String zoneKey) {
-        return Optional.ofNullable(byKey.get(zoneKey));
+        return Optional.ofNullable(zone(zoneKey));
+    }
+
+    /**
+     * One lookup for every by-key query, and it tolerates a {@code null} key.
+     *
+     * <p>The map is immutable, and an immutable map does not merely miss a null key - it refuses it
+     * with a {@link NullPointerException}. Every caller here got its key from somewhere that answers
+     * {@code null} for "outside every region": the tracker for a holder in the wilderness, a pending
+     * respawn that was never set. Those are ordinary states rather than faults, and each of them
+     * would otherwise have needed a guard of its own - until somebody added a fourth query and forgot
+     * one. {@code SpawnAreaQueryTest} found the first of them.
+     */
+    private Zone zone(String zoneKey) {
+        return zoneKey == null ? null : byKey.get(zoneKey);
     }
 
     @Override
@@ -115,7 +129,7 @@ public final class DefaultZones implements Zones {
 
     @Override
     public Optional<WorldPosition> respawnPointOf(String zoneKey) {
-        Zone zone = byKey.get(zoneKey);
+        Zone zone = zone(zoneKey);
         if (zone == null) {
             return Optional.empty();
         }
@@ -127,9 +141,15 @@ public final class DefaultZones implements Zones {
         return fallbackPoint;
     }
 
+    /**
+     * <b>An unknown or absent region answers empty rather than throwing.</b> B10 will call this from
+     * a spawn event, with a key that came from asking where somebody is - and that answers
+     * {@code null} for anybody standing between two regions. An exception there would be a fault in
+     * the wrong block, caused by a player walking.
+     */
     @Override
     public List<SpawnArea> spawnAreasOf(String zoneKey) {
-        Zone zone = byKey.get(zoneKey);
+        Zone zone = zone(zoneKey);
         return zone == null ? List.of() : zone.spawnAreas();
     }
 

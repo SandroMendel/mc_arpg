@@ -980,9 +980,11 @@ public class RpgPlugin extends JavaPlugin {
         rpg.platform.ability.PaperPassiveHooks hooks =
                 new rpg.platform.ability.PaperPassiveHooks(getServer(), messages, getLogger());
         passives.setBehindTargetCheck(hooks.behindTarget());
-        // No setWorldCondition: B09 owns that distinction and does not exist. The default lets
-        // everything through, which makes Second Life work inside an instance too - wrong, visible,
-        // and better than the opposite default, where the unique would silently do nothing (ADR-025).
+        // B09's answer, and it replaces the default rather than agreeing with it by accident
+        // (FR-052). Both say yes everywhere; the difference is that this one was decided - the
+        // release ships no instances, so there is nowhere that is not the open world. When an
+        // instance world arrives, one method body changes and this line stays (ADR-006, ADR-025).
+        passives.setWorldCondition(new rpg.core.zone.ZoneWorldCondition());
         effects.register(
                 rpg.core.ability.EffectType.STATUS_EFFECT,
                 new rpg.core.ability.effect.StatusEffectEffect(hooks.statusEffects()));
