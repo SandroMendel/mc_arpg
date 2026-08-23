@@ -231,6 +231,77 @@ Autorität), Prinzip VIII (Dokumentation deutsch, Bezeichner und Spielertexte en
   gelten (FR-050b). Gebucht und nicht gereist ist ein Diebstahl, gereist und nicht gebucht ein
   Freifahrtschein.
 
+### Session 2026-08-23 — bei `/clarify`, zweite Runde
+
+- Q: Darf ein Spieler reisen, während er als im Kampf gilt? → A: **Nein, gesperrt, mit Meldung.** Nach
+  Ablauf der acht Kampfsekunden geht es.
+
+  **Warum das keine Härte ist:** der Schutzkern ist seit derselben Sitzung vollständig schadensfrei.
+  Wer verfolgt wird, erreicht den Kristall also unverletzbar und **ist dort sicher** — ihm die Reise
+  für acht Sekunden zu verwehren nimmt ihm keinen Schutz, nur Bequemlichkeit.
+
+  **Warum es trotzdem nötig ist:** ohne die Sperre wäre Reisen der bezahlte Fluchtweg aus jedem
+  Kampf. ADR-030 hat diesen Weg beim Ausloggen gerade geschlossen; ihn beim Reisen offen zu lassen
+  hätte dieselbe Lücke mit Coins als Eintrittspreis wieder aufgemacht — und Mobs überall ihre Drohung
+  genommen, solange man in Richtung Spawn läuft.
+
+  *Was es kostet:* nichts Neues. Es wird derselbe Kampfzustand gelesen, der schon für den
+  Kampf-Logout gelesen wird — dieselbe Zahl, dieselbe Quelle, kein zweites Zeitfenster.
+
+- Q: Hat ein Kristall einen eigenen Ankunftsort oder benutzt er den Respawn-Punkt seiner Region? → A:
+  **Ein Ort je Region.** Der Respawn-Punkt der Zone ist auch das Reiseziel ihres Kristalls. Der
+  Kristall trägt Kennung, Auslösebereich und Preis — **kein eigenes Ziel**.
+
+  **Warum:** beide Koordinaten hätten im selben Schutzkern gelegen und wären in der Praxis fast
+  identisch gewesen. Zwei Werte, die dasselbe meinen, driften auseinander, und es fällt erst auf, wenn
+  jemand nach dem Tod woanders steht als nach der Reise. Ein Wert beschreibt zugleich die Wirklichkeit
+  besser: der Spawn einer Region ist *der* Ort, an dem man in ihr ankommt — wodurch auch immer.
+
+  *Zwei Anforderungen sind dadurch weggefallen:* die Prüfung eines eigenen Kristallziels auf eine
+  unbekannte Welt und die Erlaubnis, in der Wildnis anzukommen. Ein Kristall gehört jetzt zu seiner
+  Zone; eine Zone ohne Schutzkern kann keinen tragen, weil er kein Ziel hätte.
+
+- Q: Was passiert mit den Freischaltungen, wenn ein Charakter gelöscht wird? → A: **Sie werden mit
+  ihm gelöscht.** Die Freischaltung hängt an der Charakterkennung und endet mit ihr; ein neuer
+  Charakter im selben Slot fängt bei null an.
+
+  **Warum:** alles andere führte zu einem Charakter, der Ziele kennt, die er nie besucht hat — und
+  untergräbt genau das, was das Modell erhalten soll: die erste Reise.
+
+  *Was das kostet: nichts.* Die Prüfung hat gezeigt, dass das Projekt dafür längst ein Muster hat —
+  jede charakterbezogene Tabelle trägt `REFERENCES rpg.character (character_id) ON DELETE CASCADE`,
+  und B02 besitzt den Löschpfad. Die Freischaltungen folgen diesem Muster und brauchen keinen eigenen
+  Anschluss an B03. Dieselbe Zeile erledigt zugleich die Anonymisierung, wie die Kommentare in den
+  vorhandenen Migrationen festhalten.
+
+- Q: Zeigt das Fenster die Namen gesperrter Kristalle, oder bleiben sie verdeckt? → A: **Name und
+  Levelband, erkennbar gesperrt.** Der Spieler liest „The Pale Wilds · 51–60" ausgegraut.
+
+  **Warum nichts verdeckt wird:** die Regionen liegen offen auf einem Kontinent, den jeder betreten
+  darf, ohne etwas freizuschalten (FR-022). Etwas zu verbergen, was ein Spaziergang enthüllt, kostet
+  nur Klarheit. Und das Levelband im Fenster ist der beste Hinweis darauf, wohin ein Charakter als
+  nächstes gehört — deutlicher als jede Warnung an einer Grenze.
+
+  *Eine Folge für die Umsetzung:* der Name im Fenster kommt aus demselben Message-Schlüssel wie
+  überall sonst. Ein zweiter Ort für Zonennamen wäre genau die Doppelung, die die erste Frage dieser
+  Klärungsrunde beseitigt hat.
+
+- Q: Wo erscheint ein neu erstellter Charakter zum ersten Mal — legt B09 das fest? → A: **Ja.** Genau
+  eine Region wird als **Startregion** markiert; ein neuer Charakter erscheint an ihrem Respawn-Punkt.
+
+  **Warum hierher:** die Spec regelte, wohin der Tod führt und wohin ein Kampf-Logout führt, aber
+  nicht, wo jemand anfängt. Ohne Regel erschien ein frischer Charakter am Weltspawn von Minecraft — und
+  ob der im Schutzkern der *Greenfields* liegt, hinge daran, dass jemand einmal `/setworldspawn`
+  richtig ausgeführt hat. Der wichtigste Ort des Spiels stünde damit in einer Servereinstellung, die
+  niemand versioniert.
+
+  **Damit dient dieselbe Koordinate je Region dreimal:** Spielbeginn, Tod und Reiseziel. Das ist die
+  Fortsetzung derselben Entscheidung, die eben schon Tod und Reise zusammengelegt hat.
+
+  *Wo die Grenze bleibt:* B09 **liefert** den Ort, es setzt den Charakter nicht selbst. Die
+  Charaktererstellung gehört B07 und die Anmeldung B03; beide fragen diesen Block, wie sie ihn heute
+  schon für den Respawn fragen werden.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Der Spieler steht in einer Region, und das System weiß es (Priority: P1)
@@ -357,6 +428,11 @@ einem Gebiet ohne Region sterben und prüfen, dass der Ausweichpunkt greift.
    Erfahrung unverändert und sein Inventar vollständig.
 4. **Given** eine Region wurde nach dem Tod aus der Konfiguration entfernt, **When** der Spieler
    erscheint, **Then** greift der Ausweichpunkt, statt dass die Anmeldung fehlschlägt.
+5. **Given** *The Greenfields* ist als Startregion markiert, **When** ein Charakter neu erstellt wird,
+   **Then** erscheint er an deren Respawn-Punkt — unabhängig davon, wo der Weltspawn der
+   Minecraft-Welt liegt.
+6. **Given** eine Konfiguration ohne oder mit zwei Startregionen, **When** der Server startet,
+   **Then** startet er nicht, und die Meldung benennt das Problem.
 
 ---
 
@@ -431,6 +507,15 @@ gesunken ist und die Freischaltung einen Neustart übersteht.
 8. **Given** ein Kristall wird aus der Konfiguration entfernt, **When** ein Charakter das Fenster
    öffnet, der ihn freigeschaltet hatte, **Then** erscheint er nicht mehr, und die Freischaltung
    schadet nicht.
+9. **Given** ein Charakter gilt als im Kampf und steht im Schutzkern, **When** er ein
+   freigeschaltetes Ziel wählt, **Then** wird nichts gebucht, er bleibt stehen, und die Meldung
+    benennt den Kampf als Grund. Verletzbar ist er dabei nicht — der Kern schützt weiter.
+10. **Given** derselbe Charakter, **When** die acht Kampfsekunden abgelaufen sind, **Then** gelingt
+    dieselbe Reise.
+11. **Given** ein Charakter reist nach *The Dustlands* und stirbt dort später, **When** beides
+    verglichen wird, **Then** ist er beide Male an **derselben** Koordinate erschienen.
+12. **Given** ein Charakter mit mehreren Freischaltungen wird gelöscht, **When** im selben Slot ein
+    neuer Charakter derselben Klasse entsteht, **Then** hat dieser **keine** Freischaltung.
 
 ---
 
@@ -502,9 +587,12 @@ Zonenziel-Erfahrung sind anschließbar.
   endgültig verlieren liesse, den der Betreiber nur kurz herausgenommen hat.
 - **Zwei Charaktere desselben Accounts.** Getrennte Freischaltungen (ADR-011). Wer mit dem Warrior
   überall war, fängt mit dem Mage wieder bei null an.
-- **Rechtsklick auf einen Kristall in einer Region, die es nicht mehr gibt.** Der Kristall gehört der
-  Konfiguration, nicht der Region — er funktioniert weiter, und sein Ankunftsort ist eine Koordinate,
-  keine Zone.
+- **Eine Region wird entfernt, ihr Kristall damit auch.** Er gehört zu seiner Zone, also verschwindet
+  er mit ihr — aus der Welt der Auswahl wie aus dem Fenster. Die Freischaltungen der Spieler bleiben
+  liegen und wirken wieder, wenn die Region zurückkommt.
+- **Ein Ziel fällt zwischen Öffnen und Klicken weg** (Neuladen der Konfiguration bei offenem Fenster).
+  Geprüft wird beim **Klicken**, nicht beim Öffnen: das Ziel existiert nicht mehr, es wird nichts
+  gebucht und nicht versetzt, und die Meldung sagt es.
 - **Der Spieler wechselt den Charakter.** Region und Schutzkern-Zustand hängen am Charakter, nicht am
   Spielerkonto — nach dem Wechsel gilt, was für den neuen Charakter zutrifft, samt Levelband-Prüfung.
 - **200 Spieler in derselben Region.** Kein Grund für eine langsamere Antwort: der Index wird nach
@@ -612,6 +700,14 @@ Zonenziel-Erfahrung sind anschließbar.
 - **FR-036**: Der Tod DARF NICHT Erfahrung oder Gegenstände kosten.
 - **FR-037**: Verschwindet die Zone zwischen Tod und Erscheinen, MUSS der Ausweichpunkt greifen; die
   Anmeldung DARF NICHT scheitern.
+- **FR-037a**: **Genau eine** Zone MUSS als Startregion markiert sein. Keine oder mehr als eine
+  verhindert den Start.
+- **FR-037b**: Ein **neu erstellter** Charakter MUSS am Respawn-Punkt der Startregion erscheinen. Der
+  Weltspawn der Minecraft-Welt spielt dafür keine Rolle.
+- **FR-037c**: Dieser Block **liefert** den Startort, er setzt den Charakter nicht selbst. Die
+  Charaktererstellung bleibt bei B07, die Anmeldung bei B03.
+- **FR-037d**: Damit trägt eine Zone **einen** Ankunftsort, der drei Zwecken dient: Spielbeginn, Tod
+  und Reiseziel. Ein zweiter Punkt für einen dieser Zwecke ist unzulässig.
 
 ### Functional Requirements — Kampf-Logout (US5)
 
@@ -634,7 +730,11 @@ Zonenziel-Erfahrung sind anschließbar.
 ### Functional Requirements — Wegpunkt-Kristalle (US6)
 
 - **FR-045**: Ein Kristall MUSS in der Konfiguration eine eindeutige **Kennung**, einen
-  Auslösebereich in derselben Geometrieform wie Zone und Schutzkern, und einen Ankunftsort tragen.
+  Auslösebereich in derselben Geometrieform wie Zone und Schutzkern, und einen Reisepreis tragen. Er
+  gehört zu **genau einer Zone** und trägt **kein eigenes Ziel**.
+- **FR-045a**: Das Ziel einer Reise MUSS der **Respawn-Punkt der Zone** des gewählten Kristalls sein
+  — dieselbe Koordinate, an der auch der Tod ankommt (FR-032). Es gibt je Region **einen** Ankunftsort
+  und nicht zwei, die auseinanderdriften können.
 - **FR-046**: Ein Rechtsklick innerhalb des Auslösebereichs MUSS den Kristall bedienen. Es DARF KEIN
   anderes Ereignis nötig sein und kein Vorbeilaufen etwas auslösen.
 - **FR-047**: Ist der Kristall für diesen Charakter **noch nicht freigeschaltet**, MUSS der erste
@@ -642,10 +742,15 @@ Zonenziel-Erfahrung sind anschließbar.
 - **FR-048**: Ist der Kristall freigeschaltet, MUSS der Rechtsklick ein Auswahlfenster öffnen, das
   **alle** konfigurierten Kristalle zeigt — die freigeschalteten wählbar, die übrigen sichtbar und
   gesperrt. Ein verborgenes Ziel wäre kein Anreiz, es zu suchen.
+- **FR-048a**: Ein gesperrter Eintrag MUSS **Name und Levelband** seiner Region zeigen, erkennbar als
+  gesperrt. Nichts wird verdeckt: die Regionen liegen offen, und jeder darf sie betreten (FR-022) —
+  zu verbergen, was ein Spaziergang enthüllt, kostet nur Klarheit.
+- **FR-048b**: Der Name im Fenster MUSS aus demselben Message-Schlüssel kommen wie überall sonst
+  (FR-003a). Es DARF KEINEN zweiten Ort für Zonennamen geben.
 - **FR-049**: Die Auswahl eines **gesperrten** Kristalls MUSS eine Meldung erzeugen und sonst nichts:
   keine Versetzung, keine Buchung.
 - **FR-050**: Die Auswahl eines freigeschalteten Kristalls MUSS den konfigurierten Betrag buchen und
-  den Charakter danach an dessen Ankunftsort versetzen.
+  den Charakter danach an den Respawn-Punkt der Zone dieses Kristalls versetzen.
 - **FR-050a**: Reicht der Kontostand nicht, MUSS die Reise unterbleiben — **keine Buchung, keine
   Versetzung** — und die Meldung MUSS den fehlenden Betrag benennen.
 - **FR-050b**: Buchung und Versetzung MÜSSEN zusammen gelten: es DARF NICHT vorkommen, dass gebucht
@@ -659,12 +764,22 @@ Zonenziel-Erfahrung sind anschließbar.
   und einen Neustart überstehen.
 - **FR-051b**: Eine Freischaltung DARF NICHT verloren gehen, wenn ein Kristall vorübergehend aus der
   Konfiguration verschwindet; sie wirkt wieder, sobald er zurückkommt.
-- **FR-051c**: Ein Kristall, dessen Ankunftsort in einer unbekannten Welt liegt, MUSS den Start
-  verhindern.
-- **FR-051d**: Ein Ankunftsort außerhalb aller Zonen MUSS erlaubt sein und beim Laden protokolliert
-  werden — Wildnis ist ein legitimes Ziel.
-- **FR-051e**: Alle Texte dieser Geschichte — Freischaltung, Sperre, fehlende Coins, Fenstertitel —
-  MÜSSEN über Message-Schlüssel laufen.
+- **FR-051b1**: Wird ein Charakter gelöscht, MÜSSEN seine Freischaltungen mit ihm verschwinden — nach
+  demselben Muster, das jede charakterbezogene Tabelle im Projekt schon benutzt. Ein neuer Charakter
+  DARF NICHTS erben, auch nicht im selben Slot.
+- **FR-051b2**: Eine Freischaltung DARF NICHT auf anderem Weg entzogen werden: nicht durch Tod, nicht
+  durch einen Umbau der Konfiguration, nicht durch Zeitablauf. Sie wächst nur.
+- **FR-051c**: Ein Kristall in einer Zone **ohne Schutzkern und damit ohne Respawn-Punkt** MUSS den
+  Start verhindern — er hätte kein Ziel.
+- **FR-051d**: Ein Kristall, dessen Auslösebereich außerhalb seiner eigenen Zone liegt, MUSS den Start
+  verhindern. Ebenso zwei Kristalle mit derselben Kennung.
+- **FR-051e**: Alle Texte dieser Geschichte — Freischaltung, Sperre, fehlende Coins, Kampf, ausgefallenes
+  Ziel, Fenstertitel — MÜSSEN über Message-Schlüssel laufen.
+- **FR-051f**: Gilt der Charakter als **im Kampf**, MUSS die Reise unterbleiben: keine Buchung, keine
+  Versetzung, eine Meldung. Das Freischalten und das Öffnen des Fensters bleiben erlaubt — gesperrt
+  ist die Reise, nicht der Kristall.
+- **FR-051g**: Für „gilt als im Kampf" MUSS derselbe Kampfzustand aus B05 gelesen werden, den auch
+  FR-039 benutzt. Es DARF KEIN zweites Zeitfenster für denselben Zweck entstehen.
 
 ### Functional Requirements — Anschlüsse für andere Blöcke (US7)
 
@@ -725,14 +840,17 @@ Zonenziel-Erfahrung sind anschließbar.
   Schutzkern, Spawn-Bereich und Kristall-Auslösebereich — ein Geometriesystem, nicht vier.
 - **Schutzkern**: ein Bereich innerhalb einer Zone, der einzelne Regeln überschreibt: kein PvP, kein
   Mob-Spawn. Keine eigene Zone.
-- **Zonenregeln**: Levelband, PvP-Schalter, Respawn-Punkt. Nur diese drei — jede ist hier auch
-  ausgewertet. Schwierigkeitsmodifikator und Loot-Zuordnung fehlen bewusst (FR-056, FR-057).
+- **Zonenregeln**: Levelband, PvP-Schalter, Respawn-Punkt und die Markierung als Startregion. Jede ist
+  hier auch ausgewertet. Schwierigkeitsmodifikator und Loot-Zuordnung fehlen bewusst (FR-056, FR-057).
+- **Respawn-Punkt**: die eine Koordinate je Region. Sie dient dem Spielbeginn (nur in der
+  Startregion), dem Tod und dem Reiseziel ihres Kristalls.
 - **Zonenindex**: die Abbildung von Chunk auf Zonenkandidaten, beim Laden gebaut, zur Laufzeit nur
   gelesen.
 - **Spawn-Bereich**: ein benannter Bereich innerhalb der Gefahrenzone, aus dem B10 später Horden
   setzt.
-- **Wegpunkt-Kristall**: Kennung, Auslösebereich, Ankunftsort und Reisepreis. Sechs davon werden
-  ausgeliefert, einer je Schutzkern.
+- **Wegpunkt-Kristall**: Kennung, Auslösebereich und Reisepreis — gehört zu genau einer Zone und trägt
+  **kein eigenes Ziel**; gereist wird an deren Respawn-Punkt. Sechs davon werden ausgeliefert, einer je
+  Schutzkern.
 - **Freischaltung**: welcher Charakter welchen Kristall benutzen darf. Dauerhaft, je Charakter, wächst
   nur.
 - **Zonenwechsel-Ereignis**: Charakter, alte Zone, neue Zone.
@@ -786,6 +904,17 @@ Zonenziel-Erfahrung sind anschließbar.
 - **SC-021**: Der Reisepreis steht in der Zonenkonfiguration. Weder `currency.yml` noch ein zentraler
   Katalog kennt ihn (ADR-027).
 - **SC-022**: Der Verlauf unterscheidet eine Reise von einem Einkauf und von einer Reparatur.
+- **SC-023**: Ein Charakter im Kampf kann nicht reisen und erfährt den Grund; nach Ablauf der
+  konfigurierten Kampfsekunden gelingt dieselbe Reise. Der Schutzkern schützt ihn in der Wartezeit
+  weiterhin vollständig.
+- **SC-024**: Spielbeginn, Tod und Reise setzen einen Charakter in derselben Region an **dieselbe**
+  Koordinate. Es gibt je Region genau einen Ankunftsort in der Konfiguration.
+- **SC-025**: Ein neuer Charakter erscheint in der Startregion, ohne dass der Weltspawn der
+  Minecraft-Welt dafür richtig gesetzt sein muss.
+- **SC-026**: Ein gesperrter Eintrag im Auswahlfenster zeigt Name und Levelband seiner Region; der
+  Name kommt aus demselben Message-Schlüssel wie überall sonst.
+- **SC-027**: Eine gelöschte Charakterkennung hinterlässt keine Freischaltung; ein neuer Charakter im
+  selben Slot beginnt ohne jede.
 - **SC-016**: Solange die Zonenkoordinaten als vorläufig markiert sind, steht bei **jedem** Serverstart
   eine Warnung im Protokoll, die sie als Platzhalter benennt. Wird die Markierung entfernt,
   verschwindet nur die Warnung — das Verhalten des Blocks bleibt gleich.
@@ -796,16 +925,24 @@ Zonenziel-Erfahrung sind anschließbar.
   „Keine Region" ist ein gültiger Zustand mit Vorgaberegeln: kein PvP, keine Warnung, Ausweichpunkt
   beim Tod. Eine flächendeckende Aufteilung wäre eine Kartenentscheidung, keine Architekturfrage.
 - **Der Ausweichpunkt ist konfiguriert**, nicht abgeleitet. Ein „irgendwo in der Nähe" wäre bei einem
-  Tod in der Wildnis nicht vorhersagbar.
+  Tod in der Wildnis nicht vorhersagbar. Er greift auch, wenn die Startregion zur Laufzeit
+  verschwindet.
+- **Die Startregion ist eine Markierung, keine eigene Art von Zone.** Sie hat dieselben Regeln wie
+  jede andere; sie ist nur diejenige, an deren Respawn-Punkt neue Charaktere erscheinen.
 - **Die Warnung gilt je Betreten**, mit einer kurzen konfigurierten Sperre gegen Wiederholung an der
   Grenze. Eine Warnung „nur einmal je Charakter" wäre nach Wochen nicht mehr erklärbar.
 - **Der Kristall ist gebaut, nicht gesetzt.** Er steht als Bauwerk in der Karte; die Konfiguration
   beschreibt nur den Bereich um ihn, in dem ein Rechtsklick zählt. Dieser Block setzt keine Blöcke und
   erkennt keinen Blocktyp — sonst hinge das Reisen daran, dass niemand den Stein abbaut.
-- **Das Reiseziel ist eine Koordinate, keine Zone.** Ein Kristall verweist auf seinen Ankunftsort,
-  nicht auf eine Region. Damit funktioniert er auch, wenn die Zonen sich ändern.
-- **Freischaltungen werden nie automatisch entzogen.** Weder durch Tod noch durch einen Umbau der
-  Konfiguration. Nur ein Admin-Eingriff könnte das, und der ist hier nicht vorgesehen.
+- **Das Reiseziel ist eine Zone, keine eigene Koordinate.** Ein Kristall gehört zu seiner Region und
+  führt an deren Respawn-Punkt. Tod und Reise setzen einen Charakter damit an dieselbe Stelle, und es
+  gibt je Region nur eine Koordinate zu pflegen.
+- **Freischaltungen werden nie entzogen — außer mit dem Charakter selbst.** Weder Tod noch ein Umbau
+  der Konfiguration nehmen eine weg; die Löschung des Charakters nimmt alle. Ein Admin-Eingriff dafür
+  ist nicht vorgesehen.
+- **Die Freischaltungen liegen in einer eigenen Tabelle mit Fremdschlüssel auf den Charakter**, nach
+  dem Muster der vorhandenen charakterbezogenen Tabellen. Damit erledigt die Löschung sich selbst,
+  und die Anonymisierung ebenso.
 - **Der Reisepreis ist eine Zahl je Kristall**, nicht je Entfernung. Eine Entfernungsformel wäre
   Balancing, das ohne gebaute Karte niemand herleiten kann.
 - **Der Kampfzustand kommt aus B05** und wird gelesen, nicht nachgebaut. Die acht Sekunden gehören
@@ -853,10 +990,13 @@ Zonenziel-Erfahrung sind anschließbar.
    Abweichungen in einem: eine Eingabe und ein Auswahlfenster in einem Schicht-2-Block (B13-Gebiet,
    nach dem Muster von ADR-028 befristet), dauerhaften Zustand je Charakter (B02-Gebiet) und einen
    neuen Buchungsgrund in B08b (abgeschlossener Block). Drei Eingriffe, ein Grund — ein ADR.
-8. **Wie die Freischaltungen liegen.** Ein eigener Aggregattyp oder ein Anhang am Charakter? ADR-015
-   Punkt 7 verlangt für einen neuen Aggregattyp drei Eintragungen; ein Anhang wäre billiger, aber
-   Freischaltungen wachsen und gehören nicht in einen Datensatz, der bei jedem Login vollständig
-   gelesen wird. Zu entscheiden mit B02s Mustern vor Augen, nicht nach Gefühl.
+8. **Wie die Freischaltungen liegen — die Richtung ist entschieden, die Form nicht.** Eine eigene
+   Tabelle mit Fremdschlüssel auf den Charakter und `ON DELETE CASCADE`, wie jede charakterbezogene
+   Tabelle im Projekt (FR-051b1). Offen bleibt, ob daraus ein eigener **Aggregattyp** wird — ADR-015
+   Punkt 7 verlangt dafür drei Eintragungen — oder ob die Freischaltungen im vorhandenen
+   Sitzungsbündel mitreisen. Entscheidend ist, dass sie **nicht** in einen Datensatz wandern, der bei
+   jedem Login vollständig gelesen und geschrieben wird: sie wachsen, und sie werden selten
+   angefasst.
 9. **Wo der Rechtsklick abgefangen wird.** Nur in der Plattformschicht, und nur innerhalb des
    Auslösebereichs — die Domäne darf von einem Klick nichts wissen (Prinzip III). Zu klären ist, wie
    der Klick den Bereich findet, ohne bei jedem Rechtsklick im Spiel alle Kristalle zu prüfen
@@ -875,6 +1015,8 @@ Zonenziel-Erfahrung sind anschließbar.
 - **B05** — die eine Schadenserlaubnis, die dieser Block ersetzt; der Kampfzustand samt konfigurierter
   Dauer; der Todesgrund; das Todesereignis.
 - **B06** — die Levelabfrage für das Levelband.
+- **B07** — die Charaktererstellung, die den Startort dieses Blocks abfragt. B09 liefert den Ort und
+  setzt den Charakter nicht selbst (FR-037c).
 - **B08** — die Abfrage „offene Welt", die dieser Block bedient.
 - **B04** — die Effektquelle für zonengebundene Effekte, die dieser Block anschlussfähig macht.
 - **B08b** — Kontostand und Buchung für den Reisepreis, samt der Kostenprüfung vor der Reise. Braucht

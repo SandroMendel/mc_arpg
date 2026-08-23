@@ -31,8 +31,35 @@
 
 ## Notes
 
-**Alle Punkte bestanden — vor und nach `/clarify` (Stand 2026-08-23).** 16 von 16, kein Punkt hat
-seinen Zustand geändert. Der Block ist planungsreif.
+**Alle Punkte bestanden — nach beiden `/clarify`-Runden (Stand 2026-08-23).** 16 von 16, kein Punkt
+hat je seinen Zustand geändert. Der Block ist planungsreif.
+
+---
+
+## `/clarify` — zweite Runde, fünf weitere Fragen *(2026-08-23)*
+
+Die Kristalle aus Runde 1 hatten viel neue Oberfläche geschaffen; dort saßen alle fünf Lücken.
+
+1. **Reisen im Kampf ist gesperrt** (FR-051f, FR-051g, SC-023). Die wichtigste der zehn Antworten
+   dieses Tages nach ADR-030 selbst: ohne die Sperre wäre Reisen der bezahlte Fluchtweg aus jedem
+   Kampf geworden — dieselbe Lücke, die ADR-030 beim Ausloggen gerade geschlossen hatte, nur mit
+   Coins als Eintrittspreis. Kostet nichts Neues, weil derselbe Kampfzustand gelesen wird.
+2. **Ein Ankunftsort je Region** statt zweier (FR-045a, SC-024). Der Kristall trägt kein eigenes Ziel
+   mehr. Zwei Koordinaten im selben Schutzkern wären auseinandergedriftet, und es wäre erst
+   aufgefallen, wenn jemand nach dem Tod woanders steht als nach der Reise. **Zwei Anforderungen sind
+   dadurch entfallen**, nicht hinzugekommen.
+3. **Freischaltungen enden mit dem Charakter** (FR-051b1, FR-051b2, SC-027). Die Prüfung ergab, dass
+   das Projekt dafür längst ein Muster hat — jede charakterbezogene Tabelle trägt
+   `ON DELETE CASCADE`, B02 besitzt den Löschpfad. Kein neuer Anschluss nötig; die in der Frage
+   vermutete Abhängigkeit zu B03 gab es nicht.
+4. **Gesperrte Ziele zeigen Name und Levelband** (FR-048a, FR-048b, SC-026), aus demselben
+   Message-Schlüssel wie überall. Verdeckt würde nur, was ein Spaziergang ohnehin enthüllt.
+5. **Die Startregion gehört hierher** (FR-037a bis FR-037d, SC-025). Eine echte Lücke: die Spec regelte
+   Tod und Logout, aber nicht den Spielbeginn. Ohne Regel hing der wichtigste Ort des Spiels an einem
+   einmal richtig ausgeführten `/setworldspawn`. Damit dient die eine Koordinate je Region **dreimal**
+   — Spielbeginn, Tod, Reiseziel.
+
+Nach beiden Runden: **96 Anforderungen, 27 Erfolgskriterien** (Ausgangsstand 70 und 16).
 
 ---
 
@@ -63,7 +90,7 @@ befristet bis B13.
 Der überholte Portal-Eintrag in den Clarifications ist **stehengeblieben und als überholt markiert**,
 nicht gelöscht: seine Begründung hält fest, was der Wechsel gekostet hat.
 
-Damit sind es **85 Anforderungen und 22 Erfolgskriterien** — vorher 70 und 16.
+Nach Runde 1 waren es **85 Anforderungen und 22 Erfolgskriterien** — vorher 70 und 16.
 
 ---
 
