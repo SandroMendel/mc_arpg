@@ -504,6 +504,16 @@ public class RpgPlugin extends JavaPlugin {
         eventBus.subscribe(rpg.core.zone.ZoneChangedEvent.class, levelBandGuard::onZoneChanged);
         zoneForget = levelBandGuard::forget;
 
+        // US3: the damage permission becomes a zone rule (FR-026). This is the line B05 was built
+        // for - it laid the decision out at one place and guards it with SinglePermissionPointTest,
+        // so this REPLACES the rule rather than adding a second copy of it. The shipped
+        // configuration has every region on pvp: false, so nothing about the game changes here; what
+        // changes is that a PvP region is now one line of configuration away (SC-008, FR-031).
+        combatModule
+                .pipeline()
+                .setPermission(
+                        new rpg.core.zone.ZoneDamagePermission(zoneTracker, zoneModule::zones));
+
         zoneModule.onReload(
                 () -> {
                     java.util.List<rpg.core.zone.ZoneTracker.Presence> present =

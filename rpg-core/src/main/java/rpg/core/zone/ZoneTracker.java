@@ -27,7 +27,7 @@ import rpg.core.scheduler.WorldPosition;
  * <p><b>The zones are fetched through a supplier, not held.</b> A reload swaps in a whole new
  * {@link Zones}, and a tracker holding the old one would keep answering with the old borders.
  */
-public final class ZoneTracker {
+public final class ZoneTracker implements ZonePresence {
 
     /** Where a character was the last time anybody looked. */
     private record Placement(String zoneKey, boolean inSafeCore) {}
@@ -163,6 +163,33 @@ public final class ZoneTracker {
         }
         lastKnown.remove(characterId);
         return Optional.of(characterId);
+    }
+
+    /**
+     * Whether the character this holder is playing stands in a safe core (FR-028a).
+     *
+     * <p>Two map lookups and nothing else - see {@link ZonePresence} for why the damage rule cannot
+     * afford anything more.
+     */
+    @Override
+    public boolean inSafeCore(UUID holderId) {
+        UUID characterId = characterByHolder.get(holderId);
+        if (characterId == null) {
+            return false;
+        }
+        Placement placement = lastKnown.get(characterId);
+        return placement != null && placement.inSafeCore();
+    }
+
+    /** The zone the character this holder is playing was last seen in, or {@code null}. */
+    @Override
+    public String zoneKeyOf(UUID holderId) {
+        UUID characterId = characterByHolder.get(holderId);
+        if (characterId == null) {
+            return null;
+        }
+        Placement placement = lastKnown.get(characterId);
+        return placement == null ? null : placement.zoneKey();
     }
 
     /** The zone this character was last seen in, or {@code null}. For tests and diagnostics. */

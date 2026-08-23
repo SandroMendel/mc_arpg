@@ -158,15 +158,15 @@ schadensfrei.
 
 ### Tests für US3
 
-- [ ] T052 [US3] **`SinglePermissionPointTest` und `DamagePermissionTest` aus B05 unverändert laufen lassen** — `./gradlew test --tests '*SinglePermissionPointTest*' --tests '*DamagePermissionTest*'`. Beide **dürfen nicht angepasst werden**; ein angepasster Test wäre kein Nachweis, sondern dessen Umgehung (SC-008)
-- [ ] T053 [P] [US3] `ZoneDamagePermissionTest` in `rpg-core/src/test/java/rpg/core/zone/` — alle sechs Fälle der ausgelieferten Regel bleiben **ausserhalb der Kerne** unverändert (FR-030); `pvp: true` erlaubt Spieler gegen Spieler nur in der Gefahrenzone dieser Zone (SC-009); ausserhalb aller Zonen bleibt PvP aus (FR-029)
-- [ ] T054 [P] [US3] `SafeCoreNoDamageTest` in `rpg-core/src/test/java/rpg/core/zone/` — Ziel im Kern: abgelehnt; **Angreifer** im Kern: abgelehnt; Umweltschaden am Ziel im Kern: abgelehnt; und das auch, wenn die Region `pvp: true` trägt (FR-028a, FR-028b, SC-012)
+- [X] T052 [US3] **`SinglePermissionPointTest` und `DamagePermissionTest` aus B05 unverändert laufen lassen** — `./gradlew test --tests '*SinglePermissionPointTest*' --tests '*DamagePermissionTest*'`. Beide **dürfen nicht angepasst werden**; ein angepasster Test wäre kein Nachweis, sondern dessen Umgehung (SC-008)
+- [X] T053 **Zusammengelegt mit T054 in `ZoneDamagePermissionTest`** (drei `@Nested`-Blöcke: ausgeliefertes Verhalten, Schutzkern, PvP-Schalter) — alle sechs Fälle der ausgelieferten Regel bleiben **ausserhalb der Kerne** unverändert (FR-030); `pvp: true` erlaubt Spieler gegen Spieler nur in der Gefahrenzone dieser Zone (SC-009); ausserhalb aller Zonen bleibt PvP aus (FR-029)
+- [X] T054 **In `ZoneDamagePermissionTest`**, Block „the safe core refuses everything" — Ziel im Kern: abgelehnt; **Angreifer** im Kern: abgelehnt; Umweltschaden am Ziel im Kern: abgelehnt; und das auch, wenn die Region `pvp: true` trägt (FR-028a, FR-028b, SC-012)
 
 ### Umsetzung US3
 
-- [ ] T055 [US3] `ZoneDamagePermission` in `rpg-core/.../zone/ZoneDamagePermission.java` — **umschliesst** `DamagePermission.defaultRule()` und ergänzt Kern- und Zonenregel in der Reihenfolge aus research.md R10. Die vier Fälle, die B09 nichts angehen, kommen weiterhin aus B05s eigener Methode (FR-026, FR-030)
-- [ ] T056 [US3] Einsetzen über `CombatPipeline.setPermission` in `rpg-plugin/src/main/java/rpg/plugin/RpgPlugin.java` — **ersetzen**, keine zweite Kopie der Entscheidung anlegen (FR-026, ADR-012)
-- [ ] T057 [US3] `pvp: false` für alle sechs Regionen in `rpg-plugin/src/main/resources/zones.yml` sicherstellen — am Spielgeschehen ändert dieser Block nichts, er beweist die Austauschbarkeit (FR-031, SC-008)
+- [X] T055 [US3] `ZoneDamagePermission` in `rpg-core/.../zone/ZoneDamagePermission.java` — **umschliesst** `DamagePermission.defaultRule()` und ergänzt Kern- und Zonenregel in der Reihenfolge aus research.md R10. Die vier Fälle, die B09 nichts angehen, kommen weiterhin aus B05s eigener Methode (FR-026, FR-030)
+- [X] T056 [US3] Einsetzen über `CombatPipeline.setPermission` in `rpg-plugin/src/main/java/rpg/plugin/RpgPlugin.java` — **ersetzen**, keine zweite Kopie der Entscheidung anlegen (FR-026, ADR-012)
+- [X] T057 [US3] `pvp: false` für alle sechs Regionen in `rpg-plugin/src/main/resources/zones.yml` sicherstellen — am Spielgeschehen ändert dieser Block nichts, er beweist die Austauschbarkeit (FR-031, SC-008)
 
 **Checkpoint**: die Schadenserlaubnis ist eine Zonenregel, und B05s Tests sind unangetastet grün.
 
