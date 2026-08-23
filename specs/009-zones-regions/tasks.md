@@ -229,18 +229,18 @@ später ausloggen → nichts.
 
 ### Tests für US5
 
-- [ ] T079 [P] [US5] `CombatLogoutDeathTest` in `rpg-core/src/test/java/rpg/core/zone/` — im Kampf ausloggen → Tod mit `LOGOUT`, Merker gesetzt (FR-038); ausserhalb der Kampfsekunden → nichts (FR-039, SC-011)
-- [ ] T080 [P] [US5] `CombatTimeoutIsReadNotCopiedTest` in `rpg-core/src/test/java/rpg/core/zone/` — die Dauer kommt aus B05s `CombatState`/`combat.yml`; **es gibt keine zweite Zeitangabe** für denselben Zweck (FR-039)
-- [ ] T081 [P] [US5] `LogoutSwitchTest` in `rpg-core/src/test/java/rpg/core/zone/` — `combat-logout: none` schaltet die Regel ab, ohne dass Code geändert wird (FR-042)
-- [ ] T082 [P] [US5] `ConnectionLossTest` in `rpg-core/src/test/java/rpg/core/zone/` — ein Verbindungsabbruch wird wie ein absichtliches Verlassen behandelt; es gibt **keine** Unterscheidung, die ein Client herbeiführen kann (FR-043, Prinzip VI)
+- [X] T079 **Zusammengelegt mit T080, T081 und T082 in `CombatLogoutDeathTest`** (neun Fälle in einer Klasse statt vier mit demselben Aufbau) — im Kampf ausloggen → Tod mit `LOGOUT`, Merker gesetzt (FR-038); ausserhalb der Kampfsekunden → nichts (FR-039, SC-011)
+- [X] T080 **In `CombatLogoutDeathTest`**, siehe T079 — die Dauer kommt aus B05s `CombatState`/`combat.yml`; **es gibt keine zweite Zeitangabe** für denselben Zweck (FR-039)
+- [X] T081 **In `CombatLogoutDeathTest`**, siehe T079 — `combat-logout: none` schaltet die Regel ab, ohne dass Code geändert wird (FR-042)
+- [X] T082 **In `CombatLogoutDeathTest`**, siehe T079 — ein Verbindungsabbruch wird wie ein absichtliches Verlassen behandelt; es gibt **keine** Unterscheidung, die ein Client herbeiführen kann (FR-043, Prinzip VI)
 
 ### Umsetzung US5
 
-- [ ] T083 [US5] `combat-logout: death | none` in `zones.yml` mit Schema-Prüfung (FR-042, FR-062)
-- [ ] T084 [US5] `ZoneQuitListener` in `rpg-platform/.../zone/ZoneQuitListener.java` — `PlayerQuitEvent`, `isInCombat` fragen, Merker setzen und `CombatDeathEvent` mit `DeathCause.LOGOUT` veröffentlichen (`killerId` leer, `playerVictim` wahr) — research.md R11
-- [ ] T085 [US5] Den Merker beim nächsten Anmelden anwenden, in `rpg-platform/src/main/java/rpg/platform/zone/ZoneJoinListener.java` — Versetzung in den Schutzkern, Meldung `zone.died-logout`, Merker löschen. Erweitert `ZoneJoinListener` aus T042 (FR-041)
-- [ ] T086 [US5] Merker ohne Zone abfangen, ebenfalls in `rpg-platform/src/main/java/rpg/platform/zone/ZoneJoinListener.java` — verschwindet die Zone zwischen Logout und Anmeldung, greift der Ausweichpunkt; die Anmeldung scheitert **nicht** (FR-037, Randfall)
-- [ ] T087 [US5] `ZoneQuitListener` in `rpg-plugin/src/main/java/rpg/plugin/RpgPlugin.java` anmelden (ADR-012)
+- [X] T083 [US5] `combat-logout: death | none` in `zones.yml` mit Schema-Prüfung (FR-042, FR-062)
+- [X] T084 **Geändert: kein `ZoneQuitListener`, sondern `CombatLogoutRule` am `SessionObserver`.** `PlayerQuitEvent` ist B03s Lebenszyklus und erlaubt genau einen Handler (FR-007) — die Umleitung war in Befund 5 (US1) angekündigt. Die Regel liegt in `rpg-core` und ist ohne Server prüfbar; sie läuft **vor** `forgetHolder`, weil Kampfzustand und Platzierung beide mit der Sitzung gehen — `PlayerQuitEvent`, `isInCombat` fragen, Merker setzen und `CombatDeathEvent` mit `DeathCause.LOGOUT` veröffentlichen (`killerId` leer, `playerVictim` wahr) — research.md R11
+- [X] T085 [US5] Den Merker beim nächsten Anmelden anwenden, in `rpg-platform/src/main/java/rpg/platform/zone/ZoneJoinListener.java` — Versetzung in den Schutzkern, Meldung `zone.died-logout`, Merker löschen. Erweitert `ZoneJoinListener` aus T042 (FR-041)
+- [X] T086 [US5] Merker ohne Zone abfangen, ebenfalls in `rpg-platform/src/main/java/rpg/platform/zone/ZoneJoinListener.java` — verschwindet die Zone zwischen Logout und Anmeldung, greift der Ausweichpunkt; die Anmeldung scheitert **nicht** (FR-037, Randfall)
+- [X] T087 [US5] `ZoneQuitListener` in `rpg-plugin/src/main/java/rpg/plugin/RpgPlugin.java` anmelden (ADR-012)
 
 **Checkpoint**: Fliehen durch Ausloggen gewinnt nichts mehr.
 

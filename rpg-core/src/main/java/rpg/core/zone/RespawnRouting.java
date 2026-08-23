@@ -35,8 +35,17 @@ public final class RespawnRouting {
 
     /** Where this holder's character comes back. Never {@code null}. */
     public WorldPosition respawnFor(UUID holderId) {
+        return respawnForZone(presence.zoneKeyOf(holderId));
+    }
+
+    /**
+     * Where a return to this region ends, falling back when the region is gone (FR-037).
+     *
+     * <p>Takes a key rather than a holder because the pending respawn of a combat logout is stored as
+     * one: by the time it is applied, the placement it came from is long gone.
+     */
+    public WorldPosition respawnForZone(String zoneKey) {
         Zones current = zones.get();
-        String zoneKey = presence.zoneKeyOf(holderId);
         if (zoneKey == null) {
             return current.fallbackPoint();
         }

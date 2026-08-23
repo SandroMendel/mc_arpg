@@ -7,9 +7,11 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -135,6 +137,54 @@ public final class JdbcZoneStateRepository implements ZoneStateRepository, Batch
         }
         return Optional.of(
                 new ZoneCharacterState(characterId, unlocked, Optional.ofNullable(pending)));
+    }
+
+    /**
+     * Everything this player's characters carry, in one pair of queries.
+     *
+     * <p>Called by the session loader on the login path, off the tick, so that nothing later has to
+     * ask the database again - the reason B02 gives once and every block since has followed.
+     */
+    public static List<ZoneCharacterState> readForPlayer(Connection connection, UUID playerId)
+            throws SQLException {
+        Map<UUID, Set<String>> unlocks = new HashMap<>();
+        try (PreparedStatement statement =
+                connection.prepareStatement(
+                        "SELECT w.character_id, w.crystal_key FROM rpg.character_waypoints w"
+                                + " JOIN rpg.character c ON c.character_id = w.character_id"
+                                + " WHERE c.player_id = ?")) {
+            statement.setObject(1, playerId);
+            try (ResultSet rows = statement.executeQuery()) {
+                while (rows.next()) {
+                    unlocks
+                            .computeIfAbsent(
+                                    rows.getObject("character_id", UUID.class),
+                                    ignored -> new HashSet<>())
+                            .add(rows.getString("crystal_key"));
+                }
+            }
+        }
+
+        List<ZoneCharacterState> states = new ArrayList<>();
+        try (PreparedStatement statement =
+                connection.prepareStatement(
+                        "SELECT s.character_id, s.pending_respawn_zone"
+                                + " FROM rpg.character_zone_state s"
+                                + " JOIN rpg.character c ON c.character_id = s.character_id"
+                                + " WHERE c.player_id = ?")) {
+            statement.setObject(1, playerId);
+            try (ResultSet rows = statement.executeQuery()) {
+                while (rows.next()) {
+                    UUID characterId = rows.getObject("character_id", UUID.class);
+                    states.add(
+                            new ZoneCharacterState(
+                                    characterId,
+                                    unlocks.getOrDefault(characterId, Set.of()),
+                                    Optional.ofNullable(rows.getString("pending_respawn_zone"))));
+                }
+            }
+        }
+        return states;
     }
 
     @Override

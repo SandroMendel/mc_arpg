@@ -123,6 +123,9 @@ public final class SessionBundleLoader {
                 List<AbilityState> abilities = readAbilities(connection, loaded);
                 List<CharacterBalance> balances =
                         JdbcCharacterBalanceRepository.readForPlayer(connection, playerId);
+                List<rpg.core.zone.ZoneCharacterState> zoneStates =
+                        rpg.persistence.zone.JdbcZoneStateRepository.readForPlayer(
+                                connection, playerId);
                 connection.commit();
                 return new SessionBundle(
                         playerId,
@@ -134,7 +137,8 @@ public final class SessionBundleLoader {
                         classProgress,
                         inventories,
                         abilities,
-                        balances);
+                        balances,
+                        zoneStates);
             } catch (SQLException failure) {
                 connection.rollback();
                 throw failure;

@@ -10,6 +10,10 @@ import java.util.logging.Logger;
 import rpg.core.module.Module;
 import rpg.core.module.ModuleContext;
 import rpg.core.persistence.AggregateType;
+import rpg.core.session.PlayerCharacter;
+import rpg.core.session.PlayerSession;
+import rpg.core.session.SessionAttachment;
+import rpg.core.session.SessionBundle;
 import rpg.core.zone.ZoneCharacterState;
 import rpg.core.zone.ZoneStateStore;
 import rpg.persistence.PersistenceModule;
@@ -35,14 +39,17 @@ public final class ZonePersistenceModule implements Module {
     public static final String ID = "zone-persistence";
 
     private final PersistenceModule persistence;
+    private final SessionModule sessions;
     private final Logger logger;
     private final Clock clock;
 
     private JdbcZoneStateRepository repository;
     private ZoneStateStore store;
 
-    public ZonePersistenceModule(PersistenceModule persistence, Logger logger, Clock clock) {
+    public ZonePersistenceModule(
+            PersistenceModule persistence, SessionModule sessions, Logger logger, Clock clock) {
         this.persistence = Objects.requireNonNull(persistence, "persistence");
+        this.sessions = Objects.requireNonNull(sessions, "sessions");
         this.logger = Objects.requireNonNull(logger, "logger");
         this.clock = Objects.requireNonNull(clock, "clock");
     }
@@ -73,7 +80,46 @@ public final class ZonePersistenceModule implements Module {
         // Registration 3 of 3 (ADR-015 point 7). The other two are the AggregateType constant and
         // its place in FlushCycle.WRITE_ORDER.
         persistence.flushCycle().register(AggregateType.CHARACTER_ZONE_STATE, repository);
+        sessions.lifecycle().addAttachment(new ZoneSessionAttachment());
         logger.info("[zone-persistence] phase=START state=READY");
+    }
+
+    /**
+     * Takes the stored state into memory when a character enters play, and releases it at the end.
+     *
+     * <p><b>Without this the block would be dead:</b> nothing would ever be loaded, every character
+     * would look new, and every unlock would be forgotten at the end of the session. Modelled on
+     * {@code CurrencySessionAttachment}, which exists for the same reason.
+     *
+     * <p>The state comes out of the bundle the login already read - no query here, which matters
+     * because this runs on the tick (FR-063).
+     */
+    private final class ZoneSessionAttachment implements SessionAttachment {
+
+        @Override
+        public String id() {
+            return ID;
+        }
+
+        @Override
+        public void onSessionOpened(PlayerSession session, SessionBundle bundle) {
+            // A session opens without a character and stays that way until the selection decides
+            // (ADR-020). Nothing to load yet.
+        }
+
+        @Override
+        public void onCharacterActivated(
+                PlayerSession session, PlayerCharacter character, SessionBundle bundle) {
+            store.load(character.characterId(), bundle.zoneStateOf(character.characterId()));
+        }
+
+        @Override
+        public void onSessionClosing(UUID playerId) {
+            sessions.registry()
+                    .find(playerId)
+                    .flatMap(PlayerSession::activeCharacter)
+                    .ifPresent(character -> store.unload(character.characterId()));
+        }
     }
 
     /** The in-memory authority for what a character carries out of this block. */

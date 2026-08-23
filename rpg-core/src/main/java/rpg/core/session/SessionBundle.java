@@ -3,6 +3,8 @@ package rpg.core.session;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+
+import rpg.core.zone.ZoneCharacterState;
 import java.util.UUID;
 
 import rpg.core.ability.AbilityState;
@@ -42,7 +44,8 @@ public record SessionBundle(
         List<ClassProgress> classProgress,
         List<CharacterInventory> inventories,
         List<AbilityState> abilities,
-        List<CharacterBalance> balances) {
+        List<CharacterBalance> balances,
+        List<ZoneCharacterState> zoneStates) {
 
     public SessionBundle {
         Objects.requireNonNull(playerId, "playerId");
@@ -55,6 +58,33 @@ public record SessionBundle(
         inventories = List.copyOf(Objects.requireNonNull(inventories, "inventories"));
         abilities = List.copyOf(Objects.requireNonNull(abilities, "abilities"));
         balances = List.copyOf(Objects.requireNonNull(balances, "balances"));
+        zoneStates = List.copyOf(Objects.requireNonNull(zoneStates, "zoneStates"));
+    }
+
+    /** A bundle without zone state - the shape before B09 existed. */
+    public SessionBundle(
+            UUID playerId,
+            Optional<PlayerState> accountState,
+            List<PlayerCharacter> characters,
+            List<ItemInstance> items,
+            List<CharacterResources> resources,
+            List<CharacterProgress> progress,
+            List<ClassProgress> classProgress,
+            List<CharacterInventory> inventories,
+            List<AbilityState> abilities,
+            List<CharacterBalance> balances) {
+        this(
+                playerId,
+                accountState,
+                characters,
+                items,
+                resources,
+                progress,
+                classProgress,
+                inventories,
+                abilities,
+                balances,
+                List.of());
     }
 
     /**
@@ -83,6 +113,7 @@ public record SessionBundle(
                 classProgress,
                 inventories,
                 abilities,
+                List.of(),
                 List.of());
     }
 
@@ -98,6 +129,22 @@ public record SessionBundle(
     public Optional<CharacterBalance> balanceOf(UUID characterId) {
         return balances.stream()
                 .filter(balance -> balance.characterId().equals(characterId))
+                .findFirst();
+    }
+
+    /**
+     * What one character carries out of the zone block, or empty if it has never been placed (B09).
+     *
+     * <p>Loaded here for the same reason as everything else in this bundle: the login path never
+     * waits on a second round trip, and the tick never waits at all.
+     *
+     * <p><b>Empty means never placed</b>, which is not the same as "nothing discovered". The first is
+     * a new character and sends them to the start region (B09/FR-037b); the second is somebody who
+     * has simply not found a crystal yet.
+     */
+    public Optional<ZoneCharacterState> zoneStateOf(UUID characterId) {
+        return zoneStates.stream()
+                .filter(state -> state.characterId().equals(characterId))
                 .findFirst();
     }
 

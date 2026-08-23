@@ -159,9 +159,12 @@ public class RpgPlugin extends JavaPlugin {
     private ProgressionModule progressionModule;
     private CurrencyModule currencyModule;
     private ZoneModule zoneModule;
+    private rpg.persistence.zone.ZonePersistenceModule zonePersistenceModule;
     private rpg.core.zone.ZoneTracker zoneTracker;
     /** Moves a player. Held because US6 travel needs the same one the respawn path uses. */
     private rpg.core.zone.Teleporter zoneTeleporter;
+    private rpg.core.zone.RespawnRouting zoneRespawnRouting;
+    private rpg.core.zone.CombatLogoutRule zoneCombatLogout;
     /** Cleans up after a character that left - the level-band guard, and later the travel limit. */
     private java.util.function.Consumer<java.util.UUID> zoneForget = characterId -> {};
     private ClassesModule classesModule;
@@ -388,6 +391,9 @@ public class RpgPlugin extends JavaPlugin {
         // B09. Layer 2, and it depends on nothing but B01 - the world resolver is the only thing it
         // needs from Paper, and it gets it as a function so `rpg-core` never sees a World
         // (Constitution III.1, FR-002a).
+        zonePersistenceModule =
+                new rpg.persistence.zone.ZonePersistenceModule(
+                        persistenceModule, sessionModule, getLogger(), Clock.systemUTC());
         zoneModule = new ZoneModule(getLogger(), BukkitPositions.resolver(), messages);
         return List.of(
                 persistenceModule,
@@ -399,6 +405,7 @@ public class RpgPlugin extends JavaPlugin {
                 inventoryModule,
                 abilityModule,
                 currencyModule,
+                zonePersistenceModule,
                 zoneModule);
     }
 
@@ -521,8 +528,20 @@ public class RpgPlugin extends JavaPlugin {
         // and MONITOR means look, do not touch, so the location has to be set before it runs. The two
         // answer different questions and neither reads the other's answer.
         zoneTeleporter = new rpg.platform.zone.BukkitTeleporter(getServer(), getLogger());
-        rpg.core.zone.RespawnRouting respawnRouting =
-                new rpg.core.zone.RespawnRouting(zoneTracker, zoneModule::zones);
+        zoneRespawnRouting = new rpg.core.zone.RespawnRouting(zoneTracker, zoneModule::zones);
+        rpg.core.zone.RespawnRouting respawnRouting = zoneRespawnRouting;
+
+        // US5: leaving in combat is a death (ADR-030). Applied from the session observer and NOT
+        // from PlayerQuitEvent - B03 owns the session lifecycle and allows exactly one handler
+        // (FR-007), which NoCompetingSessionListenersTest enforces and which the first draft of this
+        // block learned the hard way.
+        zoneCombatLogout =
+                new rpg.core.zone.CombatLogoutRule(
+                        () -> zoneModule.config().combatLogoutIsDeath(),
+                        holderId -> combatModule.pipeline().isInCombat(holderId),
+                        zoneTracker,
+                        zonePersistenceModule.store(),
+                        eventBus);
         getServer()
                 .getPluginManager()
                 .registerEvents(
@@ -1166,6 +1185,12 @@ public class RpgPlugin extends JavaPlugin {
                 // the last translation itself for exactly this moment, and hands it back so the
                 // warning's repeat block can be cleared too. Without that, the block's map would grow
                 // for the whole uptime of the server.
+                // ADR-030 first, and before anything is forgotten: the combat state and the
+                // placement are both keyed by the holder and both go away with the session.
+                characterIdOf(getServer().getPlayer(playerId))
+                        .ifPresent(
+                                characterId ->
+                                        zoneCombatLogout.onSessionEnding(playerId, characterId));
                 zoneTracker.forgetHolder(playerId).ifPresent(zoneForget::accept);
                 // Before B03 starts the unload: the player is still here, so their inventory can still
                 // be read - and this is the last moment that is true. The observer runs on the quit
@@ -1768,11 +1793,38 @@ public class RpgPlugin extends JavaPlugin {
         }
         characterIdOf(player)
                 .ifPresent(
-                        characterId ->
-                                zoneTracker.place(
-                                        player.getUniqueId(),
-                                        characterId,
-                                        rpg.platform.zone.BukkitPositions.of(player.getLocation())));
+                        characterId -> {
+                            rpg.core.zone.ZoneStateStore store = zonePersistenceModule.store();
+                            // A character this block has never placed starts in the start region
+                            // (FR-037b). Absence of a row is the signal - the same inference B08b
+                            // makes from a missing balance row.
+                            if (store.isNewCharacter(characterId)) {
+                                zoneTeleporter.teleport(
+                                        player.getUniqueId(), zoneModule.zones().startPoint());
+                                store.markSeen(characterId);
+                            } else {
+                                // A combat logout owes them a trip home (ADR-030, FR-041). Applied
+                                // here rather than at the logout, because a teleport in that moment
+                                // is not reliable on Paper.
+                                store.pendingRespawnOf(characterId)
+                                        .ifPresent(
+                                                zoneKey -> {
+                                                    zoneTeleporter.teleport(
+                                                            player.getUniqueId(),
+                                                            zoneRespawnRouting.respawnForZone(
+                                                                    zoneKey));
+                                                    store.clearPendingRespawn(characterId);
+                                                    player.sendMessage(
+                                                            messages.get(
+                                                                    rpg.core.zone.ZoneMessageKeys
+                                                                            .DIED_LOGOUT));
+                                                });
+                            }
+                            zoneTracker.place(
+                                    player.getUniqueId(),
+                                    characterId,
+                                    rpg.platform.zone.BukkitPositions.of(player.getLocation()));
+                        });
     }
 
     /** The bootstrap phase, which decides whether the server accepts player sessions (FR-013). */
