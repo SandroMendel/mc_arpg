@@ -1405,3 +1405,52 @@ Stelle gewesen, an der zwei Regeln denselben Kill unterschiedlich bewerten.
 **Auswirkung.** `XpDistributor` bietet `shareCalculator()` als Zugang. Der Rechner wird **im
 Konstruktor gebaut, nicht hereingereicht**: wer eine andere Fassung übergeben könnte, könnte Coins
 und Erfahrung wieder auseinanderlaufen lassen — genau das, was die Herauslösung verhindern soll.
+
+---
+
+## ADR-030: Ein Logout im Kampf wird wie ein Tod behandelt
+
+**Status:** Angenommen · **Datum:** 2026-08-23 · **Blöcke:** B09 (Eigentümer), B05 (Eingriff)
+
+**Kontext.** Wer mitten im Kampf den Server verlässt, entgeht dem Tod. Ohne Regel ist das die
+verlässlichste Fluchtmöglichkeit im Spiel, und sie kostet nichts. Der Kampfzustand ist dafür schon
+vorhanden: `CombatState` gilt acht Sekunden nach dem letzten gegebenen oder genommenen Treffer
+(`combat-timeout-seconds` in `combat.yml`).
+
+**Entscheidung.** Der Charakter stirbt. Beim nächsten Login steht er in der Safe-Zone seiner Region
+und liest, warum. Der Todesgrund wird unterscheidbar: `DeathCause.LOGOUT`.
+
+*Warum nicht härter.* Der Tod kostet in diesem Spiel bewusst wenig — kein XP-Verlust, kein
+Item-Verlust, nur Ausrüstungsschaden. Wer fürs Fliehen mehr zahlt als fürs Sterben, bleibt stehen
+und stirbt; die Strafe hätte dann das Gegenteil dessen bewirkt, wofür sie da ist. Gleichstand ist die
+richtige Höhe: der Gewinn des Weglaufens ist, dem Tod zu entgehen — bringt Weglaufen genau den Tod,
+ist der Gewinn null, und mehr braucht Abschreckung nicht.
+
+*Warum kein Platzhalter-Wesen, das stehen bleibt und totgeschlagen werden kann.* Gegenüber dem Mob
+wäre das am fairsten, verlangt aber ein Ersatzwesen, Schadenszuordnung an einen Charakter, der nicht
+mehr da ist, und eine Kampfpipeline, die mit Offline-Haltern rechnet. Viel Maschinerie für einen
+Randfall.
+
+*Warum keine Coin-Strafe.* Sie bräuchte einen neuen Buchungsgrund in B08b — eine Änderung an einem
+fertigen Block — und trifft ungleich: einen reichen Spieler kostet sie nichts, einen frischen alles.
+
+*Warum kein Debuff beim nächsten Login.* Er erfindet befristete Zustände über Sitzungsgrenzen hinweg
+und bestraft zu einem Zeitpunkt, an dem der Spieler den Zusammenhang nicht mehr sieht.
+
+**Warum das überhaupt ein ADR ist.** `DeathCause` ist ausgeliefert und liegt in B05. Sein Javadoc
+begründet ausdrücklich, dass die Aufzählung grob bleibt: B06, B11 und B12 brauchen den Grund, um
+Fälle zu *unterscheiden*, nicht um etwas zu berechnen. Ein vierter Wert ist mit dieser Begründung
+vereinbar — B12 will „gestorben" und „abgehauen" trennen können —, aber die Erweiterung eines
+ausgelieferten Enums durch einen späteren Block ist genau der Vorgang, den ADR-027 für
+ADR-pflichtig erklärt hat.
+
+**Auswirkung.**
+
+- `DeathCause` erhält `LOGOUT`. Wo heute über die Werte verzweigt wird, kommt ein vierter Fall dazu;
+  der Compiler zeigt die Stellen.
+- Die Regel steht als `combat-logout: death | none` in der Konfiguration und ist abschaltbar, ohne
+  dass Code angefasst wird (Prinzip V).
+- **Bis B11 existiert, ist die Strafe allein der Teleport in die Safe-Zone.** Der Ausrüstungsschaden,
+  der einen normalen Tod ausmacht, braucht B11 — bis dahin bleibt die Regel spürbar mild, und das ist
+  eine benannte Lücke (Regel 5), keine stille.
+- Die acht Sekunden gehören B05. B09 **liest** sie und legt keine zweite Zahl daneben.

@@ -154,23 +154,69 @@ Bei zwei /clarify-Runden zusätzlich geklärt (siehe ADR-014):
       die ein späterer Block nicht mehr übernehmen könnte (Regel 5). `RankResult`
       kennt bewusst kein `NOT_ENOUGH_COINS`. *(2026-08-22)*
 
-## B09/B10 (Welt & Mobs) — abgeschlossen, Details offen
+## B09 (Zonen & Regionen) — geschlossen *(2026-08-23)*
+
+Alle Punkte beantwortet, der Block ist bereit für `/specify`. Die Begründungen
+stehen im Steckbrief `minecraft-rpg-spec/minecraft-rpg-spec/blocks/B09-zones-regions.md`.
 
 - [x] **ADR-006 bestätigt**: eine handgebaute Kontinent-Welt für offene Zonen,
       separate Instanzwelten nur für Dungeons/Bossräume/Tutorial
-- [x] Anzahl Zonen zum Start: 4–5 Zonen, aufsteigend gestaffelt
 - [x] Kartenbau: handgebaut
+- [x] **Anzahl Zonen zum Start: sechs** benannte Regionen mit den Levelbändern
+      1–10 *The Greenfields*, 11–20 *The Dustlands*, 21–30 *The Safari Plains*,
+      31–40 *The Terracotta Canyons*, 41–50 *The Darkforest*, 51–60 *The Pale
+      Wilds*. Sie decken 1–60 lückenlos ab, also genau den Bereich, den
+      `progression.yml` aufspannt. Weitere Regionen folgen per Konfiguration.
+      *(2026-08-23; ersetzt „4–5 Zonen" vom 2026-08-19)*
+- [x] **Safe/Danger**: jede Region ist **eine** Zone mit einem Schutzkern um den
+      Spawn; darin kein Mob-Spawn und kein PvP. Der Kern ist keine eigene Zone,
+      damit `zoneAt()` immer die Region liefert und der Zonenwechsel sechsmal
+      feuert statt zwölfmal. *(2026-08-23)*
+- [x] **Zonengeometrie**: Quader-Mengen mit Chunk-Index — zwei Ecken je Quader,
+      beim Laden zu einer Abbildung `Chunk → Zone` verdichtet. Dieselbe Form
+      trägt Region, Schutzkern, Spawn-Bereich und Portal. *(2026-08-23)*
+- [x] **Reisesystem**: Portale in den Safe-Zones, kostenlos; in der
+      Konfiguration nur ein Quader mit Zielkoordinate. Wegpunkte gegen Coins
+      wären eine spätere Ergänzung und brauchten einen neuen Buchungsgrund in
+      B08b. *(2026-08-23)*
+- [x] **Spieler unterhalb des Levelbereichs**: nicht blockiert, nur gewarnt —
+      die Mobs setzen die Staffelung selbst durch. *(2026-08-23)*
+- [x] **PvP**: je Zone schaltbar, Vorgabe **aus**, im Schutzkern immer aus. B09
+      tauscht damit `DamagePermission` aus und löst FR-042 ein.
+      *(2026-08-23)*
 - [x] Zonenschwierigkeit skaliert mit Spieleranzahl vor Ort: mehr Spieler →
       höhere Mob-Spawnrate + schnelleres Respawn (Dichte/Respawn, nicht Stärke)
 - [x] Respawn-Regeln und Todesstrafe: kein XP-/Item-Verlust, aber
       Ausrüstungsschaden (Durability-Verlust) — Reparatur-Mechanik (vermutlich
-      Coins) folgt bei `/specify` B11
+      Coins) folgt bei `/specify` B11. Der Respawn führt in die **Safe-Zone der
+      Region**, in der gestorben wurde, mit Nachricht. *(2026-08-23)*
+- [x] **Kampf-Logout wird wie ein Tod behandelt**: wer innerhalb der acht
+      Kampfsekunden (`combat-timeout-seconds`) den Server verlässt, stirbt und
+      steht beim nächsten Login in der Safe-Zone, mit Nachricht. Der Gewinn des
+      Weglaufens ist, dem Tod zu entgehen — bringt Weglaufen genau den Tod, ist
+      der Gewinn null. Eine härtere Strafe wäre verkehrt herum, weil der Tod
+      hier bewusst wenig kostet. Braucht `DeathCause.LOGOUT` und damit
+      **ADR-030** (angenommen 2026-08-23), weil ein ausgeliefertes Enum in B05
+      angefasst wird. *(2026-08-23)*
+- [x] **Instanzen: keine zum Start**, die Bosse stehen in ihrer Region. Damit
+      bleibt `WorldCondition.isOpenWorld` überall bei ja und das Zweitleben des
+      Rogue wirkt überall (FR-052b) — bisher eine benannte Lücke, jetzt eine
+      Entscheidung. Separate Welten bleiben nach ADR-006 vorgesehen und sind
+      über ein Portal anschliessbar. *(2026-08-23)*
+
+## B10 (Mobs & Horden-Spawning) — Details offen
+
+- [x] **Acht Mob-Arten je Region**, dazu **ein Boss je Region** mit höheren
+      Attributen. *(2026-08-23)*
+- [x] Attribute, Level und Art jedes Mobs sind konfigurationsdefiniert und
+      später ohne Codeänderung austauschbar (Prinzip V). *(2026-08-23)*
+- [x] Gespawnt wird an ausgewählten Stellen der Gefahrenzone; die **Bereiche**
+      liefert B09 benannt, die **Horden** füllt B10. *(2026-08-23)*
 - [ ] Zielwert für gleichzeitig aktive Mobs (serverweit und je Zone)
-- [ ] Welche Vanilla-Entities dienen als Basis?
+- [ ] Welche Vanilla-Entities dienen als Basis für die 48 Mob-Arten und die
+      sechs Bosse?
 - [ ] Wellenlogik: kontinuierlicher Nachschub oder abgegrenzte Wellen?
-- [ ] Elite-/Boss-Mobs mit eigenen Mechaniken? Respawn-Timer?
-- [ ] Zonengeometrie: Quader, Polygon oder Chunk-Menge?
-- [ ] Reisesystem: Laufen, Portale, Wegpunkte, Teleport-Kosten?
+- [ ] Boss-Mechaniken über höhere Attribute hinaus? Respawn-Timer des Bosses?
 
 ## B08b (Währung & Konto) — neu durch ADR-027 *(2026-08-22)*
 

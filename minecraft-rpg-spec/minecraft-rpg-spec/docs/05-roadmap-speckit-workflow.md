@@ -79,7 +79,7 @@ Anschließend `/constitution` mit dem Inhalt von `constitution.md` ausführen.
 
 ## Empfohlener nächster Schritt
 
-*(Stand 2026-08-22)* B01 bis **B08b** sind implementiert und verdrahtet. Offen
+*(Stand 2026-08-23)* B01 bis **B08b** sind implementiert und verdrahtet. Offen
 sind dort nur noch Validierungsläufe und Lasttests, die einen echten
 Paper-Server brauchen — kein Code.
 
@@ -97,13 +97,45 @@ einem Schicht-1-Block, befristet bis B14 und B13) und **ADR-029** (Herauslösung
 des Anteilsrechners aus `XpDistributor`, damit Coins und Erfahrung denselben
 Kill nicht unterschiedlich bewerten).
 
-Als nächstes **`/specify` für B11 (Items, Loot & Ausrüstung)**. Der Neuzuschnitt
-ist mit ADR-027 abgeschlossen: keine offene Frage mehr im Steckbrief.
-Raritätsstufen bleiben als reines Etikett, der Roll-Mechanismus entfällt — jedes
-Item hat feste Attributwerte —, und der NPC-Händler gehört hierher. Die
-Buchungsgründe `VENDOR_SALE`, `VENDOR_PURCHASE` und `REPAIR` stehen in B08b
-bereits bereit; B11 muss dafür kein fremdes Enum anfassen.
+Als nächstes **`/specify` für B09 (Zonen & Regionen)**. *(Korrektur vom
+2026-08-23: hier stand B11, und das war ein Fehler.)*
+
+**Warum nicht B11:** die Abhängigkeitstabelle in `01-architecture.md` führt B11
+auf B04, **B09 und B10** zurück. B11 ist spezifikationsreif, aber nicht
+umsetzbar — Loot braucht Mobs, und Mobs brauchen Zonen. Ein `/specify` für B11
+wäre nicht falsch, es führte nur in eine Warteschleife.
+
+**Warum B09:** es ist der einzige noch offene Block der Schicht 2, der allein
+von B01 abhängt, und drei ausgelieferte Blöcke warten mit verdrahteten
+Schnittstellen auf ihn: `WorldCondition.isOpenWorld` (B08, FR-052b),
+`DamagePermission` samt der Zeile „B09 replaces this line with a per-zone rule"
+(B05, FR-042) und `XpSource.ZONE_OBJECTIVE` (B06). Alle drei tragen heute eine
+absichtlich freundliche Vorgabe — Regel 5 in der Praxis.
+
+Der Steckbrief `blocks/B09-zones-regions.md` ist seit dem 2026-08-23
+**vollständig beantwortet**: sechs benannte Regionen über die Levelbänder 1–60,
+Region als Zone mit Schutzkern, Quader-Geometrie mit Chunk-Index, Portale in den
+Safe-Zones, Warnung statt Sperre unter dem Levelband, PvP je Zone schaltbar mit
+Vorgabe aus, und der Kampf-Logout als Tod. Ein ADR ist dabei entstanden und
+bereits angenommen: **ADR-030** für `DeathCause.LOGOUT`, weil das ein
+ausgeliefertes Enum in B05 anfasst.
+
+**Danach B10, dann B11.** B11s Neuzuschnitt ist mit ADR-027 abgeschlossen und
+braucht keine Klärung mehr: Raritätsstufen bleiben als reines Etikett, der
+Roll-Mechanismus entfällt — jedes Item hat feste Attributwerte —, und der
+NPC-Händler gehört hierher. Die Buchungsgründe `VENDOR_SALE`,
+`VENDOR_PURCHASE` und `REPAIR` stehen in B08b bereits bereit; B11 muss dafür
+kein fremdes Enum anfassen. Seine Spezifikation kann jederzeit parallel zur
+Umsetzung von B09 entstehen — blockiert ist die Umsetzung, nicht die
+Beschreibung.
 
 **B09/B10 schulden B08 drei Verhaltensweisen** (Aggro auf den Klon, Mobs wenden
 sich von Unsichtbaren ab, Zonen für Zweites Leben). Die Schnittstellen stehen
 und werden gerufen; sie antworten heute mit „nichts passiert".
+
+*Nachtrag 2026-08-23:* Die dritte davon ist keine Schuld mehr, sondern eine
+Entscheidung. Weil die Bosse in ihrer Region stehen und es zum Start **keine
+Instanzen** gibt, bleibt `WorldCondition.isOpenWorld` überall bei ja — das
+Zweitleben des Rogue wirkt überall, und das ist so gewollt. Die Schnittstelle
+bleibt stehen, weil eine Instanzwelt nach ADR-006 jederzeit dazukommen kann.
+Offen bleiben damit zwei Verhaltensweisen, und beide gehören B10.
