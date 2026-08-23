@@ -546,6 +546,15 @@ class FullBootstrapTest {
     }
 
     @Test
+    void theXpCommandIsRegistered() {
+        // The second one under the same temporary licence (ADR-028), and asserted for the same
+        // reason: a correction that can only be made with a database editor is one nobody makes.
+        assertThat(plugin.getCommand("xp")).isNotNull();
+        assertThat(plugin.getCommand("xp").getExecutor())
+                .isInstanceOf(rpg.plugin.command.XpCommand.class);
+    }
+
+    @Test
     void thePickupAndWindowListenersAreRegistered() {
         // Two handlers on InventoryClickEvent belong to the currency window and the class selection;
         // what matters here is that the currency one is among them at all.

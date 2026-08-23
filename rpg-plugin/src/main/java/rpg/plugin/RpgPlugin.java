@@ -1800,6 +1800,36 @@ public class RpgPlugin extends JavaPlugin {
         }
         command.setExecutor(coins);
         command.setTabCompleter(coins);
+
+        registerXpCommand();
+    }
+
+    /**
+     * {@code /xp} - befristet hier, wie {@code /coins} (ADR-028).
+     *
+     * <p>Eine Korrektur, die nur mit einem Datenbankwerkzeug moeglich ist, macht niemand. Geben laeuft
+     * ueber den gewoehnlichen Weg mit {@code XpSource.ADMIN}; Nehmen kann das nicht, weil B06 einen
+     * negativen Betrag ausdruecklich abweist - dafuer gibt es {@code setProgress}, und das schreibt
+     * mit, wer es war (FR-024b).
+     */
+    private void registerXpCommand() {
+        if (progressionModule == null) {
+            return;
+        }
+        rpg.plugin.command.XpCommand xp =
+                new rpg.plugin.command.XpCommand(
+                        getServer(),
+                        sessionModule.registry(),
+                        progressionModule.progression(),
+                        progressionModule.config().curve(),
+                        messages);
+        var command = getCommand("xp");
+        if (command == null) {
+            getLogger().severe("[progression] /xp is not declared in plugin.yml - not registered");
+            return;
+        }
+        command.setExecutor(xp);
+        command.setTabCompleter(xp);
     }
 
     /**

@@ -41,8 +41,32 @@ public final class ProgressionMessageKeys {
     public static final MessageKey PARTY_NOT_A_MEMBER =
             MessageKey.of("progression.party.error.not-a-member");
 
+    // ---- Operator, temporary here: the command belongs to B14 (ADR-028's arrangement) ----
+
+    /** What the operator is told after an intervention. */
+    public static final MessageKey ADMIN_XP_CHANGED = MessageKey.of("progression.admin.xp-changed");
+
+    /**
+     * And what the character is told.
+     *
+     * <p>Not optional. Somebody who quietly loses two levels reports a bug, and the report costs more
+     * than the line does - the same reasoning B08b uses for saying when a balance was corrected.
+     */
+    public static final MessageKey ADMIN_XP_NOTICE = MessageKey.of("progression.admin.xp-notice");
+
+    public static final MessageKey ADMIN_DENIED = MessageKey.of("progression.admin.denied");
+
+    public static final MessageKey ADMIN_UNKNOWN_TARGET =
+            MessageKey.of("progression.admin.unknown-target");
+
+    public static final MessageKey ADMIN_INVALID_AMOUNT =
+            MessageKey.of("progression.admin.invalid-amount");
+
+    public static final MessageKey ADMIN_USAGE = MessageKey.of("progression.admin.usage");
+
     private ProgressionMessageKeys() {}
 
+    /** Every key this block can emit, for the resolution test in the plugin module. */
     public static List<MessageKey> all() {
         return List.of(
                 LEVEL_UP,
@@ -61,6 +85,12 @@ public final class ProgressionMessageKeys {
                 PARTY_INVITE_UNKNOWN,
                 PARTY_TARGET_NOT_READY,
                 PARTY_SELF_INVITE,
-                PARTY_NOT_A_MEMBER);
+                PARTY_NOT_A_MEMBER,
+                ADMIN_XP_CHANGED,
+                ADMIN_XP_NOTICE,
+                ADMIN_DENIED,
+                ADMIN_UNKNOWN_TARGET,
+                ADMIN_INVALID_AMOUNT,
+                ADMIN_USAGE);
     }
 }

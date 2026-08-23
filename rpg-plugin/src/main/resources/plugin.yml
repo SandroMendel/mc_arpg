@@ -25,6 +25,10 @@ commands:
     description: 'Open the coin window, or change a balance.'
     usage: '/coins | /coins <player> | /coins set|add|remove <player> <class> <amount>'
     permission: rpg.currency.balance
+  xp:
+    description: 'Give experience, take it away, or set a level.'
+    usage: '/xp give|take <player> <amount> | /xp set <player> <level> [xp]'
+    permission: rpg.progression.admin
 
 permissions:
   rpg.currency.balance:
@@ -33,6 +37,9 @@ permissions:
     default: true
   rpg.currency.admin:
     description: "Open another player's window, and change a balance."
+    default: op
+  rpg.progression.admin:
+    description: "Change a character's experience or level. Every change is audited."
     default: op
   rpg.admin.no-class:
     description: 'Enter the world without choosing a class, in Creative. For moderating.'

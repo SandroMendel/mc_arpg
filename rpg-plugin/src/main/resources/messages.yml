@@ -43,6 +43,16 @@ progression:
   # no text at all (FR-038). B13 draws these and B14 answers with them.
   level-up: 'You reached level <level>.'
   max-level: 'You have reached the maximum level.'
+
+  # Betreiber-Eingriffe. Das Kommando liegt befristet in B14s Gebiet (ADR-028); jede Aenderung steht
+  # im Audit-Log, und der Betroffene erfaehrt sie - wer heimlich Stufen verliert, meldet einen Fehler.
+  admin:
+    xp-changed: '{player}: {change} - now level {level} ({xp} xp in level).'
+    xp-notice: 'An operator changed your experience: {change}. You are level {level}.'
+    denied: 'You may not change experience.'
+    unknown-target: 'No such player online, or they have no character in play.'
+    invalid-amount: 'That amount is not usable.'
+    usage: 'Usage: /xp give|take <player> <amount> | /xp set <player> <level> [xp]'
   party:
     created: 'You founded a party.'
     invited: 'You invited <player> to your party.'
