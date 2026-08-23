@@ -72,5 +72,13 @@
  * listener - is not allowed (FR-060), and a source test guards it. From now on a change to those
  * interfaces is ADR-bound, the same promise {@code CombatPipeline}, {@code StatEngine},
  * {@code AbilityRegistry} and {@code Currency} made for themselves.
+ *
+ * <p><b>Two objects enforce the safe core, and that is not a duplicate.</b>
+ * {@link rpg.core.zone.ZoneDamagePermission} is consulted where there is an attacker;
+ * {@link rpg.core.zone.SafeCoreDamageGuard} rides B05's interceptor seam and covers the environment
+ * path, which never asks a permission at all. Lava, fire, drowning and a fall would otherwise have
+ * gone through a core untouched. The bootstrap test found it, and the two reasons a stopped event
+ * carries - {@code NOT_PERMITTED} and {@code CANCELLED} - keep saying which of the two rules stopped
+ * it.
  */
 package rpg.core.zone;

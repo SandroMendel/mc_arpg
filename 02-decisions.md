@@ -1612,3 +1612,27 @@ Anforderung FR-050b in der Spec ist entsprechend umformuliert und trägt die Beg
   ADR-028s Kontofenster trägt.
 - Die Entscheidung „Portale als Config-Quader" vom Morgen des 2026-08-23 ist **überholt** und im
   Steckbrief als solche gekennzeichnet, nicht gelöscht.
+
+**Nachtrag vom 2026-08-23, nach der Umsetzung.** Alle vier Eingriffe sind ausgeführt und geprüft;
+`Adr032ConformanceTest` gleicht die Umsetzung gegen dieses ADR ab, statt sich darauf zu verlassen,
+dass jemand es liest.
+
+- **Die zwei Buchungsgründe stehen in B08b.** `WAYPOINT_TRAVEL` als DEBIT, `WAYPOINT_REFUND` als
+  CREDIT, beide mit einem Kommentar, der B09 und dieses ADR nennt — wer die Datei in einem Jahr liest,
+  soll ohne Archäologie sehen, warum zwei Werte eines fremden Blocks darin stehen.
+- **Fenster und Eingabe sind im Quelltext als befristet gekennzeichnet.** `WaypointMenu`,
+  `WaypointMenuListener` und `CrystalInteractListener` nennen jeweils dieses ADR, das Wort
+  *temporary* und **B13** als späteren Eigentümer.
+- **Die Persistenz hängt am Charakter**, nicht am Konto. `/plan` hat sich gegen einen eigenen
+  Aggregattyp für die Freischaltungen entschieden: `CHARACTER_ZONE_STATE` trägt beide Tabellen, weil
+  sie demselben Charakter gehören und im selben Moment geschrieben werden. Zwei Aggregattypen wären
+  zwei Positionen in der Schreibreihenfolge für eine Sache gewesen.
+- **Der Preis steht bei dem, der ihn verlangt** — je Kristall in `zones.yml`. `currency.yml` kennt
+  kein Reisen, und einen zentralen Katalog gibt es nicht (ADR-027).
+
+**Eine Zusage dieses ADRs war falsch, und sie steht oben noch:** „der Compiler zeigt die Stellen."
+Das gilt für keinen der beiden Eingriffe. Ein neuer Enum-Wert bricht nur dort, wo ein `switch`
+erschöpfend über das Enum geht — und weder über `DeathCause` noch über `BookingReason` gibt es einen.
+Beide Werte konnten hinzugefügt werden, ohne dass irgendetwas rot wurde. Was die Stellen tatsächlich
+zeigt, sind zwei geschriebene Zählungen: `DeathCauseLogoutTest` und `WaypointBookingReasonTest`. Wer
+den nächsten Eingriff in ein ausgeliefertes Enum plant, sollte nicht auf den Compiler zählen.

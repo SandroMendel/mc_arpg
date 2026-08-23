@@ -15,8 +15,6 @@ import rpg.core.classes.ClassMessageKeys;
 import rpg.core.classes.ClassRegistry;
 import rpg.core.combat.CombatMessageKeys;
 import rpg.core.combat.CombatModule;
-import rpg.core.zone.ZoneMessageKeys;
-import rpg.core.zone.ZoneModule;
 import rpg.core.combat.CombatPipeline;
 import rpg.core.config.ConfigLoader;
 import rpg.core.config.ConfigValidationException;
@@ -39,6 +37,8 @@ import rpg.core.scheduler.Scheduler;
 import rpg.core.session.SessionMessageKeys;
 import rpg.core.stats.StatConfig;
 import rpg.core.stats.StatEngine;
+import rpg.core.zone.ZoneMessageKeys;
+import rpg.core.zone.ZoneModule;
 import rpg.persistence.PersistenceMessageKeys;
 import rpg.persistence.PersistenceModule;
 import rpg.persistence.ability.AbilityModule;
@@ -527,6 +527,13 @@ public class RpgPlugin extends JavaPlugin {
                 .pipeline()
                 .setPermission(
                         new rpg.core.zone.ZoneDamagePermission(zoneTracker, zoneModule::zones));
+        // And the other half of the same promise. The permission is only consulted where there is an
+        // attacker; environment damage - lava, fire, drowning, a fall - never reaches it, so a safe
+        // core would have been safe from players and mobs and from nothing else (FR-028, SC-002).
+        // The bootstrap test found that, which is the whole reason it exists (ADR-012).
+        combatModule
+                .pipeline()
+                .registerInterceptor(new rpg.core.zone.SafeCoreDamageGuard(zoneTracker));
 
         // US4: a death goes back to the safe core of the region it happened in (FR-033). NORMAL
         // priority, because B05 already listens on this event at MONITOR to refill health and mana -
@@ -1810,6 +1817,24 @@ public class RpgPlugin extends JavaPlugin {
      */
     public rpg.core.ability.ResourceRegeneration abilityRegeneration() {
         return abilityModule == null ? null : abilityModule.regeneration();
+    }
+
+    /**
+     * B09's placement, for the bootstrap test.
+     *
+     * <p>Same reason as {@link #statEngine()} and {@link #combatPipeline()}: what needs asserting is
+     * that a fully wired server actually knows where a player stands. That is not part of the
+     * {@code Zones} contract other blocks use, and without it the only observable consequence of the
+     * whole placement chain would be a damage refusal - which fails for half a dozen unrelated
+     * reasons and would send the next reader hunting in the wrong block.
+     */
+    public rpg.core.zone.ZoneTracker zoneTracker() {
+        return zoneTracker;
+    }
+
+    /** The zone query as it was assembled, for the bootstrap test. */
+    public rpg.core.zone.Zones zones() {
+        return zoneModule == null ? null : zoneModule.zones();
     }
 
     /**

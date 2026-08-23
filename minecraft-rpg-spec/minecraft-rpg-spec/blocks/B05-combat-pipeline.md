@@ -122,3 +122,32 @@ eingehalten: B05 ist seit dem 2026-08-20 ausgeliefert, ohne Lasttest, ohne dass 
 irgendwo beschlossen worden wäre. Bei der Klärung von T122 fiel das auf und war der stillste der drei
 Gründe für ADR-031. Der Nachweis bleibt fällig, nur an der richtigen Stelle: ein Lasttest braucht 800
 Mobs, und die liefert erst B10.
+
+## Nachträglich verändert durch B09 *(2026-08-23)*
+
+Zwei Dinge an diesem ausgelieferten Block sehen heute anders aus als bei der
+Abnahme. Beide waren vorher per ADR beschlossen, keins davon ist stillschweigend
+passiert.
+
+- **`DeathCause` hat einen vierten Wert: `LOGOUT`** (ADR-030). Wer innerhalb der
+  acht Kampfsekunden den Server verlässt, stirbt. Ohne einen eigenen Grund könnte
+  B12 später „gestorben" nicht von „weggelaufen" unterscheiden, und genau diese
+  Zahl will ein Betreiber sehen. `DeathCauseLogoutTest` führt die Werte als
+  Zählung — **nicht der Compiler**: es gibt nirgends ein erschöpfendes `switch`
+  über dieses Enum, der Wert liess sich also hinzufügen, ohne dass etwas rot
+  wurde. Die Zählung ist der Ersatz dafür.
+- **Die Schadenserlaubnis ist ersetzt, nicht ergänzt.** `ZoneDamagePermission`
+  hängt über `CombatPipeline.setPermission` an der einen Stelle, die B05 dafür
+  vorgesehen hat. `SinglePermissionPointTest` und `DamagePermissionTest` sind
+  dabei **unverändert geblieben** — per `git log` nachweisbar, nicht behauptet.
+  Sie zu bearbeiten wäre keine Bestätigung gewesen, sondern deren Umgehung.
+
+**Eine Lücke, die dabei sichtbar wurde und die B05 gehört:**
+`DefaultCombatPipeline.environment` fragt die Schadenserlaubnis **nie**. Das ist
+für sich schlüssig — „darf A dem B schaden" hat keine Antwort, wenn es kein A
+gibt —, war aber für B09 eine Falle: der Schutzkern war vor Spielern und Mobs
+sicher und vor Lava, Feuer, Ertrinken und Sturz nicht. B09 schliesst das mit
+einem `DamageInterceptor` an der `SOURCE`-Stufe (`SafeCoreDamageGuard`), also
+über den veröffentlichten Erweiterungspunkt und **ohne Eingriff hier**. Wer
+später einen zweiten Grund findet, Umgebungsschaden zu verbieten, sollte denselben
+Weg nehmen.

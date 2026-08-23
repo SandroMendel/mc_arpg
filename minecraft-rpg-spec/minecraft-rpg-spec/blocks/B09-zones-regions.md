@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Schicht** | 2 — Welt & Content |
-| **Status** | **Geplant** *(2026-08-23)* — `specs/009-zones-regions/`, `/specify`, zwei `/clarify`-Runden und `/plan` durchlaufen, bereit für `/tasks`. Zwei ADRs dabei entstanden: **ADR-030** (Kampf-Logout ist der Tod) und **ADR-032** (Wegpunkt-Kristalle); ADR-031 (Lasttestphase) wurde dabei ausgelöst. Phase 0 hat FR-050b widerlegt und umformuliert |
+| **Status** | **Implementiert** *(2026-08-23)* — `specs/009-zones-regions/`, 143 Aufgaben, **1899 Tests, 0 Fehler, 0 übersprungen**. Zwei ADRs dabei entstanden: **ADR-030** (Kampf-Logout ist der Tod) und **ADR-032** (Wegpunkt-Kristalle); ADR-031 (Lasttestphase) wurde dabei ausgelöst. Phase 0 hat FR-050b widerlegt und umformuliert. **Offen: der Durchlauf auf einem echten Paper-Server** (quickstart.md Abschnitt 3, 47 Prüfschritte) — kein Code |
 | **Abhängig von** | B01 |
 | **Benötigt von** | B10, B11, B13 |
 
@@ -260,3 +260,51 @@ jederzeit als Konfiguration zu.
   Safe-Zone, mit Nachricht; ein Logout danach nicht.
 - Im Schutzkern spawnt kein Mob und wirkt kein PvP, auch wenn die Region
   `pvp: true` trägt.
+
+## Umsetzung *(2026-08-23)*
+
+143 Aufgaben, sieben Geschichten, 1899 Tests im ganzen Projekt — 0 Fehler,
+0 übersprungen. SC-001 gemessen: **200 Lookups in 5700 ns**, Abstand zum Budget
+87,7×. SC-008 durch `git log` belegt: B05s `SinglePermissionPointTest` und
+`DamagePermissionTest` sind seit ihrer Entstehung unverändert.
+
+### Was der Prüfstand gefunden hat, was kein Modultest sehen konnte
+
+Vier Befunde, jeder nur an der Naht zwischen zwei Schichten sichtbar:
+
+1. **Die Persistenz hat nie geschrieben.** `JdbcZoneStateRepository.write` rief
+   kein `commit()`; der Schreib-Pool gibt Verbindungen mit `autoCommit=false`
+   heraus, also rollte jeder Flush still zurück. Alle dreizehn anderen
+   `BatchWriter` des Projekts committen — dieser war der einzige, der es nicht
+   tat. Gefunden von `WaypointPersistenceTest`, weil er als erster den echten
+   Schreibweg gegen echtes PostgreSQL treibt.
+2. **Teleports erreichten den Tracker nicht.** `PlayerTeleportEvent` hat eine
+   eigene Handler-Liste; die Anmeldung auf `PlayerMoveEvent` betritt sie nicht.
+   Respawn, Kristallreise und jeder Betreiber-Teleport liessen den Tracker
+   glauben, der Spieler stehe noch am Ausgangsort — genau die Fälle, in denen
+   eine Grenze am häufigsten überquert wird (FR-017, SC-005).
+3. **Der Schutzkern war nur vor Spielern und Mobs sicher.**
+   `DefaultCombatPipeline.environment` fragt die Schadenserlaubnis nie. Lava,
+   Feuer, Ertrinken und Sturz gingen ungebremst durch, während
+   `ZoneDamagePermission` in einem Kommentar das Gegenteil behauptete.
+   Geschlossen mit `SafeCoreDamageGuard` als Interceptor — dem veröffentlichten
+   Erweiterungspunkt, ohne Eingriff in B05.
+4. **Der Rechtsklick war zu gierig.** Der erste Entwurf nahm auch
+   `RIGHT_CLICK_AIR` und benutzte die Position des Spielers; damit bediente ein
+   Schlag ins Leere im Auslösebereich den Kristall und jeder
+   Fähigkeitsgegenstand hörte im Schutzkern auf zu wirken.
+
+### Was offen bleibt
+
+- **quickstart.md Abschnitt 3** — die 47 Prüfschritte auf einem echten
+  Paper-Server. Grüne Tests beweisen nichts über Papers `libraries:`-Klassenlader.
+- **Abschnitt 4 (Last)** ist seit **ADR-031** keine Bedingung dieses Blocks mehr,
+  sondern eine Phase in B15. Ein Lasttest braucht Spieler, Mobs und Inhalt — also
+  gerade das, was B10 und B11 erst liefern.
+- **`XpSource.ZONE_OBJECTIVE`** (B06) und **`SourceKind`** für zonengebundene
+  Effekte (B04) bleiben unbefüllt. Der erste braucht Ziele innerhalb einer Zone,
+  also Inhalt statt Geometrie; der zweite brauchte den Schwierigkeitsmodifikator,
+  den `/clarify` aus dem Umfang genommen hat.
+- **Fenster und Rechtsklick** sind nach ADR-032 befristet und gehen an B13. Der
+  Quelltext sagt das an drei Stellen, und `Adr032ConformanceTest` prüft, dass er
+  es weiter sagt.

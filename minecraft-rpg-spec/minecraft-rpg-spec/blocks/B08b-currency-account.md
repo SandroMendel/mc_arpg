@@ -109,3 +109,23 @@ B14/B13) und **ADR-029** (Herauslösung des Anteilsrechners aus `XpDistributor`,
   die inhaltlichen Blöcke stehen. Der Coin-Haufen ist dort namentlich mitzumessen.
 
   **Damit ist der Durchlauf auf dem Paper-Server die letzte offene Aufgabe dieses Blocks.**
+
+## Nachträglich verändert durch B09 *(2026-08-23)*
+
+**`BookingReason` hat zwei weitere Werte** (ADR-032), und es mussten zwei sein:
+
+- `WAYPOINT_TRAVEL` (DEBIT) — eine Reise zwischen zwei Wegpunkt-Kristallen. Der
+  einzige Weg im Spiel, der Coins nimmt und keinen Gegenstand dafür gibt, also
+  auch der einzige, dessen Verlaufseintrag einen eigenen Namen braucht.
+- `WAYPOINT_REFUND` (CREDIT) — die Rückbuchung einer gescheiterten Reise. B09
+  nimmt den Fahrpreis, **bevor** es jemanden versetzt, weil dieser Block eine
+  Reservierung ausdrücklich verweigert; scheitert das Versetzen, kommt der Betrag
+  im selben Tick zurück. Als gewöhnliche Gutschrift gebucht sähe diese Rückgabe im
+  Verlauf aus wie ein Geschenk, und das Paar, das beweist, dass nichts verloren
+  ging, wäre nicht mehr als Paar erkennbar.
+
+Die Alternative wäre gewesen, dass B09 seinen eigenen Nachweis über Reisen führt
+— also genau das zweite Buch, das dieser Block verhindert.
+
+`WaypointBookingReasonTest` liegt bei B08b, weil das Enum B08b gehört: wer die
+zwei Werte wieder entfernt, fällt hier auf und nicht erst im Zonenblock.

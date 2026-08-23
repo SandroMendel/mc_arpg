@@ -56,8 +56,13 @@ public final class ZoneDamagePermission implements DamagePermission {
     @Override
     public boolean isAllowed(
             UUID attackerId, boolean attackerIsPlayer, UUID targetId, boolean targetIsPlayer) {
-        // 1 and 2: the core refuses everything, in both directions. Environmental damage included -
-        // attackerId is null there, and the target check has already run.
+        // 1 and 2: the core refuses everything that gets this far, in both directions.
+        //
+        // This comment used to claim environmental damage was included, because attackerId is null
+        // there and the target check runs regardless. The claim was wrong: B05 never consults a
+        // permission on the environment path at all, so lava in a safe core was never refused here.
+        // SafeCoreDamageGuard covers that path as an interceptor; this rule covers the ones with an
+        // attacker.
         if (presence.inSafeCore(targetId)) {
             return false;
         }

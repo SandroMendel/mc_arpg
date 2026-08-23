@@ -671,6 +671,87 @@ class FullBootstrapTest {
         return null;
     }
 
+    // --- B09: zones and regions ---
+
+    @Test
+    void bothZoneTablesExistBecauseTheirMigrationRan() {
+        assertThat(PostgresContainer.tableExists("character_zone_state")).isTrue();
+        assertThat(PostgresContainer.tableExists("character_waypoints")).isTrue();
+    }
+
+    @Test
+    void theZoneConfigurationIsWrittenOutLikeEveryOther() {
+        // Without this line in DEFAULT_CONFIG_FILES the block starts against a file that is not
+        // there. It cost 35 red tests once; it is asserted now rather than remembered.
+        assertThat(plugin.getDataFolder().toPath().resolve("zones.yml")).exists();
+    }
+
+    @Test
+    void everyZoneListenerIsRegistered() {
+        // FOUR listeners, not the six the task list expected. Two of them - the join and the quit -
+        // do not exist: B03 owns the session lifecycle and permits exactly one handler on each
+        // (FR-007), so B09 hangs on its SessionObserver instead. NoCompetingSessionListenersTest
+        // said so, and the right answer was to move rather than to argue.
+        //
+        // The movement guard is counted with the other four movement handlers further up.
+        assertThat(handlerCount(org.bukkit.event.player.PlayerTeleportEvent.getHandlerList()))
+                .as("a teleport is a zone change like any other (FR-017)")
+                .isEqualTo(1);
+        assertThat(handlerCount(org.bukkit.event.player.PlayerRespawnEvent.getHandlerList()))
+                .as("B05 refills at MONITOR, B09 sets the place at NORMAL - two, and the order matters")
+                .isEqualTo(2);
+        assertThat(handlerCount(PlayerInteractEvent.getHandlerList()))
+                .as("B08's ability trigger and B09's crystal")
+                .isEqualTo(2);
+    }
+
+    @Test
+    void nothingHurtsAPlayerStandingInASafeCore() {
+        // This test was written to prove setPermission had run, and it proved something else: the
+        // permission is never consulted on the environment path at all. Lava, fire, drowning and a
+        // fall went through a safe core untouched while ZoneDamagePermission claimed otherwise
+        // (FR-028, SC-002). SafeCoreDamageGuard now closes that path, and this is the assertion that
+        // would have caught it on day one.
+        PlayerMock player = enterWarrior();
+
+        // A fresh character is placed at the start region's respawn point, which lies in its safe
+        // core - so this is the ordinary state of somebody who just logged in for the first time.
+        assertThat(plugin.zoneTracker().inSafeCore(player.getUniqueId()))
+                .as("the placement chain ran: session, character, teleport, tracker")
+                .isTrue();
+        rpg.core.combat.DamageResult result =
+                plugin.combatPipeline()
+                        .environmentDamage(
+                                player.getUniqueId(), rpg.core.combat.EnvironmentSource.LAVA);
+
+        assertThat(result.applied())
+                .as("standing in the safe core, nothing may hurt them")
+                .isFalse();
+        assertThat(result.reason())
+                .as("cancelled by the guard, not refused by the permission - two rules, two reasons")
+                .isEqualTo(rpg.core.combat.RejectReason.CANCELLED);
+    }
+
+    @Test
+    void aReloadRebuildsTheZoneIndex() {
+        // applyReloadedConfig has to be called from the plugin's reload path, next to B04's. Without
+        // it a changed zones.yml is read, validated, accepted - and ignored, which is the worst of
+        // the three possible outcomes because it looks like success (FR-057a).
+        assertThat(plugin.reloadConfiguration())
+                .as("the shipped configuration reloads cleanly")
+                .isTrue();
+
+        PlayerMock player = enterWarrior();
+        assertThat(
+                        plugin.combatPipeline()
+                                .environmentDamage(
+                                        player.getUniqueId(),
+                                        rpg.core.combat.EnvironmentSource.LAVA)
+                                .applied())
+                .as("and the rule still holds afterwards - the swapped index is wired up again")
+                .isFalse();
+    }
+
     // --- fixtures ---
 
     private static int handlerCount(HandlerList handlers) {

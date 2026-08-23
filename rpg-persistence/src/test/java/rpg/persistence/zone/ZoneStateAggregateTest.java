@@ -18,8 +18,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import rpg.core.zone.ZoneCharacterState;
 import rpg.core.persistence.PersistenceConfig;
+import rpg.core.zone.ZoneCharacterState;
 import rpg.persistence.ConnectionPools;
 import rpg.persistence.SchemaMigrator;
 import rpg.persistence.support.PostgresContainer;

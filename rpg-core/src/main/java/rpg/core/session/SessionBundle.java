@@ -3,8 +3,6 @@ package rpg.core.session;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-
-import rpg.core.zone.ZoneCharacterState;
 import java.util.UUID;
 
 import rpg.core.ability.AbilityState;
@@ -15,6 +13,7 @@ import rpg.core.persistence.ItemInstance;
 import rpg.core.persistence.PlayerState;
 import rpg.core.progression.CharacterProgress;
 import rpg.core.stats.CharacterResources;
+import rpg.core.zone.ZoneCharacterState;
 
 /**
  * Everything a session needs, read in one go (FR-005).

@@ -335,31 +335,34 @@ sind namentlich abfragbar.
 
 ### Querschnitt
 
-- [ ] T124 [P] `ZoneImmutabilityTest` in `rpg-core/src/test/java/rpg/core/zone/` — `Cuboid`, `Area`, `Zone`, `SafeCore`, `SpawnArea`, `WaypointCrystal` und beide Ereignisse sind unveränderlich
-- [ ] T125 [P] `ZoneConfigEffectTest` in `rpg-core/src/test/java/rpg/core/zone/` — eine geänderte Zonengeometrie, ein geändertes Levelband, ein geänderter `pvp`-Schalter und ein geänderter Reisepreis wirken nach dem Neuladen, **ohne dass Code geändert wurde** (SC-003, Prinzip V), nach dem Muster von `AbilityConfigReloadTest`
-- [ ] T126 [P] `SeventhRegionTest` in `rpg-core/src/test/java/rpg/core/zone/` — eine siebte Region entsteht durch Konfiguration allein (SC-003)
-- [ ] T127 [P] `ZoneInOwnWorldTest` in `rpg-core/src/test/java/rpg/core/zone/` — die `world:`-Zeile verschiebt eine Zone in eine eigene Welt, ohne Codeänderung (SC-004, ADR-006)
-- [ ] T128 [P] `NoBukkitInCoreTest` in `rpg-core/src/test/java/rpg/core/zone/` — kein Typ aus `org.bukkit` im Zonenpaket der Domänenschicht (FR-059, Prinzip III), nach dem Muster der vorhandenen Quelltests
-- [ ] T128a [P] `ZoneSourceInvariantsTest` in `rpg-core/src/test/java/rpg/core/zone/` — kein Block greift am Vertrag vorbei: `ChunkZoneIndex`, `ZoneConfig` und `DefaultZones` werden ausserhalb von `rpg.core.zone` nicht benutzt, und `zones.yml` wird nur von diesem Paket gelesen (FR-060, Prinzip III). Nach dem Muster von `ClassSourceInvariantsTest`
-- [ ] T129 [P] `NoDatabaseInGameplayPathTest` in `rpg-core/src/test/java/rpg/core/zone/` — keine Bewegung, kein Zonenwechsel und keine Warnung erzeugt einen Datenbankzugriff (FR-063)
-- [ ] T130 `FullBootstrapTest` in `rpg-plugin/src/test/java/` erweitern (ADR-012) — Modul registriert, **alle sechs Listener** angemeldet, `setPermission` gesetzt, `ZoneWorldCondition` eingesetzt, `applyReloadedConfig` aufgerufen, der Aggregattyp verdrahtet
+- [X] T124 [P] `ZoneImmutabilityTest` in `rpg-core/src/test/java/rpg/core/zone/` — `Cuboid`, `Area`, `Zone`, `SafeCore`, `SpawnArea`, `WaypointCrystal` und beide Ereignisse sind unveränderlich
+- [X] T125 [P] `ZoneConfigEffectTest` in `rpg-core/src/test/java/rpg/core/zone/` — eine geänderte Zonengeometrie, ein geändertes Levelband, ein geänderter `pvp`-Schalter und ein geänderter Reisepreis wirken nach dem Neuladen, **ohne dass Code geändert wurde** (SC-003, Prinzip V), nach dem Muster von `AbilityConfigReloadTest`
+- [X] T126 [P] `SeventhRegionTest` in `rpg-core/src/test/java/rpg/core/zone/` — eine siebte Region entsteht durch Konfiguration allein (SC-003)
+- [X] T127 [P] `ZoneInOwnWorldTest` in `rpg-core/src/test/java/rpg/core/zone/` — die `world:`-Zeile verschiebt eine Zone in eine eigene Welt, ohne Codeänderung (SC-004, ADR-006)
+- [X] T128 [P] `NoBukkitInCoreTest` in `rpg-core/src/test/java/rpg/core/zone/` — kein Typ aus `org.bukkit` im Zonenpaket der Domänenschicht (FR-059, Prinzip III), nach dem Muster der vorhandenen Quelltests
+- [X] T128a [P] `ZoneSourceInvariantsTest` in `rpg-core/src/test/java/rpg/core/zone/` — kein Block greift am Vertrag vorbei: `ChunkZoneIndex`, `ZoneConfig` und `DefaultZones` werden ausserhalb von `rpg.core.zone` nicht benutzt, und `zones.yml` wird nur von diesem Paket gelesen (FR-060, Prinzip III). Nach dem Muster von `ClassSourceInvariantsTest`
+- [X] T129 [P] `NoDatabaseInGameplayPathTest` in `rpg-core/src/test/java/rpg/core/zone/` — keine Bewegung, kein Zonenwechsel und keine Warnung erzeugt einen Datenbankzugriff (FR-063)
+- [X] T130 `FullBootstrapTest` in `rpg-plugin/src/test/java/` erweitern (ADR-012) — Modul registriert, **alle sechs Listener** angemeldet, `setPermission` gesetzt, `ZoneWorldCondition` eingesetzt, `applyReloadedConfig` aufgerufen, der Aggregattyp verdrahtet
+  > **Zwei Befunde, beide nur hier sichtbar.** (1) `PlayerTeleportEvent` hat eine **eigene** Handler-Liste — die Anmeldung auf `PlayerMoveEvent` erreicht sie nicht. Jeder Teleport (Respawn, Kristallreise, Betreiber) liess den Tracker glauben, der Spieler stehe noch am Ausgangsort. Der Zähler stand auf null. (2) `DefaultCombatPipeline.environment` fragt die **Schadenserlaubnis nie** — Lava, Feuer, Ertrinken und Sturz gingen ungebremst durch den Schutzkern, während `ZoneDamagePermission` das Gegenteil behauptete. Behoben mit `SafeCoreDamageGuard` als Interceptor, ohne Eingriff in B05.
+  > **Vier Listener statt sechs**: Join und Quit gibt es nicht, weil B03 je genau einen Handler erlaubt (FR-007) — B09 hängt stattdessen am `SessionObserver`.
 
 ### Abschluss
 
-- [ ] T131 `./gradlew test` vollständig — **0 Fehler, 0 übersprungen**. Auf übersprungene Tests achten: MockBukkit meldet Nicht-Implementiertes als *skipped*, nicht als Fehler, und ein „skipped" ist hier ein Befund
-- [ ] T132 [quickstart.md](./quickstart.md) **Abschnitt 1** durchlaufen und die Ergebnisse festhalten — Tests, die Messung zu SC-001, und die beiden B05-Tests, die unverändert grün bleiben müssen
-- [ ] T133 [quickstart.md](./quickstart.md) **Abschnitt 2** durchlaufen — die elf Konfigurationsproben, davon acht verweigerte Starts
+- [X] T131 `./gradlew test` vollständig — **0 Fehler, 0 übersprungen**. Auf übersprungene Tests achten: MockBukkit meldet Nicht-Implementiertes als *skipped*, nicht als Fehler, und ein „skipped" ist hier ein Befund
+- [X] T132 [quickstart.md](./quickstart.md) **Abschnitt 1** durchlaufen und die Ergebnisse festhalten — Tests, die Messung zu SC-001, und die beiden B05-Tests, die unverändert grün bleiben müssen
+- [X] T133 [quickstart.md](./quickstart.md) **Abschnitt 2** durchlaufen — die elf Konfigurationsproben, davon acht verweigerte Starts
 - [ ] T134 [quickstart.md](./quickstart.md) **Abschnitt 3** auf einem echten Paper-Server — die **47 Prüfschritte**, besonders 13–15 (der Kern ist wirklich schadensfrei), 22 (Kampf-Logout), 32 (dieselbe Koordinate für Tod und Reise), 34 (Reise im Kampf) und 39 (gelöschter Charakter erbt nichts). Grüne Tests beweisen nichts über Papers `libraries:`-Klassenlader; nur der echte Start tut das
-- [ ] T135 Abschnitt 4 (Last) **nicht** als Aufgabe führen, sondern als Vermerk in `minecraft-rpg-spec/minecraft-rpg-spec/blocks/B09-zones-regions.md`: seit **ADR-031** gehört der Lastnachweis in B15s Phase und hält diesen Block nicht offen. Im Steckbrief festhalten
+  > **Nicht durchgeführt.** Diese Aufgabe braucht einen laufenden Paper-Server; ich kann sie nicht ausführen. Sie bleibt die einzige offene Aufgabe des Blocks und ist im Steckbrief unter „Was offen bleibt" vermerkt. Das Jar allein deployt die YAML-Änderungen nicht mit — Bukkit überschreibt vorhandene Configs nicht, `zones.yml` und der neue `zone.*`-Zweig in `messages.yml` müssen von Hand auf den Testserver.
+- [X] T135 Abschnitt 4 (Last) **nicht** als Aufgabe führen, sondern als Vermerk in `minecraft-rpg-spec/minecraft-rpg-spec/blocks/B09-zones-regions.md`: seit **ADR-031** gehört der Lastnachweis in B15s Phase und hält diesen Block nicht offen. Im Steckbrief festhalten
 
 ### Dokumentation
 
-- [ ] T136 [P] `package-info.java` in `rpg/core/zone/` ausformulieren — der Vertrag aus [contracts/zone-api.md](./contracts/zone-api.md), die Zusage „ab jetzt ADR-pflichtig", und was ausdrücklich **nicht** hierher gehört (Mobs, Loot, Anzeige, Zonenziele)
-- [ ] T137 [P] Steckbrief `minecraft-rpg-spec/minecraft-rpg-spec/blocks/B09-zones-regions.md` auf **Implementiert** setzen, mit Aufgabenzahl, Testzahl und den offen gebliebenen Punkten
-- [ ] T138 [P] `docs/05-roadmap-speckit-workflow.md`: „Empfohlener nächster Schritt" auf **B10** umstellen; B09 hat drei wartende Schnittstellen eingelöst und zwei benannt
-- [ ] T139 [P] `06-open-questions.md` (im **Projektstamm**, nicht die eingefrorene Kopie): den B09-Abschnitt schliessen und im B10-Abschnitt vermerken, dass die Spawn-Bereiche jetzt bereitstehen
-- [ ] T140 [P] `02-decisions.md`: ADR-032 um eine Nachbemerkung ergänzen — die vier Eingriffe sind ausgeführt, die zwei Buchungsgründe stehen in B08b, und Fenster und Eingabe sind als befristet gekennzeichnet
-- [ ] T141 [P] `minecraft-rpg-spec/minecraft-rpg-spec/blocks/B05-combat-pipeline.md` und `.../B08b-currency-account.md` dort nachziehen, wo sie durch die zwei Eingriffe berührt sind: `DeathCause` hat einen vierten Wert, `BookingReason` zwei weitere
+- [X] T136 [P] `package-info.java` in `rpg/core/zone/` ausformulieren — der Vertrag aus [contracts/zone-api.md](./contracts/zone-api.md), die Zusage „ab jetzt ADR-pflichtig", und was ausdrücklich **nicht** hierher gehört (Mobs, Loot, Anzeige, Zonenziele)
+- [X] T137 [P] Steckbrief `minecraft-rpg-spec/minecraft-rpg-spec/blocks/B09-zones-regions.md` auf **Implementiert** setzen, mit Aufgabenzahl, Testzahl und den offen gebliebenen Punkten
+- [X] T138 [P] `docs/05-roadmap-speckit-workflow.md`: „Empfohlener nächster Schritt" auf **B10** umstellen; B09 hat drei wartende Schnittstellen eingelöst und zwei benannt
+- [X] T139 [P] `06-open-questions.md` (im **Projektstamm**, nicht die eingefrorene Kopie): den B09-Abschnitt schliessen und im B10-Abschnitt vermerken, dass die Spawn-Bereiche jetzt bereitstehen
+- [X] T140 [P] `02-decisions.md`: ADR-032 um eine Nachbemerkung ergänzen — die vier Eingriffe sind ausgeführt, die zwei Buchungsgründe stehen in B08b, und Fenster und Eingabe sind als befristet gekennzeichnet
+- [X] T141 [P] `minecraft-rpg-spec/minecraft-rpg-spec/blocks/B05-combat-pipeline.md` und `.../B08b-currency-account.md` dort nachziehen, wo sie durch die zwei Eingriffe berührt sind: `DeathCause` hat einen vierten Wert, `BookingReason` zwei weitere
 
 ---
 

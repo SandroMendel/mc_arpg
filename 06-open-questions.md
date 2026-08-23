@@ -154,10 +154,13 @@ Bei zwei /clarify-Runden zusätzlich geklärt (siehe ADR-014):
       die ein späterer Block nicht mehr übernehmen könnte (Regel 5). `RankResult`
       kennt bewusst kein `NOT_ENOUGH_COINS`. *(2026-08-22)*
 
-## B09 (Zonen & Regionen) — geschlossen *(2026-08-23)*
+## B09 (Zonen & Regionen) — geschlossen und umgesetzt *(2026-08-23)*
 
-Alle Punkte beantwortet, der Block ist bereit für `/specify`. Die Begründungen
-stehen im Steckbrief `minecraft-rpg-spec/minecraft-rpg-spec/blocks/B09-zones-regions.md`.
+Alle Punkte beantwortet, der Block ist **implementiert**: 143 Aufgaben, 1899
+Tests, 0 Fehler, 0 übersprungen. Offen ist nur noch der Durchlauf auf einem
+echten Paper-Server (quickstart.md Abschnitt 3) — kein Code. Die Begründungen
+stehen im Steckbrief `minecraft-rpg-spec/minecraft-rpg-spec/blocks/B09-zones-regions.md`,
+die Befunde der Umsetzung dort unter „Umsetzung".
 
 - [x] **ADR-006 bestätigt**: eine handgebaute Kontinent-Welt für offene Zonen,
       separate Instanzwelten nur für Dungeons/Bossräume/Tutorial
@@ -221,6 +224,13 @@ stehen im Steckbrief `minecraft-rpg-spec/minecraft-rpg-spec/blocks/B09-zones-reg
       später ohne Codeänderung austauschbar (Prinzip V). *(2026-08-23)*
 - [x] Gespawnt wird an ausgewählten Stellen der Gefahrenzone; die **Bereiche**
       liefert B09 benannt, die **Horden** füllt B10. *(2026-08-23)*
+      **Sie stehen jetzt bereit** *(2026-08-23)*: `Zones.spawnAreasOf(zoneKey)`
+      gibt je Region mehrere Bereiche mit Kennung und Geometrie heraus — und
+      sonst nichts. Keine Rolle, keine Art, keine Kreaturenliste, kein
+      Boss-Kennzeichen: ein Bossbereich unterscheidet sich geometrisch von keinem
+      anderen. Eine unbekannte Region antwortet mit einer leeren Liste statt mit
+      einer Ausnahme, weil B10 diese Abfrage aus einem Spawn-Ereignis heraus
+      stellen wird und „ausserhalb jeder Region" dort ein normaler Zustand ist
 - [ ] Zielwert für gleichzeitig aktive Mobs (serverweit und je Zone)
 - [ ] Welche Vanilla-Entities dienen als Basis für die 48 Mob-Arten und die
       sechs Bosse?

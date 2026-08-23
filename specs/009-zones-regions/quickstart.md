@@ -42,6 +42,16 @@ sondern deren Umgehung.
 
 ---
 
+### Ergebnis dieses Durchlaufs *(2026-08-23)*
+
+| | |
+|---|---|
+| `./gradlew test` | **1899 Tests, 0 Fehler, 0 übersprungen** |
+| SC-001 | **200 Lookups in 5700 ns** — Budget 500 000 ns, Abstand **87,7×** |
+| SC-008 | `SinglePermissionPointTest` und `DamagePermissionTest` sind seit B05 **unverändert** (`git log` je Datei: `2e3359e` und `8dc2c64`) und grün. Nicht „nicht angepasst, soweit ich weiß" — nachgewiesen |
+
+---
+
 ## 2 · Ohne Server: die Konfiguration wirkt
 
 Belegt SC-003, SC-004 und SC-013 — dass Zonen wirklich konfigurationsdefiniert sind.
@@ -59,6 +69,33 @@ Belegt SC-003, SC-004 und SC-013 — dass Zonen wirklich konfigurationsdefiniert
 | 2.9 | `provisional: true` setzen und starten | Warnung im Protokoll (FR-065b); bei `/rpg reload` **nicht** erneut (research.md R7) |
 | 2.10 | `provisional` entfernen | nur die Warnung verschwindet, sonst ändert sich nichts (FR-065c) |
 | 2.11 | einen Zonennamen in `messages.yml` ändern | der neue Name erscheint überall, auch im Wegpunktfenster; **keine** weitere Datei angefasst (SC-017) |
+
+---
+
+### Ergebnis dieses Durchlaufs *(2026-08-23)*
+
+Alle elf Proben sind **automatisiert** durchgeführt, nicht von Hand: jede ist ein Test, der das
+ausgelieferte Dokument nimmt, genau eine Sache kaputt macht und die Meldung prüft. Von Hand hätte
+jede Probe einen Serverstart gekostet und wäre beim nächsten Mal nicht wiederholt worden.
+
+| Probe | Wo sie läuft |
+|---|---|
+| 2.1 siebte Region | `SeventhRegionTest` — sie beantwortet danach jede Frage, die die sechs anderen beantworten |
+| 2.2 andere Welt | `ZoneInOwnWorldTest` — inklusive der Probe, die es wirklich beweist: dieselben Koordinaten in zwei Welten sind zwei Orte |
+| 2.3 Überlappung | `ZoneConfigSchemaTest` Fall 2 |
+| 2.4 Kern ausserhalb | `ZoneConfigSchemaTest` Fall 3 |
+| 2.5 Spawn-Bereich im Kern | `ZoneConfigSchemaTest` Fall 4b |
+| 2.6 Kristall ohne Kern | `ZoneConfigSchemaTest` Fall 6 |
+| 2.7 fehlender Zonenname | `ProvisionalWarningTest.regionWithoutANameRefusesTheStart` — beim Modulstart, weil die Zonenschlüssel erst dann bekannt sind |
+| 2.8 keine/zwei Startregionen | `ZoneConfigSchemaTest` Fälle 9a und 9b |
+| 2.9 `provisional` warnt | `ProvisionalWarningTest` — und beim Neuladen **nicht** erneut |
+| 2.10 `provisional` entfernt | `ProvisionalWarningTest` — nur die Warnung verschwindet |
+| 2.11 Name geändert | `ZoneMessageKeys.nameOf` ist die einzige Stelle; `ZoneDisplayHandoffTest` bewacht, dass keine zweite entsteht |
+
+Zwei Fälle gibt es zusätzlich, die die Liste nicht vorgesehen hatte und die der Schema-Test trotzdem
+führt: eine unbekannte Welt (FR-002a, beim `/analyze` wiedergefunden) und zwei Kristalle mit
+demselben Schlüssel — der Schlüssel steht in den Freischaltungen der Spieler, ein Doppel wäre dort
+nicht mehr auflösbar.
 
 ---
 

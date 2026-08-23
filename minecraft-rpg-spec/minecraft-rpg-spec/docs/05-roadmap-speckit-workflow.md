@@ -79,7 +79,7 @@ Anschließend `/constitution` mit dem Inhalt von `constitution.md` ausführen.
 
 ## Empfohlener nächster Schritt
 
-*(Stand 2026-08-23)* B01 bis **B08b** sind implementiert und verdrahtet. Offen
+*(Stand 2026-08-23)* B01 bis **B09** sind implementiert und verdrahtet. Offen
 sind dort nur noch Validierungsläufe auf einem echten Paper-Server — kein Code.
 
 **Die Lasttests sind aus den Blöcken herausgelöst** *(ADR-031, 2026-08-23)*. Sie
@@ -103,8 +103,9 @@ einem Schicht-1-Block, befristet bis B14 und B13) und **ADR-029** (Herauslösung
 des Anteilsrechners aus `XpDistributor`, damit Coins und Erfahrung denselben
 Kill nicht unterschiedlich bewerten).
 
-Als nächstes **`/specify` für B09 (Zonen & Regionen)**. *(Korrektur vom
-2026-08-23: hier stand B11, und das war ein Fehler.)*
+Als nächstes **`/specify` für B10 (Mobs & Hordenlogik)**. B09 ist seit dem
+2026-08-23 implementiert; B10 ist der Block, auf den es jetzt zuläuft, und es
+findet die benannten Spawn-Bereiche bereits vor.
 
 **Warum nicht B11:** die Abhängigkeitstabelle in `01-architecture.md` führt B11
 auf B04, **B09 und B10** zurück. B11 ist spezifikationsreif, aber nicht
@@ -125,6 +126,31 @@ Safe-Zones, Warnung statt Sperre unter dem Levelband, PvP je Zone schaltbar mit
 Vorgabe aus, und der Kampf-Logout als Tod. Ein ADR ist dabei entstanden und
 bereits angenommen: **ADR-030** für `DeathCause.LOGOUT`, weil das ein
 ausgeliefertes Enum in B05 anfasst.
+
+
+### Was B09 eingelöst und was es benannt hat *(2026-08-23)*
+
+Vier ausgelieferte Blöcke hatten eine Schnittstelle auf B09 warten. **Zwei sind
+eingelöst**: `WorldCondition.isOpenWorld` (B08) beantwortet `ZoneWorldCondition`,
+und `DamagePermission` (B05) ist durch `ZoneDamagePermission` **ersetzt** statt
+kopiert — `SinglePermissionPointTest` und `DamagePermissionTest` sind dabei
+unverändert geblieben, nachweisbar per `git log`.
+
+**Zwei warten weiter, und das ist eine Aussage statt eines Versäumnisses:**
+`XpSource.ZONE_OBJECTIVE` (B06) braucht Ziele innerhalb einer Zone, also Inhalt
+statt Geometrie. `SourceKind` für zonengebundene Effekte (B04) brauchte den
+Schwierigkeitsmodifikator, den `/clarify` aus dem Umfang genommen hat. Sie zu
+füllen hiesse Werte zu erzeugen, die niemand liest.
+
+B09 hat seinerseits zwei Eingriffe in abgeschlossene Blöcke gemacht, beide vorab
+per ADR gedeckt: `DeathCause.LOGOUT` in B05 (ADR-030) und die Buchungsgründe
+`WAYPOINT_TRAVEL` und `WAYPOINT_REFUND` in B08b (ADR-032). Fenster und
+Rechtsklick liegen befristet in B09 und gehen an **B13**.
+
+**Was B10 vorfindet:** benannte Spawn-Bereiche je Region, abfragbar über
+`Zones.spawnAreasOf(zoneKey)` — Kennung und Geometrie, keine Rolle und keine
+Kreaturenliste. Ein Bossbereich unterscheidet sich geometrisch von keinem
+anderen; er unterscheidet sich in dem, was darin steht, und das gehört B10.
 
 **Danach B10, dann B11.** B11s Neuzuschnitt ist mit ADR-027 abgeschlossen und
 braucht keine Klärung mehr: Raritätsstufen bleiben als reines Etikett, der

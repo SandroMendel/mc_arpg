@@ -34,9 +34,16 @@ import rpg.core.zone.Zones;
  * least likely to change the answer - somebody without a character is not in play, but somebody with
  * one still spends almost every step inside a single chunk.
  *
- * <p><b>A teleport is not a special case.</b> {@link PlayerTeleportEvent} is a
- * {@link PlayerMoveEvent}, so the same handler sees it, and the guard's chunk comparison notices the
- * jump like any other step (FR-017, SC-005). There is no second code path to keep in sync.
+ * <p><b>A teleport needs its own handler, and the first version of this class did not have one.</b>
+ * {@link PlayerTeleportEvent} extends {@link PlayerMoveEvent}, so it looks as if the move handler
+ * would see it - the Javadoc here said exactly that. It does not: the teleport event owns a separate
+ * handler list, and registering for the move event never enters it. A teleport is how a player
+ * crosses a border most often - respawning, travelling by crystal, an operator moving somebody - and
+ * every one of them would have left the tracker believing they were still where they started
+ * (FR-017, SC-005). {@code FullBootstrapTest} counted the handlers and found zero.
+ *
+ * <p>Both handlers run the same body. There is no second code path to keep in sync - only a second
+ * door into the one that exists.
  */
 public final class ZoneMovementListener implements Listener {
 
@@ -57,6 +64,21 @@ public final class ZoneMovementListener implements Listener {
      */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onMove(PlayerMoveEvent event) {
+        evaluate(event);
+    }
+
+    /**
+     * The same thing for a teleport, which the move handler never sees.
+     *
+     * <p>Every arrival this block arranges itself comes through here: the respawn after a death, the
+     * journey between two crystals, the placement of a character who logged out in combat.
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onTeleport(PlayerTeleportEvent event) {
+        evaluate(event);
+    }
+
+    private void evaluate(PlayerMoveEvent event) {
         Location from = event.getFrom();
         Location to = event.getTo();
         if (to == null) {
