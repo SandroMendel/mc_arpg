@@ -34,18 +34,17 @@ public final class ChunkZoneIndex {
     /** What one chunk holds. Allocated at load time, read-only afterwards. */
     record Bucket(Zone[] zones, boolean boundary) {}
 
-    /** A crystal together with the zone that owns it - the travel destination comes from the zone. */
-    public record CrystalAt(WaypointCrystal crystal, Zone zone) {}
+
 
     private final Map<UUID, ChunkTable> zonesByWorld;
     private final Map<UUID, ChunkTable> crystalsByWorld;
-    private final Map<String, CrystalAt> crystalsByKey;
+    private final Map<String, CrystalPlacement> crystalsByKey;
     private final List<Zone> zones;
 
     private ChunkZoneIndex(
             Map<UUID, ChunkTable> zonesByWorld,
             Map<UUID, ChunkTable> crystalsByWorld,
-            Map<String, CrystalAt> crystalsByKey,
+            Map<String, CrystalPlacement> crystalsByKey,
             List<Zone> zones) {
         this.zonesByWorld = zonesByWorld;
         this.crystalsByWorld = crystalsByWorld;
@@ -72,8 +71,8 @@ public final class ChunkZoneIndex {
     public static ChunkZoneIndex build(List<Zone> zones) {
         Map<UUID, Map<Long, List<Zone>>> staged = new LinkedHashMap<>();
         Map<UUID, Set<Long>> boundaries = new LinkedHashMap<>();
-        Map<UUID, Map<Long, List<CrystalAt>>> crystalStaged = new LinkedHashMap<>();
-        Map<String, CrystalAt> byKey = new LinkedHashMap<>();
+        Map<UUID, Map<Long, List<CrystalPlacement>>> crystalStaged = new LinkedHashMap<>();
+        Map<String, CrystalPlacement> byKey = new LinkedHashMap<>();
 
         for (Zone zone : zones) {
             Map<Long, List<Zone>> perWorld =
@@ -95,9 +94,9 @@ public final class ChunkZoneIndex {
             zone.crystal()
                     .ifPresent(
                             crystal -> {
-                                CrystalAt at = new CrystalAt(crystal, zone);
+                                CrystalPlacement at = new CrystalPlacement(crystal, zone);
                                 byKey.put(crystal.key(), at);
-                                Map<Long, List<CrystalAt>> perWorldCrystals =
+                                Map<Long, List<CrystalPlacement>> perWorldCrystals =
                                         crystalStaged.computeIfAbsent(
                                                 zone.worldId(), ignored -> new HashMap<>());
                                 for (long chunk : crystal.triggerArea().touchedChunks()) {
@@ -131,7 +130,7 @@ public final class ChunkZoneIndex {
                 (worldId, perWorld) -> {
                     ChunkTable table = new ChunkTable(perWorld.size());
                     perWorld.forEach(
-                            (chunk, found) -> table.put(chunk, found.toArray(new CrystalAt[0])));
+                            (chunk, found) -> table.put(chunk, found.toArray(new CrystalPlacement[0])));
                     crystalTables.put(worldId, table);
                 });
 
@@ -187,7 +186,7 @@ public final class ChunkZoneIndex {
     }
 
     /** The crystal whose trigger area covers this position, or {@code null} (research.md R5). */
-    public CrystalAt crystalAt(UUID worldId, int x, int y, int z) {
+    public CrystalPlacement crystalAt(UUID worldId, int x, int y, int z) {
         ChunkTable table = crystalsByWorld.get(worldId);
         if (table == null) {
             return null;
@@ -196,7 +195,7 @@ public final class ChunkZoneIndex {
         if (found == null) {
             return null;
         }
-        for (CrystalAt candidate : (CrystalAt[]) found) {
+        for (CrystalPlacement candidate : (CrystalPlacement[]) found) {
             if (candidate.crystal().triggerArea().contains(x, y, z)) {
                 return candidate;
             }
@@ -205,12 +204,12 @@ public final class ChunkZoneIndex {
     }
 
     /** The crystal with this key, or {@code null} - it may have left the configuration. */
-    public CrystalAt crystalByKey(String crystalKey) {
+    public CrystalPlacement crystalByKey(String crystalKey) {
         return crystalsByKey.get(crystalKey);
     }
 
     /** Every crystal, in configuration order. For the selection window. */
-    public List<CrystalAt> crystals() {
+    public List<CrystalPlacement> crystals() {
         return List.copyOf(crystalsByKey.values());
     }
 }

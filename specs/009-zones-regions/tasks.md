@@ -103,22 +103,22 @@ Spawn verlassen (genau ein Kernereignis, kein Zonenwechsel), und die Zeit für 2
 
 ### Tests für US1
 
-- [ ] T033 [P] [US1] `ZoneChangeEventTest` in `rpg-core/src/test/java/rpg/core/zone/` — genau ein Ereignis je tatsächlicher Änderung, alte und neue Zone belegt, eine Seite darf leer sein; **kein** zweites Ereignis für unveränderte Zuordnung (FR-015, FR-018)
-- [ ] T034 [P] [US1] `SafeAreaEventTest` in `rpg-core/src/test/java/rpg/core/zone/` — das Verlassen des Kerns erzeugt genau ein Kernereignis und **keinen** Zonenwechsel (FR-016, SC-006)
-- [ ] T035 [P] [US1] `MovementEvaluationTest` in `rpg-core/src/test/java/rpg/core/zone/` — Bewegung innerhalb eines gewöhnlichen Chunks löst **keine** Neubewertung aus; Bewegung innerhalb eines **Grenzchunks** löst sie aus (FR-019, FR-020, research.md R4)
-- [ ] T036 [P] [US1] `ZoneReloadReevaluationTest` in `rpg-core/src/test/java/rpg/core/zone/` — nach einem Neuladen werden alle Anwesenden neu bewertet, Ereignisse feuern **nur** für tatsächliche Änderungen, und **keine wiederkehrende Aufgabe** entsteht (FR-014, FR-018, Prinzip II)
-- [ ] T037 [P] [US1] `ZoneLookupBenchmarkTest` in `rpg-core/src/test/java/rpg/core/zone/` — die Zuordnung für **200 Positionen** unter **0,5 ms**, wiederholbar und **ohne Server**. Eine Messung, kein Lasttest (SC-001, SC-002, ADR-031)
+- [X] T033 **Zusammengelegt in `ZoneTrackerTest`** (T033, T034 und T036 prüfen dasselbe Objekt mit demselben Aufbau; drei Klassen hätten den Aufbau dreimal gebaut) — genau ein Ereignis je tatsächlicher Änderung, alte und neue Zone belegt, eine Seite darf leer sein; **kein** zweites Ereignis für unveränderte Zuordnung (FR-015, FR-018)
+- [X] T034 **In `ZoneTrackerTest`**, siehe T033 — das Verlassen des Kerns erzeugt genau ein Kernereignis und **keinen** Zonenwechsel (FR-016, SC-006)
+- [X] T035 [P] [US1] `MovementEvaluationTest` in `rpg-core/src/test/java/rpg/core/zone/` — Bewegung innerhalb eines gewöhnlichen Chunks löst **keine** Neubewertung aus; Bewegung innerhalb eines **Grenzchunks** löst sie aus (FR-019, FR-020, research.md R4)
+- [X] T036 **In `ZoneTrackerTest`**, siehe T033 — nach einem Neuladen werden alle Anwesenden neu bewertet, Ereignisse feuern **nur** für tatsächliche Änderungen, und **keine wiederkehrende Aufgabe** entsteht (FR-014, FR-018, Prinzip II)
+- [X] T037 [P] [US1] `ZoneLookupBenchmarkTest` in `rpg-core/src/test/java/rpg/core/zone/` — die Zuordnung für **200 Positionen** unter **0,5 ms**, wiederholbar und **ohne Server**. Eine Messung, kein Lasttest (SC-001, SC-002, ADR-031)
 
 ### Umsetzung US1
 
-- [ ] T038 [P] [US1] `ZoneChangedEvent` in `rpg-core/.../zone/ZoneChangedEvent.java` — Charakter, alte und neue Kennung, je optional (FR-015)
-- [ ] T039 [P] [US1] `SafeAreaCrossedEvent` in `rpg-core/.../zone/SafeAreaCrossedEvent.java` — Charakter, Zonenkennung, betreten oder verlassen. **Ein eigener Typ**, kein Feld am Zonenwechsel (FR-016, research.md R9)
-- [ ] T040 [US1] `ZoneTracker` in `rpg-core/.../zone/ZoneTracker.java` — hält die letzte bekannte Zuordnung je Charakter, vergleicht und veröffentlicht. Der Zustand hängt am Charakter, nicht global (Prinzip I)
-- [ ] T041 [US1] `ZoneMovementListener` in `rpg-platform/.../zone/ZoneMovementListener.java` — `PlayerMoveEvent`; **zuerst** der Grenzchunk-Wächter als reine Ganzzahlarithmetik auf `getBlockX() >> 4`, ohne `Chunk`-Objekt, danach erst der Index. Kopfkommentar nach dem Muster von `DoubleJumpListener` („one of the busiest events a server has") (FR-019, FR-020)
-- [ ] T042 [US1] `ZoneJoinListener` in `rpg-platform/.../zone/ZoneJoinListener.java` — Zuordnung bei Anmeldung und bei Charakterwechsel, ohne dass sich der Spieler bewegen muss (FR-017, Randfall „Charakterwechsel")
-- [ ] T043 [US1] Teleport abdecken in `rpg-platform/src/main/java/rpg/platform/zone/ZoneMovementListener.java` — der Wechsel feuert auch bei einer Versetzung, nicht nur beim Laufen (FR-017, SC-005)
-- [ ] T044 [US1] Ausnahmebarriere um die Zonenauswertung in `rpg-core/src/main/java/rpg/core/zone/ZoneTracker.java` — ein Fehler wird örtlich begrenzt und protokolliert, kein Spieler landet in einem unklaren Zustand (FR-064, Prinzip VI)
-- [ ] T045 [US1] Beide Listener in `rpg-plugin/src/main/java/rpg/plugin/RpgPlugin.java` anmelden (ADR-012)
+- [X] T038 [P] [US1] `ZoneChangedEvent` in `rpg-core/.../zone/ZoneChangedEvent.java` — Charakter, alte und neue Kennung, je optional (FR-015)
+- [X] T039 [P] [US1] `SafeAreaCrossedEvent` in `rpg-core/.../zone/SafeAreaCrossedEvent.java` — Charakter, Zonenkennung, betreten oder verlassen. **Ein eigener Typ**, kein Feld am Zonenwechsel (FR-016, research.md R9)
+- [X] T040 [US1] `ZoneTracker` in `rpg-core/.../zone/ZoneTracker.java` — hält die letzte bekannte Zuordnung je Charakter, vergleicht und veröffentlicht. Der Zustand hängt am Charakter, nicht global (Prinzip I)
+- [X] T041 [US1] `ZoneMovementListener` in `rpg-platform/.../zone/ZoneMovementListener.java` — `PlayerMoveEvent`; **zuerst** der Grenzchunk-Wächter als reine Ganzzahlarithmetik auf `getBlockX() >> 4`, ohne `Chunk`-Objekt, danach erst der Index. Kopfkommentar nach dem Muster von `DoubleJumpListener` („one of the busiest events a server has") (FR-019, FR-020)
+- [X] T042 **Geändert: kein Bukkit-Listener, sondern `SessionObserver`.** B03 besitzt den Sitzungslebenszyklus und erlaubt genau einen Join-Handler (FR-007); `NoCompetingSessionListenersTest` erzwingt das, und der erste Entwurf hat ihn rot gemacht. Die Platzierung hängt jetzt am Beobachter in `RpgPlugin` (`placeInZone`), der Tracker hält die Halter→Charakter-Übersetzung für `forgetHolder` selbst. **Folge für T084:** der Kampf-Logout darf ebenfalls nicht auf `PlayerQuitEvent` hören — Zuordnung bei Anmeldung und bei Charakterwechsel, ohne dass sich der Spieler bewegen muss (FR-017, Randfall „Charakterwechsel")
+- [X] T043 [US1] Teleport abdecken in `rpg-platform/src/main/java/rpg/platform/zone/ZoneMovementListener.java` — der Wechsel feuert auch bei einer Versetzung, nicht nur beim Laufen (FR-017, SC-005)
+- [X] T044 [US1] Ausnahmebarriere um die Zonenauswertung in `rpg-core/src/main/java/rpg/core/zone/ZoneTracker.java` — ein Fehler wird örtlich begrenzt und protokolliert, kein Spieler landet in einem unklaren Zustand (FR-064, Prinzip VI)
+- [X] T045 [US1] Beide Listener in `rpg-plugin/src/main/java/rpg/plugin/RpgPlugin.java` anmelden (ADR-012)
 
 **Checkpoint**: US1 ist allein lieferbar und vorführbar. Sechs Regionen, zwei Ereignisse, gemessene
 Abfragezeit.

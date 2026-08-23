@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 
 import rpg.core.scheduler.WorldPosition;
 
@@ -49,9 +50,34 @@ public final class DefaultZones implements Zones {
                                                         + " (FR-037b)"));
     }
 
-    /** The index, for the platform layer's boundary guard and crystal lookup. Read-only. */
-    public ChunkZoneIndex index() {
+    /** The index. Package-private on purpose: the contract is {@link Zones}, not this (FR-060). */
+    ChunkZoneIndex index() {
         return index;
+    }
+
+    @Override
+    public boolean isBoundaryChunk(UUID worldId, int blockX, int blockZ) {
+        return index.isBoundaryChunk(worldId, blockX, blockZ);
+    }
+
+    @Override
+    public Optional<CrystalPlacement> crystalAt(WorldPosition position) {
+        return Optional.ofNullable(
+                index.crystalAt(
+                        position.worldId(),
+                        floor(position.x()),
+                        floor(position.y()),
+                        floor(position.z())));
+    }
+
+    @Override
+    public Optional<CrystalPlacement> crystalByKey(String crystalKey) {
+        return Optional.ofNullable(index.crystalByKey(crystalKey));
+    }
+
+    @Override
+    public List<CrystalPlacement> crystals() {
+        return index.crystals();
     }
 
     @Override

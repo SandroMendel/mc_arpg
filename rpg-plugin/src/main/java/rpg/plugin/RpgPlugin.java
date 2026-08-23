@@ -159,6 +159,7 @@ public class RpgPlugin extends JavaPlugin {
     private ProgressionModule progressionModule;
     private CurrencyModule currencyModule;
     private ZoneModule zoneModule;
+    private rpg.core.zone.ZoneTracker zoneTracker;
     private ClassesModule classesModule;
     private AbilityModule abilityModule;
     private rpg.core.ability.AbilityRuntime abilityRuntime;
@@ -220,6 +221,11 @@ public class RpgPlugin extends JavaPlugin {
 
         // Before the session listeners, because it produces the observer they carry: B07 has to hear
         // about a ready session, and B03 allows exactly one join handler (FR-007).
+        // Before the class layer, because its session observer places characters into their zone and
+        // therefore needs the tracker to exist. B09 may not listen for a join itself: B03 owns the
+        // session lifecycle and allows exactly one handler (FR-007), and
+        // NoCompetingSessionListenersTest enforces it. The observer is the sanctioned way in.
+        assembleZoneLayer();
         SessionObserver classes = assembleClassLayer();
         registerSessionListeners(classes);
         assembleStatLayer();
@@ -450,6 +456,50 @@ public class RpgPlugin extends JavaPlugin {
                                 .map(org.bukkit.entity.Player::getUniqueId)
                                 .toList(),
                 stash::expireStale);
+    }
+
+    /**
+     * Assembles the Paper-facing half of B09 (ADR-012).
+     *
+     * <p>Two listeners for now - movement and the session edges. The rest arrives with its own user
+     * story: the damage rule with US3, death with US4, the combat logout with US5, and the waypoint
+     * crystals with US6.
+     *
+     * <p><b>The reload pass is wired here and nowhere else.</b> {@code ZoneModule} rebuilds the index
+     * and then tells whoever asked; the one thing that needs telling is the tracker, and it needs the
+     * list of who is present - which only this layer can produce. One pass over the online players is
+     * not a recurring task, and this block registers nothing with the scheduler at all
+     * (Constitution II, research.md R6).
+     */
+    private void assembleZoneLayer() {
+        zoneTracker =
+                new rpg.core.zone.ZoneTracker(zoneModule::zones, eventBus, getLogger());
+        java.util.function.Function<org.bukkit.entity.Player, java.util.UUID> characters =
+                player -> characterIdOf(player).orElse(null);
+
+        getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new rpg.platform.zone.ZoneMovementListener(
+                                zoneModule::zones, zoneTracker, characters),
+                        this);
+
+        zoneModule.onReload(
+                () -> {
+                    java.util.List<rpg.core.zone.ZoneTracker.Presence> present =
+                            new java.util.ArrayList<>();
+                    for (org.bukkit.entity.Player player : getServer().getOnlinePlayers()) {
+                        java.util.UUID characterId = characters.apply(player);
+                        if (characterId != null) {
+                            present.add(
+                                    new rpg.core.zone.ZoneTracker.Presence(
+                                            characterId,
+                                            rpg.platform.zone.BukkitPositions.of(
+                                                    player.getLocation())));
+                        }
+                    }
+                    zoneTracker.reevaluateAll(present);
+                });
     }
 
     /**
@@ -1035,11 +1085,20 @@ public class RpgPlugin extends JavaPlugin {
                 classesModule
                         .characterOf(player.getUniqueId())
                         .ifPresent(characterId -> equipment.apply(player, characterId));
+                // B09: place the character in their region. This is the sanctioned way in - B03 owns
+                // the session lifecycle and allows exactly one join handler (FR-007), so the zone
+                // block observes rather than listens. Without this a player would be in no zone
+                // until their first step, because the movement guard is built to do nothing while
+                // somebody stands still.
+                placeInZone(player);
             }
 
             @Override
             public void onSessionEnded(java.util.UUID playerId) {
                 selection.onSessionEnded(playerId);
+                // The tracker keys on the character, but a session ends with a player id - it keeps
+                // the last translation itself for exactly this moment.
+                zoneTracker.forgetHolder(playerId);
                 // Before B03 starts the unload: the player is still here, so their inventory can still
                 // be read - and this is the last moment that is true. The observer runs on the quit
                 // event, which is the player's own tick.
@@ -1618,7 +1677,34 @@ public class RpgPlugin extends JavaPlugin {
      */
     public boolean enterCharacter(
             org.bukkit.entity.Player player, rpg.core.session.PlayerCharacter character) {
-        return characterEntry != null && characterEntry.enter(player, character);
+        boolean entered = characterEntry != null && characterEntry.enter(player, character);
+        if (entered) {
+            // Switching character has to re-establish the zone assignment: the tracker keys on the
+            // character, and the new one has never been placed. A character switch is not a Bukkit
+            // event, so this is the one place that can say it happened (FR-017).
+            placeInZone(player);
+        }
+        return entered;
+    }
+
+    /**
+     * Places whoever this player is currently playing into their region (FR-017).
+     *
+     * <p>Called from the session observer and from {@link #enterCharacter} - the two moments a
+     * holder's character can change. Doing nothing without a character is deliberate: before the
+     * class selection there is nobody to place.
+     */
+    private void placeInZone(org.bukkit.entity.Player player) {
+        if (zoneTracker == null) {
+            return;
+        }
+        characterIdOf(player)
+                .ifPresent(
+                        characterId ->
+                                zoneTracker.place(
+                                        player.getUniqueId(),
+                                        characterId,
+                                        rpg.platform.zone.BukkitPositions.of(player.getLocation())));
     }
 
     /** The bootstrap phase, which decides whether the server accepts player sessions (FR-013). */

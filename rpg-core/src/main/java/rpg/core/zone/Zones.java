@@ -2,6 +2,7 @@ package rpg.core.zone;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import rpg.core.scheduler.WorldPosition;
 
@@ -40,6 +41,28 @@ public interface Zones {
 
     /** Whether this position lies in the safe core of its zone (FR-010). */
     boolean inSafeCore(WorldPosition position);
+
+    /**
+     * Whether a border of any kind runs through this chunk (research.md R4).
+     *
+     * <p>Behind the contract rather than exposing the index, because FR-060 says this interface is
+     * the only way in. The movement guard needs exactly this one bit and nothing else about the
+     * index's shape.
+     */
+    boolean isBoundaryChunk(UUID worldId, int blockX, int blockZ);
+
+    /**
+     * The crystal whose trigger area covers this position, or empty.
+     *
+     * <p>One table access - a right-click never walks the list of crystals (research.md R5).
+     */
+    Optional<CrystalPlacement> crystalAt(WorldPosition position);
+
+    /** The crystal with this key, or empty - it may have left the configuration (FR-051b). */
+    Optional<CrystalPlacement> crystalByKey(String crystalKey);
+
+    /** Every crystal, in configuration order. For the selection window (FR-048). */
+    List<CrystalPlacement> crystals();
 
     /** The zone with this key, or empty. */
     Optional<Zone> byKey(String zoneKey);

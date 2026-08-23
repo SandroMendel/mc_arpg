@@ -109,18 +109,25 @@ class FullBootstrapTest {
         assertThat(handlerCount(PlayerJoinEvent.getHandlerList())).isEqualTo(1);
         assertThat(handlerCount(PlayerQuitEvent.getHandlerList())).isEqualTo(1);
         assertThat(handlerCount(PlayerConnectionCloseEvent.getHandlerList())).isEqualTo(1);
-        // THREE, and every one is meant: B03 freezes a player while their session loads, B07 freezes
-        // one who has not chosen a class (ADR-020), and B08 hands the mage his second jump back on
-        // landing. Different reasons, different lifetimes - and none of them is a lifecycle entry, so
-        // the invariant this test protects is the assertions above.
+        // FOUR, and every one is meant: B03 freezes a player while their session loads, B07 freezes
+        // one who has not chosen a class (ADR-020), B08 hands the mage his second jump back on
+        // landing and interrupts a cast on movement. Different reasons, different lifetimes - and
+        // none of them is a lifecycle entry, so the invariant this test protects is the assertions
+        // above.
         //
         // What matters on the busiest event the server has is that each returns on field reads before
         // doing anything: a counter for the first two, ground state and a permission flag for B08.
+        //
+        // B09 is the fifth, and it holds to the same bargain: two integer comparisons on the block
+        // coordinates the event already carries, no Chunk object and no allocation, and only then a
+        // single table access - and only in the handful of chunks a border runs through
+        // (MovementGuard, research.md R4). A zone lookup on every step would have been the one
+        // addition this list should have refused.
         assertThat(handlerCount(PlayerMoveEvent.getHandlerList()))
                 .as(
                         "B03's safe-state hold, B07's no-character hold, B08's double jump and its"
-                                + " cast interruption")
-                .isEqualTo(4);
+                                + " cast interruption, B09's movement guard")
+                .isEqualTo(5);
     }
 
     @Test
