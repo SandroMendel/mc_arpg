@@ -499,7 +499,8 @@ ihn wählt, solange er steht — und dass sie nach seinem Ende wieder den Spiele
   fragen.
 - **Horden-Definition je Zone**: Welche Arten in welchem Spawn-Bereich vorkommen, mit welchem
   Gewicht, und wo der Boss steht.
-- **Budget**: Drei Obergrenzen — je Zone, je Chunk, je Spieler. Keine Zielwerte.
+- **Budget**: Vier Obergrenzen — serverweit, je Zone, je Chunk, je Spieler. Keine Zielwerte; die
+  schärfste entscheidet.
 - **Bestand**: Welche Kreaturen dieser Block gerade in der Welt hält, welcher Zone und welcher Art
   sie gehören, und seit wann.
 - **Boss-Zustand je Region**: Ob einer lebt, und wann der letzte gefallen ist.

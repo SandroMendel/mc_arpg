@@ -57,7 +57,7 @@ Je Zonenschlüssel. Verbindet B09s Bereiche mit den Arten dieses Blocks (FR-012)
 
 ---
 
-## `Budget` — die drei harten Grenzen
+## `Budget` — die vier harten Grenzen
 
 Kein Zielwert, sondern eine Obergrenze, die unter keiner Bedingung überschritten wird (FR-013).
 
@@ -70,6 +70,11 @@ Kein Zielwert, sondern eine Obergrenze, die unter keiner Bedingung überschritte
 
 **Regel bei mehreren Grenzen:** Die schärfste entscheidet. Ein Chunk, der voll ist, nimmt nichts
 mehr, auch wenn die Zone noch Platz hat — und umgekehrt.
+
+**`serverWide` gilt auch gegen die Summe der Zonen** (FR-013a). Sechs Regionen zu je 130 sind 780
+und bleiben darunter, aber sechs zu je 200 wären 1.200. Die serverweite Grenze ist der Ort, an dem
+der Zielwert aus dem M4-Nachweis wirklich hängt; ohne sie steht er in der Vision und wird nirgends
+eingehalten.
 
 **Verhältnis zur Skalierung:** Die Skalierung aus FR-025 berechnet eine *Zieldichte*. Das Budget
 kappt sie (FR-027). Beide Zahlen existieren nebeneinander, und ihre Rollen dürfen nicht
