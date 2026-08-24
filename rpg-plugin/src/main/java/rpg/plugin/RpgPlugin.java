@@ -161,6 +161,8 @@ public class RpgPlugin extends JavaPlugin {
     private CurrencyModule currencyModule;
     private ZoneModule zoneModule;
     private rpg.core.mob.MobModule mobModule;
+    /** Der selbst neu eingeplante Durchlauf je bevoelkerter Zone (B10, US2/US3). */
+    private rpg.platform.mob.HordeSweep mobSweep;
     private rpg.persistence.zone.ZonePersistenceModule zonePersistenceModule;
     private rpg.core.zone.ZoneTracker zoneTracker;
     /** Moves a player. Held because US6 travel needs the same one the respawn path uses. */
@@ -279,6 +281,12 @@ public class RpgPlugin extends JavaPlugin {
     public void onDisable() {
         if (bootstrap == null) {
             return; // enable never got far enough to build one
+        }
+        // Vor dem Modul-Shutdown: die Plattformschicht raeumt die Entitaeten selbst weg, bevor
+        // MobModule.stop() nur noch den Bestand leert (FR-023). Synchron, weil onDisable schon im
+        // Tick laeuft - kein weiterer Umweg ueber den Scheduler noetig.
+        if (mobSweep != null) {
+            mobSweep.shutdown();
         }
         // Bounded by 10s per module inside ModuleBootstrap (FR-012, SC-007): a module that hangs is
         // abandoned on a daemon thread instead of blocking the server's shutdown indefinitely.
@@ -1848,22 +1856,26 @@ public class RpgPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(suppressor, this);
 
         rpg.platform.mob.PaperMobPlacer placer = new rpg.platform.mob.PaperMobPlacer(getLogger());
-        rpg.platform.mob.HordeSweep sweep =
+        CombatPipeline mobCombatPipeline = registry.getService(CombatPipeline.class);
+        mobSweep =
                 new rpg.platform.mob.HordeSweep(
                         getServer(),
                         scheduler,
                         zoneModule::zones,
                         mobModule::config,
                         mobModule.registry(),
+                        // B05 rechnet den Kampfzustand ohnehin lazy aus Zeitstempeln - eine zweite
+                        // Buchfuehrung waere eine zweite Wahrheit (FR-022, research.md).
+                        mobCombatPipeline::isInCombat,
                         placer,
                         Clock.systemUTC(),
                         getLogger());
-        sweep.subscribeTo(eventBus);
-        getServer().getPluginManager().registerEvents(sweep, this);
+        mobSweep.subscribeTo(eventBus);
+        getServer().getPluginManager().registerEvents(mobSweep, this);
         // Fuer Zonen, die beim Start schon Spieler haben - fuer die feuert kein ZoneChangedEvent
         // mehr, das dieser Zuhoerer sehen koennte (etwa nach einem /rpg reload waehrend Betrieb
         // waere das nicht noetig, aber beim allerersten Start schon).
-        sweep.ensureScheduledForPopulatedZones();
+        mobSweep.ensureScheduledForPopulatedZones();
 
         getLogger()
                 .info(

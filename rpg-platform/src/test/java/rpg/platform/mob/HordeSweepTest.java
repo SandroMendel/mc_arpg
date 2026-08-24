@@ -2,14 +2,8 @@ package rpg.platform.mob;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneOffset;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Deque;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -31,28 +25,24 @@ import rpg.core.mob.HordeRegistry;
 import rpg.core.mob.HordeSpec;
 import rpg.core.mob.MobConfig;
 import rpg.core.mob.MobKind;
-import rpg.core.scheduler.EntityRef;
-import rpg.core.scheduler.Scheduler;
-import rpg.core.scheduler.TaskHandle;
-import rpg.core.scheduler.WorldPosition;
 import rpg.core.stats.Attribute;
 import rpg.core.zone.Area;
-import rpg.core.zone.CrystalPlacement;
 import rpg.core.zone.Cuboid;
 import rpg.core.zone.LevelBand;
 import rpg.core.zone.SpawnArea;
 import rpg.core.zone.Zone;
-import rpg.core.zone.Zones;
 
 /**
- * Der Einmal-Durchlauf je bevoelkerter Zone: er setzt, haelt das Budget, plant sich neu, und hoert
- * auf, sobald niemand mehr da ist oder das Plugin abschaltet (research.md R4, FR-015).
+ * Der Einmal-Durchlauf je bevoelkerter Zone: er setzt, raeumt auf, haelt das Budget, plant sich
+ * neu, und hoert erst auf, wenn eine leere Zone die Kulanzfrist ueberschritten hat (research.md
+ * R4, FR-015, FR-019).
  */
 class HordeSweepTest {
 
     private ServerMock server;
     private WorldMock world;
-    private FakeScheduler scheduler;
+    private FakeMobScheduler scheduler;
+    private MutableClock clock;
     private HordeRegistry registry;
     private FakeZones zones;
     private MobConfig config;
@@ -62,13 +52,13 @@ class HordeSweepTest {
     void setUp() {
         server = MockBukkit.mock();
         world = server.addSimpleWorld("world");
-        scheduler = new FakeScheduler();
+        clock = new MutableClock(Instant.parse("2026-08-24T20:00:00Z"));
+        scheduler = new FakeMobScheduler(clock);
         registry = new HordeRegistry();
         Zone zone = zoneFixture();
         zones = new FakeZones(zone);
         config = configFixture();
         PaperMobPlacer placer = new PaperMobPlacer(Logger.getLogger("test"));
-        Clock clock = Clock.fixed(Instant.parse("2026-08-24T20:00:00Z"), ZoneOffset.UTC);
         sweep =
                 new HordeSweep(
                         server,
@@ -76,6 +66,7 @@ class HordeSweepTest {
                         () -> zones,
                         () -> config,
                         registry,
+                        holderId -> false, // niemand ist im Kampf, sofern ein Test nichts anderes tut
                         placer,
                         clock,
                         Logger.getLogger("test"));
@@ -123,18 +114,67 @@ class HordeSweepTest {
     }
 
     @Test
-    @DisplayName("verlaesst der letzte Spieler die Zone, endet die Schleife statt sich neu einzuplanen")
-    void whenTheLastPlayerLeavesTheLoopStopsInsteadOfRescheduling() {
+    @DisplayName("verlaesst der letzte Spieler die Zone, laeuft die Schleife innerhalb der Kulanzfrist weiter (FR-019)")
+    void whenTheLastPlayerLeavesTheLoopKeepsRunningWithinTheGracePeriod() {
         PlayerMock player = addPlayerInZone();
         sweep.ensureScheduledForPopulatedZones();
-        assertThat(scheduler.delayedQueue).hasSize(1);
 
         player.teleport(new org.bukkit.Location(world, -5000, 70, -5000));
-        scheduler.runNextDelayed();
+        scheduler.runNextDelayed(); // 100ms verstrichen, Frist ist 250ms - noch nicht abgelaufen
+
+        assertThat(scheduler.delayedQueue)
+                .as("die Frist laeuft noch - kein Grund, die Schleife zu beenden")
+                .hasSize(1);
+    }
+
+    @Test
+    @DisplayName("nach Ablauf der Kulanzfrist wird die Zone geraeumt und die Schleife endet (FR-019)")
+    void afterTheGracePeriodTheZoneIsClearedAndTheLoopStops() {
+        PlayerMock player = addPlayerInZone();
+        sweep.ensureScheduledForPopulatedZones();
+        assertThat(registry.countIn("greenfields"))
+                .as("der erste Durchlauf hat schon etwas gesetzt")
+                .isEqualTo(1);
+
+        player.teleport(new org.bukkit.Location(world, -5000, 70, -5000));
+        int rounds = 0;
+        while (!scheduler.delayedQueue.isEmpty() && rounds < 20) {
+            scheduler.runNextDelayed();
+            rounds++;
+        }
 
         assertThat(scheduler.delayedQueue)
                 .as("kein neuer Durchlauf eingeplant - die Zone ist jetzt leer")
                 .isEmpty();
+        assertThat(rounds)
+                .as("nicht schon beim ersten leeren Durchlauf - die Frist musste erst ablaufen")
+                .isGreaterThan(1);
+        assertThat(registry.countIn("greenfields"))
+                .as("und alles, was noch dort stand, ist mit ihr geraeumt")
+                .isZero();
+    }
+
+    @Test
+    @DisplayName("kommt jemand innerhalb der Frist zurueck, faengt der Kulanzzaehler wieder von vorn an")
+    void ifSomebodyReturnsWithinTheGraceTheCounterResets() {
+        PlayerMock player = addPlayerInZone();
+        sweep.ensureScheduledForPopulatedZones();
+
+        player.teleport(new org.bukkit.Location(world, -5000, 70, -5000));
+        scheduler.runNextDelayed(); // eine leere Runde zaehlt zu laufen an
+        player.teleport(new org.bukkit.Location(world, 200, 70, 0)); // zurueck - Zaehler soll loeschen
+        scheduler.runNextDelayed(); // wieder bevoelkert
+
+        player.teleport(new org.bukkit.Location(world, -5000, 70, -5000));
+        scheduler.runNextDelayed();
+        scheduler.runNextDelayed();
+
+        // Ohne Reset waeren es seit dem ERSTEN Weggang schon vier verstrichene Runden a 100ms -
+        // ueber der 250ms-Frist, und die Schleife haette bereits geendet. Mit Reset zaehlen nur
+        // die zwei Runden seit der Rueckkehr (200ms), und sie laeuft weiter.
+        assertThat(scheduler.delayedQueue)
+                .as("die Frist zaehlt seit der Rueckkehr, nicht kumulativ ueber beide Abwesenheiten")
+                .hasSize(1);
     }
 
     @Test
@@ -147,6 +187,26 @@ class HordeSweepTest {
             scheduler.runNextDelayed();
             assertThat(registry.countIn("greenfields")).isLessThanOrEqualTo(config.budget().perZone());
         }
+    }
+
+    @Test
+    @DisplayName("wer ausserhalb der Reichweite jedes Spielers steht, wird auch bei Betrieb entfernt (FR-020)")
+    void whoeverIsOutOfEveryPlayersRangeIsRemovedEvenWhilePopulated() {
+        PlayerMock player = addPlayerInZone();
+        sweep.ensureScheduledForPopulatedZones();
+        assertThat(registry.countIn("greenfields")).isEqualTo(1);
+        UUID original = registry.all().iterator().next().entityId();
+
+        // Der Spieler bleibt IN der Zone, wandert aber weit weg von der Kreatur - weit ueber die
+        // 96 Bloecke Aufraeumreichweite hinaus, ohne die Zone selbst zu verlassen. Der Nachschub
+        // aus FR-018a fuellt die Zone im selben Durchlauf gleich wieder auf - die Zusage dieses
+        // Tests ist, dass die URSPRUENGLICHE Kreatur weg ist, nicht dass die Zone leer bleibt.
+        player.teleport(new org.bukkit.Location(world, 900, 70, 900));
+        scheduler.runNextDelayed();
+
+        assertThat(registry.find(original))
+                .as("die eine Kreatur stand weit ausserhalb der Reichweite")
+                .isNull();
     }
 
     @Test
@@ -168,8 +228,7 @@ class HordeSweepTest {
     }
 
     private Zone zoneFixture() {
-        SpawnArea east =
-                new SpawnArea("greenfields-east", Area.of(Cuboid.of(100, -50, 300, 50)));
+        SpawnArea east = new SpawnArea("greenfields-east", Area.of(Cuboid.of(100, -50, 300, 50)));
         return new Zone(
                 "greenfields",
                 world.getUID(),
@@ -203,160 +262,10 @@ class HordeSweepTest {
                 new Budget(10, 5, 5, 5),
                 Duration.ofMillis(100),
                 0.0,
-                Duration.ofSeconds(60),
+                Duration.ofMillis(250),
                 96.0,
                 Duration.ofMillis(500),
                 Map.of(rotling.key(), rotling),
                 Map.of("greenfields", horde));
-    }
-
-    /** Zonen ohne echte Geometrieindex-Kosten - nur was dieser Test braucht, sonst wirft sie. */
-    private static final class FakeZones implements Zones {
-
-        private final Map<String, Zone> byKey = new LinkedHashMap<>();
-
-        FakeZones(Zone... zones) {
-            for (Zone zone : zones) {
-                byKey.put(zone.key(), zone);
-            }
-        }
-
-        @Override
-        public Optional<Zone> zoneAt(WorldPosition position) {
-            for (Zone zone : byKey.values()) {
-                if (zone.worldId().equals(position.worldId())
-                        && zone.contains(
-                                (int) Math.floor(position.x()),
-                                (int) Math.floor(position.y()),
-                                (int) Math.floor(position.z()))) {
-                    return Optional.of(zone);
-                }
-            }
-            return Optional.empty();
-        }
-
-        @Override
-        public String zoneKeyAt(WorldPosition position) {
-            return zoneAt(position).map(Zone::key).orElse(null);
-        }
-
-        @Override
-        public boolean inSafeCore(WorldPosition position) {
-            throw new UnsupportedOperationException("dieser Test braucht das nicht");
-        }
-
-        @Override
-        public boolean isBoundaryChunk(UUID worldId, int blockX, int blockZ) {
-            throw new UnsupportedOperationException("dieser Test braucht das nicht");
-        }
-
-        @Override
-        public Optional<CrystalPlacement> crystalAt(WorldPosition position) {
-            throw new UnsupportedOperationException("dieser Test braucht das nicht");
-        }
-
-        @Override
-        public Optional<CrystalPlacement> crystalByKey(String crystalKey) {
-            throw new UnsupportedOperationException("dieser Test braucht das nicht");
-        }
-
-        @Override
-        public List<CrystalPlacement> crystals() {
-            throw new UnsupportedOperationException("dieser Test braucht das nicht");
-        }
-
-        @Override
-        public Optional<Zone> byKey(String zoneKey) {
-            return Optional.ofNullable(byKey.get(zoneKey));
-        }
-
-        @Override
-        public List<Zone> all() {
-            return List.copyOf(byKey.values());
-        }
-
-        @Override
-        public WorldPosition startPoint() {
-            throw new UnsupportedOperationException("dieser Test braucht das nicht");
-        }
-
-        @Override
-        public Optional<WorldPosition> respawnPointOf(String zoneKey) {
-            throw new UnsupportedOperationException("dieser Test braucht das nicht");
-        }
-
-        @Override
-        public WorldPosition fallbackPoint() {
-            throw new UnsupportedOperationException("dieser Test braucht das nicht");
-        }
-
-        @Override
-        public List<SpawnArea> spawnAreasOf(String zoneKey) {
-            return byKey(zoneKey).map(Zone::spawnAreas).orElse(List.of());
-        }
-    }
-
-    /**
-     * Sofortige und synchrone Aufgaben laufen sofort, wie in Wirklichkeit im selben Tick. Verzoegerte
-     * asynchrone Aufgaben - die einzige Sorte, mit der diese Klasse sich selbst neu einplant - werden
-     * aufgehoben, damit ein Test die Schleife Schritt fuer Schritt antreiben kann, statt in eine
-     * Endlosrekursion zu laufen.
-     */
-    private static final class FakeScheduler implements Scheduler {
-
-        int asyncKickoffs;
-        int syncPlacements;
-        final Deque<Runnable> delayedQueue = new ArrayDeque<>();
-        final List<Duration> delays = new ArrayList<>();
-
-        void runNextDelayed() {
-            Runnable next = delayedQueue.poll();
-            if (next != null) {
-                next.run();
-            }
-        }
-
-        @Override
-        public TaskHandle runSyncAtLocation(WorldPosition position, Runnable task) {
-            syncPlacements++;
-            task.run();
-            return handle();
-        }
-
-        @Override
-        public TaskHandle runSyncOnEntity(EntityRef entity, Runnable task) {
-            throw new UnsupportedOperationException("HordeSweep benutzt das nicht");
-        }
-
-        @Override
-        public TaskHandle runSyncOnEntityDelayed(EntityRef entity, Duration delay, Runnable task) {
-            throw new UnsupportedOperationException("HordeSweep benutzt das nicht");
-        }
-
-        @Override
-        public TaskHandle runAsync(Runnable task) {
-            asyncKickoffs++;
-            task.run();
-            return handle();
-        }
-
-        @Override
-        public TaskHandle runAsyncDelayed(Duration delay, Runnable task) {
-            delays.add(delay);
-            delayedQueue.add(task);
-            return handle();
-        }
-
-        private static TaskHandle handle() {
-            return new TaskHandle() {
-                @Override
-                public void cancel() {}
-
-                @Override
-                public boolean isCancelled() {
-                    return false;
-                }
-            };
-        }
     }
 }

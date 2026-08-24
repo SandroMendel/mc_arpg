@@ -184,19 +184,19 @@ schlafen gelegt. Ohne Erfahrung, ohne Coins, ohne Tod.
 
 ### Tests zuerst
 
-- [ ] T059 [P] [US3] Test `CleanupRuleTest` in `rpg-core/src/test/java/rpg/core/mob/CleanupRuleTest.java` — wer weg soll: Zone ohne Spieler nach Ablauf der Frist, und wer außerhalb der Reichweite steht (FR-019, FR-020)
-- [ ] T060 [P] [US3] Test `CleanupSparesCombatTest` in `rpg-core/src/test/java/rpg/core/mob/CleanupSparesCombatTest.java` — eine Kreatur im Kampf bleibt (FR-022)
-- [ ] T061 [P] [US3] Test `RemovalIsNotADeathTest` in `rpg-platform/src/test/java/rpg/platform/mob/RemovalIsNotADeathTest.java` — Entfernen löst weder Erfahrung noch Coins noch ein Todesereignis aus (FR-021); **das ist die Stelle, an der dieser Block etwas verschenken könnte**
+- [X] T059 [P] [US3] Test `CleanupRuleTest` in `rpg-core/src/test/java/rpg/core/mob/CleanupRuleTest.java` — wer weg soll: Zone ohne Spieler nach Ablauf der Frist, und wer außerhalb der Reichweite steht (FR-019, FR-020)
+- [X] T060 [P] [US3] Test `CleanupSparesCombatTest` in `rpg-core/src/test/java/rpg/core/mob/CleanupSparesCombatTest.java` — eine Kreatur im Kampf bleibt (FR-022)
+- [X] T061 [P] [US3] Test `RemovalIsNotADeathTest` in `rpg-platform/src/test/java/rpg/platform/mob/RemovalIsNotADeathTest.java` — Entfernen löst weder Erfahrung noch Coins noch ein Todesereignis aus (FR-021); **das ist die Stelle, an der dieser Block etwas verschenken könnte**
 
 ### Umsetzung
 
-- [ ] T062 [US3] `CleanupRule` in `rpg-core/src/main/java/rpg/core/mob/CleanupRule.java` — die Entscheidung, ohne Bukkit. Bekommt die **fertige Chunk-Menge aus `NearbyChunks`** und nicht die Spielerliste: was man nicht in der Hand hat, kann man nicht in einer Schleife durchgehen (FR-018, research.md R3a). Frist und Reichweite aus der Konfiguration
-- [ ] T063 [US3] Kampfzustand über B05 abfragen statt selbst zu führen, in `rpg-core/src/main/java/rpg/core/mob/CleanupRule.java` (FR-022) — B05 rechnet ihn lazy aus Zeitstempeln, eine zweite Buchführung wäre eine zweite Wahrheit
-- [ ] T064 [US3] Aufräumen in `rpg-platform/src/main/java/rpg/platform/mob/HordeSweep.java` einhängen — **derselbe Durchlauf** wie das Nachsetzen, nicht ein zweiter (research.md R4)
-- [ ] T065 [US3] Entfernen entitätsgebunden über B01s Scheduler in `rpg-platform/src/main/java/rpg/platform/mob/HordeSweep.java`, und den Bestand dabei nachführen
-- [ ] T066 [US3] Alle eigenen Kreaturen bei `onDisable` entfernen (FR-023) — sonst stünden sie beim nächsten Start als herrenloser Bestand da
-- [ ] T067 [US3] Test `ShutdownLeavesNothingTest` in `rpg-platform/src/test/java/rpg/platform/mob/ShutdownLeavesNothingTest.java` — nach dem Abschalten hält der Bestand nichts mehr
-- [ ] T067a [US3] Test `OneSweepPerZoneTest` in `rpg-platform/src/test/java/rpg/platform/mob/OneSweepPerZoneTest.java` — bei 130 Kreaturen in drei bevölkerten Zonen sind **drei** Aufgaben eingeplant, nicht 133; und in einer leeren Zone keine (FR-024, FR-015, Prinzip II). Nach dem Muster von B08s SC-005 — die Zusage „keine wiederkehrende Aufgabe je Entität" ist nur so viel wert, wie sie gezählt wird
+- [X] T062 [US3] `CleanupRule` in `rpg-core/src/main/java/rpg/core/mob/CleanupRule.java` — die Entscheidung, ohne Bukkit. Bekommt die **fertige Chunk-Menge aus `NearbyChunks`** und nicht die Spielerliste: was man nicht in der Hand hat, kann man nicht in einer Schleife durchgehen (FR-018, research.md R3a). Frist und Reichweite aus der Konfiguration
+- [X] T063 [US3] Kampfzustand über B05 abfragen statt selbst zu führen, in `rpg-core/src/main/java/rpg/core/mob/CleanupRule.java` (FR-022) — B05 rechnet ihn lazy aus Zeitstempeln, eine zweite Buchführung wäre eine zweite Wahrheit
+- [X] T064 [US3] Aufräumen in `rpg-platform/src/main/java/rpg/platform/mob/HordeSweep.java` einhängen — **derselbe Durchlauf** wie das Nachsetzen, nicht ein zweiter (research.md R4)
+- [X] T065 [US3] Entfernen entitätsgebunden über B01s Scheduler in `rpg-platform/src/main/java/rpg/platform/mob/HordeSweep.java`, und den Bestand dabei nachführen
+- [X] T066 [US3] Alle eigenen Kreaturen bei `onDisable` entfernen (FR-023) — sonst stünden sie beim nächsten Start als herrenloser Bestand da
+- [X] T067 [US3] Test `ShutdownLeavesNothingTest` in `rpg-platform/src/test/java/rpg/platform/mob/ShutdownLeavesNothingTest.java` — nach dem Abschalten hält der Bestand nichts mehr
+- [X] T067a [US3] Test `OneSweepPerZoneTest` in `rpg-platform/src/test/java/rpg/platform/mob/OneSweepPerZoneTest.java` — bei 130 Kreaturen in drei bevölkerten Zonen sind **drei** Aufgaben eingeplant, nicht 133; und in einer leeren Zone keine (FR-024, FR-015, Prinzip II). Nach dem Muster von B08s SC-005 — die Zusage „keine wiederkehrende Aufgabe je Entität" ist nur so viel wert, wie sie gezählt wird
 
 **Checkpoint**: Der Server bleibt über Stunden stabil, statt vollzulaufen.
 

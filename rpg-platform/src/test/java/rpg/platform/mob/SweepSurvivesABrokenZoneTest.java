@@ -84,6 +84,7 @@ class SweepSurvivesABrokenZoneTest {
                         () -> zones,
                         () -> config,
                         registry,
+                        holderId -> false,
                         new PaperMobPlacer(Logger.getLogger("test")),
                         Clock.fixed(Instant.parse("2026-08-24T20:00:00Z"), ZoneOffset.UTC),
                         Logger.getLogger("test"));
@@ -269,7 +270,8 @@ class SweepSurvivesABrokenZoneTest {
 
         @Override
         public TaskHandle runSyncOnEntity(EntityRef entity, Runnable task) {
-            throw new UnsupportedOperationException("HordeSweep benutzt das nicht");
+            task.run();
+            return handle();
         }
 
         @Override

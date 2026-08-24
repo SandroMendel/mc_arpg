@@ -81,6 +81,26 @@ public final class PaperMobPlacer {
     }
 
     /**
+     * Entfernt eine Kreatur wieder aus der Welt - aufgeraeumt, nicht getoetet (FR-021).
+     *
+     * <p>{@link Entity#remove()} und nicht irgendein Weg ueber Schaden: es loest weder ein
+     * Todesereignis noch Erfahrung noch Coins aus. Der Aufrufer haelt die Entitaet schon in der
+     * Hand - sie wurde entitaetsgebunden ueber B01s Scheduler aufgeloest (FR-042).
+     */
+    public void remove(Entity entity) {
+        Objects.requireNonNull(entity, "entity");
+        try {
+            entity.remove();
+        } catch (RuntimeException failure) {
+            // Aufraeumen darf einen Durchlauf nicht beenden (FR-044, Prinzip VI). Der Bestand wird
+            // vom Aufrufer trotzdem ausgetragen - eine Kreatur, die sich nicht entfernen liess, soll
+            // nicht weiter fuer sie zaehlen.
+            logger.warning(
+                    () -> "[mob] could not remove " + entity.getUniqueId() + " during cleanup: " + failure);
+        }
+    }
+
+    /**
      * Die Zielsuchreichweite der Art (FR-036).
      *
      * <p>Die Stellschraube mit dem groessten Hebel: die Zielsuche ist quadratisch im Radius, und
