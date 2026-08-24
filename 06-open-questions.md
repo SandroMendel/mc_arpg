@@ -231,11 +231,33 @@ die Befunde der Umsetzung dort unter „Umsetzung".
       anderen. Eine unbekannte Region antwortet mit einer leeren Liste statt mit
       einer Ausnahme, weil B10 diese Abfrage aus einem Spawn-Ereignis heraus
       stellen wird und „ausserhalb jeder Region" dort ein normaler Zustand ist
-- [ ] Zielwert für gleichzeitig aktive Mobs (serverweit und je Zone)
-- [ ] Welche Vanilla-Entities dienen als Basis für die 48 Mob-Arten und die
-      sechs Bosse?
-- [ ] Wellenlogik: kontinuierlicher Nachschub oder abgegrenzte Wellen?
-- [ ] Boss-Mechaniken über höhere Attribute hinaus? Respawn-Timer des Bosses?
+- [x] **Vanilla-Mobs werden vollständig unterdrückt.** Das natürliche Spawning
+      ist aus — überall, auch nachts, auch in Höhlen. Damit ist B10s Budget die
+      einzige Quelle lebender Kreaturen und die harte Grenze gilt für alles, was
+      in der Welt steht; ohne das wäre sie eine Buchhaltung über einen Teil der
+      Last. Absichtlich gesetzte Kreaturen (Spawn-Ei, Betreiber-Kommando)
+      bleiben möglich und bekommen die Standardwerte. **Folge, benannt statt
+      übergangen**: Wolle, Leder und Fleisch aus natürlichem Tier-Spawning
+      entfallen — woher ein Spieler sie bekommt, ist eine Inhaltsfrage für B11
+      und B16. *(2026-08-24)*
+- [x] **Kontinuierlicher Nachschub, keine Wellen.** Getötete Kreaturen werden
+      laufend ersetzt, die Dichte pendelt sich um den Zielwert ein. Eine Region
+      fühlt sich damit immer gleich an, und es gibt keinen Zonenzustand „Welle
+      läuft / geräumt / Pause" mit der Anschlussfrage, was mit einer Welle
+      passiert, die niemand zu Ende räumt. *(2026-08-24)*
+- [x] **Ein Boss ist eine Mob-Art mit deutlich höheren Attributen und einem
+      Respawn-Timer — mehr nicht.** Keine eigenen Fähigkeiten, keine Phasen; er
+      entsteht rein aus Konfiguration. **Der eigentliche Bosskampf kommt später
+      als Dungeon-Boss** mit Instanzen und Fähigkeiten und gehört nicht zu B10.
+      *(2026-08-24)*
+- [x] **Welche Vanilla-Entities als Basis dienen, ist Inhalt und keine Spec.**
+      Die Wahl steht je Mob-Art in der Konfiguration und kann sich ändern, ohne
+      dass die Spec sich ändert. Verlangt wird nur, dass sie konfigurierbar ist —
+      und dass mehrere Arten auf demselben Vanilla-Entity unterscheidbar bleiben.
+      *(2026-08-24)*
+- [ ] Zielwert für gleichzeitig aktive Mobs: als Ausgangspunkt 800 serverweit
+      aus dem M4-Nachweis, auf sechs Regionen verteilt rund 130 je Zone. Beide
+      Werte sind konfigurierbar; die endgültigen Startwerte legt `/plan` fest.
 
 ## B08b (Währung & Konto) — neu durch ADR-027 *(2026-08-22)*
 

@@ -39,14 +39,29 @@ Hack'n'Slash-Horden erzeugt, ohne den Server-Tick zu überlasten.
 
 ## Offene Fragen
 
-- [ ] Zielwert für gleichzeitig aktive Mobs (serverweit und je Zone)
+- [ ] Zielwert für gleichzeitig aktive Mobs (serverweit und je Zone) —
+      Ausgangspunkt 800 serverweit, rund 130 je Zone; Startwerte legt `/plan` fest
 - [x] **Skalierung nach Spieleranzahl**: Ja — mehr Spieler in einer Zone führen
       zu höherer Mob-Spawnrate und schnellerem Respawn (Dichte-/Respawn-
       Skalierung, nicht Mob-Stärke). *(2026-08-19)*
-- [ ] Welche Vanilla-Entities dienen als Basis (Vanilla-Client, ADR-005)?
-- [ ] Wellenlogik: kontinuierlicher Nachschub oder abgegrenzte Wellen mit Pause?
-- [ ] Gibt es Elite-/Boss-Mobs mit eigenen Mechaniken? Respawn-Timer?
-- [ ] Sollen Vanilla-Mobs vollständig unterdrückt werden?
+- [x] **Welche Vanilla-Entities als Basis dienen, ist Inhalt und keine Spec.**
+      Die Wahl steht je Mob-Art in der Konfiguration. Verlangt wird nur, dass sie
+      konfigurierbar ist und dass mehrere Arten auf demselben Vanilla-Entity
+      unterscheidbar bleiben. *(2026-08-24)*
+- [x] **Kontinuierlicher Nachschub, keine Wellen.** Getötete Kreaturen werden
+      laufend ersetzt; kein Zonenzustand „Welle läuft / geräumt / Pause".
+      *(2026-08-24)*
+- [x] **Der Boss ist eine Mob-Art mit höheren Attributen und einem
+      Respawn-Timer — mehr nicht.** Keine eigenen Fähigkeiten, keine Phasen.
+      Elite- und Champion-Varianten entfallen; der eigentliche Bosskampf kommt
+      später als **Dungeon-Boss** mit Instanzen und Fähigkeiten und gehört nicht
+      zu diesem Block. *(2026-08-24)*
+- [x] **Vanilla-Mobs werden vollständig unterdrückt.** Natürliches Spawning ist
+      aus — überall. Damit ist das Budget dieses Blocks die einzige Quelle
+      lebender Kreaturen. Absichtlich gesetzte Kreaturen bleiben möglich und
+      bekommen Standardwerte. Folge: Wolle, Leder und Fleisch aus natürlichem
+      Tier-Spawning entfallen, das ist eine Inhaltsfrage für B11/B16.
+      *(2026-08-24)*
 
 ## Akzeptanzkriterien (Entwurf)
 
