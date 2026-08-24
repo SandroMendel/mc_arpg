@@ -1016,6 +1016,13 @@ public class RpgPlugin extends JavaPlugin {
                         withPlayer(characterId, player -> abilityFeedback.releasePose(player, ability));
                     }
                 });
+        // Und das, was die Haltung bisher nach einem Wimpernschlag wieder fallen liess: Vanilla haelt
+        // einen Schild nur, solange die Maustaste gedrueckt ist. Der Zuhoerer nimmt genau dieses eine
+        // Loslassen zurueck - ein Ereignis je Block, kein Taktgeber je Spieler.
+        getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new rpg.platform.ability.HeldPoseListener(abilityFeedback, scheduler), this);
 
         // The passive triggers, hung on the three hooks B05 already has (research.md R6). Which stage
         // each one uses is not interchangeable - see PassiveInterceptors.
@@ -1325,6 +1332,11 @@ public class RpgPlugin extends JavaPlugin {
                     // Wer mitten im Sprung geht, kommt beim naechsten Login auf dem Boden an - und
                     // ein Aufprall mitten in einen Login hinein ist nicht, was die Faehigkeit meint.
                     abilityLandings.forget(playerId);
+                }
+                if (abilityFeedback != null) {
+                    // Und wer mitten im Block geht: die Haltung endet mit ihm, aber der Vermerk
+                    // darueber laege sonst bis zum Neustart des Servers herum.
+                    abilityFeedback.forget(playerId);
                 }
                 // Before B03 starts the unload: the player is still here, so their inventory can still
                 // be read - and this is the last moment that is true. The observer runs on the quit
