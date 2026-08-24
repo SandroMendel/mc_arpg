@@ -19,6 +19,9 @@ import rpg.core.combat.CombatMessageKeys;
 import rpg.core.event.EventBus;
 import rpg.core.message.MessageKey;
 import rpg.core.message.Messages;
+import rpg.core.progression.LevelUpEvent;
+import rpg.core.progression.ProgressChangedEvent;
+import rpg.core.progression.ProgressView;
 import rpg.core.scheduler.EntityRef;
 import rpg.core.scheduler.Scheduler;
 import rpg.core.stats.ResourceChangedEvent;
@@ -26,7 +29,7 @@ import rpg.core.stats.ResourceKind;
 import rpg.core.stats.StatsRecalculatedEvent;
 
 /**
- * The player's own health, mana and defence, on the action bar.
+ * The player's own health, mana, defence and progress, on the action bar.
  *
  * <p>Named for what it is rather than {@code HudRenderer}: Constitution III reserves that name for
  * B13, which will own bossbars, scoreboards and the layout of all of it. This is one line, and taking
@@ -70,7 +73,7 @@ public final class StatusActionBar {
         this.logger = Objects.requireNonNull(logger, "logger");
     }
 
-    /** Redraws on every health change and every recalculation. */
+    /** Redraws on every health change, every recalculation and every step of progress. */
     public void subscribeTo(EventBus eventBus) {
         Objects.requireNonNull(eventBus, "eventBus");
         // Both resources, not just health: mana is on the line now, and filtering it out would let a
@@ -83,6 +86,16 @@ public final class StatusActionBar {
         eventBus.subscribe(ResourceChangedEvent.class, event -> show(event.holderId()));
         // Defence and maximum health only move on a recalculation - a tier advance, a level, a buff.
         eventBus.subscribe(StatsRecalculatedEvent.class, event -> show(event.holderId()));
+        // Und die Erfahrung. Ueber den Spieler, den beide Ereignisse mitfuehren: die Zeile wird je
+        // Halter gezeichnet, und der Umweg ueber den Charakter waere eine Rueckwaertskarte, die
+        // dieses Modul sonst nirgends braucht.
+        //
+        // B06 buendelt die Gewinne eines Fensters bereits zu einem Ereignis (FR-023a) - bei tausend
+        // Gewinnen je Sekunde ist das genau der Grund, warum hier kein Ereignis je Treffer ankommt.
+        eventBus.subscribe(ProgressChangedEvent.class, event -> show(event.playerId()));
+        // Der Stufenaufstieg getrennt davon: er aendert die Stufe auf der Zeile auch dann, wenn er
+        // von einem Betreiber kommt und gar kein Gewinn dahinterstand.
+        eventBus.subscribe(LevelUpEvent.class, event -> show(event.playerId()));
     }
 
     /**
@@ -155,6 +168,11 @@ public final class StatusActionBar {
         if (current.hasMeter()) {
             values.put("meter", whole(current.meter()));
         }
+        // Immer gesetzt, auch wenn nichts dahintersteht: ein Platzhalter, der in den Werten fehlt,
+        // bleibt nach dem Vertrag von Messages als {progress} stehen - sichtbar, und genau das ist
+        // dort gewollt. Auf einer Zeile, die jede Sekunde neu gesendet wird, waere es kein Hinweis
+        // mehr, sondern eine Ruine, die ein Betreiber ohne Klasse dauerhaft vor sich haette.
+        values.put("progress", current.hasProgress() ? progressText(current.progress()) : "");
         // Drei Zeilen, nicht eine mit Luecken. Welche gilt, folgt aus dem Traeger und nicht aus einem
         // Schalter, den jemand zu setzen vergessen kann.
         MessageKey key;
@@ -166,6 +184,33 @@ public final class StatusActionBar {
             key = CombatMessageKeys.STATUS_ACTION_BAR;
         }
         return Component.text(messages.get(key, values)).color(colourFor(percent));
+    }
+
+    /**
+     * Stufe und Erfahrung als der Teil, der in die Spielerzeile eingesetzt wird.
+     *
+     * <p>Ein eigener Text statt vier weiterer Vollzeilen: Mana, Zaehler und Hoechststufe sind drei
+     * voneinander unabhaengige Ja/Nein, und als Vollzeilen waeren das acht Schluessel, die ein
+     * Betreiber alle gleich zu formatieren haette. Layout und Wortlaut stehen trotzdem
+     * ausschliesslich in {@code messages.yml} (Prinzip V); hier wird nur ausgewaehlt, welcher der
+     * beiden Texte gilt - dieselbe Auswahl, die die Zeile selbst schon dreifach trifft.
+     *
+     * <p>Am Maximum ist die Schwelle der naechsten Stufe 0, und {@code 4120/0} saehe aus wie ein
+     * Fehler. {@link ProgressView#atMaxLevel()} beantwortet das als eigenes Feld und nicht als
+     * abgeleitete Regel, damit nicht jeder Empfaenger sie leicht anders erfindet.
+     */
+    private String progressText(ProgressView progress) {
+        Map<String, String> values = new java.util.HashMap<>();
+        values.put("level", Integer.toString(progress.level()));
+        values.put("xp", Long.toString(progress.xpInLevel()));
+        MessageKey key;
+        if (progress.atMaxLevel()) {
+            key = CombatMessageKeys.STATUS_PROGRESS_MAX;
+        } else {
+            values.put("xpNext", Long.toString(progress.xpForNextLevel()));
+            key = CombatMessageKeys.STATUS_PROGRESS;
+        }
+        return messages.get(key, values);
     }
 
     /**

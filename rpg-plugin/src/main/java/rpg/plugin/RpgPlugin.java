@@ -716,7 +716,8 @@ public class RpgPlugin extends JavaPlugin {
                                                     resources.currentMana(),
                                                     resources.maxMana(),
                                                     snapshot.get(rpg.core.stats.Attribute.DEFENSE),
-                                                    meterOf(holderId));
+                                                    meterOf(holderId),
+                                                    progressOf(holderId));
                                         });
 
         StatusActionBar actionBar =
@@ -1430,6 +1431,32 @@ public class RpgPlugin extends JavaPlugin {
                                         .findFirst())
                 .map(spec -> abilityMeter.valueAt(holderId, spec, Clock.systemUTC().instant()))
                 .orElse(0.0);
+    }
+
+    /**
+     * Stufe und Erfahrung des Charakters hinter diesem Traeger, oder null, wenn es keinen gibt.
+     *
+     * <p>Denselben Weg wie {@link #meterOf}: der Halter ist die Id, unter der ein Spieler
+     * adressierbar ist, der Fortschritt gehoert dem Charakter (ADR-011), und B04 kennt die
+     * Zuordnung ohnehin schon.
+     *
+     * <p>Null fuer einen Mob und fuer einen Betreiber, der ohne Klasse in der Welt steht. Die
+     * Actionbar laesst den Teil dann weg - eine Stufe 1 mit 0 Erfahrung anzuzeigen, wo es keinen
+     * Charakter gibt, waere eine Zahl, die etwas behauptet.
+     *
+     * <p>{@code progressOf} rechnet nichts: B06 haelt den Stand im Speicher und beantwortet ihn
+     * ohne Datenbankzugriff (FR-026, FR-028). Das ist die Voraussetzung dafuer, dass diese Zeile
+     * einmal je Sekunde je Spieler gezeichnet werden darf.
+     */
+    private rpg.core.progression.ProgressView progressOf(java.util.UUID holderId) {
+        if (progressionModule == null) {
+            return null;
+        }
+        java.util.UUID characterId = statsModule.engine().characterIdOf(holderId).orElse(null);
+        if (characterId == null) {
+            return null;
+        }
+        return progressionModule.progression().progressOf(characterId).orElse(null);
     }
 
     /**

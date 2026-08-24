@@ -18,6 +18,9 @@ import org.mockbukkit.mockbukkit.entity.PlayerMock;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import rpg.core.event.DefaultEventBus;
 import rpg.core.event.EventBus;
+import rpg.core.progression.LevelUpEvent;
+import rpg.core.progression.ProgressChangedEvent;
+import rpg.core.progression.ProgressView;
 import rpg.core.stats.ChangeCause;
 import rpg.core.stats.ResourceChangedEvent;
 import rpg.core.stats.ResourceKind;
@@ -205,6 +208,128 @@ class StatusActionBarTest {
         scheduler.runDelayedOnce();
 
         assertThat(actionBarOf(player)).as("der zweite Durchgang zeichnet wieder").isNotNull();
+    }
+
+    @Test
+    @DisplayName("Stufe und Erfahrung stehen auf derselben Zeile - nicht als Kugel am Boden")
+    void progressIsOnTheSameLine() {
+        // KEINE Erfahrungskugel: Coins liegen am Boden, weil man sie aufheben muss. Erfahrung
+        // bekommt man ohnehin, und eine zweite Sorte Bodenobjekte je Kill kostet Entitaeten und
+        // verdeckt die Coins.
+        PlayerMock player = server.addPlayer();
+        statuses.giveWithProgress(
+                player.getUniqueId(),
+                620.0,
+                2000.0,
+                75.0,
+                300.0,
+                148.0,
+                new ProgressView(12, 340L, 1200L, false));
+
+        bar.show(player.getUniqueId());
+
+        assertThat(actionBarOf(player))
+                .isEqualTo("620/2000 HP (31%) 75/300 MP DEF 148 LV 12 XP 340/1200");
+    }
+
+    @Test
+    @DisplayName("auf der Hoechststufe steht kein 340/0 - das saehe aus wie ein Fehler")
+    void atTheMaximumTheThresholdIsNotPrinted() {
+        PlayerMock player = server.addPlayer();
+        statuses.giveWithProgress(
+                player.getUniqueId(),
+                620.0,
+                2000.0,
+                75.0,
+                300.0,
+                148.0,
+                new ProgressView(60, 4120L, 0L, true));
+
+        bar.show(player.getUniqueId());
+
+        assertThat(actionBarOf(player))
+                .as("FR-051 will einen fertigen Charakter als fertig gemeldet sehen")
+                .isEqualTo("620/2000 HP (31%) 75/300 MP DEF 148 LV 60 XP 4120 MAX")
+                .doesNotContain("/0");
+    }
+
+    @Test
+    @DisplayName("Zaehler UND Fortschritt stehen nebeneinander, ohne einen vierten Zeilentext")
+    void meterAndProgressShareTheLine() {
+        // Der Grund, warum der Fortschritt ein eingesetzter Teil ist und keine eigene Vollzeile:
+        // sonst braeuchte diese Kombination einen achten Schluessel in messages.yml.
+        PlayerMock player = server.addPlayer();
+        statuses.giveWithMeterAndProgress(
+                player.getUniqueId(),
+                620.0,
+                2000.0,
+                75.0,
+                300.0,
+                148.0,
+                47.0,
+                new ProgressView(12, 340L, 1200L, false));
+
+        bar.show(player.getUniqueId());
+
+        assertThat(actionBarOf(player))
+                .isEqualTo("620/2000 HP (31%) 75/300 MP DEF 148 RAGE 47 LV 12 XP 340/1200");
+    }
+
+    @Test
+    @DisplayName("ohne Charakter bleibt kein {progress} stehen - ein Betreiber ohne Klasse")
+    void withoutProgressNoPlaceholderIsLeftBehind() {
+        PlayerMock player = server.addPlayer();
+        statuses.give(player.getUniqueId(), 620.0, 2000.0, 75.0, 300.0, 148.0);
+
+        bar.show(player.getUniqueId());
+
+        assertThat(actionBarOf(player))
+                .as("auf einer Zeile, die jede Sekunde neu kommt, waere das eine Ruine")
+                .isEqualTo("620/2000 HP (31%) 75/300 MP DEF 148")
+                .doesNotContain("{progress}")
+                .doesNotContain("LV");
+    }
+
+    @Test
+    @DisplayName("ein Erfahrungsgewinn zeichnet die Zeile neu, ueber den Spieler im Ereignis")
+    void anExperienceGainRedrawsIt() {
+        PlayerMock player = server.addPlayer();
+        statuses.giveWithProgress(
+                player.getUniqueId(),
+                500.0,
+                1000.0,
+                40.0,
+                200.0,
+                20.0,
+                new ProgressView(12, 340L, 1200L, false));
+        EventBus eventBus = new DefaultEventBus(QUIET);
+        bar.subscribeTo(eventBus);
+
+        eventBus.publish(
+                new ProgressChangedEvent(
+                        UUID.randomUUID(), player.getUniqueId(), 25L, 12, 340L, 1200L));
+
+        assertThat(actionBarOf(player)).contains("LV 12 XP 340/1200");
+    }
+
+    @Test
+    @DisplayName("ein Stufenaufstieg zeichnet ebenfalls neu - auch der eines Betreibers")
+    void aLevelUpRedrawsItToo() {
+        PlayerMock player = server.addPlayer();
+        statuses.giveWithProgress(
+                player.getUniqueId(),
+                500.0,
+                1000.0,
+                40.0,
+                200.0,
+                20.0,
+                new ProgressView(13, 0L, 1400L, false));
+        EventBus eventBus = new DefaultEventBus(QUIET);
+        bar.subscribeTo(eventBus);
+
+        eventBus.publish(new LevelUpEvent(UUID.randomUUID(), player.getUniqueId(), 12, 13, true));
+
+        assertThat(actionBarOf(player)).contains("LV 13");
     }
 
     // --- fixtures ---

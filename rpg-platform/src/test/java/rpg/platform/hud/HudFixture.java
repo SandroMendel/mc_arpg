@@ -12,6 +12,7 @@ import rpg.core.combat.CombatMessageKeys;
 import rpg.core.message.MapMessages;
 import rpg.core.message.MessageKey;
 import rpg.core.message.Messages;
+import rpg.core.progression.ProgressView;
 import rpg.core.scheduler.EntityRef;
 import rpg.core.scheduler.Scheduler;
 import rpg.core.scheduler.TaskHandle;
@@ -63,6 +64,34 @@ final class HudFixture {
                 double defense,
                 double meter) {
             byHolder.put(holderId, new Status(health, maxHealth, mana, maxMana, defense, meter));
+        }
+
+        /** Ein Spieler MIT Fortschritt - Stufe, Erfahrung darin und die Schwelle der naechsten. */
+        void giveWithProgress(
+                UUID holderId,
+                double health,
+                double maxHealth,
+                double mana,
+                double maxMana,
+                double defense,
+                ProgressView progress) {
+            byHolder.put(
+                    holderId, new Status(health, maxHealth, mana, maxMana, defense, 0.0, progress));
+        }
+
+        /** Ein Spieler mit Zaehler UND Fortschritt - der Berserker im Kampf. */
+        void giveWithMeterAndProgress(
+                UUID holderId,
+                double health,
+                double maxHealth,
+                double mana,
+                double maxMana,
+                double defense,
+                double meter,
+                ProgressView progress) {
+            byHolder.put(
+                    holderId,
+                    new Status(health, maxHealth, mana, maxMana, defense, meter, progress));
         }
 
         @Override
@@ -144,13 +173,20 @@ final class HudFixture {
         }
         texts.put(
                 CombatMessageKeys.STATUS_ACTION_BAR.value(),
-                "{health}/{max} HP ({percent}%) {mana}/{maxMana} MP DEF {defense}");
+                "{health}/{max} HP ({percent}%) {mana}/{maxMana} MP DEF {defense}{progress}");
         texts.put(
                 CombatMessageKeys.STATUS_ACTION_BAR_NO_MANA.value(),
                 "{health}/{max} HP ({percent}%) DEF {defense}");
         texts.put(
                 CombatMessageKeys.STATUS_ACTION_BAR_WITH_METER.value(),
-                "{health}/{max} HP ({percent}%) {mana}/{maxMana} MP DEF {defense} RAGE {meter}");
+                "{health}/{max} HP ({percent}%) {mana}/{maxMana} MP DEF {defense} RAGE"
+                        + " {meter}{progress}");
+        // Mit fuehrendem Leerzeichen IM Fortschrittstext statt in der Zeile: die ausgelieferte
+        // messages.yml trennt mit Leerzeichen vor dem Platzhalter, und ein Spieler ohne Charakter
+        // haette dann eine Zeile mit Leerzeichen am Ende. Hier haengt das Trennzeichen am Teil, der
+        // wegfaellt, damit die Tests ohne Fortschritt exakt bleiben.
+        texts.put(CombatMessageKeys.STATUS_PROGRESS.value(), " LV {level} XP {xp}/{xpNext}");
+        texts.put(CombatMessageKeys.STATUS_PROGRESS_MAX.value(), " LV {level} XP {xp} MAX");
         return new MapMessages(texts);
     }
 }
