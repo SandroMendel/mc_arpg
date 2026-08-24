@@ -128,6 +128,336 @@ kinds:
     coins: 260
     boss: true
 
+  # --- Dustlands, Levelband 11-20 -----------------------------------------------------------
+
+  dustlands.sand-shambler:
+    base: HUSK
+    level: 12
+    attributes: { health: 128.0, defense: 11.0, physicalDamage: 19.0 }
+    follow-range: 23.6
+    xp: 62
+    coins: 19
+
+  dustlands.husk-of-the-dune:
+    base: HUSK
+    level: 13
+    attributes: { health: 137.0, defense: 12.0, physicalDamage: 21.0 }
+    follow-range: 23.9
+    xp: 68
+    coins: 21
+
+  dustlands.wastes-strider:
+    base: STRAY
+    level: 14
+    attributes: { health: 146.0, defense: 13.0, physicalDamage: 22.0 }
+    follow-range: 24.2
+    xp: 73
+    coins: 22
+
+  dustlands.bone-picker:
+    base: SKELETON
+    level: 15
+    attributes: { health: 155.0, defense: 14.0, physicalDamage: 24.0 }
+    follow-range: 24.5
+    xp: 78
+    coins: 24
+
+  dustlands.dust-crawler:
+    base: SPIDER
+    level: 16
+    attributes: { health: 164.0, defense: 14.0, physicalDamage: 26.0 }
+    follow-range: 24.8
+    xp: 83
+    coins: 26
+
+  dustlands.cavern-biter:
+    base: CAVE_SPIDER
+    level: 17
+    attributes: { health: 173.0, defense: 15.0, physicalDamage: 27.0 }
+    follow-range: 25.1
+    xp: 88
+    coins: 27
+
+  dustlands.shifting-swarm:
+    base: SILVERFISH
+    level: 18
+    attributes: { health: 182.0, defense: 16.0, physicalDamage: 29.0 }
+    follow-range: 25.4
+    xp: 94
+    coins: 29
+
+  dustlands.dune-hexer:
+    base: WITCH
+    level: 19
+    attributes: { health: 191.0, defense: 17.0, physicalDamage: 30.0 }
+    follow-range: 25.7
+    xp: 99
+    coins: 30
+
+  # --- Safari-Plains, Levelband 21-30 -----------------------------------------------------------
+
+  safari-plains.plains-raider:
+    base: ZOMBIE
+    level: 22
+    attributes: { health: 218.0, defense: 20.0, physicalDamage: 35.0 }
+    follow-range: 26.6
+    xp: 114
+    coins: 35
+
+  safari-plains.fallen-herder:
+    base: ZOMBIE_VILLAGER
+    level: 23
+    attributes: { health: 227.0, defense: 21.0, physicalDamage: 37.0 }
+    follow-range: 26.9
+    xp: 120
+    coins: 37
+
+  safari-plains.grassland-archer:
+    base: SKELETON
+    level: 24
+    attributes: { health: 236.0, defense: 22.0, physicalDamage: 38.0 }
+    follow-range: 27.2
+    xp: 125
+    coins: 38
+
+  safari-plains.tall-grass-weaver:
+    base: SPIDER
+    level: 25
+    attributes: { health: 245.0, defense: 23.0, physicalDamage: 40.0 }
+    follow-range: 27.5
+    xp: 130
+    coins: 40
+
+  safari-plains.savanna-hexer:
+    base: WITCH
+    level: 26
+    attributes: { health: 254.0, defense: 23.0, physicalDamage: 42.0 }
+    follow-range: 27.8
+    xp: 135
+    coins: 42
+
+  safari-plains.raid-vanguard:
+    base: VINDICATOR
+    level: 27
+    attributes: { health: 263.0, defense: 24.0, physicalDamage: 43.0 }
+    follow-range: 28.1
+    xp: 140
+    coins: 43
+
+  safari-plains.raid-marauder:
+    base: PILLAGER
+    level: 28
+    attributes: { health: 272.0, defense: 25.0, physicalDamage: 45.0 }
+    follow-range: 28.4
+    xp: 146
+    coins: 45
+
+  safari-plains.raid-caller:
+    base: EVOKER
+    level: 29
+    attributes: { health: 281.0, defense: 26.0, physicalDamage: 46.0 }
+    follow-range: 28.7
+    xp: 151
+    coins: 46
+
+  # --- Terracotta-Canyons, Levelband 31-40 -----------------------------------------------------------
+
+  terracotta-canyons.canyon-archer:
+    base: SKELETON
+    level: 32
+    attributes: { health: 308.0, defense: 29.0, physicalDamage: 51.0 }
+    follow-range: 29.6
+    xp: 166
+    coins: 51
+
+  terracotta-canyons.canyon-stalker:
+    base: STRAY
+    level: 33
+    attributes: { health: 317.0, defense: 30.0, physicalDamage: 53.0 }
+    follow-range: 29.9
+    xp: 172
+    coins: 53
+
+  terracotta-canyons.ledge-crawler:
+    base: SPIDER
+    level: 34
+    attributes: { health: 326.0, defense: 31.0, physicalDamage: 54.0 }
+    follow-range: 30.2
+    xp: 177
+    coins: 54
+
+  terracotta-canyons.fissure-biter:
+    base: CAVE_SPIDER
+    level: 35
+    attributes: { health: 335.0, defense: 32.0, physicalDamage: 56.0 }
+    follow-range: 30.5
+    xp: 182
+    coins: 56
+
+  terracotta-canyons.canyon-hexer:
+    base: WITCH
+    level: 36
+    attributes: { health: 344.0, defense: 32.0, physicalDamage: 58.0 }
+    follow-range: 30.8
+    xp: 187
+    coins: 58
+
+  terracotta-canyons.flitting-vex:
+    base: VEX
+    level: 37
+    attributes: { health: 353.0, defense: 33.0, physicalDamage: 59.0 }
+    follow-range: 31.1
+    xp: 192
+    coins: 59
+
+  terracotta-canyons.canyon-vanguard:
+    base: VINDICATOR
+    level: 38
+    attributes: { health: 362.0, defense: 34.0, physicalDamage: 61.0 }
+    follow-range: 31.4
+    xp: 198
+    coins: 61
+
+  terracotta-canyons.hollow-wanderer:
+    base: ENDERMAN
+    level: 39
+    attributes: { health: 371.0, defense: 35.0, physicalDamage: 62.0 }
+    follow-range: 31.7
+    xp: 203
+    coins: 62
+
+  # --- Darkforest, Levelband 41-50 -----------------------------------------------------------
+
+  darkforest.rotwood-shambler:
+    base: ZOMBIE
+    level: 42
+    attributes: { health: 398.0, defense: 38.0, physicalDamage: 67.0 }
+    follow-range: 32.0
+    xp: 218
+    coins: 67
+
+  darkforest.moss-husk:
+    base: HUSK
+    level: 43
+    attributes: { health: 407.0, defense: 39.0, physicalDamage: 69.0 }
+    follow-range: 32.0
+    xp: 224
+    coins: 69
+
+  darkforest.canopy-weaver:
+    base: SPIDER
+    level: 44
+    attributes: { health: 416.0, defense: 40.0, physicalDamage: 70.0 }
+    follow-range: 32.0
+    xp: 229
+    coins: 70
+
+  darkforest.gloom-hexer:
+    base: WITCH
+    level: 45
+    attributes: { health: 425.0, defense: 41.0, physicalDamage: 72.0 }
+    follow-range: 32.0
+    xp: 234
+    coins: 72
+
+  darkforest.thicket-vex:
+    base: VEX
+    level: 46
+    attributes: { health: 434.0, defense: 41.0, physicalDamage: 74.0 }
+    follow-range: 32.0
+    xp: 239
+    coins: 74
+
+  darkforest.thicket-caller:
+    base: EVOKER
+    level: 47
+    attributes: { health: 443.0, defense: 42.0, physicalDamage: 75.0 }
+    follow-range: 32.0
+    xp: 244
+    coins: 75
+
+  darkforest.thicket-vanguard:
+    base: VINDICATOR
+    level: 48
+    attributes: { health: 452.0, defense: 43.0, physicalDamage: 77.0 }
+    follow-range: 32.0
+    xp: 250
+    coins: 77
+
+  darkforest.night-glider:
+    base: PHANTOM
+    level: 49
+    attributes: { health: 461.0, defense: 44.0, physicalDamage: 78.0 }
+    follow-range: 32.0
+    xp: 255
+    coins: 78
+
+  # --- Pale-Wilds, Levelband 51-60 (Endgame) -----------------------------------------------------------
+
+  pale-wilds.pale-skeleton:
+    base: WITHER_SKELETON
+    level: 52
+    attributes: { health: 488.0, defense: 47.0, physicalDamage: 83.0 }
+    follow-range: 32.0
+    xp: 270
+    coins: 83
+
+  pale-wilds.ashen-reaper:
+    base: WITHER_SKELETON
+    level: 54
+    attributes: { health: 506.0, defense: 49.0, physicalDamage: 86.0 }
+    follow-range: 32.0
+    xp: 281
+    coins: 86
+
+  pale-wilds.cinder-wisp:
+    base: BLAZE
+    level: 55
+    attributes: { health: 515.0, defense: 50.0, physicalDamage: 88.0 }
+    follow-range: 32.0
+    xp: 286
+    coins: 88
+
+  pale-wilds.pale-piglin:
+    base: PIGLIN
+    level: 53
+    attributes: { health: 497.0, defense: 48.0, physicalDamage: 85.0 }
+    follow-range: 32.0
+    xp: 276
+    coins: 85
+
+  pale-wilds.pale-brute:
+    base: PIGLIN_BRUTE
+    level: 57
+    attributes: { health: 533.0, defense: 51.0, physicalDamage: 91.0 }
+    follow-range: 32.0
+    xp: 296
+    coins: 91
+
+  pale-wilds.wild-hoglin:
+    base: HOGLIN
+    level: 56
+    attributes: { health: 524.0, defense: 50.0, physicalDamage: 90.0 }
+    follow-range: 32.0
+    xp: 291
+    coins: 90
+
+  pale-wilds.corrupted-zoglin:
+    base: ZOGLIN
+    level: 58
+    attributes: { health: 542.0, defense: 52.0, physicalDamage: 93.0 }
+    follow-range: 32.0
+    xp: 302
+    coins: 93
+
+  pale-wilds.pale-ooze:
+    base: MAGMA_CUBE
+    level: 59
+    attributes: { health: 551.0, defense: 53.0, physicalDamage: 94.0 }
+    follow-range: 32.0
+    xp: 307
+    coins: 94
+
 hordes:
   greenfields:
     areas:
@@ -148,3 +478,63 @@ hordes:
       area: 'greenfields-east'
       offset: { x: 0.0, y: 0.0, z: 0.0 }
       respawn-minutes: 30
+  dustlands:
+    areas:
+      dustlands-east:
+        - { kind: 'dustlands.sand-shambler', weight: 5 }
+        - { kind: 'dustlands.husk-of-the-dune', weight: 4 }
+        - { kind: 'dustlands.wastes-strider', weight: 3 }
+        - { kind: 'dustlands.bone-picker', weight: 2 }
+      dustlands-west:
+        - { kind: 'dustlands.dust-crawler', weight: 5 }
+        - { kind: 'dustlands.cavern-biter', weight: 4 }
+        - { kind: 'dustlands.shifting-swarm', weight: 3 }
+        - { kind: 'dustlands.dune-hexer', weight: 2 }
+  safari-plains:
+    areas:
+      safari-plains-east:
+        - { kind: 'safari-plains.plains-raider', weight: 5 }
+        - { kind: 'safari-plains.fallen-herder', weight: 4 }
+        - { kind: 'safari-plains.grassland-archer', weight: 3 }
+        - { kind: 'safari-plains.tall-grass-weaver', weight: 2 }
+      safari-plains-west:
+        - { kind: 'safari-plains.savanna-hexer', weight: 5 }
+        - { kind: 'safari-plains.raid-vanguard', weight: 4 }
+        - { kind: 'safari-plains.raid-marauder', weight: 3 }
+        - { kind: 'safari-plains.raid-caller', weight: 2 }
+  terracotta-canyons:
+    areas:
+      terracotta-canyons-east:
+        - { kind: 'terracotta-canyons.canyon-archer', weight: 5 }
+        - { kind: 'terracotta-canyons.canyon-stalker', weight: 4 }
+        - { kind: 'terracotta-canyons.ledge-crawler', weight: 3 }
+        - { kind: 'terracotta-canyons.fissure-biter', weight: 2 }
+      terracotta-canyons-west:
+        - { kind: 'terracotta-canyons.canyon-hexer', weight: 5 }
+        - { kind: 'terracotta-canyons.flitting-vex', weight: 4 }
+        - { kind: 'terracotta-canyons.canyon-vanguard', weight: 3 }
+        - { kind: 'terracotta-canyons.hollow-wanderer', weight: 2 }
+  darkforest:
+    areas:
+      darkforest-east:
+        - { kind: 'darkforest.rotwood-shambler', weight: 5 }
+        - { kind: 'darkforest.moss-husk', weight: 4 }
+        - { kind: 'darkforest.canopy-weaver', weight: 3 }
+        - { kind: 'darkforest.gloom-hexer', weight: 2 }
+      darkforest-west:
+        - { kind: 'darkforest.thicket-vex', weight: 5 }
+        - { kind: 'darkforest.thicket-caller', weight: 4 }
+        - { kind: 'darkforest.thicket-vanguard', weight: 3 }
+        - { kind: 'darkforest.night-glider', weight: 2 }
+  pale-wilds:
+    areas:
+      pale-wilds-east:
+        - { kind: 'pale-wilds.pale-skeleton', weight: 5 }
+        - { kind: 'pale-wilds.ashen-reaper', weight: 4 }
+        - { kind: 'pale-wilds.cinder-wisp', weight: 3 }
+        - { kind: 'pale-wilds.pale-piglin', weight: 2 }
+      pale-wilds-west:
+        - { kind: 'pale-wilds.pale-brute', weight: 5 }
+        - { kind: 'pale-wilds.wild-hoglin', weight: 4 }
+        - { kind: 'pale-wilds.corrupted-zoglin', weight: 3 }
+        - { kind: 'pale-wilds.pale-ooze', weight: 2 }

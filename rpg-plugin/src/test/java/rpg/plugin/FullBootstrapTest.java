@@ -272,13 +272,13 @@ class FullBootstrapTest {
                         "B05 prices the hit, B08 refuses it for an ability item and stops a cast on"
                                 + " it - B04 must not be here")
                 .isEqualTo(3);
-        // ProjectileLaunchEvent extends EntitySpawnEvent and declares no HandlerList of its own, so
-        // it SHARES one with CreatureSpawnEvent. The two cannot be counted separately - what this
-        // asserts is that exactly two handlers sit on that shared list: projectile pricing and mob
-        // equipping, one each.
+        // ProjectileLaunchEvent and CreatureSpawnEvent both extend EntitySpawnEvent and declare no
+        // HandlerList of their own, so all three share one list. They cannot be counted separately -
+        // what this asserts is that exactly three handlers sit on that shared list: projectile
+        // pricing, mob equipping, and B10's vanilla-spawn suppressor (research.md R1), one each.
         assertThat(handlerCount(org.bukkit.event.entity.EntitySpawnEvent.getHandlerList()))
-                .as("projectile pricing and mob equipping share one handler list")
-                .isEqualTo(2);
+                .as("projectile pricing, mob equipping and vanilla-spawn suppression share one handler list")
+                .isEqualTo(3);
         assertThat(handlerCount(org.bukkit.event.entity.EntityDeathEvent.getHandlerList()))
                 .as("vanilla loot and experience are suppressed here")
                 .isEqualTo(2); // the death listener plus the mob equipment release

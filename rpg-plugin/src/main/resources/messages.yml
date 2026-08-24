@@ -131,6 +131,96 @@ mob:
     warden-of-the-field:
       name: 'Warden of the Field'
 
+  dustlands:
+    sand-shambler:
+      name: 'Sand Shambler'
+    husk-of-the-dune:
+      name: 'Husk of the Dune'
+    wastes-strider:
+      name: 'Wastes Strider'
+    bone-picker:
+      name: 'Bone Picker'
+    dust-crawler:
+      name: 'Dust Crawler'
+    cavern-biter:
+      name: 'Cavern Biter'
+    shifting-swarm:
+      name: 'Shifting Swarm'
+    dune-hexer:
+      name: 'Dune Hexer'
+
+  safari-plains:
+    plains-raider:
+      name: 'Plains Raider'
+    fallen-herder:
+      name: 'Fallen Herder'
+    grassland-archer:
+      name: 'Grassland Archer'
+    tall-grass-weaver:
+      name: 'Tall Grass Weaver'
+    savanna-hexer:
+      name: 'Savanna Hexer'
+    raid-vanguard:
+      name: 'Raid Vanguard'
+    raid-marauder:
+      name: 'Raid Marauder'
+    raid-caller:
+      name: 'Raid Caller'
+
+  terracotta-canyons:
+    canyon-archer:
+      name: 'Canyon Archer'
+    canyon-stalker:
+      name: 'Canyon Stalker'
+    ledge-crawler:
+      name: 'Ledge Crawler'
+    fissure-biter:
+      name: 'Fissure Biter'
+    canyon-hexer:
+      name: 'Canyon Hexer'
+    flitting-vex:
+      name: 'Flitting Vex'
+    canyon-vanguard:
+      name: 'Canyon Vanguard'
+    hollow-wanderer:
+      name: 'Hollow Wanderer'
+
+  darkforest:
+    rotwood-shambler:
+      name: 'Rotwood Shambler'
+    moss-husk:
+      name: 'Moss Husk'
+    canopy-weaver:
+      name: 'Canopy Weaver'
+    gloom-hexer:
+      name: 'Gloom Hexer'
+    thicket-vex:
+      name: 'Thicket Vex'
+    thicket-caller:
+      name: 'Thicket Caller'
+    thicket-vanguard:
+      name: 'Thicket Vanguard'
+    night-glider:
+      name: 'Night Glider'
+
+  pale-wilds:
+    pale-skeleton:
+      name: 'Pale Skeleton'
+    ashen-reaper:
+      name: 'Ashen Reaper'
+    cinder-wisp:
+      name: 'Cinder Wisp'
+    pale-piglin:
+      name: 'Pale Piglin'
+    pale-brute:
+      name: 'Pale Brute'
+    wild-hoglin:
+      name: 'Wild Hoglin'
+    corrupted-zoglin:
+      name: 'Corrupted Zoglin'
+    pale-ooze:
+      name: 'Pale Ooze'
+
 class:
   # Display names. The enum constant stays WARRIOR; "Berserker" is a value here, never in code
   # (ADR-019). This is also where a later translation would land without touching a class file.

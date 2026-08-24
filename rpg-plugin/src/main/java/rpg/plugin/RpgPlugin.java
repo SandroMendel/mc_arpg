@@ -248,6 +248,7 @@ public class RpgPlugin extends JavaPlugin {
         assembleStatLayer();
         assembleCombatLayer();
         assembleProgressionLayer();
+        assembleMobLayer();
 
         // Same cadence as B02's autosave, and for the same reason: a crash should cost one interval,
         // not a whole session's loot. The quit path captures on its own; this is only for the case
@@ -1827,6 +1828,47 @@ public class RpgPlugin extends JavaPlugin {
                                 + "s, at most "
                                 + config.maxPiles()
                                 + " at once");
+    }
+
+    /**
+     * B10s zweite Haelfte: Horden entstehen in B09s Bereichen, und Vanillas eigenes Spawnen ist aus
+     * (US2, US2b).
+     *
+     * <p>Nach {@link #assembleCombatLayer()} und {@link #assembleProgressionLayer()}, weil die drei
+     * uebernommenen Anbieter (Werte, Erfahrung, Coins) dort schon aus {@code mobs.yml} bedient
+     * werden - eine gesetzte Kreatur soll sofort die richtigen Zahlen tragen.
+     *
+     * <p>{@code VanillaSpawnSuppressor.applyTo} laeuft VOR {@code HordeSweep.ensureScheduledForPopulatedZones}:
+     * die Spielregeln sollen greifen, bevor dieser Block anfaengt, selbst zu setzen.
+     */
+    private void assembleMobLayer() {
+        rpg.platform.mob.VanillaSpawnSuppressor suppressor =
+                new rpg.platform.mob.VanillaSpawnSuppressor(getLogger());
+        suppressor.applyTo(getServer());
+        getServer().getPluginManager().registerEvents(suppressor, this);
+
+        rpg.platform.mob.PaperMobPlacer placer = new rpg.platform.mob.PaperMobPlacer(getLogger());
+        rpg.platform.mob.HordeSweep sweep =
+                new rpg.platform.mob.HordeSweep(
+                        getServer(),
+                        scheduler,
+                        zoneModule::zones,
+                        mobModule::config,
+                        mobModule.registry(),
+                        placer,
+                        Clock.systemUTC(),
+                        getLogger());
+        sweep.subscribeTo(eventBus);
+        getServer().getPluginManager().registerEvents(sweep, this);
+        // Fuer Zonen, die beim Start schon Spieler haben - fuer die feuert kein ZoneChangedEvent
+        // mehr, das dieser Zuhoerer sehen koennte (etwa nach einem /rpg reload waehrend Betrieb
+        // waere das nicht noetig, aber beim allerersten Start schon).
+        sweep.ensureScheduledForPopulatedZones();
+
+        getLogger()
+                .info(
+                        "[mob] phase=START state=SWEEP_ARMED - the budget is now the only source of"
+                                + " living creatures (FR-018c)");
     }
 
     /**

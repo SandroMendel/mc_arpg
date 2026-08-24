@@ -126,26 +126,26 @@ künstlich kleines Budget setzen und prüfen, dass es nicht überschritten wird.
 
 ### Tests zuerst
 
-- [ ] T038 [P] [US2] Test `SpawnPlannerTest` in `rpg-core/src/test/java/rpg/core/mob/SpawnPlannerTest.java` — nur innerhalb der Bereiche, Gewichte werden beachtet, leere Zone erzeugt nichts (FR-011, FR-015)
-- [ ] T039 [P] [US2] Test `BudgetHoldsTest` in `rpg-core/src/test/java/rpg/core/mob/BudgetHoldsTest.java` — **SC-003**: bei plötzlichem Andrang wird keine Grenze überschritten; ausdrücklich auch, wenn die Zieldichte rechnerisch darüber liegt
-- [ ] T040 [P] [US2] Test `UnknownZoneIsNormalTest` in `rpg-core/src/test/java/rpg/core/mob/UnknownZoneIsNormalTest.java` — unbekannter Zonenschlüssel und leere Bereichsliste erzeugen nichts und werfen nicht (FR-016)
-- [ ] T039a [P] [US2] Test `ServerWideBudgetHoldsTest` in `rpg-core/src/test/java/rpg/core/mob/ServerWideBudgetHoldsTest.java` — sechs Zonen zu je 200 bei einem serverweiten Budget von 800: die siebte Zone bekommt nichts mehr (FR-013a, SC-011). Heute greift die Grenze nie — 6 × 130 sind 780 — und genau deshalb braucht sie einen Test, sonst fällt ihr Fehlen erst auf, wenn jemand eine Zone hochstellt
-- [ ] T041 [P] [US2] Test `SpawnSpreadOverTicksTest` in `rpg-core/src/test/java/rpg/core/mob/SpawnSpreadOverTicksTest.java` — ein Durchlauf, der viele Kreaturen zu setzen hätte, verteilt sie (FR-014)
-- [ ] T041a [P] [US2] Test `SupplyIsContinuousTest` in `rpg-core/src/test/java/rpg/core/mob/SupplyIsContinuousTest.java` — nach einem Kill kommt Ersatz nach der Nachschubfrist, **ohne dass die Zone erst geräumt sein muss**, und es gibt keinen Zonenzustand, den ein Test setzen könnte (FR-018a). Die verworfene Alternative — abgegrenzte Wellen — hätte genau diesen Zustand gebraucht
+- [X] T038 [P] [US2] Test `SpawnPlannerTest` in `rpg-core/src/test/java/rpg/core/mob/SpawnPlannerTest.java` — nur innerhalb der Bereiche, Gewichte werden beachtet, leere Zone erzeugt nichts (FR-011, FR-015)
+- [X] T039 [P] [US2] Test `BudgetHoldsTest` in `rpg-core/src/test/java/rpg/core/mob/BudgetHoldsTest.java` — **SC-003**: bei plötzlichem Andrang wird keine Grenze überschritten; ausdrücklich auch, wenn die Zieldichte rechnerisch darüber liegt
+- [X] T040 [P] [US2] Test `UnknownZoneIsNormalTest` in `rpg-core/src/test/java/rpg/core/mob/UnknownZoneIsNormalTest.java` — unbekannter Zonenschlüssel und leere Bereichsliste erzeugen nichts und werfen nicht (FR-016)
+- [X] T039a [P] [US2] Test `ServerWideBudgetHoldsTest` in `rpg-core/src/test/java/rpg/core/mob/ServerWideBudgetHoldsTest.java` — sechs Zonen zu je 200 bei einem serverweiten Budget von 800: die siebte Zone bekommt nichts mehr (FR-013a, SC-011). Heute greift die Grenze nie — 6 × 130 sind 780 — und genau deshalb braucht sie einen Test, sonst fällt ihr Fehlen erst auf, wenn jemand eine Zone hochstellt
+- [X] T041 [P] [US2] Test `SpawnSpreadOverTicksTest` in `rpg-core/src/test/java/rpg/core/mob/SpawnSpreadOverTicksTest.java` — ein Durchlauf, der viele Kreaturen zu setzen hätte, verteilt sie (FR-014)
+- [X] T041a [P] [US2] Test `SupplyIsContinuousTest` in `rpg-core/src/test/java/rpg/core/mob/SupplyIsContinuousTest.java` — nach einem Kill kommt Ersatz nach der Nachschubfrist, **ohne dass die Zone erst geräumt sein muss**, und es gibt keinen Zonenzustand, den ein Test setzen könnte (FR-018a). Die verworfene Alternative — abgegrenzte Wellen — hätte genau diesen Zustand gebraucht
 
 ### Umsetzung
 
-- [ ] T042 [US2] `SpawnPlanner` in `rpg-core/src/main/java/rpg/core/mob/SpawnPlanner.java` — entscheidet **was wo**: Budget prüfen, Bereich wählen, Art nach Gewicht würfeln; ohne Bukkit und ohne Zuweisung im Pfad
-- [ ] T043 [US2] Obergrenze je Durchlauf in `SpawnPlanner` — die Arbeit wird über Ticks verteilt, nicht gebündelt (FR-014)
-- [ ] T044 [US2] `HordeSweep` in `rpg-platform/src/main/java/rpg/platform/mob/HordeSweep.java` — der **selbst neu eingeplante Einmal-Durchlauf je bevölkerter Zone**; Javadoc begründet, warum das keine wiederkehrende Aufgabe je Spieler oder Entität ist (Prinzip II, research.md R4)
-- [ ] T044a [US2] `HordeSweep` fängt Fehler **je Zone** in `rpg-platform/src/main/java/rpg/platform/mob/HordeSweep.java` — eine Zone, deren Konfiguration oder Welt Ärger macht, darf die anderen fünf nicht mitreißen und den Durchlauf nicht beenden: der plant sich sonst nie wieder ein und die Horde bleibt für immer stehen (FR-044, Prinzip VI). Geloggt mit Zonenschlüssel, **einmal je Vorfall und nicht je Durchlauf** — bei einem Durchlauf alle zwei Sekunden wären das sonst 1.800 Zeilen die Stunde
-- [ ] T044b [US2] Test `SweepSurvivesABrokenZoneTest` in `rpg-platform/src/test/java/rpg/platform/mob/SweepSurvivesABrokenZoneTest.java` — eine Zone wirft, die anderen laufen trotzdem, und der nächste Durchlauf ist eingeplant
-- [ ] T045 [US2] Der Durchlauf läuft nicht in einer Zone ohne Spieler, in `rpg-platform/src/main/java/rpg/platform/mob/HordeSweep.java` (FR-015) — geprüft **bevor** irgendetwas gerechnet wird
-- [ ] T046 [US2] `PaperMobPlacer` an den Durchlauf hängen — Setzen ortsgebunden über B01s Scheduler, nie über den globalen (FR-042, Prinzip I)
-- [ ] T047 [US2] Bestand nachführen beim Setzen in `rpg-platform/src/main/java/rpg/platform/mob/HordeSweep.java`: Zone, Chunk, gesamt (FR-013, FR-017)
-- [ ] T048 [US2] `EntityRemoveEvent`-Zuhörer in `rpg-platform/src/main/java/rpg/platform/mob/HordeSweep.java` — hält den Bestand ehrlich, wenn eine Kreatur auf einem fremden Weg verschwindet (Tod, Betreiber, Weltentladung)
-- [ ] T049 [P] [US2] Horden für alle sechs Regionen in `rpg-plugin/src/main/resources/mobs.yml` — 48 Arten, Bereichszuordnung, Gewichte (SC-002)
-- [ ] T050 [US2] Test `HordeSweepTest` in `rpg-platform/src/test/java/rpg/platform/mob/HordeSweepTest.java` — mit MockBukkit: der Durchlauf plant sich neu, und beim Abschalten des Plugins hört er auf
+- [X] T042 [US2] `SpawnPlanner` in `rpg-core/src/main/java/rpg/core/mob/SpawnPlanner.java` — entscheidet **was wo**: Budget prüfen, Bereich wählen, Art nach Gewicht würfeln; ohne Bukkit und ohne Zuweisung im Pfad
+- [X] T043 [US2] Obergrenze je Durchlauf in `SpawnPlanner` — die Arbeit wird über Ticks verteilt, nicht gebündelt (FR-014)
+- [X] T044 [US2] `HordeSweep` in `rpg-platform/src/main/java/rpg/platform/mob/HordeSweep.java` — der **selbst neu eingeplante Einmal-Durchlauf je bevölkerter Zone**; Javadoc begründet, warum das keine wiederkehrende Aufgabe je Spieler oder Entität ist (Prinzip II, research.md R4)
+- [X] T044a [US2] `HordeSweep` fängt Fehler **je Zone** in `rpg-platform/src/main/java/rpg/platform/mob/HordeSweep.java` — eine Zone, deren Konfiguration oder Welt Ärger macht, darf die anderen fünf nicht mitreißen und den Durchlauf nicht beenden: der plant sich sonst nie wieder ein und die Horde bleibt für immer stehen (FR-044, Prinzip VI). Geloggt mit Zonenschlüssel, **einmal je Vorfall und nicht je Durchlauf** — bei einem Durchlauf alle zwei Sekunden wären das sonst 1.800 Zeilen die Stunde
+- [X] T044b [US2] Test `SweepSurvivesABrokenZoneTest` in `rpg-platform/src/test/java/rpg/platform/mob/SweepSurvivesABrokenZoneTest.java` — eine Zone wirft, die anderen laufen trotzdem, und der nächste Durchlauf ist eingeplant
+- [X] T045 [US2] Der Durchlauf läuft nicht in einer Zone ohne Spieler, in `rpg-platform/src/main/java/rpg/platform/mob/HordeSweep.java` (FR-015) — geprüft **bevor** irgendetwas gerechnet wird
+- [X] T046 [US2] `PaperMobPlacer` an den Durchlauf hängen — Setzen ortsgebunden über B01s Scheduler, nie über den globalen (FR-042, Prinzip I)
+- [X] T047 [US2] Bestand nachführen beim Setzen in `rpg-platform/src/main/java/rpg/platform/mob/HordeSweep.java`: Zone, Chunk, gesamt (FR-013, FR-017)
+- [X] T048 [US2] `EntityRemoveEvent`-Zuhörer in `rpg-platform/src/main/java/rpg/platform/mob/HordeSweep.java` — hält den Bestand ehrlich, wenn eine Kreatur auf einem fremden Weg verschwindet (Tod, Betreiber, Weltentladung)
+- [X] T049 [P] [US2] Horden für alle sechs Regionen in `rpg-plugin/src/main/resources/mobs.yml` — 48 Arten, Bereichszuordnung, Gewichte (SC-002)
+- [X] T050 [US2] Test `HordeSweepTest` in `rpg-platform/src/test/java/rpg/platform/mob/HordeSweepTest.java` — mit MockBukkit: der Durchlauf plant sich neu, und beim Abschalten des Plugins hört er auf
 
 **Checkpoint**: US1 und US2 stehen. Horden entstehen und das Budget hält.
 
@@ -159,17 +159,17 @@ künstlich kleines Budget setzen und prüfen, dass es nicht überschritten wird.
 
 ### Tests zuerst
 
-- [ ] T051 [P] [US2B] Test `SpawnReasonPolicyTest` in `rpg-core/src/test/java/rpg/core/mob/SpawnReasonPolicyTest.java` — die Entscheidung, **welcher Grund durchgelassen wird**, als reine Regel ohne Bukkit: erlaubt sind `CUSTOM`, `COMMAND`, `SPAWNER_EGG`, `DISPENSE_EGG`; alles andere nicht (FR-018d)
-- [ ] T052 [P] [US2B] Test `VanillaSpawnSuppressorTest` in `rpg-platform/src/test/java/rpg/platform/mob/VanillaSpawnSuppressorTest.java` — mit MockBukkit: ein `NATURAL`-Ereignis wird abgebrochen, ein `SPAWNER_EGG` nicht, und **unsere eigenen werden nicht mitunterdrückt** (FR-018e)
+- [X] T051 [P] [US2B] Test `SpawnReasonPolicyTest` in `rpg-core/src/test/java/rpg/core/mob/SpawnReasonPolicyTest.java` — die Entscheidung, **welcher Grund durchgelassen wird**, als reine Regel ohne Bukkit: erlaubt sind `CUSTOM`, `COMMAND`, `SPAWNER_EGG`, `DISPENSE_EGG`; alles andere nicht (FR-018d)
+- [X] T052 [P] [US2B] Test `VanillaSpawnSuppressorTest` in `rpg-platform/src/test/java/rpg/platform/mob/VanillaSpawnSuppressorTest.java` — mit MockBukkit: ein `NATURAL`-Ereignis wird abgebrochen, ein `SPAWNER_EGG` nicht, und **unsere eigenen werden nicht mitunterdrückt** (FR-018e)
 
 ### Umsetzung
 
-- [ ] T053 [US2B] `SpawnReasonPolicy` in `rpg-core/src/main/java/rpg/core/mob/SpawnReasonPolicy.java` — die Liste der erlaubten Gründe als Regel, testbar ohne Server; sie nennt Bukkit-Konstanten als Strings, nicht als Typen
-- [ ] T054 [US2B] `VanillaSpawnSuppressor` in `rpg-platform/src/main/java/rpg/platform/mob/VanillaSpawnSuppressor.java` — **Schicht 1**: die sieben Spielregeln je Welt (`SPAWN_MOBS`, `SPAWN_MONSTERS`, `SPAWN_PATROLS`, `SPAWN_PHANTOMS`, `SPAWN_WANDERING_TRADERS`, `SPAWN_WARDENS`, `SPAWNER_BLOCKS_WORK`) auf `false`
-- [ ] T055 [US2B] Dieselben Regeln auf `WorldLoadEvent` — nach dem Muster von `VanillaRegenerationGuard`, damit eine später geladene Welt nicht ausgenommen ist
-- [ ] T056 [US2B] **Schicht 2**: `CreatureSpawnEvent`-Riegel auf `HIGHEST` in `VanillaSpawnSuppressor` — bricht jeden nicht erlaubten Grund ab; Javadoc begründet, warum es **beide** Schichten braucht (research.md R1)
-- [ ] T057 [US2B] Test `NoSuppressionSwitchTest` in `rpg-platform/src/test/java/rpg/platform/mob/NoSuppressionSwitchTest.java` — **es gibt keinen Schalter**, mit dem die Unterdrückung abgeschaltet werden kann (FR-018c, entschieden am 2026-08-24). Ein Schalter wäre ein Weg, das Budget zu umgehen: einmal auf `false` gestellt und vergessen, läuft der Server voll und niemand sieht die Ursache. Der Test hält die Entscheidung fest, damit sie nicht aus Bequemlichkeit zurückkommt
-- [ ] T058 [US2B] Log-Zeile beim Start in `rpg-platform/src/main/java/rpg/platform/mob/VanillaSpawnSuppressor.java`: welche Regeln auf wie vielen Welten gesetzt wurden — damit auf dem echten Server nachvollziehbar ist, ob Schicht 1 überhaupt griff
+- [X] T053 [US2B] `SpawnReasonPolicy` in `rpg-core/src/main/java/rpg/core/mob/SpawnReasonPolicy.java` — die Liste der erlaubten Gründe als Regel, testbar ohne Server; sie nennt Bukkit-Konstanten als Strings, nicht als Typen
+- [X] T054 [US2B] `VanillaSpawnSuppressor` in `rpg-platform/src/main/java/rpg/platform/mob/VanillaSpawnSuppressor.java` — **Schicht 1**: die sieben Spielregeln je Welt (`SPAWN_MOBS`, `SPAWN_MONSTERS`, `SPAWN_PATROLS`, `SPAWN_PHANTOMS`, `SPAWN_WANDERING_TRADERS`, `SPAWN_WARDENS`, `SPAWNER_BLOCKS_WORK`) auf `false`
+- [X] T055 [US2B] Dieselben Regeln auf `WorldLoadEvent` — nach dem Muster von `VanillaRegenerationGuard`, damit eine später geladene Welt nicht ausgenommen ist
+- [X] T056 [US2B] **Schicht 2**: `CreatureSpawnEvent`-Riegel auf `HIGHEST` in `VanillaSpawnSuppressor` — bricht jeden nicht erlaubten Grund ab; Javadoc begründet, warum es **beide** Schichten braucht (research.md R1)
+- [X] T057 [US2B] Test `NoSuppressionSwitchTest` in `rpg-platform/src/test/java/rpg/platform/mob/NoSuppressionSwitchTest.java` — **es gibt keinen Schalter**, mit dem die Unterdrückung abgeschaltet werden kann (FR-018c, entschieden am 2026-08-24). Ein Schalter wäre ein Weg, das Budget zu umgehen: einmal auf `false` gestellt und vergessen, läuft der Server voll und niemand sieht die Ursache. Der Test hält die Entscheidung fest, damit sie nicht aus Bequemlichkeit zurückkommt
+- [X] T058 [US2B] Log-Zeile beim Start in `rpg-platform/src/main/java/rpg/platform/mob/VanillaSpawnSuppressor.java`: welche Regeln auf wie vielen Welten gesetzt wurden — damit auf dem echten Server nachvollziehbar ist, ob Schicht 1 überhaupt griff
 
 **Checkpoint**: Das Budget ist jetzt die einzige Quelle lebender Kreaturen.
 
