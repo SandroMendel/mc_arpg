@@ -390,9 +390,14 @@ ihn wählt, solange er steht — und dass sie nach seinem Ende wieder den Spiele
 - **FR-011**: Das System MUSS Kreaturen ausschließlich innerhalb der von `Zones.spawnAreasOf`
   gelieferten Bereiche erzeugen.
 - **FR-012**: Das System MUSS je Zone konfigurieren, welche Arten in welchem Bereich vorkommen.
-- **FR-013**: Das System MUSS ein Budget für gleichzeitig aktive Kreaturen **je Zone, je Chunk und
-  je Spieler** führen. Jedes dieser Budgets ist eine harte Obergrenze und wird unter keiner
-  Bedingung überschritten.
+- **FR-013**: Das System MUSS ein Budget für gleichzeitig aktive Kreaturen **serverweit, je Zone, je
+  Chunk und je Spieler** führen. Jedes dieser Budgets ist eine harte Obergrenze und wird unter
+  keiner Bedingung überschritten.
+- **FR-013a**: Das serverweite Budget MUSS auch dann halten, wenn die Summe der Zonenbudgets darüber
+  liegt. Sechs Regionen zu je 130 sind 780 und bleiben darunter — aber niemand hindert einen
+  Betreiber daran, jede Zone auf 200 zu stellen, und dann wären es 1.200. Die serverweite Grenze ist
+  der Ort, an dem der Zielwert aus dem M4-Nachweis wirklich hängt; ohne sie steht er in der Vision
+  und wird nirgends eingehalten.
 - **FR-014**: Das System MUSS die Spawn-Berechnung über mehrere Ticks verteilen und darf sie nicht
   in einem Tick bündeln.
 - **FR-015**: Das System DARF in einer Zone ohne anwesende Spieler nichts erzeugen.
@@ -527,6 +532,8 @@ ihn wählt, solange er steht — und dass sie nach seinem Ende wieder den Spiele
 - **SC-010**: Über eine volle Nacht und in einer unbeleuchteten Höhle entsteht keine einzige
   Kreatur von selbst; jede lebende Kreatur der Welt lässt sich einer Zone dieses Blocks oder einem
   absichtlichen Setzen zuordnen.
+- **SC-011**: Auch bei Zonenbudgets, deren Summe das serverweite Budget übersteigt, stehen nie mehr
+  als die serverweit konfigurierten Kreaturen in der Welt.
 
 ---
 

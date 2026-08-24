@@ -11,8 +11,11 @@ heißt, ist ein Beispiel und kein Vertrag.
 ## Aufbau
 
 ```yaml
-# Die drei harten Grenzen. Keine Zielwerte - was hier steht, wird unter keiner
+# Die vier harten Grenzen. Keine Zielwerte - was hier steht, wird unter keiner
 # Bedingung ueberschritten, auch nicht bei ploetzlichem Spieleransturm (FR-013).
+#
+# server-wide haelt AUCH DANN, wenn die Summe der Zonenbudgets darueber liegt (FR-013a).
+# Sechs Zonen zu je 200 waeren 1200 - hier stehen 800, und 800 gelten.
 budget:
   server-wide: 800
   per-zone: 130
@@ -30,10 +33,6 @@ horde:
   cleanup-radius: 96
   # Abstand, in dem eine eigene Zielzuweisung fruehestens wieder anfassen darf (FR-035).
   retarget-interval-ms: 500
-
-# Das natuerliche Spawning von Vanilla. Aus, ueberall (FR-018c).
-# Absichtliches Setzen bleibt moeglich: Spawn-Ei, Dispenser-Ei, Betreiber-Kommando (FR-018d).
-suppress-vanilla: true
 
 kinds:
   greenfields.rotling:
@@ -86,7 +85,8 @@ hordes:
 | Höchstens ein `boss` je Zone | FR-029 |
 | Die Bossart trägt `boss: true` | Sonst wäre das Etikett bedeutungslos |
 | Alle Budgets > 0 | Ein Budget von 0 heißt „keine Horde" und gehört dann nicht konfiguriert |
-| `per-chunk` ≤ `per-zone` ≤ `server-wide` | Eine Grenze, die eine engere nie erreicht, ist eine Zahl ohne Wirkung |
+| `per-chunk` ≤ `per-zone` | Eine Grenze, die eine engere nie erreicht, ist eine Zahl ohne Wirkung |
+| `per-zone` darf `server-wide` **überschreiten** | Und trotzdem gilt `server-wide` (FR-013a). Kein Fehler beim Start: sechs Zonen zu je 200 sind eine legitime Verteilung, solange nie 800 gleichzeitig stehen |
 
 ---
 
@@ -96,9 +96,12 @@ hordes:
   dass einer beim nächsten Verschieben vergessen wird (research.md R10).
 - **Anzeigetexte.** `messages.yml`.
 - **Beute über Coins hinaus.** B11.
-- **Ob Vanilla-Mobs pro Welt unterdrückt werden.** `suppress-vanilla` ist ein Schalter für das
-  gesamte Plugin, keine Liste. Eine Welt, in der die Unterdrückung nicht gälte, wäre eine Welt, in
-  der das Budget nichts bedeutet.
+- **Ob unterdrückt wird.** Es wird unterdrückt (FR-018c) — es gibt dafür keinen Schalter. Ein
+  Schalter wäre ein Weg, das Budget zu umgehen: die ganze Leistungszusage dieses Blocks hängt
+  daran, dass nichts anderes Kreaturen erzeugt. Einmal auf `false` gestellt und vergessen, läuft der
+  Server voll, und niemand sieht die Ursache. Sollte später eine Welt ohne RPG dazukommen — heute
+  gibt es genau eine, und alle sechs Regionen liegen darin —, wird die Ausnahme mit dem Wissen
+  gebaut, wofür sie da ist, und nie für eine Zonenwelt.
 
 ---
 

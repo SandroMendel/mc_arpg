@@ -72,7 +72,7 @@ dazu und sind dort ebenfalls beantwortet.
 | Prinzip | Wie dieser Plan es einhält |
 |---|---|
 | **I · Nebenläufigkeit** | Kein Bukkit-Aufruf außerhalb des Ticks. Das Setzen läuft orts­gebunden (`runSyncAtLocation`), das Entfernen entitätsgebunden — beides über B01s Abstraktion, nie über den globalen Scheduler. Der Bestand hängt am Block, nicht an einem globalen Feld. |
-| **II · Performance** | **Der kritische Punkt dieses Blocks.** Keine wiederkehrende Aufgabe je Spieler oder je Entität — ein selbst neu eingeplanter Einmal-Durchlauf **je bevölkerter Zone**, höchstens sechs (R4). Der Boss-Timer wird lazy aus zwei Zeitstempeln gerechnet, nie als laufende Aufgabe (FR-032). Das Chunk-Budget zählt nur belegte Chunks, ohne Boxing, mit B09s gepacktem Schlüssel (R3). Die Vanilla-Unterdrückung setzt vor dem Spawner-Durchlauf an, damit gar keine Kandidaten entstehen (R1). |
+| **II · Performance** | **Der kritische Punkt dieses Blocks.** Keine wiederkehrende Aufgabe je Spieler oder je Entität — ein selbst neu eingeplanter Einmal-Durchlauf **je bevölkerter Zone**, höchstens sechs (R4). Der Boss-Timer wird lazy aus zwei Zeitstempeln gerechnet, nie als laufende Aufgabe (FR-032). Das Chunk-Budget zählt nur belegte Chunks, ohne Boxing, mit B09s gepacktem Schlüssel (R3). Die räumliche Abfrage des Aufräumens läuft über einen Index statt über eine Schleife je Kreatur: die wenigen Spieler stempeln, die vielen Kreaturen schlagen nach (R3a, FR-018). Die Vanilla-Unterdrückung setzt vor dem Spawner-Durchlauf an, damit gar keine Kandidaten entstehen (R1). |
 | **III · Architektur** | `rpg-core` ohne Bukkit: Budget, Auswahl, Aufräumentscheidung, Boss-Timer, Konfiguration. `rpg-platform` setzt und entfernt Entitäten. Die drei übernommenen Schnittstellen behalten ihre Form; keine zweite wird eingeführt. Zone bleibt `(worldId, Geometrie)` — B10 verweist auf B09s Bereiche und hält keine eigene Geometrie (R10). |
 | **IV · Datenhaltung** | Keine. Nichts zu migrieren, nichts zu versionieren — eine Kreatur überlebt keinen Neustart (FR-023). |
 | **V · Datengetriebenes Design** | 48 Arten und 6 Bosse in `mobs.yml`, beim Start gegen ein Schema geprüft, Fail-Fast mit Datei/Schlüssel/Grund. Kein Bezeichner einer einzelnen Art im Code — durch `ConfigOnlyMobTest` erzwungen, wie B08 es für Fähigkeiten tut. Anzeigenamen über Message-Schlüssel. |
@@ -82,7 +82,14 @@ dazu und sind dort ebenfalls beantwortet.
 
 ### Erneute Prüfung nach Phase 1
 
-**Bestanden, ohne Abweichung.** Zwei Stellen wurden dabei nachgeschärft:
+**Bestanden, ohne Abweichung.** Drei Stellen wurden dabei nachgeschärft — die dritte erst durch
+`/speckit-analyze`:
+
+- **Prinzip II und die zweite räumliche Abfrage.** FR-018 hatte in der ersten Fassung der
+  Aufgabenliste **keine einzige Aufgabe**, und die naheliegende Umsetzung von `CleanupRule` wäre die
+  verbotene gewesen: je Kreatur über alle Spieler. Der Constitution Check hatte den Punkt zugesagt,
+  die Aufgaben lösten ihn nicht ein. Behoben durch `NearbyChunks` und dadurch, dass `CleanupRule`
+  die Spielerliste gar nicht erst zu sehen bekommt (R3a).
 
 - **Prinzip II und der Spawn-Durchlauf.** Der erste Entwurf hätte je Zone *und* je Bereich geplant.
   Das sind bei zwölf Bereichen zwölf Aufgaben statt sechs, ohne Gewinn — der Bereich wird innerhalb
@@ -101,7 +108,7 @@ specs/010-mobs-spawning/
 ├── plan.md              # Diese Datei
 ├── research.md          # Phase 0 — elf Fragen, elf Antworten
 ├── data-model.md        # Phase 1 — MobKind, HordeSpec, Budget, Bestand, BossState
-├── quickstart.md        # Phase 1 — drei Abschnitte, 34 Prüfschritte
+├── quickstart.md        # Phase 1 — drei Abschnitte, 34 Prüfschritte auf dem Server
 ├── contracts/
 │   ├── mob-api.md       # Was B10 herausgibt und was es übernimmt
 │   └── mob-config.md    # mobs.yml
@@ -120,11 +127,13 @@ rpg-core/src/main/java/rpg/core/mob/
 ├── MobConfigSchema.java         # Prüfung beim Start, Fail-Fast
 ├── MobMessageKeys.java          # Anzeigenamen und Boss-Meldungen
 ├── HordeSpec.java               # Was in einer Zone steht: Bereiche, Arten, Gewichte, Boss
-├── Budget.java                  # Die drei harten Grenzen; die schärfste entscheidet
+├── Budget.java                  # Die vier harten Grenzen; die schärfste entscheidet
 ├── HordeRegistry.java           # Der Bestand mit drei Zählungen
 ├── ChunkCount.java              # long→int, nur belegte Chunks, ohne Boxing (R3)
+├── NearbyChunks.java            # Der räumliche Index fürs Aufräumen (R3a, FR-018)
 ├── SpawnPlanner.java            # WAS wo gesetzt werden soll - ohne Bukkit, testbar
 ├── CleanupRule.java             # WER weg soll - ohne Bukkit, testbar
+├── RetargetThrottle.java        # Abstand der eigenen Zielzuweisung, lazy (FR-035)
 ├── DensityScaling.java          # Zieldichte aus Spielerzahl, gekappt am Budget
 ├── BossState.java               # Ein Boss je Region, Timer lazy aus Zeitstempeln
 ├── Hordes.java                  # Öffentliche Abfrage (contracts/mob-api.md §3)

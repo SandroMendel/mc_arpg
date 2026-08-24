@@ -113,6 +113,32 @@ aufzugeben, die die andere trägt. Der gepackte Schlüssel wird übernommen, die
   heraus, auch Gegenstände und Rahmen, und wir müssten jede prüfen. Eine Zahl, die wir selbst führen,
   ist billiger und genauer.
 
+### R3a · Dieselbe Chunk-Adresse löst die zweite räumliche Frage — **die wenigen stempeln, die vielen schlagen nach**
+
+**Nachgetragen am 2026-08-24**, nachdem `/analyze` gefunden hat, dass FR-018 keine Aufgabe hatte.
+
+Die andere räumliche Abfrage dieses Blocks ist die des Aufräumens: *steht ein Spieler in Reichweite
+dieser Kreatur?* Naheliegend wäre, sie je Kreatur über alle Spieler zu stellen. Bei 130 Kreaturen und
+200 Spielern sind das 26.000 Abstandsrechnungen je Durchlauf, und es ist genau die lineare Iteration
+über alle Kandidaten, die Prinzip II verbietet.
+
+**Entscheidung: umkehren.** Vor dem Durchlauf stempelt jeder Spieler die Chunks im Aufräumradius um
+sich in eine Long-Menge — bei 96 Blöcken sind das 6 Chunks Radius, also 169 je Spieler, und
+nebeneinanderstehende Spieler stempeln denselben Chunk nur einmal. Danach ist die Frage je Kreatur
+ein Mengenzugriff auf den `chunkKey`, den sie ohnehin schon trägt.
+
+Der Aufwand wächst damit mit der **Spielerzahl**, nicht mit dem Produkt aus Spielern und Kreaturen.
+Und er wächst dort, wo die Zahlen klein sind: in einer Zone stehen ein paar Dutzend Spieler, nicht
+zweihundert.
+
+**Der Puffer wird wiederverwendet.** Eine neue Menge je Durchlauf wäre eine Zuweisung im
+Spawn-Pfad — dieselbe Begründung, aus der `ChunkTable` überhaupt existiert.
+
+**Und die Regel bekommt die Menge, nicht die Spielerliste.** `CleanupRule` sieht die Spieler gar
+nicht; was man nicht in der Hand hat, kann man nicht in einer Schleife durchgehen. Dieselbe Bauart
+wie `CombatStatusSource` in B05 — „ein Anzeiger, der `apply` aufrufen könnte, ist einen Refactor
+davon entfernt, es zu tun".
+
 ---
 
 ## R4 · Der Bestand und das Aufräumen — **ein Durchlauf je bevölkerter Zone, keiner je Kreatur**
