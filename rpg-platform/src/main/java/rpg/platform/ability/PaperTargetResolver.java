@@ -233,7 +233,13 @@ public final class PaperTargetResolver implements TargetResolver {
             return List.of();
         }
         Location at = new Location(world, anchor.x(), anchor.y(), anchor.z());
-        return pick(null, at, withRadius(spec), candidate -> true);
+        // Only a GROUND_AREA spec needs its area-radius turned into a reach - that is the one shape
+        // whose "how wide" does not already live in range() (research.md, Lightning Storm). Every
+        // other caller of this method (a leap's landing, a clone's farewell) hands in a spec that is
+        // already RADIUS-shaped and whose range() is the pick radius as-is; withRadius() would read
+        // an areaRadius() that TargetSpec's own invariant guarantees is null for those modes.
+        TargetSpec effective = spec.mode() == TargetMode.GROUND_AREA ? withRadius(spec) : spec;
+        return pick(null, at, effective, candidate -> true);
     }
 
     /** Where this entity is, for remembering a spot it stood on. */

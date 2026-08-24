@@ -218,6 +218,46 @@ class PaperTargetResolverTest {
                     .containsExactly(inAPit.getUniqueId());
         }
     }
+
+    @Nested
+    @DisplayName("resolveAt - eine Wirkung an einem gemerkten Ort, nicht am Auslöser")
+    class ResolveAtARememberedAnchor {
+
+        @Test
+        @DisplayName("ein RADIUS-Spec (Sprung, Klon-Abschied) braucht keinen area-radius")
+        void aRadiusSpecNeedsNoAreaRadius() {
+            // Genau das, was ein Sprung beim Aufkommen und ein Klon bei seinem Ende übergeben: eine
+            // ganz normale RADIUS-Spec, deren areaRadius() nach TargetSpecs eigener Prüfung null sein
+            // MUSS. resolveAt darf daran nicht scheitern (der Fehler, den der echte Server fand).
+            caster.teleport(new Location(world, 500.0, 64.0, 500.0)); // weit weg vom Anker
+            LivingEntity nearby = spawnAt(2.0, 0.0);
+            rpg.core.scheduler.WorldPosition anchor =
+                    new rpg.core.scheduler.WorldPosition(world.getUID(), 0.0, 64.0, 0.0);
+
+            List<UUID> targets = resolver.resolveAt(caster.getUniqueId(), anchor, radius(6.0, 8));
+
+            assertThat(targets).containsExactly(nearby.getUniqueId());
+        }
+
+        @Test
+        @DisplayName("ein GROUND_AREA-Spec sucht mit seinem area-radius, nicht mit range")
+        void aGroundAreaSpecSearchesWithItsAreaRadiusNotRange() {
+            // range ist hier nur, wie weit der Anker vom Auslöser weg sein darf - die Suche selbst
+            // läuft über areaRadius (research.md, Lightning Storm).
+            caster.teleport(new Location(world, 500.0, 64.0, 500.0)); // weit weg vom Anker
+            LivingEntity withinAreaRadius = spawnAt(3.0, 0.0);
+            LivingEntity beyondAreaRadiusButWithinRange = spawnAt(15.0, 0.0);
+            rpg.core.scheduler.WorldPosition anchor =
+                    new rpg.core.scheduler.WorldPosition(world.getUID(), 0.0, 64.0, 0.0);
+            TargetSpec groundArea = new TargetSpec(TargetMode.GROUND_AREA, 20.0, null, 8, null, 5.0, null);
+
+            List<UUID> targets = resolver.resolveAt(caster.getUniqueId(), anchor, groundArea);
+
+            assertThat(targets).containsExactly(withinAreaRadius.getUniqueId());
+            assertThat(targets).doesNotContain(beyondAreaRadiusButWithinRange.getUniqueId());
+        }
+    }
+
     private LivingEntity spawnAt(double x, double z) {
         return spawnAt(x, 64.0, z);
     }
