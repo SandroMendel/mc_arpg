@@ -90,25 +90,25 @@ Standardwerte.
 ### Tests zuerst
 
 - [ ] T022 [P] [US1] Test `MobKindLookupTest` in `rpg-core/src/test/java/rpg/core/mob/MobKindLookupTest.java` — zwei Arten auf derselben Basis liefern verschiedene Werte (FR-004)
-- [ ] T023 [P] [US1] Test `MobKeyFallbackTest` in `rpg-core/src/test/java/rpg/core/mob/MobKeyFallbackTest.java` — ohne Vermerk fällt der Schlüssel auf den Vanilla-Typnamen zurück, und die vorhandenen `combat.yml`-Einträge greifen weiter (FR-009, research.md R5)
-- [ ] T024 [P] [US1] Test `ConfigOnlyMobTest` in `rpg-core/src/test/java/rpg/core/mob/ConfigOnlyMobTest.java` — SC-001 und FR-003: eine neue Art rein aus Konfiguration, **und kein Bezeichner einer einzelnen Art irgendwo im Code**; nach dem Muster von `ConfigOnlyAbilityTest`
-- [ ] T025 [P] [US1] Test `MobKindTagTest` in `rpg-platform/src/test/java/rpg/platform/mob/MobKindTagTest.java` — Schreiben und Lesen von `rpg:mob_kind` und `rpg:mob_zone`; ein fremder Gegenstand antwortet leer
+- [X] T023 [P] [US1] Test `MobKeyFallbackTest` in `rpg-core/src/test/java/rpg/core/mob/MobKeyFallbackTest.java` — ohne Vermerk fällt der Schlüssel auf den Vanilla-Typnamen zurück, und die vorhandenen `combat.yml`-Einträge greifen weiter (FR-009, research.md R5)
+- [X] T024 [P] [US1] Test `ConfigOnlyMobTest` in `rpg-core/src/test/java/rpg/core/mob/ConfigOnlyMobTest.java` — SC-001 und FR-003: eine neue Art rein aus Konfiguration, **und kein Bezeichner einer einzelnen Art irgendwo im Code**; nach dem Muster von `ConfigOnlyAbilityTest`
+- [X] T025 [P] [US1] Test `MobKindTagTest` in `rpg-platform/src/test/java/rpg/platform/mob/MobKindTagTest.java` — Schreiben und Lesen von `rpg:mob_kind` und `rpg:mob_zone`; ein fremder Gegenstand antwortet leer
 
 ### Umsetzung
 
-- [ ] T026 [US1] `MobKindTag` in `rpg-platform/src/main/java/rpg/platform/mob/MobKindTag.java` — die zwei PDC-Schlüssel, nach dem Muster von `CoinPileTag`; Javadoc nennt, warum `rpg:mob_zone` dazugehört (FR-017, research.md R2)
-- [ ] T027 [US1] `PaperMobPlacer.place(...)` in `rpg-platform/src/main/java/rpg/platform/mob/PaperMobPlacer.java` — Entität setzen, Vermerk schreiben, Attribute über B04 anlegen (FR-005, FR-008); Bukkit-Aufrufe ortsgebunden über B01s Scheduler
-- [ ] T028 [US1] `kindKeyOf(entity)` als **die eine** Ableitung in `rpg-platform/src/main/java/rpg/platform/mob/MobKindTag.java` — PDC-Wert, sonst `entity.getType().name()` (research.md R5)
-- [ ] T029 [US1] `PaperMobStats` in `rpg-platform/src/main/java/rpg/platform/mob/PaperMobStats.java` — ersetzt `PaperMobStatProvider`; **dieselbe Schnittstellenform**, Schlüssel ist jetzt die Art (FR-006)
-- [ ] T030 [US1] `MobXpProvider` aus `mobs.yml` bedienen — B06s Übergangsanbieter im Plugin gegen den neuen tauschen (FR-007)
-- [ ] T031 [US1] `MobCoinProvider` aus `mobs.yml` bedienen — B08bs Übergangsanbieter im Plugin gegen den neuen tauschen (FR-007)
-- [ ] T032 [US1] `CoinDropListener` in `rpg-platform/src/main/java/rpg/platform/currency/CoinDropListener.java` auf `kindKeyOf(entity)` umstellen — **das ist die Zeile, an der vier Arten auf ZOMBIE bisher derselbe Schlüssel waren**
-- [ ] T033 [US1] `ProgressionDeathListener` in `rpg-platform/src/main/java/rpg/platform/progression/ProgressionDeathListener.java:63` auf `kindKeyOf(entity)` umstellen — **hier wird die Erfahrung vergeben**; ohne diese Zeile geben alle acht Arten einer Region dieselbe (FR-007)
-- [ ] T033a [US1] `MobEquipmentListener` in `rpg-platform/src/main/java/rpg/platform/combat/MobEquipmentListener.java:90` auf `kindKeyOf(entity)` umstellen — dort werden die Werte einer Kreatur gesetzt, und `statsFor(entity.getType().name())` würde vier Arten auf `ZOMBIE` gleich behandeln (FR-006)
-- [ ] T033b [US1] Test `NoRawTypeNameLeftTest` in `rpg-platform/src/test/java/rpg/platform/mob/NoRawTypeNameLeftTest.java` — **kein Produktivcode führt `getType().name()` mehr in eine der drei Schnittstellen**; nach dem Muster von `ConfigOnlyAbilityTest`, das SC-001 genauso maschinell absichert. Ohne diesen Wächter setzt der nächste Listener wieder den Vanilla-Namen ein, und niemand merkt es
-- [ ] T034 [US1] `MobNameplate` in `rpg-platform/src/main/java/rpg/platform/hud/MobNameplate.java` auf Art und Level umstellen — Text über Message-Schlüssel, keine zweite Anzeige (FR-010, research.md R11)
-- [ ] T035 [P] [US1] Anzeigenamen der Arten in `rpg-plugin/src/main/resources/messages.yml` ergänzen — mit Kommentar, dass die Art den **Schlüssel** nennt und nie den Text
-- [ ] T036 [P] [US1] Erste vollständige Region in `rpg-plugin/src/main/resources/mobs.yml`: acht Arten für *Greenfields*, mit Levelband 1–10 abgestimmt
+- [X] T026 [US1] `MobKindTag` in `rpg-platform/src/main/java/rpg/platform/mob/MobKindTag.java` — die zwei PDC-Schlüssel, nach dem Muster von `CoinPileTag`; Javadoc nennt, warum `rpg:mob_zone` dazugehört (FR-017, research.md R2)
+- [X] T027 [US1] `PaperMobPlacer.place(...)` in `rpg-platform/src/main/java/rpg/platform/mob/PaperMobPlacer.java` — Entität setzen, Vermerk schreiben, Attribute über B04 anlegen (FR-005, FR-008); Bukkit-Aufrufe ortsgebunden über B01s Scheduler
+- [X] T028 [US1] `kindKeyOf(entity)` als **die eine** Ableitung in `rpg-platform/src/main/java/rpg/platform/mob/MobKindTag.java` — PDC-Wert, sonst `entity.getType().name()` (research.md R5)
+- [X] T029 [US1] `PaperMobStats` in `rpg-platform/src/main/java/rpg/platform/mob/PaperMobStats.java` — ersetzt `PaperMobStatProvider`; **dieselbe Schnittstellenform**, Schlüssel ist jetzt die Art (FR-006)
+- [X] T030 [US1] `MobXpProvider` aus `mobs.yml` bedienen — B06s Übergangsanbieter im Plugin gegen den neuen tauschen (FR-007)
+- [X] T031 [US1] `MobCoinProvider` aus `mobs.yml` bedienen — B08bs Übergangsanbieter im Plugin gegen den neuen tauschen (FR-007)
+- [X] T032 [US1] `CoinDropListener` in `rpg-platform/src/main/java/rpg/platform/currency/CoinDropListener.java` auf `kindKeyOf(entity)` umstellen — **das ist die Zeile, an der vier Arten auf ZOMBIE bisher derselbe Schlüssel waren**
+- [X] T033 [US1] `ProgressionDeathListener` in `rpg-platform/src/main/java/rpg/platform/progression/ProgressionDeathListener.java:63` auf `kindKeyOf(entity)` umstellen — **hier wird die Erfahrung vergeben**; ohne diese Zeile geben alle acht Arten einer Region dieselbe (FR-007)
+- [X] T033a [US1] `MobEquipmentListener` in `rpg-platform/src/main/java/rpg/platform/combat/MobEquipmentListener.java:90` auf `kindKeyOf(entity)` umstellen — dort werden die Werte einer Kreatur gesetzt, und `statsFor(entity.getType().name())` würde vier Arten auf `ZOMBIE` gleich behandeln (FR-006)
+- [X] T033b [US1] Test `NoRawTypeNameLeftTest` in `rpg-platform/src/test/java/rpg/platform/mob/NoRawTypeNameLeftTest.java` — **kein Produktivcode führt `getType().name()` mehr in eine der drei Schnittstellen**; nach dem Muster von `ConfigOnlyAbilityTest`, das SC-001 genauso maschinell absichert. Ohne diesen Wächter setzt der nächste Listener wieder den Vanilla-Namen ein, und niemand merkt es
+- [X] T034 [US1] `MobNameplate` in `rpg-platform/src/main/java/rpg/platform/hud/MobNameplate.java` auf Art und Level umstellen — Text über Message-Schlüssel, keine zweite Anzeige (FR-010, research.md R11)
+- [X] T035 [P] [US1] Anzeigenamen der Arten in `rpg-plugin/src/main/resources/messages.yml` ergänzen — mit Kommentar, dass die Art den **Schlüssel** nennt und nie den Text
+- [X] T036 [P] [US1] Erste vollständige Region in `rpg-plugin/src/main/resources/mobs.yml`: acht Arten für *Greenfields*, mit Levelband 1–10 abgestimmt
 - [ ] T037 [US1] Test `MobStatSeamTest` in `rpg-platform/src/test/java/rpg/platform/mob/MobStatSeamTest.java` — die drei übernommenen Schnittstellen antworten nach Art; **keine hat eine zweite Fassung bekommen** (SC-008)
 
 **Checkpoint**: US1 steht für sich. Ein Betreiber kann Kreaturen von Hand setzen und sie verhalten

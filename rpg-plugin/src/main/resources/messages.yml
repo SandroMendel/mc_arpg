@@ -96,9 +96,40 @@ combat:
     # Fehler. FR-051 will einen fertigen Charakter als fertig gemeldet sehen.
     progress-max: 'LV {level}   XP {xp}   MAX'
   mob:
-    # Über jeder Kreatur. EINE Zeile - vanilla gibt einer Entität genau einen Namen, und eine
-    # Lebensleiste DARUNTER wäre eine zweite Entität je Mob (ADR-005, Prinzip II).
+    # Über jeder Kreatur OHNE eigene Art - ein gewöhnlicher Zombie, ein Tier. EINE Zeile: vanilla
+    # gibt einer Entität genau einen Namen, und eine Lebensleiste DARUNTER wäre eine zweite Entität
+    # je Mob (ADR-005, Prinzip II). Die Zeile für eine Art aus mobs.yml steht unter `mob.nameplate`.
     nameplate: "{name}  {health}/{max}  DEF {defense}"
+
+# B10. Der Name einer Mob-Art ist ein Schlüssel und nie ein Text — genau wie bei den Regionen.
+# Eine Art umzubenennen ist eine Zeile hier, und keine Horde, kein Bereich und kein späterer Block
+# muss dafür angefasst werden. Fehlt einer, verweigert der Start (FR-010).
+mob:
+  # Die Zeile über einer Kreatur MIT eigener Art. Eigener Text neben combat.mob.nameplate, weil
+  # erst B10 ein Level kennt. Welcher der beiden gilt, folgt aus der Kreatur und nicht aus einem
+  # Schalter: ein Levelfeld, das bei einem gewöhnlichen Zombie leer bliebe, wäre ein Rest
+  # Formatierung ohne Zahl.
+  nameplate: "{name} [{level}]  {health}/{max}  DEF {defense}"
+
+  greenfields:
+    rotling:
+      name: 'Rotling'
+    field-shade:
+      name: 'Field Shade'
+    thornling:
+      name: 'Thornling'
+    husk-of-the-furrow:
+      name: 'Husk of the Furrow'
+    creeping-vine:
+      name: 'Creeping Vine'
+    bog-slime:
+      name: 'Bog Slime'
+    marsh-drowned:
+      name: 'Marsh Drowned'
+    wight-of-the-hedge:
+      name: 'Wight of the Hedge'
+    warden-of-the-field:
+      name: 'Warden of the Field'
 
 class:
   # Display names. The enum constant stays WARRIOR; "Berserker" is a value here, never in code

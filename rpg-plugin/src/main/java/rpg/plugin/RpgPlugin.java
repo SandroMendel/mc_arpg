@@ -127,7 +127,8 @@ public class RpgPlugin extends JavaPlugin {
                     "classes.yml",
                     "abilities.yml",
                     "currency.yml",
-                    "zones.yml");
+                    "zones.yml",
+                    "mobs.yml");
 
     private final BootstrapState bootstrapState = new BootstrapState();
 
@@ -159,6 +160,7 @@ public class RpgPlugin extends JavaPlugin {
     private ProgressionModule progressionModule;
     private CurrencyModule currencyModule;
     private ZoneModule zoneModule;
+    private rpg.core.mob.MobModule mobModule;
     private rpg.persistence.zone.ZonePersistenceModule zonePersistenceModule;
     private rpg.core.zone.ZoneTracker zoneTracker;
     /** Moves a player. Held because US6 travel needs the same one the respawn path uses. */
@@ -403,6 +405,11 @@ public class RpgPlugin extends JavaPlugin {
                 new rpg.persistence.zone.ZonePersistenceModule(
                         persistenceModule, sessionModule, getLogger(), Clock.systemUTC());
         zoneModule = new ZoneModule(getLogger(), BukkitPositions.resolver(), messages);
+        // B10. Nach B09, und das ist keine Formalie: die Spawn-Bereiche muessen stehen, bevor
+        // dieser Block sie fuellt - und seine Startpruefung, dass jeder in mobs.yml genannte
+        // Bereich wirklich existiert, ginge sonst ins Leere. Die Abhaengigkeit steht auch in
+        // MobModule.dependencies(); die Reihenfolge hier ist die zweite Absicherung.
+        mobModule = new rpg.core.mob.MobModule(getLogger(), messages, () -> zoneModule.zones());
         return List.of(
                 persistenceModule,
                 sessionModule,
@@ -414,7 +421,8 @@ public class RpgPlugin extends JavaPlugin {
                 abilityModule,
                 currencyModule,
                 zonePersistenceModule,
-                zoneModule);
+                zoneModule,
+                mobModule);
     }
 
     /**
@@ -664,9 +672,33 @@ public class RpgPlugin extends JavaPlugin {
         ProjectileDamageTag.initialise(this);
         pipeline.registerFeedback(new PaperDamageFeedback(getServer(), scheduler, getLogger()));
 
-        PaperMobStatProvider mobStats =
+        // B10 loest die aelteste offene Zusage dieses Projekts ein. B05s Uebergangsanbieter aus
+        // combat.yml bleibt als Rueckfall dahinter stehen - er ist das, was eine Kreatur ohne Art
+        // bekommt (FR-009), und genau dafuer war er immer gedacht.
+        //
+        // Die Schnittstelle ist dieselbe geblieben; was sich geaendert hat, ist die Bedeutung des
+        // Schluessels. MobKindTag.kindKeyOf macht die Umrechnung an genau einer Stelle.
+        // Ob ein `base` wirklich ein Entity-Typ dieses Servers ist, weiss nur Bukkit - also nicht
+        // das Schema in rpg-core. Geprueft wird es trotzdem beim Start und nicht beim ersten Spawn:
+        // ein Tippfehler waere sonst eine Art, die nie erscheint, und das sieht aus wie ein kaputter
+        // Spawn statt wie ein kaputter Buchstabe (FR-002).
+        rpg.platform.mob.PaperMobPlacer.verifyBasesExist(mobModule.config().kinds().values());
+
+        PaperMobStatProvider fallback =
                 new PaperMobStatProvider(combatModule.config(), StatConfig.defaults());
+        rpg.core.combat.MobStatProvider fromKinds =
+                rpg.core.mob.MobProviders.stats(mobModule::config, StatConfig.defaults());
+        rpg.core.combat.MobStatProvider mobStats =
+                kindKey -> {
+                    java.util.Optional<rpg.core.stats.ModifierSet> own = fromKinds.statsFor(kindKey);
+                    return own.isPresent() ? own : fallback.statsFor(kindKey);
+                };
         pipeline.setMobStatProvider(mobStats);
+
+        // Dieselbe Ablösung fuer Erfahrung und Coins. Ein leeres Ergebnis heisst weiterhin "kein
+        // eigener Eintrag" und niemals Null - die beiden Bloecke fallen dann auf ihren eigenen
+        // konfigurierten Standardwert zurueck, wie sie es immer getan haben (FR-007).
+        progressionModule.progression().setMobXpProvider(rpg.core.mob.MobProviders.xp(mobModule::config));
 
         MobEquipmentListener mobEquipment =
                 new MobEquipmentListener(stats, pipeline, mobStats, getLogger());
@@ -730,7 +762,13 @@ public class RpgPlugin extends JavaPlugin {
         // Und die dritte Anzeige: was eine Kreatur ist und wie viel von ihr uebrig ist, ueber ihrem
         // Kopf. Ebenfalls nur bis B13. Eine Zeile, kein zweiter Entitaetstyp je Mob (Prinzip II).
         new rpg.platform.hud.MobNameplate(
-                        getServer(), stats, statusSource, scheduler, messages, getLogger())
+                        getServer(),
+                        stats,
+                        statusSource,
+                        scheduler,
+                        messages,
+                        mobModule.kinds(),
+                        getLogger())
                 .subscribeTo(eventBus);
 
         // KEINE Zielzeile im Chat mehr. Sie sagte dasselbe wie das Namensschild ueber der Kreatur,
@@ -1698,6 +1736,23 @@ public class RpgPlugin extends JavaPlugin {
     }
 
     /**
+     * B10s Coins, und dahinter B08bs eigene Konfiguration.
+     *
+     * <p>Kein zweiter Anbieter neben dem ersten, sondern eine Kette: die Art antwortet, und wenn es
+     * keine gibt, antwortet das, was vorher schon antwortete. Ein leeres Ergebnis heisst weiterhin
+     * "kein eigener Eintrag" und niemals Null (FR-007).
+     */
+    private rpg.core.currency.MobCoinProvider coinsFromKindsOr(
+            rpg.core.currency.MobCoinProvider fallback) {
+        rpg.core.currency.MobCoinProvider fromKinds =
+                rpg.core.mob.MobProviders.coins(mobModule::config);
+        return kindKey -> {
+            java.util.OptionalLong own = fromKinds.coinsFor(kindKey);
+            return own.isPresent() ? own : fallback.coinsFor(kindKey);
+        };
+    }
+
+    /**
      * The Paper-facing half of B08b: coin piles fall, and picking one up books it.
      *
      * <p>Wired after B06's, and from its pieces: the entitlement rule is
@@ -1712,7 +1767,9 @@ public class RpgPlugin extends JavaPlugin {
         rpg.core.currency.CoinDropPlanner planner =
                 new rpg.core.currency.CoinDropPlanner(
                         distributor.shareCalculator(),
-                        new rpg.core.currency.ConfigMobCoinProvider(config, getLogger()),
+                        // B10 zuerst, B08bs eigene Konfiguration als Rueckfall dahinter. Eine
+                        // Kreatur ohne Art bekommt weiterhin, was in currency.yml steht (FR-009).
+                        coinsFromKindsOr(new rpg.core.currency.ConfigMobCoinProvider(config, getLogger())),
                         config,
                         // The one question this block asks B04, as a one-method interface rather
                         // than a dependency on the whole engine.

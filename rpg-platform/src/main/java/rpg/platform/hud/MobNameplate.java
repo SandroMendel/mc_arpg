@@ -50,18 +50,28 @@ public final class MobNameplate {
     private final Messages messages;
     private final Logger logger;
 
+    /**
+     * B10s Artabfrage - fuer den Namen und das Level einer Kreatur, die eine Art traegt.
+     *
+     * <p>Eine Abfrage und nicht die Konfiguration: was diese Zeile braucht, sind zwei Werte je Art,
+     * und alles darueber hinaus waere Zugriff auf das Innenleben eines anderen Blocks.
+     */
+    private final rpg.core.mob.MobKinds kinds;
+
     public MobNameplate(
             Server server,
             StatEngine stats,
             CombatStatusSource status,
             Scheduler scheduler,
             Messages messages,
+            rpg.core.mob.MobKinds kinds,
             Logger logger) {
         this.server = Objects.requireNonNull(server, "server");
         this.stats = Objects.requireNonNull(stats, "stats");
         this.status = Objects.requireNonNull(status, "status");
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
         this.messages = Objects.requireNonNull(messages, "messages");
+        this.kinds = Objects.requireNonNull(kinds, "kinds");
         this.logger = Objects.requireNonNull(logger, "logger");
     }
 
@@ -113,15 +123,29 @@ public final class MobNameplate {
      * out of the corner of an eye during a fight, a smooth gradient is not.
      */
     private Component line(Entity entity, CombatStatusSource.Status current) {
-        Map<String, String> values =
-                Map.of(
-                        "name", prettyName(entity),
-                        "health", StatusActionBar.whole(current.health()),
-                        "max", StatusActionBar.whole(current.maxHealth()),
-                        "percent", Integer.toString(current.percent()),
-                        "defense", StatusActionBar.whole(current.defense()));
-        return Component.text(messages.get(CombatMessageKeys.MOB_NAMEPLATE, values))
-                .color(colourFor(current.percent()));
+        java.util.Optional<rpg.core.mob.MobKind> kind =
+                rpg.platform.mob.MobKindTag.kindOf(entity).flatMap(kinds::find);
+
+        Map<String, String> values = new java.util.HashMap<>();
+        values.put("health", StatusActionBar.whole(current.health()));
+        values.put("max", StatusActionBar.whole(current.maxHealth()));
+        values.put("percent", Integer.toString(current.percent()));
+        values.put("defense", StatusActionBar.whole(current.defense()));
+
+        // Zwei Texte, und welcher gilt, folgt aus der Kreatur und nicht aus einem Schalter: eine
+        // Art aus mobs.yml hat einen Namen und ein Level, ein gewoehnlicher Zombie hat beides
+        // nicht. Ein Levelfeld, das bei ihm leer bliebe, waere ein Rest Formatierung ohne Zahl -
+        // dieselbe Entscheidung wie beim Mana eines Mobs auf der Actionbar.
+        rpg.core.message.MessageKey key;
+        if (kind.isPresent()) {
+            values.put("name", messages.get(kind.get().displayNameKey()));
+            values.put("level", Integer.toString(kind.get().level()));
+            key = rpg.core.mob.MobMessageKeys.NAMEPLATE;
+        } else {
+            values.put("name", prettyName(entity));
+            key = CombatMessageKeys.MOB_NAMEPLATE;
+        }
+        return Component.text(messages.get(key, values)).color(colourFor(current.percent()));
     }
 
     /**

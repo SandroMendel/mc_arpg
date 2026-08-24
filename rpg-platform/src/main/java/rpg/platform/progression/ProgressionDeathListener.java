@@ -60,7 +60,11 @@ public final class ProgressionDeathListener {
         }
         try {
             Entity victim = server.getEntity(death.victimId());
-            String typeKey = victim == null ? "UNKNOWN" : victim.getType().name();
+            // HIER wird die Erfahrung vergeben, und hier hing die Verwechslung: mit dem
+            // Vanilla-Typnamen gaeben alle acht Arten einer Region dieselbe Erfahrung, weil sie
+            // sich wenige Basis-Entities teilen (B10, FR-007). kindKeyOf faellt ohne Vermerk auf
+            // den Typnamen zurueck - die Standardwerte gelten also unveraendert weiter.
+            String typeKey = rpg.platform.mob.MobKindTag.kindKeyOf(victim);
             WorldPoint origin = originOf(victim);
             distributor.distribute(death, typeKey, origin);
         } catch (RuntimeException failure) {
