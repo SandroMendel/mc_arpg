@@ -5,7 +5,26 @@ api-version: '26.2'
 description: 'B01 Core & Platform, B02 Persistence, B03 Player Session - module registry, event bus, scheduler abstraction, configuration, PostgreSQL persistence and the player session lifecycle.'
 author: Vuntex
 website: https://github.com/vuntex/vuntex-rpg
-load: STARTUP
+
+# POSTWORLD, und das ist keine Formalie: der Start haengt daran.
+#
+# Hier stand STARTUP, seit dem ersten Commit, als dieses Plugin nur B01 bis B03 war und keine Welt
+# brauchte. STARTUP heisst: onEnable laeuft, BEVOR Paper die Welten laedt - getWorlds() ist dann leer
+# und Bukkit.getWorld("world") gibt null. B09 hat mit zones.yml eine harte Abhaengigkeit davon
+# eingefuehrt: WorldResolver loest jeden `world:`-Namen beim Binden der Konfiguration auf und
+# verweigert den Start bei einer unbekannten Welt (FR-002a). Unter STARTUP ist JEDE Welt unbekannt,
+# also verweigerte der Zonenblock den Start immer - mit einer Meldung, die auf die Konfiguration
+# zeigte, waehrend der Fehler in dieser Zeile stand.
+#
+# Warum es kein Test gefunden hat: FullBootstrapTest legt die Welt an, BEVOR es das Plugin laedt -
+# ausdruecklich, weil B04s Regenerationssperre eine geladene Welt braucht. Genau diese Reihenfolge
+# gibt es auf dem echten Server unter STARTUP nicht. Die Ladeordnung stand in keinem Test, weil sie
+# in keinem Test vorkam. PluginDescriptorTest prueft sie jetzt.
+#
+# Zwei Stellen werden davon still mitgeheilt, die unter STARTUP nie etwas taten: die Schleife, die
+# schon geladene Kreaturen ausstattet, und die Regelsetzung auf schon geladene Welten. Beide
+# iterierten ueber eine leere Liste.
+load: POSTWORLD
 
 # Resolved by Paper from Maven Central at startup into an isolated classloader (ADR-010).
 # Keeping them out of the jar preserves the property established in B01 that the shipped
