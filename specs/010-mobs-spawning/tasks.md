@@ -40,11 +40,11 @@ Migration, kein `rpg-persistence`-Anteil.
 
 **Purpose**: die Blockgrenzen benennen, bevor etwas darin entsteht
 
-- [ ] T001 [P] Paket `rpg-core/src/main/java/rpg/core/mob/` mit `package-info.java` anlegen — die Blockgrenze benennen: Arten, Budget, Auswahl und Aufräumentscheidung gehören hierher, **Paper nirgends**, Beute über Coins hinaus ausdrücklich **nicht** (B11), nach dem Muster von `rpg/core/zone/package-info.java`
-- [ ] T002 [P] Paket `rpg-platform/src/main/java/rpg/platform/mob/` mit `package-info.java` anlegen — Kopfkommentar: hier und nur hier wird Paper angefasst; hier steht auch, warum es keine öffentliche `spawn(...)` gibt (contracts/mob-api.md §5)
-- [ ] T003 [P] Testpakete `rpg-core/src/test/java/rpg/core/mob/` und `rpg-platform/src/test/java/rpg/platform/mob/` anlegen
-- [ ] T004 `MobMessageKeys` in `rpg-core/src/main/java/rpg/core/mob/MobMessageKeys.java` mit `all()` anlegen — nach dem Muster von `CombatMessageKeys`, damit die Auflösungsprüfung im Plugin-Modul sie mitnimmt
-- [ ] T005 Leeres `mobs.yml` mit Kopfkommentar in `rpg-plugin/src/main/resources/mobs.yml` anlegen — Aufbau nach [contracts/mob-config.md](./contracts/mob-config.md), noch ohne Inhalte
+- [X] T001 [P] Paket `rpg-core/src/main/java/rpg/core/mob/` mit `package-info.java` anlegen — die Blockgrenze benennen: Arten, Budget, Auswahl und Aufräumentscheidung gehören hierher, **Paper nirgends**, Beute über Coins hinaus ausdrücklich **nicht** (B11), nach dem Muster von `rpg/core/zone/package-info.java`
+- [X] T002 [P] Paket `rpg-platform/src/main/java/rpg/platform/mob/` mit `package-info.java` anlegen — Kopfkommentar: hier und nur hier wird Paper angefasst; hier steht auch, warum es keine öffentliche `spawn(...)` gibt (contracts/mob-api.md §5)
+- [X] T003 [P] Testpakete `rpg-core/src/test/java/rpg/core/mob/` und `rpg-platform/src/test/java/rpg/platform/mob/` anlegen
+- [X] T004 `MobMessageKeys` in `rpg-core/src/main/java/rpg/core/mob/MobMessageKeys.java` mit `all()` anlegen — nach dem Muster von `CombatMessageKeys`, damit die Auflösungsprüfung im Plugin-Modul sie mitnimmt
+- [X] T005 Leeres `mobs.yml` mit Kopfkommentar in `rpg-plugin/src/main/resources/mobs.yml` anlegen — Aufbau nach [contracts/mob-config.md](./contracts/mob-config.md), noch ohne Inhalte
 
 ---
 
@@ -54,25 +54,25 @@ Migration, kein `rpg-persistence`-Anteil.
 
 **⚠️ CRITICAL**: Vor Abschluss dieser Phase beginnt keine User Story
 
-- [ ] T006 [P] `MobKind` als Record in `rpg-core/src/main/java/rpg/core/mob/MobKind.java` — Felder nach [data-model.md](./data-model.md); kompakter Konstruktor prüft: `key` nicht leer, `level` ≥ 1, `followRange` > 0, `xp`/`coins` ≥ 0
-- [ ] T007 [P] `HordeSpec` und `HordeEntry` in `rpg-core/src/main/java/rpg/core/mob/HordeSpec.java` — welche Arten in welchem Bereich (FR-012); `entries` nicht leer, `weight` ≥ 1
-- [ ] T008 [P] `BossSpec` in `rpg-core/src/main/java/rpg/core/mob/BossSpec.java` — `areaKey` statt eigener Koordinaten (research.md R10), `respawn` > 0
-- [ ] T009 [P] `Budget` in `rpg-core/src/main/java/rpg/core/mob/Budget.java` — vier Grenzen (serverweit, Zone, Chunk, Spieler), dazu `boolean allows(...)`, das **die schärfste** entscheiden lässt; Javadoc sagt, dass es eine Grenze ist und kein Zielwert (FR-013)
-- [ ] T010 [P] Test `BudgetTest` in `rpg-core/src/test/java/rpg/core/mob/BudgetTest.java` — die schärfste Grenze gewinnt; ein volles Chunk-Budget verhindert das Setzen auch bei freier Zone
-- [ ] T011 `ChunkCount` in `rpg-core/src/main/java/rpg/core/mob/ChunkCount.java` — `long → int` ohne Boxing, **nur belegte Chunks**; Eintrag verschwindet bei null (research.md R3); Javadoc nennt ausdrücklich, warum B09s `ChunkTable` hier nicht wiederverwendet wird
-- [ ] T012 Test `ChunkCountTest` in `rpg-core/src/test/java/rpg/core/mob/ChunkCountTest.java` — hoch, runter, auf null; die Struktur schrumpft wirklich und wächst nicht monoton
-- [ ] T012a `NearbyChunks` in `rpg-core/src/main/java/rpg/core/mob/NearbyChunks.java` — **der räumliche Index, den FR-018 verlangt**: jeder Spieler stempelt die Chunks im Aufräumradius in eine wiederverwendete Long-Menge, danach ist die Frage je Kreatur ein Mengenzugriff statt einer Schleife über alle Spieler (research.md R3a, Prinzip II). Der Puffer wird zwischen Durchläufen wiederverwendet — eine neue Menge je Durchlauf wäre eine Zuweisung im Spawn-Pfad
-- [ ] T012b Test `NearbyChunksTest` in `rpg-core/src/test/java/rpg/core/mob/NearbyChunksTest.java` — Grenzfall am Radiusrand; zwei nah beieinanderstehende Spieler stempeln denselben Chunk nur einmal; und die Menge ist beim nächsten Durchlauf wirklich geleert
+- [X] T006 [P] `MobKind` als Record in `rpg-core/src/main/java/rpg/core/mob/MobKind.java` — Felder nach [data-model.md](./data-model.md); kompakter Konstruktor prüft: `key` nicht leer, `level` ≥ 1, `followRange` > 0, `xp`/`coins` ≥ 0
+- [X] T007 [P] `HordeSpec` und `HordeEntry` in `rpg-core/src/main/java/rpg/core/mob/HordeSpec.java` — welche Arten in welchem Bereich (FR-012); `entries` nicht leer, `weight` ≥ 1
+- [X] T008 [P] `BossSpec` in `rpg-core/src/main/java/rpg/core/mob/BossSpec.java` — `areaKey` statt eigener Koordinaten (research.md R10), `respawn` > 0
+- [X] T009 [P] `Budget` in `rpg-core/src/main/java/rpg/core/mob/Budget.java` — vier Grenzen (serverweit, Zone, Chunk, Spieler), dazu `boolean allows(...)`, das **die schärfste** entscheiden lässt; Javadoc sagt, dass es eine Grenze ist und kein Zielwert (FR-013)
+- [X] T010 [P] Test `BudgetTest` in `rpg-core/src/test/java/rpg/core/mob/BudgetTest.java` — die schärfste Grenze gewinnt; ein volles Chunk-Budget verhindert das Setzen auch bei freier Zone
+- [X] T011 `ChunkCount` in `rpg-core/src/main/java/rpg/core/mob/ChunkCount.java` — `long → int` ohne Boxing, **nur belegte Chunks**; Eintrag verschwindet bei null (research.md R3); Javadoc nennt ausdrücklich, warum B09s `ChunkTable` hier nicht wiederverwendet wird
+- [X] T012 Test `ChunkCountTest` in `rpg-core/src/test/java/rpg/core/mob/ChunkCountTest.java` — hoch, runter, auf null; die Struktur schrumpft wirklich und wächst nicht monoton
+- [X] T012a `NearbyChunks` in `rpg-core/src/main/java/rpg/core/mob/NearbyChunks.java` — **der räumliche Index, den FR-018 verlangt**: jeder Spieler stempelt die Chunks im Aufräumradius in eine wiederverwendete Long-Menge, danach ist die Frage je Kreatur ein Mengenzugriff statt einer Schleife über alle Spieler (research.md R3a, Prinzip II). Der Puffer wird zwischen Durchläufen wiederverwendet — eine neue Menge je Durchlauf wäre eine Zuweisung im Spawn-Pfad
+- [X] T012b Test `NearbyChunksTest` in `rpg-core/src/test/java/rpg/core/mob/NearbyChunksTest.java` — Grenzfall am Radiusrand; zwei nah beieinanderstehende Spieler stempeln denselben Chunk nur einmal; und die Menge ist beim nächsten Durchlauf wirklich geleert
 - [ ] T012c Test `CleanupCostIsFlatTest` in `rpg-core/src/test/java/rpg/core/mob/CleanupCostIsFlatTest.java` — die Aufräumentscheidung für 130 Kreaturen kostet bei gleicher Spielerzahl nicht messbar mehr als die für 13. **Der Test, der eine lineare Iteration auffliegen ließe** — ohne ihn wäre der Verstoß grün und fiele erst unter Last auf
-- [ ] T013 `HordeRegistry` in `rpg-core/src/main/java/rpg/core/mob/HordeRegistry.java` — Bestand plus die drei Zählungen (Zone, Chunk, gesamt) aus [data-model.md](./data-model.md)
-- [ ] T014 Test `HordeRegistryTest` in `rpg-core/src/test/java/rpg/core/mob/HordeRegistryTest.java` — Eintragen, Austragen, Zählungen stimmen nach jeder Folge; eine Kreatur bleibt der **Ursprungs**zone zugerechnet (FR-017)
-- [ ] T015 `MobConfig` in `rpg-core/src/main/java/rpg/core/mob/MobConfig.java` — der validierte Inhalt von `mobs.yml`: Budgets, Horden-Werte, Arten, Horden (FR-001). **Kein Schalter für die Unterdrückung** — siehe T057
-- [ ] T016 `MobConfigSchema` in `rpg-core/src/main/java/rpg/core/mob/MobConfigSchema.java` — Bindung und Prüfung nach der Regeltabelle in [contracts/mob-config.md](./contracts/mob-config.md); jede Meldung nennt **Datei, Schlüssel und Grund** (FR-002)
-- [ ] T017 Test `MobConfigSchemaTest` in `rpg-core/src/test/java/rpg/core/mob/MobConfigSchemaTest.java` — je ein Fall für jede Regel der Tabelle; geprüft wird nicht nur *dass* es scheitert, sondern **dass die Meldung den Schlüssel nennt**
-- [ ] T018 `MobModule` in `rpg-core/src/main/java/rpg/core/mob/MobModule.java` — Start, Konfiguration laden, Nachladen nach dem Muster von `ZoneModule`
+- [X] T013 `HordeRegistry` in `rpg-core/src/main/java/rpg/core/mob/HordeRegistry.java` — Bestand plus die drei Zählungen (Zone, Chunk, gesamt) aus [data-model.md](./data-model.md)
+- [X] T014 Test `HordeRegistryTest` in `rpg-core/src/test/java/rpg/core/mob/HordeRegistryTest.java` — Eintragen, Austragen, Zählungen stimmen nach jeder Folge; eine Kreatur bleibt der **Ursprungs**zone zugerechnet (FR-017)
+- [X] T015 `MobConfig` in `rpg-core/src/main/java/rpg/core/mob/MobConfig.java` — der validierte Inhalt von `mobs.yml`: Budgets, Horden-Werte, Arten, Horden (FR-001). **Kein Schalter für die Unterdrückung** — siehe T057
+- [X] T016 `MobConfigSchema` in `rpg-core/src/main/java/rpg/core/mob/MobConfigSchema.java` — Bindung und Prüfung nach der Regeltabelle in [contracts/mob-config.md](./contracts/mob-config.md); jede Meldung nennt **Datei, Schlüssel und Grund** (FR-002)
+- [X] T017 Test `MobConfigSchemaTest` in `rpg-core/src/test/java/rpg/core/mob/MobConfigSchemaTest.java` — je ein Fall für jede Regel der Tabelle; geprüft wird nicht nur *dass* es scheitert, sondern **dass die Meldung den Schlüssel nennt**
+- [X] T018 `MobModule` in `rpg-core/src/main/java/rpg/core/mob/MobModule.java` — Start, Konfiguration laden, Nachladen nach dem Muster von `ZoneModule`
 - [ ] T019 Test `MobModuleTest` in `rpg-core/src/test/java/rpg/core/mob/MobModuleTest.java` — Start scheitert bei unbrauchbarer Konfiguration, Nachladen tauscht die Konfiguration im Ganzen
-- [ ] T020 `MobKinds` und `Hordes` als die zwei öffentlichen Abfragen in `rpg-core/src/main/java/rpg/core/mob/` — Signaturen und Zusagen nach [contracts/mob-api.md](./contracts/mob-api.md) §2 und §3
-- [ ] T021 Test `MobApiContractTest` in `rpg-core/src/test/java/rpg/core/mob/MobApiContractTest.java` — unbekannter Artschlüssel antwortet **leer**, unbekannter Zonenschlüssel antwortet **0**, beide werfen nicht
+- [X] T020 `MobKinds` und `Hordes` als die zwei öffentlichen Abfragen in `rpg-core/src/main/java/rpg/core/mob/` — Signaturen und Zusagen nach [contracts/mob-api.md](./contracts/mob-api.md) §2 und §3
+- [X] T021 Test `MobApiContractTest` in `rpg-core/src/test/java/rpg/core/mob/MobApiContractTest.java` — unbekannter Artschlüssel antwortet **leer**, unbekannter Zonenschlüssel antwortet **0**, beide werfen nicht
 
 **Checkpoint**: Fundament steht — die Geschichten können beginnen
 

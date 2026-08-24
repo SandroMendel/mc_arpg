@@ -1,0 +1,150 @@
+# B10 - Mobs & Horden-Spawning.
+#
+# Acht Arten je Region, dazu ein Boss. Was eine Kreatur ist, steht vollstaendig hier: eine neue Art
+# entsteht durch Bearbeiten dieser Datei und einen Neustart, ohne eine Zeile Java (SC-001). Kein
+# Bezeichner einer einzelnen Art kommt im Code vor - ConfigOnlyMobTest erzwingt das.
+#
+# Die Geometrie steht NICHT hier. Wo eine Horde stehen darf, sagt zones.yml mit seinen
+# spawn-areas; dieser Block nennt nur deren Schluessel. Zwei Orte fuer dieselbe Geometrie waeren
+# einer zu viel, und der zweite wird beim naechsten Verschieben vergessen.
+#
+# Es gibt keinen Schalter fuer die Vanilla-Unterdrueckung. Sie gilt (FR-018c). Ein Schalter waere
+# ein Weg, das Budget zu umgehen, und die ganze Leistungszusage dieses Blocks haengt daran, dass
+# nichts anderes Kreaturen erzeugt.
+
+# Die vier harten Grenzen. Keine Zielwerte - was hier steht, wird unter keiner Bedingung
+# ueberschritten, auch nicht bei ploetzlichem Spieleransturm (FR-013).
+#
+# server-wide haelt AUCH DANN, wenn die Summe der Zonenbudgets darueber liegt (FR-013a). Sechs
+# Zonen zu je 130 sind 780 und bleiben darunter; sechs zu je 200 waeren 1200, und dann greift diese
+# Zahl. Sie stammt aus dem M4-Nachweis der Vision - 800 Kreaturen bei 150 Spielern - und ist der
+# einzige Ort, an dem dieser Zielwert wirklich eingehalten wird.
+budget:
+  server-wide: 800
+  per-zone: 130
+  per-chunk: 12
+  per-player: 25
+
+horde:
+  # Kontinuierlicher Nachschub, keine Wellen (entschieden 2026-08-24): getoetete Kreaturen werden
+  # laufend ersetzt, die Dichte pendelt sich um den Zielwert ein. Kein Zonenzustand
+  # "Welle laeuft / geraeumt / Pause" - und damit auch nicht die Anschlussfrage, was mit einer Welle
+  # passiert, die niemand zu Ende raeumt.
+  respawn-interval-ms: 2000
+  # Dichtezuwachs je zusaetzlichem Spieler. Zu fuenft rund doppelt so voll wie allein.
+  # Beruehrt NIEMALS Attribute (FR-026) - es sind mehr, nicht haertere.
+  density-per-player: 0.20
+  # Nach dem letzten Spieler in der Zone. Lang genug fuer einen kurzen Rueckweg, kurz genug, dass
+  # eine verlassene Region nicht ueber Stunden Entitaeten traegt.
+  cleanup-after-seconds: 60
+  # Wer weiter weg ist als das von JEDEM Spieler, wird entfernt - nicht schlafen gelegt.
+  # Deutlich ueber der Sichtweite, unter der Chunk-Ladeweite.
+  cleanup-radius: 96.0
+  # Abstand, in dem eine eigene Zielzuweisung fruehestens wieder anfasst (FR-035). Zehn Ticks;
+  # darunter merkt niemand den Unterschied.
+  retarget-interval-ms: 500
+
+kinds:
+  # --- Greenfields, Levelband 1-10 ---------------------------------------------------------------
+  #
+  # follow-range ist die Stellschraube mit dem groessten Hebel: die Zielsuche ist quadratisch im
+  # Radius, und Vanillas Standard von 16 bis 48 Bloecken ist fuer eine Horde zu grosszuegig.
+  # Deshalb bleibt Vanillas Pfadfindung stehen und wird nicht ersetzt - eigenen Java-Code dagegen
+  # zu setzen ist eine Wette, die erst eine Messung rechtfertigt, und die gehoert zu B15.
+
+  greenfields.rotling:
+    base: ZOMBIE
+    level: 2
+    attributes: { health: 34.0, defense: 1.0, physicalDamage: 5.0 }
+    follow-range: 20.0
+    xp: 10
+    coins: 3
+
+  greenfields.field-shade:
+    base: ZOMBIE
+    level: 3
+    attributes: { health: 42.0, defense: 2.0, physicalDamage: 6.0 }
+    follow-range: 22.0
+    xp: 14
+    coins: 4
+
+  greenfields.thornling:
+    base: SKELETON
+    level: 3
+    attributes: { health: 30.0, defense: 0.0, physicalDamage: 7.0 }
+    follow-range: 26.0
+    xp: 14
+    coins: 4
+
+  greenfields.husk-of-the-furrow:
+    base: HUSK
+    level: 4
+    attributes: { health: 50.0, defense: 3.0, physicalDamage: 7.0 }
+    follow-range: 22.0
+    xp: 18
+    coins: 5
+
+  greenfields.creeping-vine:
+    base: SPIDER
+    level: 5
+    attributes: { health: 46.0, defense: 2.0, physicalDamage: 8.0 }
+    follow-range: 24.0
+    xp: 22
+    coins: 6
+
+  greenfields.bog-slime:
+    base: SLIME
+    level: 5
+    attributes: { health: 55.0, defense: 4.0, physicalDamage: 6.0 }
+    follow-range: 18.0
+    xp: 22
+    coins: 6
+
+  greenfields.marsh-drowned:
+    base: DROWNED
+    level: 7
+    attributes: { health: 62.0, defense: 5.0, physicalDamage: 10.0 }
+    follow-range: 24.0
+    xp: 30
+    coins: 9
+
+  greenfields.wight-of-the-hedge:
+    base: STRAY
+    level: 8
+    attributes: { health: 58.0, defense: 4.0, physicalDamage: 12.0 }
+    follow-range: 28.0
+    xp: 36
+    coins: 11
+
+  # Der Boss. Eine Mob-Art mit deutlich hoeheren Zahlen und einem Respawn-Timer - mehr nicht:
+  # keine eigenen Faehigkeiten, keine Phasen. Das ist ehrlich benannt, es ist ein dicker Mob. Der
+  # eigentliche Bosskampf kommt spaeter als Dungeon-Boss und braucht eine Instanzwelt.
+  greenfields.warden-of-the-field:
+    base: ZOMBIE
+    level: 10
+    attributes: { health: 620.0, defense: 28.0, physicalDamage: 24.0 }
+    follow-range: 32.0
+    xp: 400
+    coins: 260
+    boss: true
+
+hordes:
+  greenfields:
+    areas:
+      # Die Schluessel stammen aus zones.yml. Ein Tippfehler hier bricht den Start ab, statt eine
+      # still leere Horde zu erzeugen (FR-011) - MobModule prueft sie gegen B09.
+      greenfields-east:
+        - { kind: 'greenfields.rotling', weight: 4 }
+        - { kind: 'greenfields.field-shade', weight: 3 }
+        - { kind: 'greenfields.thornling', weight: 3 }
+        - { kind: 'greenfields.husk-of-the-furrow', weight: 2 }
+      greenfields-west:
+        - { kind: 'greenfields.creeping-vine', weight: 3 }
+        - { kind: 'greenfields.bog-slime', weight: 3 }
+        - { kind: 'greenfields.marsh-drowned', weight: 2 }
+        - { kind: 'greenfields.wight-of-the-hedge', weight: 1 }
+    boss:
+      kind: 'greenfields.warden-of-the-field'
+      area: 'greenfields-east'
+      offset: { x: 0.0, y: 0.0, z: 0.0 }
+      respawn-minutes: 30
