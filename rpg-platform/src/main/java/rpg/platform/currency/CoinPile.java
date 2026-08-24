@@ -37,6 +37,11 @@ import rpg.core.progression.WorldPoint;
  * carries a unique id (see {@link CoinPileTag}), and the merging FR-028 asks for happens
  * <em>before</em> a pile is created instead.
  *
+ * <p><b>Die Stapelzahl ist trotzdem nicht immer eins</b> - sie ist die Anzahl der Kills, ein Nugget
+ * je Kreatur. Das widerspricht dem Absatz darueber nicht: gerade weil der Wert im Container steht
+ * und nirgends aus der Stapelzahl gelesen wird, ist die Stapelzahl frei, etwas anderes zu zeigen.
+ * Sie ist Anblick und niemals Buchhaltung; siehe {@link #nuggetsFor(int)}.
+ *
  * <p><b>Despawn is set by pre-ageing.</b> There is no per-entity despawn setter in the Paper API, so
  * a pile is spawned already {@code 6000 - n*20} ticks old to have {@code n} seconds left
  * (research.md R1c).
@@ -45,6 +50,15 @@ public final class CoinPile {
 
     /** Vanilla material, per ADR-005: no resource pack, no custom model data, no client requirement. */
     private static final Material MATERIAL = Material.GOLD_NUGGET;
+
+    /**
+     * Die Obergrenze fuer die Nuggets auf einem Haufen: ein voller Stapel.
+     *
+     * <p>Nicht aus einer Renderer-Schwelle abgeleitet, sondern aus dem, was ein Stapel fassen kann.
+     * Ab 49 zeichnet Vanilla ohnehin nicht mehr dazu, aber das ist Vanillas Entscheidung und keine,
+     * die hier als Zahl festgeschrieben werden sollte.
+     */
+    static final int MAX_NUGGETS = 64;
 
     private final Plugin plugin;
     private final Server server;
@@ -133,6 +147,11 @@ public final class CoinPile {
      *
      * <p>An addition in the container, not a vanilla merge - which is the whole point: the value is
      * ours to add, and stack counts have nothing to do with it.
+     *
+     * <p><b>Der Stapel waechst trotzdem</b>, und zwar um genau ein Nugget je Kill. Das ist keine
+     * Aussage ueber den Wert - der steht im Container und nur dort -, sondern darueber, wie viele
+     * Kreaturen hier gefallen sind. Vorher sah ein Haufen aus drei Kills aus wie einer aus einem,
+     * und die Zusammenfassung, die FR-028 verlangt, las sich wie ein verschluckter Drop.
      */
     private Item mergeInto(Item pile, long amount) {
         ItemStack stack = pile.getItemStack();
@@ -141,13 +160,36 @@ public final class CoinPile {
 
         ItemMeta meta = stack.getItemMeta();
         CoinPileTag.writeAmount(meta, merged);
+        int drops = CoinPileTag.addDrop(meta);
         meta.displayName(displayName(merged));
         stack.setItemMeta(meta);
+        stack.setAmount(nuggetsFor(drops));
         pile.setItemStack(stack);
         return pile;
     }
 
+    /**
+     * Wie viele Nuggets ein Haufen aus so vielen Kills zeigt.
+     *
+     * <p><b>Eins je Kill.</b> Keine Umrechnung aus dem Betrag: was eine Kreatur wert ist, stellt ein
+     * Betreiber in {@code currency.yml} ein, und bei zehnfachen Drops saehe jeder einzelne Kill aus
+     * wie ein Schlachtfeld. Die Zahl der Kills dagegen bedeutet immer dasselbe.
+     *
+     * <p><b>Was ein Spieler davon wirklich sieht, ist gröber als diese Zahl.</b> Vanilla zeichnet
+     * ein liegendes Item in fuenf Stufen - ein Modell bei 1, zwei ab 2, drei ab 17, vier ab 33,
+     * fuenf ab 49. Der Unterschied, um den es hier geht, ist der erste und deutlichste: ein Nugget
+     * heisst eine Kreatur, ein Haeufchen heisst mehrere. Das ist absichtlich so stehen gelassen und
+     * nicht auf die Schwellen hingebogen - eine Zahl, die den Renderer austrickst, waere beim
+     * naechsten Minecraft eine Zahl, die nichts mehr bedeutet.
+     *
+     * <p>Gedeckelt auf einen vollen Stapel, weil ein Stapel nicht mehr fasst.
+     */
+    static int nuggetsFor(int drops) {
+        return Math.max(1, Math.min(MAX_NUGGETS, drops));
+    }
+
     private Item spawn(Location where, CoinDropPlan plan) {
+        // Ein Kill, ein Nugget. Der Stapel waechst erst beim Zusammenfassen.
         ItemStack stack = new ItemStack(MATERIAL, 1);
         ItemMeta meta = stack.getItemMeta();
         CoinPileTag.write(meta, plan.amount(), plan.characterId(), clock.millis());

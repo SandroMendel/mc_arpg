@@ -196,6 +196,49 @@ class CoinPileDropTest {
         assertThat(CoinPileTag.amountOf(merged.get().getItemStack())).hasValue(700L);
     }
 
+    @Test
+    @DisplayName("ein Kill ist ein Nugget - und drei Kills sind drei")
+    void everyKillAddsANugget() {
+        // Vorher sah ein Haufen aus drei Kills aus wie einer aus einem, und die Zusammenfassung,
+        // die FR-028 verlangt, las sich wie ein verschluckter Drop.
+        PlayerMock alice = server.addPlayer();
+
+        Optional<Item> first = piles.drop(plan(alice, aliceCharacter, 500L), () -> true);
+        assertThat(first.orElseThrow().getItemStack().getAmount())
+                .as("eine Kreatur, ein Nugget")
+                .isEqualTo(1);
+
+        piles.drop(plan(alice, aliceCharacter, 200L), () -> false);
+        Optional<Item> third = piles.drop(plan(alice, aliceCharacter, 100L), () -> false);
+
+        assertThat(third.orElseThrow().getItemStack().getAmount()).isEqualTo(3);
+        assertThat(CoinPileTag.dropsOf(third.get().getItemStack())).hasValue(3);
+    }
+
+    @Test
+    @DisplayName("die Nuggets zaehlen Kills, nicht Coins - sonst haenge der Anblick am Betreiber")
+    void theNuggetsCountKillsAndNotCoins() {
+        // Ein Betreiber, der die Drops verzehnfacht, soll nicht jeden einzelnen Kill wie ein
+        // Schlachtfeld aussehen lassen.
+        PlayerMock alice = server.addPlayer();
+
+        Optional<Item> rich = piles.drop(plan(alice, aliceCharacter, 50_000L), () -> true);
+
+        assertThat(rich.orElseThrow().getItemStack().getAmount()).isEqualTo(1);
+        assertThat(CoinPileTag.amountOf(rich.get().getItemStack()))
+                .as("der Wert steht weiterhin nur im Container")
+                .hasValue(50_000L);
+    }
+
+    @Test
+    @DisplayName("mehr als ein voller Stapel gibt es nicht - ein Stapel fasst nicht mehr")
+    void theStackNeverGrowsBeyondAFullOne() {
+        assertThat(CoinPile.nuggetsFor(CoinPile.MAX_NUGGETS + 40)).isEqualTo(CoinPile.MAX_NUGGETS);
+        assertThat(CoinPile.nuggetsFor(0))
+                .as("und niemals null - ein unsichtbarer Haufen waere ein verlorener")
+                .isEqualTo(1);
+    }
+
     private CoinDropPlan plan(PlayerMock player, UUID characterId, long amount) {
         return new CoinDropPlan(characterId, player.getUniqueId(), amount, origin);
     }
