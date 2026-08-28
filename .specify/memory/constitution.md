@@ -37,6 +37,30 @@ Sync Impact Report — 2026-08-23
   Teil der Definition of Done für B05 und B10" entfällt), blocks/B08b (SC-006
   wartet nicht länger auf B10), specs/009-zones-regions/spec.md (SC-001 ist eine
   Messung, kein Lasttest).
+
+Sync Impact Report — 2026-08-28
+- Version change: 1.1.0 → 1.1.1 (PATCH — Klarstellung, keine inhaltliche Änderung)
+- Modified principles: IV. Datenhaltung — Satz 4 und die Rationale nachgezogen.
+  „Template-ID **und gewürfelte Roll-Werte**" wird zu „**die Template-ID**".
+  ADR-027 hat den Roll-Mechanismus am 2026-08-22 abgeschafft; die Constitution
+  hat das sechs Tage lang nicht nachvollzogen. Der Wortlaut hätte den
+  Constitution Check von `/plan` für B11 gegen eine Regel prüfen lassen, die
+  dieser Block gerade umsetzt — und zwar strenger, als sie dasteht.
+- Warum PATCH und nicht MINOR: die geschützte Zusage (kein gerendertes Lore,
+  keine berechneten Endwerte) ist unverändert. Es entfällt nur eine Erlaubnis,
+  die niemand mehr nutzt. Wer der alten Fassung folgte, verstößt nicht gegen die
+  neue.
+- Added sections: none
+- Removed sections: none
+- Aufgefallen bei: `/speckit-specify` B11 (2026-08-28), festgehalten als ADR-039
+- Templates requiring alignment:
+  ✅ plan-template.md — Constitution Check liest diese Datei zur Laufzeit
+  ✅ spec-template.md / tasks-template.md — keine Verweise auf Prinzip IV
+- Mit nachgezogen: `constitution.md` und
+  `minecraft-rpg-spec/minecraft-rpg-spec/constitution.md` trugen dieselbe Stelle
+  in ihrer Kurzform („Template-ID und Roll-Werte"). Beide sind Quellfassungen,
+  nicht die vom Werkzeug gelesene Datei, und beide sind jetzt gleichlautend —
+  eine stehengelassene Quellfassung wäre die nächste Divergenz.
 -->
 
 # Minecraft RPG Plugin Constitution
@@ -100,14 +124,20 @@ Konfigurationsänderung offen, nicht als Umbau.
 Schemaänderungen erfolgen ausschließlich über versionierte Migrationen.
 Solange ein Spieler online ist, ist der Speicher-Cache autoritativ, nicht die
 Datenbank. Persistierte Spielerdaten sind versioniert und besitzen einen
-Migrationspfad. Items speichern **Template-ID und gewürfelte Roll-Werte**,
-niemals berechnete Endwerte oder gerendertes Lore. Kein Datenverlust über das
-Autosave-Intervall hinaus, auch bei Absturz.
+Migrationspfad. Items speichern **die Template-ID**, niemals berechnete Endwerte
+und niemals gerendertes Lore. Kein Datenverlust über das Autosave-Intervall
+hinaus, auch bei Absturz.
 
-**Rationale**: Nur Template-ID + Roll-Werte statt gerenderter Endwerte
-ermöglichen laut ADR-004 späteres Balancing-Rework, ohne bestehende
-Spieleritems anzufassen. Die Cache-Autorität während der Session ist die
-Grundlage der Write-Behind-Persistenzstrategie (siehe 01-architecture.md).
+**Rationale**: Nur die Template-ID statt gerenderter Endwerte ermöglicht laut
+ADR-004 späteres Balancing-Rework, ohne bestehende Spieleritems anzufassen. Die
+Cache-Autorität während der Session ist die Grundlage der
+Write-Behind-Persistenzstrategie (siehe 01-architecture.md).
+
+Ursprünglich stand hier „Template-ID **und gewürfelte Roll-Werte**". ADR-027 hat
+den Roll-Mechanismus abgeschafft — jedes Item trägt feste Attributwerte —, und
+damit ist die erste Hälfte gegenstandslos geworden. **Die Zusage wird dadurch
+stärker, nicht schwächer**: ohne Roll ist die Vorlage die einzige Quelle, und
+eine Balancing-Änderung wirkt auf jedes vorhandene Exemplar statt nur auf neue.
 
 ### V. Datengetriebenes Design
 
@@ -198,4 +228,4 @@ Formulierungskorrekturen ohne inhaltliche Änderung.
 Prinzipien (Constitution Check). Jede in der Umsetzung getroffene
 Architekturentscheidung wird als ADR in `02-decisions.md` nachgetragen.
 
-**Version**: 1.1.0 | **Ratified**: 2026-08-19 | **Last Amended**: 2026-08-23
+**Version**: 1.1.1 | **Ratified**: 2026-08-19 | **Last Amended**: 2026-08-28

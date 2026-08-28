@@ -279,9 +279,33 @@ könnte weder verkaufen noch reparieren.
       Rangkosten in `abilities.yml`, Reparatur in B11. Kein zentraler Katalog.
 - [ ] Startguthaben bei Charaktererstellung: null oder ein Betrag?
 - [ ] Verlieren Coins beim Tod? ADR-017 sagt nichts dazu.
-- [ ] Wieviel wirft ein Mob ab? Content, bei `/specify` B10 oder B11.
+- [x] **Wieviel wirft ein Mob ab?** Die *Form* steht seit `/specify` B11: Tabelle je Art, sonst die
+      der Region, Boss mit eigener; ein Eintrag trägt Wahrscheinlichkeit und Stückzahlspanne
+      (FR-018 bis FR-021). **Was konkret drinsteht, bleibt Inhaltsarbeit** und entsteht bei
+      `/speckit-tasks` B11 entlang der sechs Levelbänder. *(2026-08-28)*
 
-## B11 (Items) — neu zugeschnitten durch ADR-027, keine offene Frage mehr
+## B11 (Items) — neu zugeschnitten durch ADR-027, ausspezifiziert am 2026-08-28
+
+Die Klärungssitzung vom 2026-08-28 hat sieben weitere Fragen beantwortet; alles davon steht in
+**ADR-039** und in `specs/011-items-loot-equipment/spec.md`.
+
+- [x] **Verschleiß statt Haltbarkeit.** Klassenausrüstung zerbricht nie — B07 hat sie ausdrücklich
+      unzerstörbar gemacht. Der Verschleiß ist ein Wert **am Charakter**, je Slot einer, und mindert
+      nur den Ausrüstungsbeitrag: bis zu 80 % bei Zustand null. Rüstung nutzt sich durch erlittenen
+      Schaden ab, die Waffe durch Autoattacks, beide durch den Tod — und der Tod wiegt ein
+      Vielfaches. *(2026-08-28, ADR-039)*
+- [x] **Wem gehört gefallene Beute?** Dem **größten Beitragenden**
+      (`CombatDeathEvent.lootRecipient()`), am Charakter hängend. Nur er sieht sie, nur er hebt sie
+      auf. Bewusst **anders als Erfahrung und Coins**, die sich nach Anteil teilen: ein Gegenstand
+      teilt sich nicht. *(2026-08-28, ADR-039)*
+- [x] **Kosmetik**: Trimfarben gegen Coins, ohne eigene Levelhürde, aber **erst auf der Höchststufe
+      anwendbar** — sonst wären Schurken- und Kriegerstufen optisch ununterscheidbar.
+      *(2026-08-28, ADR-039)*
+- [x] **Aufstiegsmaterial entfällt.** Der Aufstieg kostet Level und Coins; beides ist in B07 und
+      B08b bereits gebaut. Es bleiben zwei Kategorien: Verbrauchbares und Kosmetik.
+      *(2026-08-28, ADR-039)*
+- [x] **Ein NPC je Region**, sechs insgesamt, im Safe-Core, mit eigenem Bestand je Region.
+      *(2026-08-28, ADR-039)*
 
 - [x] Ausrüstungsslots: nur Vanilla-Armor + Waffe
 - [x] Raritätsstufen (8, mit Farben): Common (Weiß) → Uncommon (Hellgrün) →

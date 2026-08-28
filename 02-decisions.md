@@ -1857,3 +1857,161 @@ oben), und ohnehin wirkungslos, da der Schaden längst über B05 läuft.
 dürfte dadurch spürbar näher an die konfigurierte Zieldichte heranrücken als zuvor angenommen, da ein
 bisher unsichtbarer Verlustkanal wegfällt. Neue Tests in `DaylightBurnSuppressorTest`. Vom Nutzer auf
 dem echten Server verifiziert.
+
+---
+
+## ADR-039: Was die Klärungssitzung zu B11 entschieden hat — und wo der Steckbrief dem Code widersprach
+
+**Status:** Angenommen · **Datum:** 2026-08-28 · **Blöcke:** B11, berührt B05, B07 und die
+Constitution
+
+**Kontext.** `/specify` für B11 stand an. Der Blocksteckbrief galt seit ADR-027 als „bereit für
+`/specify`", und die vier dort benannten Fragen waren beantwortet. Beim Abgleich des Steckbriefs
+gegen den **gebauten Code** stellte sich heraus, dass die Hälfte seines Umfangs bereits von
+Nachbarblöcken erledigt ist — und dass an einer Stelle Steckbrief und Code einander widersprechen.
+Sieben Fragen an den Auftraggeber schlossen den Rest. Dieser ADR hält fest, was dabei entschieden
+wurde; die vollständige Fassung steht in `specs/011-items-loot-equipment/spec.md`.
+
+### 1. Verschleiß ist ein Wert am Charakter, nicht Haltbarkeit am ItemStack
+
+**Der Steckbrief hatte unrecht.** Er kündigt „Durability und Reparatur" an und nennt die Todesstrafe
+tragfähig, „weil Haltbarkeitsverlust auf nicht ablegbarer Rüstung genauso funktioniert". B07 hat
+aber genau das Gegenteil gebaut: `BoundItemFactory.makeIndestructible()` setzt Klassenausrüstung auf
+`setUnbreakable(true)` — mit zwei Einwänden, die im Javadoc stehen. Erstens ließ eine zerbrochene
+Waffe den Krieger waffenlos zurück, weil die Leiter die einzige Waffenquelle ist und Werfen wie
+Herstellen verboten sind; nur ein Relogin brachte sie wieder. Zweitens: *„the tier carries the
+numbers, and a damaged item would quietly weaken a character in a way no attribute reflects."* Und
+dann der Satz, der die Lösung schon enthält: *„If wear is ever wanted as a mechanic, it belongs to
+the tier, not to the item stack."*
+
+**Entscheidung.** Verschleiß wird eingeführt — aber als **Zustandswert am Charakter**, je
+Leiter-Slot einer (`ARMOR`, `WEAPON`). Der ItemStack bleibt unzerstörbar. Der Zustand mindert
+ausschließlich den **Ausrüstungsbeitrag** des betroffenen Slots: oberhalb einer Schwelle voll,
+darunter stetig fallend bis auf einen Restanteil. Vorgabe: Schwelle 50 %, Restanteil 20 %.
+
+Die Quellen sind getrennt und damit spürbar: **erlittener** Schaden nutzt die **Rüstung** ab,
+**ausgeteilter Schaden aus einem Autoattack** die **Waffe**, der **Tod** beides. `DamageOrigin`
+trennt das bereits — `MELEE` und `PROJECTILE` sind der normale Angriff, `ABILITY` ist es nicht.
+**Fähigkeitsschaden schont die Waffe**, weshalb ein Magier seltener repariert als ein Krieger.
+
+**Begründung.** Beide Einwände von B07 sind damit ausgeräumt statt übergangen: nichts zerbricht, und
+die Schwächung ist keine stille — sie geht durch die Werteberechnung und ist ablesbar. Der
+Verschleiß liefert zugleich die laufende Coin-Senke, ohne die Coins nur hereinkommen und nie
+abfließen.
+
+**Der Tod muss schwerer wiegen als der Alltag, und das ist eine Regel, keine Zahlenwahl.** Vorgabe:
+10 Zustandspunkte je Tod gegen 0,01 je Schadenspunkt — ein Sterben wiegt tausend Schadenspunkte auf.
+Der **Start weist eine Konfiguration zurück**, in der diese Ordnung nicht mehr gilt. Ohne diese
+Prüfung hätte ein späteres Balancing die Todesstrafe aus ADR-017 stillschweigend aushebeln können,
+und niemand hätte es gemerkt.
+
+**Verworfen.**
+- **Zerbrechen zulassen** (die ursprüngliche Lesart des Steckbriefs): B07s erster Einwand steht
+  unverändert — ein Spieler ohne Waffe und ohne Bezugsquelle ist handlungsunfähig.
+- **Vanillas Haltbarkeitsbalken als Wahrheit**: hätte `setUnbreakable` aufheben müssen und damit
+  denselben Einwand zurückgeholt. Der Balken bleibt als **abgeleitete Anzeige** erhalten, wie Name
+  und Lore auch — Darstellung, nicht Autorität.
+- **Ein Zustandswert für die ganze Ausrüstung**: einfacher, aber dann verschleißt die Waffe eines
+  Magiers so schnell wie die eines Kriegers, und die Unterscheidung nach Kampfstil entfällt.
+
+**Auswirkung.** B11 greift damit an genau **einer** Stelle in den Ausrüstungsbeitrag ein, den B07
+besitzt. Die Naht ist benannt und in der Spec als solche festgeschrieben (FR-080); B07 selbst wird
+nicht angefasst. `CombatDeathEvent.playerVictim` trägt im Javadoc bereits *„B11 applies equipment
+damage only then"* — der Haken war vorgesehen.
+
+### 2. Beute gehört einem Charakter allein — dem größten Beitragenden
+
+**Entscheidung.** Gefallene Beute liegt auf dem Boden, ist aber **ausschließlich für ihren
+Eigentümer sichtbar und aufsammelbar**. Eigentümer ist der **größte Beitragende** aus
+`CombatDeathEvent.lootRecipient()`, und der Anspruch hängt am **Charakter**, nicht am Spieler
+(ADR-011).
+
+**Das ist eine begründete Abweichung von ADR-029.** Erfahrung und Coins teilen sich nach Anteil —
+B06 und B08b benutzen denselben `ShareCalculator`, und `CoinDropPlanner` erzeugt einen Haufen je
+Berechtigtem. Für Items geht das nicht, und B05 hat die Konsequenz bereits gezogen: *„XP is split by
+share because XP divides, loot goes to the largest contributor because a sword does not."* B11
+erfindet hier nichts, es benutzt die vorhandene Antwort.
+
+**Begründung.** Der Auftraggeber wollte das vertraute Aufheben vom Boden behalten, ohne dass jemand
+einem anderen die Beute wegschnappt. „Größter Beitragender statt letzter Treffer" ist zugleich die
+Entscheidung gegen Kill-Stealing, die B05 ausdrücklich so getroffen hat.
+
+**Die Mechanik existiert bereits und wird nicht zum zweiten Mal gebaut.** `rpg.platform.currency`
+löst dasselbe Problem seit B08b für Coin-Haufen, und das `package-info` benennt jede Falle, in die
+ein zweiter Anlauf sonst liefe:
+
+- `showEntity` ist Zustand der **Verbindung**, nicht der Entität — nach einem Relogin ist der
+  Gegenstand wieder unsichtbar, während beide Schlösser weiter passen. *„Unsichtbar aber aufsammelbar
+  ist das Schlechteste von beidem."*
+- `setOwner` kennt **Spieler**, ADR-011 kennt **Charaktere** — ohne die zweite Prüfung sammelt
+  Charakter B ein, was Charakter A verdient hat.
+- **Verschmelzen ist eine Gefahr, kein Merkmal**: Vanilla führt ähnliche Stapel zusammen, und damit
+  wechselte Besitz durch bloße Nähe.
+- **Unsichtbarkeit ist Darstellung und niemals die Autorität** (Prinzip VI) — das Aufsammelschloss
+  bleibt zusätzlich bestehen.
+- Vanillas Verfall räumt weg, was niemand holt: **keine wiederkehrende Aufgabe** je Gegenstand.
+
+**Verworfen.**
+- **Beute direkt ins Inventar**: technisch am einfachsten und konsistent mit ADR-018, aber es nimmt
+  dem Spiel das Aufheben, das der Auftraggeber behalten wollte.
+- **Beute für alle sichtbar wie in Vanilla**: schief, weil Spieler seit ADR-018 nichts werfen dürfen
+  — man könnte fremde Beute einsammeln, aber nicht zurückgeben.
+- **Anteilige Aufteilung wie bei Coins**: ein Gegenstand teilt sich nicht. Der einzige Ausweg wäre
+  eine Würfelrunde gewesen, und die hätte den mit ADR-027 abgeschafften Zufall zurückgeholt.
+
+### 3. Kosmetik erst auf der Höchststufe
+
+**Kontext.** Stufe 60 ist die Höchststufe; danach fehlt ein Ziel. Der Auftraggeber wollte
+Trimfarben als Kosmetik verkaufen, ausdrücklich **ohne** Levelbindung der einzelnen Farbe.
+
+**Das kollidiert mit B07.** In der ausgelieferten `classes.yml` ist der Trim für zwei der drei
+Klassen das **einzige** Unterscheidungsmerkmal: der Schurke trägt auf den Stufen 4, 5 und 6 dreimal
+`CHAINMAIL` und unterscheidet sich nur durch `COPPER/RIB` → `AMETHYST/SILENCE` → `NETHERITE/VEX`;
+der Krieger unterscheidet Stufe 5 von 6 nur durch das Vorhandensein des `GOLD/SENTRY`-Trims. B07s
+FR-016 fordert, dass zwei Stufen derselben Leiter niemals gleich aussehen. Ein frei anwendbarer Trim
+hätte einen Schurken auf Stufe 4 wie einen auf Stufe 6 aussehen lassen.
+
+**Entscheidung.** Eine gekaufte Trimfarbe ist **erst auf der Höchststufe der Leiter anwendbar**.
+Gekauft werden kann sie jederzeit; keine einzelne Farbe trägt eine eigene Levelhürde.
+
+**Begründung.** Das trifft die genannte Absicht genau — Kosmetik ist der Grind **nach** Stufe 60 —
+und hält die Stufenerkennbarkeit während der gesamten Progression intakt. Nur der Magier wäre
+ohnehin unberührt gewesen, weil er über Farbe statt Trim unterscheidet.
+
+**Verworfen.** **Trims auf jeder Stufe erlauben** und dafür Schurken- und Kriegerleiter ein zweites
+Unterscheidungsmerkmal geben. Machbar, aber es ist eine Änderung an `classes.yml` und an B07s
+Erscheinungsbildvalidierung — in einem Block, der B07 ausdrücklich nicht verändern soll. Wenn das
+gewünscht wird, gehört es in einen eigenen ADR und nicht hier hinein.
+
+### 4. Was ohne Diskussion folgte
+
+- **Aufstiegsmaterial entfällt als Kategorie.** Der Aufstieg kostet **Level und Coins**, und beides
+  ist bereits gebaut: `EquipmentTier.requiredLevel` in B07, `EquipmentPurchase` in B08b. B11 liefert
+  nur die Route dorthin — einen NPC — und ausdrücklich keinen zweiten Kaufmechanismus. Es bleiben
+  zwei Kategorien: Verbrauchbares und Kosmetik.
+- **Ein NPC je Region, sechs insgesamt**, im jeweiligen Safe-Core, mit je eigenem Verkaufsbestand.
+  Er kauft an, verkauft, repariert und führt den Aufstieg durch. Ein zentraler Händler hätte einen
+  Spieler in den Pale Wilds quer über die Karte geschickt, um einen Trank loszuwerden.
+
+### 5. Prinzip IV der Constitution wurde nachgezogen (1.1.0 → 1.1.1)
+
+Prinzip IV forderte wörtlich: *„Items speichern **Template-ID und gewürfelte Roll-Werte**"*. ADR-027
+hat den Roll-Mechanismus am 2026-08-22 abgeschafft — die Constitution hat das sechs Tage lang nicht
+nachvollzogen. Aufgefallen ist es erst, als B11 als erster Block diese Regel tatsächlich umsetzen
+sollte: der Constitution Check von `/plan` hätte gegen einen überholten Wortlaut geprüft.
+
+Der Satz heißt jetzt „Items speichern **die Template-ID**". Das ist ein **PATCH**, kein MINOR: die
+geschützte Zusage — kein gerendertes Lore, keine berechneten Endwerte — ist unverändert, es entfällt
+nur eine Erlaubnis, die niemand mehr nutzt. Wer der alten Fassung folgte, verstößt nicht gegen die
+neue. **Die Zusage wird dadurch stärker**: ohne Roll ist die Vorlage die einzige Quelle, und eine
+Balancing-Änderung wirkt auf jedes vorhandene Exemplar statt nur auf neue.
+
+Nachgezogen wurden alle drei Fassungen: `.specify/memory/constitution.md` (die vom Werkzeug gelesene),
+`constitution.md` und `minecraft-rpg-spec/minecraft-rpg-spec/constitution.md`. Eine stehengelassene
+Quellfassung wäre die nächste Divergenz gewesen.
+
+**Auswirkung insgesamt.** B11 ist deutlich kleiner als sein Steckbrief: kein Ausrüstungssystem,
+keine Kontoführung, keine zweite Lagerung, kein zweiter Kaufmechanismus. Was bleibt, ist das Item
+als Datenobjekt, zwei Kategorien, die Beute, die NPCs und der Verschleiß. Die Spec schreibt diese
+Abgrenzung als prüfbare Anforderung fest (FR-079 bis FR-081), weil bei einem verkleinerten Block das
+versehentliche Nachbauen vorhandener Nähte der wahrscheinlichste Fehler ist.
