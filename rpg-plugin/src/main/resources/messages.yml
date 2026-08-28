@@ -493,11 +493,35 @@ item:
   # Die fünf Ablehnungen (FR-037). Jede hat ihre eigene Meldung: "geht nicht" ist keine Antwort,
   # und ein Spieler, der den Grund nicht erfährt, hält den Trank für kaputt.
   refused:
-    level: "&cDafür bist du noch nicht hoch genug."
-    class: "&cDas ist nichts für deine Klasse."
-    cooldown: "&cNoch {seconds} Sekunden."
-    no-effect: "&7Das würde gerade nichts bringen."
-    unknown: "&7Damit lässt sich nichts anfangen."
+    level: '&cYou are not high enough level for that.'
+    class: '&cThat is not for your class.'
+    cooldown: '&c{seconds} seconds to go.'
+    no-effect: '&7That would do nothing right now.'
+    unknown: '&7There is nothing you can do with that.'
+
+  # Der Händler (FR-057 bis FR-065). Das Fenster zeichnet Vanilla-Materialien und holt jede
+  # sichtbare Zeile von hier - B13 tauscht später die Darstellung, ohne dass ein Schlüssel sich
+  # ändert. Jede Ablehnung nennt ihren Grund, aus demselben Grund wie oben bei den Tränken.
+  vendor:
+    title: 'Merchant'
+    sell: '&eSell'
+    # Je Leiter einer. B07 kennt genau zwei, und sie verschleißen getrennt - ein gemeinsamer Knopf
+    # müsste raten, welche gemeint ist.
+    repair:
+      armor-ladder: '&eRepair armour'
+      weapon-ladder: '&eRepair weapon'
+    upgrade:
+      armor-ladder: '&eUpgrade armour'
+      weapon-ladder: '&eUpgrade weapon'
+    price: '&6{price} coins'
+    price-short: '&c{price} coins'
+    sold: '&aSold for {amount} coins.'
+    bought: '&aBought for {amount} coins.'
+    not-sellable: '&cHe will not take that.'
+    bound: '&cYour class equipment stays with you.'
+    not-in-stock: '&cHe does not carry that here.'
+    not-enough: '&cYou do not have that many coins.'
+    no-room: '&cThere is no room in your inventory.'
 
   potion:
     minor-healing:

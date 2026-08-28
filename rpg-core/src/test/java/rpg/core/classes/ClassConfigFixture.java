@@ -17,7 +17,7 @@ import rpg.core.stats.Attribute;
  * <p>Deliberately a mutable map of plain values, not a builder of typed objects: the promises under
  * test are exactly the ones that stand between untyped configuration and typed definition.
  */
-final class ClassConfigFixture {
+public final class ClassConfigFixture {
 
     private ClassConfigFixture() {}
 
@@ -28,7 +28,7 @@ final class ClassConfigFixture {
      * Testing the binder alone would skip the "field missing" case, which is the one an operator hits
      * most often. Same reasoning as {@code ProgressionConfigSchemaTest} in B06.
      */
-    static ClassConfig bind(Map<String, Object> classes) throws Exception {
+    public static ClassConfig bind(Map<String, Object> classes) throws Exception {
         Map<String, Object> document = new LinkedHashMap<>();
         document.put("classes", classes);
         ConfigSchema<ClassConfig> schema = ClassConfigSchema.schema();
@@ -36,7 +36,7 @@ final class ClassConfigFixture {
     }
 
     /** A configuration that must load: three classes, ladders of 5/6, 6/6 and 7/7. */
-    static Map<String, Object> valid() {
+    public static Map<String, Object> valid() {
         Map<String, Object> classes = new LinkedHashMap<>();
         classes.put("WARRIOR", warrior());
         classes.put("ROGUE", rogue());

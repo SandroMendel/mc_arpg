@@ -180,6 +180,19 @@ public class RpgPlugin extends JavaPlugin {
      * der B08s Buffs ablaufen lässt, und genau das ist die Zusage aus FR-034.
      */
     private rpg.core.item.ConsumableBuffs consumableBuffs;
+
+    /** B11s Händler — der Zuhörer und die gesetzten NPCs (US4). */
+    private rpg.platform.item.VendorListener vendorListener;
+
+    private rpg.platform.item.VendorNpc vendorNpcs;
+
+    /**
+     * Wie weit neben dem Ankunftspunkt der Händler steht.
+     *
+     * <p>Zwei Blöcke: nah genug, um ihn beim Ankommen zu sehen, weit genug, um nicht in ihm zu
+     * stehen.
+     */
+    private static final double VENDOR_OFFSET = 2.0;
     /** Der selbst neu eingeplante Durchlauf je bevoelkerter Zone (B10, US2/US3). */
     private rpg.platform.mob.HordeSweep mobSweep;
     private rpg.persistence.zone.ZonePersistenceModule zonePersistenceModule;
@@ -311,6 +324,14 @@ public class RpgPlugin extends JavaPlugin {
         // Tick laeuft - kein weiterer Umweg ueber den Scheduler noetig.
         if (mobSweep != null) {
             mobSweep.shutdown();
+        }
+        // Die offenen Haendlerfenster vergessen. Es haengt kein Vorgang daran - genau das ist die
+        // Zusage aus FR-065 -, also ist das Vergessen alles, was zu tun ist.
+        if (vendorListener != null) {
+            vendorListener.clear();
+        }
+        if (vendorNpcs != null) {
+            vendorNpcs.clear();
         }
         // Bounded by 10s per module inside ModuleBootstrap (FR-012, SC-007): a module that hangs is
         // abandoned on a daemon thread instead of blocking the server's shutdown indefinitely.
@@ -1419,6 +1440,12 @@ public class RpgPlugin extends JavaPlugin {
                                         zoneCombatLogout.onSessionEnding(playerId, characterId));
                 zoneTracker.forgetHolder(playerId).ifPresent(zoneForget::accept);
                 zoneForgetPlayer.accept(playerId);
+                if (vendorListener != null) {
+                    // Dieselbe Stelle und derselbe Grund: eine Karte je Spieler, die sonst bis zum
+                    // Neustart waechst. Und ein eigener Quit-Zuhoerer waere ein zweiter Weg in den
+                    // Sitzungslebenszyklus, den B01s Waechter zu Recht verbietet.
+                    vendorListener.forget(playerId);
+                }
                 if (abilityLandings != null) {
                     // Wer mitten im Sprung geht, kommt beim naechsten Login auf dem Boden an - und
                     // ein Aufprall mitten in einen Login hinein ist nicht, was die Faehigkeit meint.
@@ -2032,11 +2059,102 @@ public class RpgPlugin extends JavaPlugin {
         itemDropVisibility = dropRegistry;
 
         wireConsumables(stats, itemFactory);
+        wireVendors(itemFactory);
 
         getLogger()
                 .info(
                         "[item] phase=START state=LOOT_ARMED - loot belongs to one character,"
                                 + " and in a party it rotates (FR-026b)");
+    }
+
+    /**
+     * Der Händler: einer je Region, und beide Kaufwege gehen durch die vorhandenen Routen (US4).
+     *
+     * <p><b>Er ist kein Mob.</b> Er wird nie in B10s {@code HordeRegistry} eingetragen und zählt
+     * deshalb nicht gegen das Budget (FR-059) — das folgt daraus, dass B10 nur zählt, was B10 selbst
+     * gesetzt hat, und ist keine Ausnahme, die jemand pflegen muss.
+     *
+     * <p><b>Zwei Nähte, beide auf vorhandene Blöcke gerichtet</b> (FR-079): der Stufenaufstieg ist
+     * B08bs {@code EquipmentPurchase::buyNext}, die Bindungsfrage ist B07s
+     * {@code BoundEquipment::isBound}. Beide werden hier verknüpft und nirgends nachgebaut.
+     */
+    private void wireVendors(rpg.platform.item.ItemStackFactory itemFactory) {
+        rpg.core.currency.Currency currency = registry.getService(rpg.core.currency.Currency.class);
+        rpg.core.classes.BoundEquipment boundEquipment =
+                classesModule.boundEquipment();
+        rpg.core.currency.EquipmentPurchase tierPurchase =
+                new rpg.core.currency.EquipmentPurchase(
+                        classesModule.tierAdvance(),
+                        currency,
+                        this::classOfCharacter,
+                        classesModule::progressOf,
+                        getLogger());
+
+        rpg.core.item.VendorTransaction transactions =
+                new rpg.core.item.VendorTransaction(
+                        itemModule::config,
+                        currency,
+                        // Platz im Inventar - gefragt VOR der Buchung (FR-064). Ohne Spieler online
+                        // gibt es kein Inventar, und dann kommt der Kauf ohnehin nicht zustande.
+                        (characterId, templateKey, amount) ->
+                                onlinePlayerOfCharacter(characterId)
+                                        .map(player -> player.getInventory().firstEmpty() >= 0)
+                                        .orElse(false));
+
+        vendorListener =
+                new rpg.platform.item.VendorListener(
+                        itemModule::config,
+                        new rpg.platform.item.VendorMenu(itemFactory, messages),
+                        transactions,
+                        tierPurchase::buyNext,
+                        boundEquipment::isBound,
+                        currency,
+                        itemFactory,
+                        this::activeCharacterOf,
+                        messages,
+                        getLogger());
+        getServer().getPluginManager().registerEvents(vendorListener, this);
+
+        vendorNpcs = new rpg.platform.item.VendorNpc(getLogger());
+        placeVendors();
+    }
+
+    /**
+     * Setzt je Region mit Safe-Core einen Händler, ein paar Schritte neben dem Ankunftspunkt.
+     *
+     * <p><b>Neben, nicht auf.</b> Wer nach einer Reise ankommt, soll nicht in einem Dorfbewohner
+     * stehen — und der Ankunftspunkt ist der einzige Ort, den B09 je Region kennt.
+     */
+    private void placeVendors() {
+        int placed = 0;
+        for (rpg.core.zone.Zone zone : zoneModule.zones().all()) {
+            java.util.Optional<rpg.core.scheduler.WorldPosition> point =
+                    zoneModule.zones().respawnPointOf(zone.key());
+            if (point.isEmpty()) {
+                continue;
+            }
+            org.bukkit.World world = getServer().getWorld(point.get().worldId());
+            if (world == null) {
+                getLogger()
+                        .warning(
+                                "[item] vendor: the world of "
+                                        + zone.key()
+                                        + " is not loaded - no merchant there this session");
+                continue;
+            }
+            org.bukkit.Location where =
+                    new org.bukkit.Location(
+                            world, point.get().x() + VENDOR_OFFSET, point.get().y(), point.get().z());
+            if (vendorNpcs.place(where, zone.key()).isPresent()) {
+                placed++;
+            }
+        }
+        getLogger()
+                .info(
+                        "[item] phase=START state=VENDORS_PLACED count="
+                                + placed
+                                + " - one per region, none of them counted against the mob budget"
+                                + " (FR-057, FR-059)");
     }
 
     /**

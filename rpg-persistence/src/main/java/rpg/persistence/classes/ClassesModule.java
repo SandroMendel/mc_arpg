@@ -292,7 +292,14 @@ public final class ClassesModule implements Module {
         return Optional.ofNullable(live.get(characterId)).map(Live::characterClass);
     }
 
-    Optional<ClassProgress> progressOf(UUID characterId) {
+    /**
+     * The reached tiers of a character currently online, or empty.
+     *
+     * <p>Public since B11, and for the same reason {@link #classOf} became public in B08: the vendor
+     * builds {@code EquipmentPurchase} - B08b's tier-buying route - and that route needs this read.
+     * Still a read of live session state, not a query.
+     */
+    public Optional<ClassProgress> progressOf(UUID characterId) {
         return Optional.ofNullable(live.get(characterId)).map(Live::progress);
     }
 

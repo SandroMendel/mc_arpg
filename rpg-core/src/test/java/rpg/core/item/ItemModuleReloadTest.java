@@ -129,18 +129,20 @@ class ItemModuleReloadTest {
                 LOGGER, messages(), ItemModuleReloadTest::zones, () -> Set.of("greenfields.rotling"), handle);
     }
 
+    /**
+     * Eine Textsammlung, die <b>jeden</b> Schlüssel kennt, den dieser Block ausgeben kann.
+     *
+     * <p>Gebaut aus {@link ItemMessageKeys#all}, nicht von Hand aufgezählt. Der handgeschriebene
+     * Vorgänger war beim ersten neuen Schlüssel unvollständig — und die Prüfung, die er umgehen
+     * sollte, ist genau die, die einen fehlenden Text beim Start meldet. Ein Prüfstand, der ihr
+     * ausweicht, prüft weniger, als er behauptet.
+     */
     private static Messages messages() {
-        return new MapMessages(
-                Map.of(
-                        "item.potion.test.name", "Test Potion",
-                        "item.rarity.common.name", "Common",
-                        "item.rarity.uncommon.name", "Uncommon",
-                        "item.rarity.rare.name", "Rare",
-                        "item.rarity.epic.name", "Epic",
-                        "item.rarity.legendary.name", "Legendary",
-                        "item.rarity.mythic.name", "Mythic",
-                        "item.rarity.divine.name", "Divine",
-                        "item.rarity.special.name", "Special"));
+        Map<String, String> texts = new java.util.LinkedHashMap<>();
+        for (rpg.core.message.MessageKey key : ItemMessageKeys.all(Set.of("potion.test"))) {
+            texts.put(key.value(), key.value());
+        }
+        return new MapMessages(texts);
     }
 
     /** Eine Zonenabfrage, die genau eine Region kennt — mehr braucht die Prüfung nicht. */

@@ -482,25 +482,27 @@ class FullBootstrapTest {
 
     @Test
     void everyClassEventHasItsHandler() {
-        // Four handlers sit on InventoryClickEvent, each with its own job: the equipment lock
+        // Five handlers sit on InventoryClickEvent, each with its own job: the equipment lock
         // refuses to move a bound item (ADR-018), the class selection refuses everything while its
         // menu is open, and B08b's currency window refuses everything while its own is - a ledger
         // row is a fact, not an item somebody can pocket (ADR-028). B09's waypoint window is the
-        // fourth, for the same reason and under the same temporary licence (ADR-032).
+        // fourth, for the same reason and under the same temporary licence (ADR-032). B11's vendor
+        // is the fifth: a window where stacks can be moved is a window items can be taken from
+        // without paying (FR-060 to FR-064).
         //
         // Counted rather than merely "at least one": a handler that quietly disappears is how a
         // bound item becomes removable, and nobody notices until it has happened in play.
         assertThat(handlerCount(org.bukkit.event.inventory.InventoryClickEvent.getHandlerList()))
-                .as("the equipment lock, the class selection, the currency and waypoint windows")
-                .isEqualTo(4);
+                .as("the equipment lock, the class selection, the currency, waypoint and vendor windows")
+                .isEqualTo(5);
         assertThat(handlerCount(org.bukkit.event.player.PlayerDropItemEvent.getHandlerList()))
                 .as("dropping is off for every item, bound or not (ADR-018)")
                 .isEqualTo(1);
         assertThat(handlerCount(org.bukkit.event.inventory.InventoryCloseEvent.getHandlerList()))
                 .as(
-                        "the class selection reopens itself; the currency and waypoint windows just"
-                                + " forget their state")
-                .isEqualTo(3);
+                        "the class selection reopens itself; the currency, waypoint and vendor windows"
+                                + " just forget their state")
+                .isEqualTo(4);
     }
 
     // --- character inventory (B07 groundwork for B11) ---------------------
