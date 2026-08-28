@@ -141,9 +141,17 @@ keine Erweiterung, sondern das fehlende Gegenstück zu ADR-013 — seit die
 Vanilla-Regeneration abgeschaltet ist, heilte ein verwundeter Spieler
 buchstäblich nie wieder.
 
-**Drei Mechaniken bleiben bis B09/B10 unvollständig**, und das steht im Javadoc
-statt still zu sein: der Klon zieht keine Aggro, die Unsichtbarkeit wendet keine
-Mobs ab, und Zweites Leben prüft nicht auf Instanzen.
+**Eine der drei Mechaniken ist mit B10 geschlossen** (SC-009): der Klon zieht
+jetzt Aggro. `CloneAggroListener` lenkt `EntityTargetLivingEntityEvent` um,
+sobald eine Kreatur des Blocks einen Spieler wählt, für den gerade ein Klon in
+Reichweite steht — nicht über `Mob.setTarget` gegen Vanilla, das hätte dieselbe
+Wahl im nächsten Durchlauf sofort zurückgenommen, wie schon bei der
+Blockhaltung des Warriors.
+
+**Zwei bleiben unvollständig**, und das steht weiterhin im Javadoc statt still
+zu sein: die Unsichtbarkeit wendet keine Mobs ab, und Zweites Leben prüft nicht
+auf Instanzen — Letzteres hängt an einer Instanzwelt, die es nach ADR-006 noch
+nicht gibt, und gehört zum späteren Dungeon-Boss, nicht zu B10.
 
 ### Offen bis ein Server läuft
 

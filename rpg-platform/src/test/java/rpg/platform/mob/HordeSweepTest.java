@@ -64,8 +64,10 @@ class HordeSweepTest {
                         server,
                         scheduler,
                         () -> zones,
+                        new FakeZonePresence(server, zones),
                         () -> config,
                         registry,
+                        new java.util.HashMap<>(),
                         holderId -> false, // niemand ist im Kampf, sofern ein Test nichts anderes tut
                         placer,
                         clock,

@@ -169,6 +169,8 @@ public class RpgPlugin extends JavaPlugin {
     private rpg.core.zone.Teleporter zoneTeleporter;
     private rpg.core.zone.RespawnRouting zoneRespawnRouting;
     private rpg.core.zone.CombatLogoutRule zoneCombatLogout;
+    /** Haelt B10 die Tuer offen, um den Klon-Aggro-Umlenker einzuhaengen (B10, US7). */
+    private rpg.core.ability.effect.SummonEffect summonEffect;
     /** Cleans up after a character that left - the level-band guard's repeat block. */
     private java.util.function.Consumer<java.util.UUID> zoneForget = characterId -> {};
 
@@ -359,6 +361,10 @@ public class RpgPlugin extends JavaPlugin {
         // B09s per-zone name keys are NOT listed here: the zone keys are only known once
         // zones.yml has been read, so ZoneModule.start verifies them itself (FR-003c).
         declared.addAll(ZoneMessageKeys.all(List.of()));
+        // Dieselbe Bauart fuer B10: die Artnamen sind erst nach mobs.yml bekannt, und
+        // MobModule.start prueft sie selbst (verifyNamesExist). Hier steht nur der feste
+        // Schluessel NAMEPLATE, damit auch er in der allgemeinen Liste steht.
+        declared.addAll(rpg.core.mob.MobMessageKeys.all(List.of()));
         MessageKeyValidator.verifyAllPresent(loaded, declared);
 
         getLogger().info("[messages] " + declared.size() + " declared key(s) resolved");
@@ -944,8 +950,7 @@ public class RpgPlugin extends JavaPlugin {
         // silently absent.
         rpg.platform.ability.PaperSummons summons =
                 new rpg.platform.ability.PaperSummons(getServer(), scheduler, getLogger());
-        rpg.core.ability.effect.SummonEffect summonEffect =
-                new rpg.core.ability.effect.SummonEffect(summons);
+        summonEffect = new rpg.core.ability.effect.SummonEffect(summons);
         // Was der Klon hinterlaesst, wenn er geht (FR-016c). Aufgeloest wird um IHN herum, nicht um
         // den Rogue: dass die beiden auseinanderstehen, ist der ganze Zweck der Faehigkeit.
         summonEffect.setFarewell(
@@ -1601,6 +1606,14 @@ public class RpgPlugin extends JavaPlugin {
                         view ->
                                 experienceBar.show(
                                         player.getUniqueId(), view.level(), view.fraction()));
+        // B09/B10: the real entry point a player takes - through the selection menu - never called
+        // this before. onSessionReady calls placeInZone too, but always too early for a session that
+        // still needs a class chosen: no character is active there yet, so it silently does nothing.
+        // Without this, a returning player's holder-to-character mapping in ZoneTracker never gets
+        // established at all, which is invisible everywhere that only reads the character-keyed zone
+        // (walking still updates it), but breaks anything reading it by holder id - including B10's
+        // player count per zone.
+        placeInZone(player);
         return true;
     }
 
@@ -1855,6 +1868,10 @@ public class RpgPlugin extends JavaPlugin {
         suppressor.applyTo(getServer());
         getServer().getPluginManager().registerEvents(suppressor, this);
 
+        getServer()
+                .getPluginManager()
+                .registerEvents(new rpg.platform.mob.DaylightBurnSuppressor(), this);
+
         rpg.platform.mob.PaperMobPlacer placer = new rpg.platform.mob.PaperMobPlacer(getLogger());
         CombatPipeline mobCombatPipeline = registry.getService(CombatPipeline.class);
         mobSweep =
@@ -1862,8 +1879,10 @@ public class RpgPlugin extends JavaPlugin {
                         getServer(),
                         scheduler,
                         zoneModule::zones,
+                        zoneTracker,
                         mobModule::config,
                         mobModule.registry(),
+                        mobModule.bosses(),
                         // B05 rechnet den Kampfzustand ohnehin lazy aus Zeitstempeln - eine zweite
                         // Buchfuehrung waere eine zweite Wahrheit (FR-022, research.md).
                         mobCombatPipeline::isInCombat,
@@ -1876,6 +1895,15 @@ public class RpgPlugin extends JavaPlugin {
         // mehr, das dieser Zuhoerer sehen koennte (etwa nach einem /rpg reload waehrend Betrieb
         // waere das nicht noetig, aber beim allerersten Start schon).
         mobSweep.ensureScheduledForPopulatedZones();
+
+        // US7: die letzte offene Zusage aus B08 - solange ein Klon steht, ziehen eigene
+        // Kreaturen ihn an statt des Rogue (FR-039 bis FR-041, research.md R9). Nach
+        // assembleAbilityLayer(), das summonEffect erst anlegt.
+        rpg.platform.mob.CloneAggroListener cloneAggro =
+                new rpg.platform.mob.CloneAggroListener(
+                        getServer(), mobModule::config, Clock.systemUTC());
+        getServer().getPluginManager().registerEvents(cloneAggro, this);
+        summonEffect.setAggressionRedirect(cloneAggro::registerClone);
 
         getLogger()
                 .info(
@@ -2112,22 +2140,19 @@ public class RpgPlugin extends JavaPlugin {
      */
     public boolean enterCharacter(
             org.bukkit.entity.Player player, rpg.core.session.PlayerCharacter character) {
-        boolean entered = characterEntry != null && characterEntry.enter(player, character);
-        if (entered) {
-            // Switching character has to re-establish the zone assignment: the tracker keys on the
-            // character, and the new one has never been placed. A character switch is not a Bukkit
-            // event, so this is the one place that can say it happened (FR-017).
-            placeInZone(player);
-        }
-        return entered;
+        // The zone placement (FR-017) lives inside enterGameState itself now, so it happens the same
+        // way here and through the real selection menu - not as a second step only this method knew
+        // to take.
+        return characterEntry != null && characterEntry.enter(player, character);
     }
 
     /**
      * Places whoever this player is currently playing into their region (FR-017).
      *
-     * <p>Called from the session observer and from {@link #enterCharacter} - the two moments a
-     * holder's character can change. Doing nothing without a character is deliberate: before the
-     * class selection there is nobody to place.
+     * <p>Called from the session observer and from {@code enterGameState} - the two moments a
+     * holder's character can change. The first finds nobody to place for a session that still needs
+     * a class chosen: no character is active yet at that point, so this silently does nothing and
+     * the second call - once a character actually enters play - is what places them for real.
      */
     private void placeInZone(org.bukkit.entity.Player player) {
         if (zoneTracker == null) {

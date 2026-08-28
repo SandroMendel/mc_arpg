@@ -148,6 +148,8 @@ mob:
       name: 'Shifting Swarm'
     dune-hexer:
       name: 'Dune Hexer'
+    dune-warlord:
+      name: 'Warlord of the Dunes'
 
   safari-plains:
     plains-raider:
@@ -166,6 +168,8 @@ mob:
       name: 'Raid Marauder'
     raid-caller:
       name: 'Raid Caller'
+    savanna-overlord:
+      name: 'Overlord of the Savanna'
 
   terracotta-canyons:
     canyon-archer:
@@ -184,6 +188,8 @@ mob:
       name: 'Canyon Vanguard'
     hollow-wanderer:
       name: 'Hollow Wanderer'
+    canyon-warden:
+      name: 'Warden of the Canyon'
 
   darkforest:
     rotwood-shambler:
@@ -202,6 +208,8 @@ mob:
       name: 'Thicket Vanguard'
     night-glider:
       name: 'Night Glider'
+    gloom-sovereign:
+      name: 'Sovereign of Gloom'
 
   pale-wilds:
     pale-skeleton:
@@ -220,6 +228,8 @@ mob:
       name: 'Corrupted Zoglin'
     pale-ooze:
       name: 'Pale Ooze'
+    pale-sovereign:
+      name: 'The Pale Sovereign'
 
 class:
   # Display names. The enum constant stays WARRIOR; "Berserker" is a value here, never in code

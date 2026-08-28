@@ -23,25 +23,28 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityRemoveEvent;
 
 import rpg.core.event.EventBus;
+import rpg.core.mob.BossSpec;
+import rpg.core.mob.BossState;
 import rpg.core.mob.CleanupRule;
+import rpg.core.mob.DensityScaling;
 import rpg.core.mob.HordeRegistry;
 import rpg.core.mob.HordeSpec;
 import rpg.core.mob.MobConfig;
 import rpg.core.mob.MobKind;
 import rpg.core.mob.NearbyChunks;
 import rpg.core.mob.SpawnPlanner;
-import rpg.core.scheduler.EntityRef;
 import rpg.core.scheduler.Scheduler;
 import rpg.core.scheduler.WorldPosition;
 import rpg.core.zone.Cuboid;
 import rpg.core.zone.SpawnArea;
 import rpg.core.zone.Zone;
 import rpg.core.zone.ZoneChangedEvent;
+import rpg.core.zone.ZonePresence;
 import rpg.core.zone.Zones;
-import rpg.platform.zone.BukkitPositions;
 
 /**
  * Der selbst neu eingeplante Einmal-Durchlauf je bevoelkerter Zone (R4). Nachsetzen und Aufraeumen
@@ -70,6 +73,7 @@ public final class HordeSweep implements Listener {
     private final Server server;
     private final Scheduler scheduler;
     private final Supplier<Zones> zones;
+    private final ZonePresence zonePresence;
     private final Supplier<MobConfig> config;
     private final HordeRegistry registry;
     private final Predicate<UUID> inCombat;
@@ -90,12 +94,25 @@ public final class HordeSweep implements Listener {
     /** Der wiederverwendete raeumliche Index je Zone (research.md R3a) - eine Zuweisung je Zone. */
     private final java.util.Map<String, NearbyChunks> nearbyByZone = new ConcurrentHashMap<>();
 
+    /**
+     * Ob ein Boss lebt und wann der letzte gefallen ist, je Zone (US5, FR-029, FR-031).
+     *
+     * <p><b>Geliehen, nicht angelegt.</b> Dieselbe Karte wie {@code MobModule.bosses()} - die
+     * oeffentliche Abfrage {@code Hordes.bossOf(zoneKey)} (contracts/mob-api.md §3) liest genau
+     * diese Instanz. Eine zweite, eigene Karte haette hier lautlos einen zweiten, nie gesehenen
+     * Bosszustand gefuehrt: die Abfrage haette immer "kein Boss" geantwortet, ganz gleich, was
+     * dieser Durchlauf tatsaechlich gesetzt hat.
+     */
+    private final java.util.Map<String, BossState> bossStates;
+
     public HordeSweep(
             Server server,
             Scheduler scheduler,
             Supplier<Zones> zones,
+            ZonePresence zonePresence,
             Supplier<MobConfig> config,
             HordeRegistry registry,
+            java.util.Map<String, BossState> bossStates,
             Predicate<UUID> inCombat,
             PaperMobPlacer placer,
             Clock clock,
@@ -103,8 +120,10 @@ public final class HordeSweep implements Listener {
         this.server = Objects.requireNonNull(server, "server");
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
         this.zones = Objects.requireNonNull(zones, "zones");
+        this.zonePresence = Objects.requireNonNull(zonePresence, "zonePresence");
         this.config = Objects.requireNonNull(config, "config");
         this.registry = Objects.requireNonNull(registry, "registry");
+        this.bossStates = Objects.requireNonNull(bossStates, "bossStates");
         this.inCombat = Objects.requireNonNull(inCombat, "inCombat");
         this.placer = Objects.requireNonNull(placer, "placer");
         this.clock = Objects.requireNonNull(clock, "clock");
@@ -125,9 +144,8 @@ public final class HordeSweep implements Listener {
      */
     public void ensureScheduledForPopulatedZones() {
         MobConfig current = config.get();
-        Zones currentZones = zones.get();
         for (String zoneKey : current.hordes().keySet()) {
-            if (countPlayers(zoneKey, currentZones) > 0) {
+            if (countPlayers(zoneKey) > 0) {
                 ensureScheduled(zoneKey);
             }
         }
@@ -151,6 +169,7 @@ public final class HordeSweep implements Listener {
         active.clear();
         emptySince.clear();
         nearbyByZone.clear();
+        bossStates.clear();
     }
 
     private void onZoneChanged(ZoneChangedEvent event) {
@@ -168,8 +187,14 @@ public final class HordeSweep implements Listener {
 
     private void sweep(String zoneKey) {
         boolean keepGoing;
+        MobConfig currentConfig = config.get();
+        Duration nextInterval = currentConfig.respawnInterval();
         try {
-            keepGoing = doSweep(zoneKey);
+            int playersInZone = countPlayers(zoneKey);
+            nextInterval =
+                    DensityScaling.respawnInterval(
+                            currentConfig.respawnInterval(), currentConfig.densityPerPlayer(), playersInZone);
+            keepGoing = doSweep(zoneKey, currentConfig, playersInZone);
         } catch (RuntimeException failure) {
             logFailureOnce(zoneKey, failure);
             // FR-044: eine kaputte Zone darf nicht fuer immer stehenbleiben - der naechste
@@ -177,7 +202,7 @@ public final class HordeSweep implements Listener {
             keepGoing = true;
         }
         if (keepGoing) {
-            scheduler.runAsyncDelayed(config.get().respawnInterval(), () -> sweep(zoneKey));
+            scheduler.runAsyncDelayed(nextInterval, () -> sweep(zoneKey));
         } else {
             active.remove(zoneKey);
         }
@@ -186,12 +211,11 @@ public final class HordeSweep implements Listener {
     /**
      * Ein Durchlauf: aufraeumen, dann - wenn noch jemand da ist - nachsetzen.
      *
+     * @param playersInZone von {@link #sweep} schon ermittelt - eine Zaehlung je Durchlauf reicht
      * @return ob diese Zone weiter beobachtet werden soll, oder ob die Schleife endet
      */
-    private boolean doSweep(String zoneKey) {
+    private boolean doSweep(String zoneKey, MobConfig currentConfig, int playersInZone) {
         Zones currentZones = zones.get();
-        MobConfig currentConfig = config.get();
-        int playersInZone = countPlayers(zoneKey, currentZones);
 
         if (playersInZone <= 0) {
             // FR-019, geprueft bevor irgendetwas gerechnet wird: solange die Kulanzfrist laeuft,
@@ -205,14 +229,14 @@ public final class HordeSweep implements Listener {
             if (!abandoned) {
                 return true;
             }
-            cleanup(zoneKey, currentConfig, true);
+            cleanup(zoneKey, currentConfig, true, currentZones);
             emptySince.remove(zoneKey);
             nearbyByZone.remove(zoneKey);
             return false;
         }
 
         emptySince.remove(zoneKey);
-        cleanup(zoneKey, currentConfig, false);
+        cleanup(zoneKey, currentConfig, false, currentZones);
 
         Optional<HordeSpec> horde = currentConfig.horde(zoneKey);
         if (horde.isEmpty()) {
@@ -221,11 +245,114 @@ public final class HordeSweep implements Listener {
         }
         int serverTotalElsewhere = registry.total() - registry.countIn(zoneKey);
         int zoneTotal = registry.countIn(zoneKey);
-        Optional<SpawnPlanner.Decision> decision =
-                SpawnPlanner.plan(
-                        horde, currentConfig.budget(), serverTotalElsewhere, zoneTotal, playersInZone, random);
-        decision.ifPresent(d -> place(zoneKey, currentConfig, horde.get(), d, currentZones));
+        // FR-025, FR-027: min(zieldichte, budget) - die Zieldichte entscheidet hier, OB ueberhaupt
+        // geplant wird; das Budget entscheidet in SpawnPlanner unveraendert, ob es erlaubt ist.
+        int target =
+                DensityScaling.targetDensity(
+                        currentConfig.budget(), currentConfig.densityPerPlayer(), playersInZone, serverTotalElsewhere);
+        if (zoneTotal < target) {
+            Optional<SpawnPlanner.Decision> decision =
+                    SpawnPlanner.plan(
+                            horde, currentConfig.budget(), serverTotalElsewhere, zoneTotal, playersInZone, random);
+            decision.ifPresent(d -> place(zoneKey, currentConfig, horde.get(), d, currentZones));
+        }
+        BossSpec bossSpec = horde.get().boss();
+        if (bossSpec != null) {
+            maybeSpawnBoss(zoneKey, currentConfig, bossSpec, currentZones, playersInZone);
+        }
         return true;
+    }
+
+    /**
+     * Ob jetzt ein Boss erscheinen soll (US5, FR-029 bis FR-033): keiner lebt, der Timer ist
+     * abgelaufen, und das Budget seiner Zone laesst noch einen weiteren Platz zu - der Boss zaehlt
+     * darin mit, er bekommt keinen eigenen (FR-033).
+     */
+    private void maybeSpawnBoss(
+            String zoneKey,
+            MobConfig currentConfig,
+            BossSpec bossSpec,
+            Zones currentZones,
+            int playersInZone) {
+        BossState state = bossStates.computeIfAbsent(zoneKey, BossState::new);
+        if (!state.mayAppear(Instant.now(clock), bossSpec.respawn())) {
+            return;
+        }
+        int serverTotal = registry.total();
+        int zoneTotal = registry.countIn(zoneKey);
+        if (!currentConfig.budget().allows(serverTotal, zoneTotal, 0, playersInZone)) {
+            // Der grobe Vorabcheck ohne Chunk-Zahl - die Chunk-Grenze entscheidet erst im Tick,
+            // sobald der tatsaechliche Ort feststeht (derselbe Aufbau wie bei einer gewoehnlichen
+            // Kreatur in placeInTick).
+            return;
+        }
+        Optional<MobKind> kind = currentConfig.kind(bossSpec.kindKey());
+        Optional<Zone> zone = currentZones.byKey(zoneKey);
+        if (kind.isEmpty() || zone.isEmpty()) {
+            return;
+        }
+        SpawnArea area = areaByKey(zone.get(), bossSpec.areaKey());
+        if (area == null) {
+            return;
+        }
+        UUID worldId = zone.get().worldId();
+        Cuboid routing = area.area().parts().get(0);
+        WorldPosition routingHint =
+                new WorldPosition(
+                        worldId,
+                        routing.minX() + bossSpec.offsetX(),
+                        Math.max(routing.minY(), 64),
+                        routing.minZ() + bossSpec.offsetZ());
+        scheduler.runSyncAtLocation(
+                routingHint,
+                () -> placeBossInTick(zoneKey, currentConfig, kind.get(), area, bossSpec, worldId, state));
+    }
+
+    private void placeBossInTick(
+            String zoneKey,
+            MobConfig currentConfig,
+            MobKind kind,
+            SpawnArea area,
+            BossSpec bossSpec,
+            UUID worldId,
+            BossState state) {
+        World world = server.getWorld(worldId);
+        if (world == null || state.alive().isPresent()) {
+            // Zwischen dem Einplanen und diesem Tick koennte ein anderer Durchlauf schon gesetzt
+            // haben - derselbe Race-Schutz wie das erneute Chunk-Budget unten.
+            return;
+        }
+        Location location = bossLocationIn(area, bossSpec, world);
+        long chunkKey = NearbyChunks.packBlock(location.getBlockX(), location.getBlockZ());
+        if (registry.countInChunk(chunkKey) >= currentConfig.budget().perChunk()) {
+            return;
+        }
+        placer.place(kind, location, zoneKey)
+                .ifPresent(
+                        entity -> {
+                            registry.add(
+                                    new HordeRegistry.Entry(
+                                            entity.getUniqueId(),
+                                            kind.key(),
+                                            zoneKey,
+                                            chunkKey,
+                                            Instant.now(clock)));
+                            state.placed(entity.getUniqueId());
+                        });
+    }
+
+    /** Der Bereichsschluessel plus Versatz, deterministisch - kein Wuerfeln wie bei einer Horde (research.md R10). */
+    private Location bossLocationIn(SpawnArea area, BossSpec bossSpec, World world) {
+        Cuboid part = area.area().parts().get(0);
+        double x = part.minX() + bossSpec.offsetX();
+        double z = part.minZ() + bossSpec.offsetZ();
+        double y;
+        if (part.boundedVertically()) {
+            y = part.minY() + bossSpec.offsetY();
+        } else {
+            y = world.getHighestBlockYAt((int) Math.floor(x), (int) Math.floor(z)) + 1 + bossSpec.offsetY();
+        }
+        return new Location(world, x + 0.5, y, z + 0.5);
     }
 
     /**
@@ -237,14 +364,26 @@ public final class HordeSweep implements Listener {
      * Spieler ab, gleich in welcher Zone er steht. Derselbe Puffer wird wiederverwendet statt neu
      * angelegt (research.md R3a).
      */
-    private void cleanup(String zoneKey, MobConfig currentConfig, boolean zoneAbandoned) {
+    private void cleanup(
+            String zoneKey, MobConfig currentConfig, boolean zoneAbandoned, Zones currentZones) {
         NearbyChunks nearby = nearbyByZone.computeIfAbsent(zoneKey, key -> new NearbyChunks());
         nearby.clear();
         for (Player player : server.getOnlinePlayers()) {
             Location at = player.getLocation();
             nearby.stampAround(at.getBlockX(), at.getBlockZ(), currentConfig.cleanupRadius());
         }
-        for (HordeRegistry.Entry entry : registry.all()) {
+        Optional<Zone> zone = currentZones.byKey(zoneKey);
+        if (zone.isEmpty()) {
+            // Ein Nachladen kann die Zone entfernt haben - ohne Welt keine Position zum Entfernen.
+            return;
+        }
+        UUID worldId = zone.get().worldId();
+        // Eine Momentaufnahme, nicht die lebende Sicht: removeEntity() loest ueber
+        // onEntityRemove synchron ein registry.remove() aus, und das wuerde die laufende
+        // Iteration ueber registry.all() sonst mit einer ConcurrentModificationException
+        // sprengen, sobald mehr als eine Kreatur in dieser Zone steht (derselbe Grund, aus dem
+        // shutdown() bereits eine Kopie zieht).
+        for (HordeRegistry.Entry entry : List.copyOf(registry.all())) {
             if (!entry.zoneKey().equals(zoneKey)) {
                 continue;
             }
@@ -252,15 +391,28 @@ public final class HordeSweep implements Listener {
                     CleanupRule.shouldRemove(
                             zoneAbandoned, entry.chunkKey(), nearby, inCombat.test(entry.entityId()));
             if (remove) {
-                removeEntity(entry.entityId());
+                removeEntity(entry.entityId(), worldId, entry.chunkKey());
             }
         }
     }
 
-    /** Entfernen entitaetsgebunden ueber B01s Scheduler, nie ueber den globalen (FR-042). */
-    private void removeEntity(UUID entityId) {
-        scheduler.runSyncOnEntity(
-                new EntityRef(entityId),
+    /**
+     * Entfernen ortsgebunden ueber B01s Scheduler, nie ueber den globalen (FR-042).
+     *
+     * <p><b>Ortsgebunden, nicht entitaetsgebunden.</b> {@code cleanup()} laeuft im selbst neu
+     * eingeplanten Durchlauf dieser Klasse, und der ist ein Async-Task (R4) - genau dort darf
+     * {@link org.bukkit.Server#getEntity(UUID)} nicht aufgeloest werden (siehe
+     * {@link rpg.platform.scheduler.PaperSchedulerAdapter#resolve}), also liefe ein entitaetsgebundenes
+     * Einplanen hier IMMER auf einen sofort verworfenen Auftrag hinaus - eine Kreatur ausser Reichweite
+     * wuerde nie tatsaechlich entfernt, nur immer wieder als "weg" markiert. Der grobe Chunk-Mittelpunkt
+     * reicht als Ortsbindung, genau wie {@code placeBossInTick} es fuer das Setzen schon vormacht.
+     */
+    private void removeEntity(UUID entityId, UUID worldId, long chunkKey) {
+        int chunkX = (int) (chunkKey >> 32);
+        int chunkZ = (int) chunkKey;
+        WorldPosition at = new WorldPosition(worldId, chunkX * 16 + 8, 64, chunkZ * 16 + 8);
+        scheduler.runSyncAtLocation(
+                at,
                 () -> {
                     Entity entity = server.getEntity(entityId);
                     if (entity != null) {
@@ -339,11 +491,16 @@ public final class HordeSweep implements Listener {
         return new Location(world, x + 0.5, y, z + 0.5);
     }
 
-    private int countPlayers(String zoneKey, Zones currentZones) {
+    /**
+     * Wie viele Spieler in dieser Zone sind - ueber B09s {@link ZonePresence}, nicht ueber eine
+     * eigene Geometrieaufloesung (research.md, T073). {@code zoneKeyOf} liest nur zwei
+     * Map-Eintraege je Spieler; {@code ZoneTracker} haelt sie ohnehin schon aktuell, weil B09 sie
+     * bei jeder Bewegung nachfuehrt.
+     */
+    private int countPlayers(String zoneKey) {
         int count = 0;
         for (Player player : server.getOnlinePlayers()) {
-            WorldPosition position = BukkitPositions.of(player.getLocation());
-            if (zoneKey.equals(currentZones.zoneKeyAt(position))) {
+            if (zoneKey.equals(zonePresence.zoneKeyOf(player.getUniqueId()))) {
                 count++;
             }
         }
@@ -373,10 +530,39 @@ public final class HordeSweep implements Listener {
         }
     }
 
-    /** Haelt den Bestand ehrlich, wenn eine Kreatur auf einem fremden Weg verschwindet. */
+    /**
+     * Haelt den Bestand ehrlich, wenn eine Kreatur auf einem fremden Weg verschwindet.
+     *
+     * <p>Jede Entfernung ohne Tod ist ein Aufraeumen im Sinn von FR-034 - egal ob durch {@link
+     * #removeEntity}, durch {@link #shutdown}, oder auf einem Weg, den dieser Block nicht selbst
+     * ausgeloest hat. War die entfernte Kreatur ein Boss, bleibt sein Timer unberuehrt: er ist
+     * nicht gefallen (T083).
+     */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
     public void onEntityRemove(EntityRemoveEvent event) {
         Entity entity = event.getEntity();
-        registry.remove(entity.getUniqueId());
+        HordeRegistry.Entry entry = registry.remove(entity.getUniqueId());
+        if (entry != null && event.getCause() != EntityRemoveEvent.Cause.DEATH) {
+            markBossIfNeeded(entry, BossState::cleanedUp);
+        }
+    }
+
+    /**
+     * Setzt den Respawn-Timer, wenn die gestorbene Kreatur ein Boss war - dasselbe Todesereignis
+     * wie jede andere Kreatur, keine Sonderbehandlung im Zuschlagen selbst (T082, FR-031).
+     */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onEntityDeath(EntityDeathEvent event) {
+        HordeRegistry.Entry entry = registry.find(event.getEntity().getUniqueId());
+        if (entry != null) {
+            markBossIfNeeded(entry, state -> state.killed(Instant.now(clock)));
+        }
+    }
+
+    private void markBossIfNeeded(HordeRegistry.Entry entry, java.util.function.Consumer<BossState> action) {
+        config.get()
+                .kind(entry.kindKey())
+                .filter(MobKind::boss)
+                .ifPresent(kind -> action.accept(bossStates.computeIfAbsent(entry.zoneKey(), BossState::new)));
     }
 }

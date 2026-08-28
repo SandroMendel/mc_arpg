@@ -9,6 +9,7 @@ import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Mob;
 
 import rpg.core.mob.MobKind;
 
@@ -68,6 +69,7 @@ public final class PaperMobPlacer {
                                         // Vanilla-Typnamen bewertet.
                                         MobKindTag.mark(entity, kind.key(), zoneKey);
                                         applyFollowRange(entity, kind);
+                                        suppressVanillaDespawn(entity, kind);
                                     });
             return Optional.of(placed);
         } catch (RuntimeException failure) {
@@ -97,6 +99,31 @@ public final class PaperMobPlacer {
             // nicht weiter fuer sie zaehlen.
             logger.warning(
                     () -> "[mob] could not remove " + entity.getUniqueId() + " during cleanup: " + failure);
+        }
+    }
+
+    /**
+     * Sperrt Vanillas eigenen Distanz-Despawn (FR-022).
+     *
+     * <p>Vanilla loescht eine Kreatur nach eigenem Ermessen, sobald sie weit genug von jedem
+     * Spieler entfernt ist - zufallsbasiert schon ab 32 Bloecken, garantiert ab 128 - und weiss
+     * dabei nichts von {@link rpg.core.mob.CleanupRule}s Kampf-Ausnahme. Ohne diese Sperre wuerde
+     * eine Kreatur im Kampf verschwinden, sobald ein Spieler weit genug weg ist, noch bevor der
+     * eigene Sweep sie je gepruefen hat (gefunden auf dem echten Server bei T112, Abschnitt 3.3
+     * Schritt 16).
+     */
+    private void suppressVanillaDespawn(Entity entity, MobKind kind) {
+        if (!(entity instanceof Mob mob)) {
+            return;
+        }
+        try {
+            mob.setRemoveWhenFarAway(false);
+        } catch (RuntimeException failure) {
+            // Wie applyFollowRange: eine Kreatur ohne diese Sperre ist schlechter dran, aber nicht
+            // kaputt - und ein Testdouble, das diesen Aufruf nicht kennt, darf das Setzen nicht
+            // mitreissen (FR-044, Prinzip VI).
+            logger.warning(
+                    () -> "[mob] could not suppress vanilla despawn for " + kind.key() + ": " + failure);
         }
     }
 

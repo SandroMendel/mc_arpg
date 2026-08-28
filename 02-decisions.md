@@ -1636,3 +1636,224 @@ erschöpfend über das Enum geht — und weder über `DeathCause` noch über `Bo
 Beide Werte konnten hinzugefügt werden, ohne dass irgendetwas rot wurde. Was die Stellen tatsächlich
 zeigt, sind zwei geschriebene Zählungen: `DeathCauseLogoutTest` und `WaypointBookingReasonTest`. Wer
 den nächsten Eingriff in ein ausgeliefertes Enum plant, sollte nicht auf den Compiler zählen.
+
+---
+
+## ADR-033: Vanilla-Unterdrückung in zwei Schichten — Spielregeln zuerst, ein Ereignis-Riegel dahinter
+
+**Status:** Angenommen · **Datum:** 2026-08-24 · **Blöcke:** B10
+
+**Kontext.** Der Steckbrief verlangt, dass natürliches Spawning „überall, auch nachts, auch in
+Höhlen" aus ist — B10s Budget soll die einzige Quelle lebender Kreaturen sein (SC-010). Naheliegend
+wäre ein einziger `CreatureSpawnEvent`-Zuhörer, der jeden nicht erlaubten `SpawnReason` abbricht.
+
+**Entscheidung.** Zwei Schichten statt einer, in dieser Reihenfolge:
+
+1. **Sieben Spielregeln je Welt** (`SPAWN_MOBS`, `SPAWN_MONSTERS`, `SPAWN_PATROLS`,
+   `SPAWN_PHANTOMS`, `SPAWN_WANDERING_TRADERS`, `SPAWN_WARDENS`, `SPAWNER_BLOCKS_WORK`), gesetzt beim
+   Start und bei jedem `WorldLoadEvent` erneut — dieselbe Bauart wie `VanillaRegenerationGuard`
+   für die Regenerationsregel.
+2. **Ein `CreatureSpawnEvent`-Riegel** auf `HIGHEST`, der alles abbricht, dessen `SpawnReason` nicht
+   ausdrücklich erlaubt ist (`CUSTOM`, `COMMAND`, `SPAWNER_EGG`, `DISPENSE_EGG` — das absichtliche
+   Setzen aus FR-018d).
+
+**Begründung.** Die Spielregeln halten den Spawner-Durchlauf selbst an — kein Kandidat, kein
+Ereignisobjekt, keine Zuweisung, die einzige Variante, die wirklich nichts kostet. Sie decken aber
+nicht alle gut vierzig `SpawnReason`-Werte ab: Raids, Dorfverteidigung, Netherportale, Jockeys,
+Silberfischblöcke, Verstärkung, Slime-Teilung, Versuchsspawner, Infektion, Ertrunkene hängen an
+keiner Regel. Ohne den Riegel wäre „überall" schlicht falsch, und zwar an Stellen, die ein Test
+nicht zufällig trifft. Der Riegel selbst ist billig, gerade weil die Regeln davor stehen: er sieht
+nach Schicht 1 nur noch die Handvoll Fälle, die durchkommen.
+
+**Verworfen.** Nur der Riegel (zahlt für jeden Kandidaten, den der Spawner erzeugt hätte — genau die
+Last, die dieser Block senken soll). Nur die Regeln (löchrig, siehe oben). `spigot.yml`/`bukkit.yml`
+von Hand (Serverkonfiguration statt Plugin-Konfiguration — eine Zusage, die davon abhängt, dass
+jemand eine fremde Datei richtig ausgefüllt hat, ist keine Zusage). Aufräumen statt Verhindern
+(FR-018f schließt das ausdrücklich aus: eine Kreatur, die erst erscheint und dann entfernt wird, hat
+bereits einen Tick gekostet und war kurz sichtbar).
+
+**Auswirkung.** `VanillaSpawnSuppressor` trägt beide Schichten. Kein Schalter, der die Unterdrückung
+abschalten könnte (entschieden 2026-08-24, `NoSuppressionSwitchTest` hält das maschinell fest) — ein
+Schalter wäre ein Weg, das Budget zu umgehen.
+
+---
+
+## ADR-034: `FOLLOW_RANGE` je Art statt eigener Pfadfindung — die billige Stellschraube vor der Wette
+
+**Status:** Angenommen · **Datum:** 2026-08-26 · **Blöcke:** B10, B15 (späterer Lasttest-Nachweis)
+
+**Kontext.** Der Steckbrief nennt „ggf. vereinfachte AI statt Vanilla-Pathfinding" als
+Architekturvorgabe — mit „ggf.", also als Möglichkeit und nicht als Auftrag. FR-035 bis FR-037
+verlangen trotzdem, dass die Zielsuche gedrosselt und in der Reichweite begrenzt ist.
+
+**Entscheidung.** Kein Ersatz der Vanilla-KI. Stattdessen `Attribute.FOLLOW_RANGE` je Art, aus der
+Konfiguration — der Radius, in dem eine Kreatur überhaupt nach einem Ziel sucht, und damit die
+Stellschraube mit dem größten Hebel: die Suche ist quadratisch im Radius, und Vanillas Standard von
+16 bis 48 Blöcken ist für eine Horde zu großzügig. Dazu, für die eine eigene Zielzuweisung, die
+dieser Block kennt (der Klon aus US7), eine eigene Drosselung (`RetargetThrottle`), die höchstens im
+konfigurierten Abstand wieder anfasst.
+
+**Begründung.** Vanillas Pfadfindung ist bereits stark optimiert und in Server-Nähe gebaut; sie
+durch eigenen Java-Code zu ersetzen ist eine Wette, die man nur eingeht, wenn eine Messung sie
+verlangt. Diese Messung braucht 150 Spieler und 800 Kreaturen und gehört seit ADR-031 zu B15. Bis
+dahin ist die ehrliche Reihenfolge: die billige Stellschraube ziehen, messen, und den Ersatz nur
+bauen, wenn die Zahl ihn fordert. Das ist ausdrücklich **keine Vertagung der Zusage** — FR-035 bis
+FR-037 werden erfüllt, nur mit dem kleinsten Mittel, das sie erfüllt.
+
+**Verworfen.** Vanillas KI ganz abschalten (`setAI(false)`) und selbst steuern — eine Kreatur, die
+nicht mehr fällt, nicht mehr schwimmt und nicht mehr um einen Block herumgeht, ist keine Ersparnis,
+sondern ein anderes Spiel. `entity-activation-range` in `spigot.yml` — Serverkonfiguration, siehe
+ADR-033.
+
+**Auswirkung.** `HordeBudgetBenchmarkTest` misst die eigene Rechenarbeit ohne Volllast (Spawn- und
+Aufräum-Durchlauf bei 130 Kreaturen: 1.300 ns, Budget 1 ms) — das ist die Grundlage, gegen die B15
+später den Ersatz rechtfertigen müsste, sollte die echte Messung ihn verlangen.
+
+---
+
+## ADR-035: Aufräumen ortsgebunden statt entitätsgebunden einplanen
+
+**Status:** Angenommen · **Datum:** 2026-08-28 · **Blöcke:** B10
+
+**Kontext.** T112 (Abschnitt 3.3, Schritt 16) zeigte auf dem echten Server: eine im Kampf getroffene
+Kreatur verschwand trotzdem, weit unter dem 8-Sekunden-Kampffenster aus `combat.yml`. Debug-Logging
+zeigte den Kampfzustand als korrekt gesetzt (`inCombat=true`, `remaining=7.5s`) — die Kreatur wurde
+trotzdem nicht mehr im Log gesehen, ohne dass `HordeSweep.cleanup()` sie je entfernt hätte. Ursache:
+`HordeSweep.sweep()` plant sich über `scheduler.runAsyncDelayed(...)` selbst neu (R4) — `cleanup()`
+läuft also immer auf einem Async-Thread. Der bisherige Code rief dort
+`scheduler.runSyncOnEntity(...)` auf, und `PaperSchedulerAdapter.resolve(UUID)` liefert für eine
+Nicht-Spieler-Entität nur dann etwas zurück, wenn `server.isPrimaryThread()` wahr ist — von einem
+Async-Thread aus also **immer** `null`. Die Aufgabe wurde sofort verworfen, jede Runde aufs Neue,
+ohne dass `registry.remove()` je lief. Unbemerkt blieb das, weil zur selben Zeit Vanillas eigener
+Despawn (siehe ADR-036) dieselben Kreaturen unabhängig entfernte — beide Fehler haben sich
+gegenseitig verdeckt.
+
+**Entscheidung.** `HordeSweep.removeEntity(...)` plant jetzt über `scheduler.runSyncAtLocation(...)`
+ein, mit einer groben Position aus dem Chunk-Mittelpunkt der Kreatur (`entry.chunkKey()`) und der
+Weltkennung ihrer Zone. `server.getEntity(entityId)` wird erst **innerhalb** des Callbacks
+aufgelöst, wenn der richtige Thread schon feststeht — dasselbe Muster, das `placeBossInTick` für das
+Setzen einer Kreatur bereits vormacht.
+
+**Begründung.** Ortsgebundenes Einplanen braucht kein vorher aufgelöstes Entitäts-Handle, nur eine
+Welt und einen groben Ort — beides hat `cleanup()` bereits in der Hand, ohne die Entität selbst
+anzufassen. Das umgeht die Thread-Prüfung strukturell, statt sie zu umgehen: der Callback läuft
+tatsächlich auf dem richtigen (Region-)Thread, `server.getEntity(...)` ist dort ein normaler,
+sicherer Aufruf.
+
+**Verworfen.** `removeEntity` selbst synchron auf den Hauptthread springen lassen und von dort aus
+`runSyncOnEntity` erneut versuchen — ein Umweg über zwei Sprünge für dasselbe Ergebnis, das ein
+Sprung schon liefert. Die Thread-Prüfung in `PaperSchedulerAdapter.resolve` aufweichen oder
+entfernen — sie schützt zu Recht davor, `server.getEntity(...)` von einem Thread aus zu rufen, der
+dafür nicht vorgesehen ist; das Problem lag im Aufrufer, nicht in der Prüfung.
+
+**Auswirkung.** Jeder andere Aufrufer von `scheduler.runSyncOnEntity(...)` im Projekt, der (auch nur
+gelegentlich) aus einem async geplanten Durchlauf heraus aufgerufen wird, hat wahrscheinlich
+denselben Fehler — noch nicht systematisch durchsucht. Vom Nutzer auf dem echten Server verifiziert
+(T112, Abschnitt 3.3, Schritte 14–17 bestanden).
+
+---
+
+## ADR-036: Vanillas eigener Distanz-Despawn wird für eigene Kreaturen gesperrt
+
+**Status:** Angenommen · **Datum:** 2026-08-28 · **Blöcke:** B10
+
+**Kontext.** Noch während der Fehlersuche zu ADR-035 zeigte sich ein zweiter, unabhängiger Fehler:
+selbst mit korrektem Kampfzustand verschwand eine getroffene Kreatur, sobald der Spieler weit genug
+weg war. Grund: `PaperMobPlacer.place()` setzte nie `Mob#setRemoveWhenFarAway(false)`. Vanilla
+löscht eine Kreatur nach eigenem Ermessen, sobald sie weit genug von jedem Spieler entfernt ist
+(zufallsbasiert schon ab 32 Blöcken, garantiert ab 128) — komplett unabhängig von
+`CleanupRule`s Kampf-Ausnahme (FR-022). Die Kreatur wurde also nie durch den eigenen Sweep entfernt,
+sondern durch Vanilla selbst, ohne dass `CleanupRule` je gefragt wurde.
+
+**Entscheidung.** `PaperMobPlacer.place()` ruft beim Setzen einer Kreatur zusätzlich
+`suppressVanillaDespawn(entity, kind)` auf, das `Mob#setRemoveWhenFarAway(false)` in einem eigenen
+`try`/`catch` setzt — genau wie `applyFollowRange` es für die Zielsuchreichweite schon tut.
+
+**Begründung.** Der eigene `try`/`catch` ist kein Vorsichtsreflex: MockBukkit kennt
+`setRemoveWhenFarAway` nicht (`UnimplementedOperationException`) und hätte sonst die gesamte
+Platzierung mitgerissen, weil `place()` jede Laufzeitausnahme im Spawn-Consumer als Fehlschlag
+wertet. Eine Kreatur ohne diese Sperre ist schlechter dran, aber nicht kaputt (FR-044, Prinzip VI).
+
+**Verworfen.** Nichts — die einzige Alternative wäre gewesen, `CleanupRule` um eine
+Vanilla-Distanzprüfung zu ergänzen, aber das Budget kennt seine eigene Reichweite bereits
+(`cleanup-radius`); zwei Mechanismen für dieselbe Frage wären zwei Wahrheiten.
+
+**Auswirkung.** Ohne diese Sperre hätte kein Test — auch kein neuer — den Unterschied zwischen
+„Vanilla hat aufgeräumt" und „`CleanupRule` hat aufgeräumt" je bemerkt, weil beide von außen gleich
+aussehen (die Kreatur ist weg, kein Tod, keine Belohnung). Nur der echte Server zeigt den
+Unterschied, wenn man die Kampf-Ausnahme gezielt prüft (T112, Schritt 16).
+
+---
+
+## ADR-037: Klon-Aggro holt bereits kämpfende Kreaturen aktiv nach
+
+**Status:** Angenommen · **Datum:** 2026-08-28 · **Blöcke:** B10 (Anschluss B08, US7)
+
+**Kontext.** T112 (Abschnitt 3.6, Schritt 30) zeigte: stellt ein Spieler einen Klon erst, **nachdem**
+Kreaturen ihn schon angegriffen haben — der wahrscheinlich häufigste Fall in der Praxis, eine
+Ablenkung mitten im Kampf —, zog der Klon niemanden an. `CloneAggroListener` hing vollständig an
+`EntityTargetLivingEntityEvent`, und Vanilla feuert dieses Ereignis nur bei einer **neuen**
+Zielwahl, nicht mehr, solange das aktuelle Ziel (der Spieler) gültig bleibt. Eine bereits jagende
+Kreatur hätte das Ereignis also nie wieder gesehen, unabhängig davon, wie lange der Klon stand — ein
+echter Verstoß gegen FR-039 ("solange ein Klon steht", nicht nur "beim nächsten Zuschlagen").
+
+**Entscheidung.** `registerClone(...)` holt beim Erscheinen des Klons einmalig alle eigenen
+Kreaturen (`MobKindTag.isOurs`) in einem groben Umkreis (64 Blöcke) nach, deren aktuelles Ziel
+(`Mob#getTarget()`) der Klonbesitzer ist, prüft ihre individuelle `FOLLOW_RANGE` gegen den Klon und
+setzt das Ziel direkt um (`mob.setTarget(clone)`) — durch dieselbe Drosselung aus FR-041
+(`RetargetThrottle`) wie jede andere Umlenkung. Ab dann übernimmt wieder das normale Ereignis für
+alle künftigen Zielwahlen.
+
+**Begründung.** Ein einmaliger Nachtrag im Moment des Erscheinens ist kein Anschreiben gegen
+Vanillas Entscheidungsschleife (der Fehler, den `research.md` R9 für die Blockhaltung des Warriors
+schon beschreibt) — er setzt das Ziel genau einmal, an der Stelle, an der Vanilla es selbst
+akzeptiert hätte, wäre gerade neu gewählt worden. Die Drosselung aus FR-041 gilt mit, weil derselbe
+`RetargetThrottle` je Kreatur benutzt wird wie beim ereignisgetriebenen Weg.
+
+**Verworfen.** Eine wiederkehrende Aufgabe, die periodisch alle Kreaturen in Reichweite prüft
+(Prinzip II: keine wiederkehrende Arbeit für einen seltenen Zustand — ein Klon ist die Ausnahme,
+nicht die Regel, T096).
+
+**Auswirkung.** `CloneAggroListener` braucht jetzt `Server` im Konstruktor, um Klon und Nachbarschaft
+aufzulösen. Neuer Test `aCreatureAlreadyChasingThePlayerIsReclaimedWhenTheCloneAppears`. Vom Nutzer
+auf dem echten Server verifiziert, inklusive der Abschieds-Explosion aus B08s Farewell-Effekt.
+
+---
+
+## ADR-038: Eigene Kreaturen sind gegen jede Entzündung gesperrt, nicht nur die Sonne
+
+**Status:** Angenommen · **Datum:** 2026-08-28 · **Blöcke:** B10
+
+**Kontext.** Beim Warten auf einen Boss-Respawn (T112, Abschnitt 3.5) zeigte der Server-Log: der
+Boss war nicht getötet worden, sondern binnen weniger Minuten nach seinem Respawn in der Sonne
+verbrannt — bevor ein Spieler ihn erreichen konnte. Ein Blick zurück durch den gesamten Log dieser
+Sitzung zeigte: fast jeder „burned to death"-Eintrag über Stunden hinweg war eine eigene Kreatur.
+`mobs.yml` deckt den Bestand fast vollständig mit `base: ZOMBIE`/`HUSK`/`SKELETON`/
+`WITHER_SKELETON` ab — keine davon war gegen Sonnenlicht abgesichert. Das fraß unbemerkt laufend
+ins Budget und die Dichte (US4) und traf jetzt gezielt eine Kreatur mit einem 30-Minuten-Timer, bevor
+sie überhaupt für ihren Zweck (US5) zur Verfügung stand. Kein Prüfschritt in `quickstart.md` fragt
+danach — nur der laufende Server über längere Zeit zeigte es.
+
+**Entscheidung.** Neuer Zuhörer `DaylightBurnSuppressor`: bricht `EntityCombustEvent` für jede
+eigene Kreatur ab (`MobKindTag.isOurs`).
+
+**Begründung.** Ein erster Testlauf wollte nur die reine Sonnen-Entzündung abfangen und Lava
+weiterhin schaden lassen — ein Testfehler zeigte, dass `EntityCombustByBlockEvent` (Lava,
+Feuerblock) und `EntityCombustByEntityEvent` (eine andere Entität) dieselbe Handler-Liste wie die
+Oberklasse `EntityCombustEvent` teilen; ein Zuhörer auf der Oberklasse fängt sie alle ab, eine
+Unterscheidung nach Ursache ist mit Bordmitteln nicht möglich. Das ist hier auch keine Lücke: der
+eigentliche Schaden läuft nie über die Entzündung selbst, sondern über B05s Pipeline
+(`VanillaDamageListener` setzt jede Vanilla-Schadensursache einschließlich `FIRE_TICK` auf null und
+leitet sie um) — das Unterdrücken der Entzündung nimmt nur die zusätzliche, unkontrollierte
+Vanilla-Brenn-Animation samt eigenem Sekundenschaden weg, an der berechneten Schadenszahl ändert
+sich nichts.
+
+**Verworfen.** Jede Art einzeln mit Feuerresistenz ausstatten (`PotionEffectType.FIRE_RESISTANCE`) —
+ein sichtbarer, unerklärter Effekt auf jeder Kreatur für ein rein internes Problem. Eine Unterklasse
+gezielt filtern, um Lava weiterhin schaden zu lassen — mit Bordmitteln nicht sauber möglich (siehe
+oben), und ohnehin wirkungslos, da der Schaden längst über B05 läuft.
+
+**Auswirkung.** Betrifft die ganze Horde, nicht nur Bosse — die tatsächliche Populationsdichte (US4)
+dürfte dadurch spürbar näher an die konfigurierte Zieldichte heranrücken als zuvor angenommen, da ein
+bisher unsichtbarer Verlustkanal wegfällt. Neue Tests in `DaylightBurnSuppressorTest`. Vom Nutzer auf
+dem echten Server verifiziert.

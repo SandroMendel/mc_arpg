@@ -43,6 +43,11 @@ mit 800 Kreaturen bei 150 Spielern (p95 MSPT < 40 ms) bleibt verbindlich und geh
 **B15**. Wer diesen Test für einen Lasttest hält, hat den Block für schneller gehalten, als er
 bewiesen ist.
 
+**Gemessener Ausgangswert (2026-08-26, Entwicklungsrechner, T092):** ein Spawn- und ein
+Aufräum-Durchlauf bei 130 Kreaturen zusammen in **1.300 ns** (Budget 1.000.000 ns, Marge ≈ 769×).
+Über drei Läufe stabil identisch — kein Ausreißer. Dieser Wert ist der Vergleichspunkt für einen
+späteren Regressionsverdacht, keine Zusage über eine bestimmte Hardware hinweg.
+
 ---
 
 ## 2 · Ohne Server: die Konfiguration wirkt

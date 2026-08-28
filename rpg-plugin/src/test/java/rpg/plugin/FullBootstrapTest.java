@@ -281,7 +281,10 @@ class FullBootstrapTest {
                 .isEqualTo(3);
         assertThat(handlerCount(org.bukkit.event.entity.EntityDeathEvent.getHandlerList()))
                 .as("vanilla loot and experience are suppressed here")
-                .isEqualTo(2); // the death listener plus the mob equipment release
+                // The death listener, the mob equipment release, and B10's HordeSweep - it sets a
+                // boss's respawn timer on the same event as every other creature's death, with no
+                // special handling of its own (T082).
+                .isEqualTo(3);
     }
 
     @Test

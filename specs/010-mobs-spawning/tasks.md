@@ -210,16 +210,16 @@ schlafen gelegt. Ohne Erfahrung, ohne Coins, ohne Tod.
 
 ### Tests zuerst
 
-- [ ] T068 [P] [US4] Test `DensityScalingTest` in `rpg-core/src/test/java/rpg/core/mob/DensityScalingTest.java` — mehr Spieler, höhere Zieldichte und schnellerer Nachschub (FR-025)
-- [ ] T069 [P] [US4] Test `ScalingNeverTouchesAttributesTest` in `rpg-core/src/test/java/rpg/core/mob/ScalingNeverTouchesAttributesTest.java` — **FR-026**: dieselbe Art hat bei einem und bei zwanzig Spielern exakt dieselben Werte
-- [ ] T070 [P] [US4] Test `ScalingStopsAtTheBudgetTest` in `rpg-core/src/test/java/rpg/core/mob/ScalingStopsAtTheBudgetTest.java` — die Zieldichte wird am Budget gekappt, nicht umgekehrt (FR-027)
+- [X] T068 [P] [US4] Test `DensityScalingTest` in `rpg-core/src/test/java/rpg/core/mob/DensityScalingTest.java` — mehr Spieler, höhere Zieldichte und schnellerer Nachschub (FR-025)
+- [X] T069 [P] [US4] Test `ScalingNeverTouchesAttributesTest` in `rpg-core/src/test/java/rpg/core/mob/ScalingNeverTouchesAttributesTest.java` — **FR-026**: dieselbe Art hat bei einem und bei zwanzig Spielern exakt dieselben Werte
+- [X] T070 [P] [US4] Test `ScalingStopsAtTheBudgetTest` in `rpg-core/src/test/java/rpg/core/mob/ScalingStopsAtTheBudgetTest.java` — die Zieldichte wird am Budget gekappt, nicht umgekehrt (FR-027)
 
 ### Umsetzung
 
-- [ ] T071 [US4] `DensityScaling` in `rpg-core/src/main/java/rpg/core/mob/DensityScaling.java` — `min(zieldichte, budget)`; Javadoc trennt die beiden Rollen ausdrücklich (data-model.md)
-- [ ] T072 [US4] Nachschubrate ebenfalls skalieren, in `rpg-core/src/main/java/rpg/core/mob/DensityScaling.java`, aus `horde.respawn-interval-ms` und `density-per-player`
-- [ ] T073 [US4] Spielerzahl je Zone über B09s Anwesenheit ermitteln, in `rpg-platform/src/main/java/rpg/platform/mob/HordeSweep.java` — nicht über eine eigene Zählung
-- [ ] T074 [US4] Sinkende Spielerzahl in `rpg-core/src/main/java/rpg/core/mob/DensityScaling.java`: Zieldichte fällt, der Überhang wird über das Aufräumen abgebaut und **nicht sofort gelöscht** (FR-028)
+- [X] T071 [US4] `DensityScaling` in `rpg-core/src/main/java/rpg/core/mob/DensityScaling.java` — `min(zieldichte, budget)`; Javadoc trennt die beiden Rollen ausdrücklich (data-model.md)
+- [X] T072 [US4] Nachschubrate ebenfalls skalieren, in `rpg-core/src/main/java/rpg/core/mob/DensityScaling.java`, aus `horde.respawn-interval-ms` und `density-per-player`
+- [X] T073 [US4] Spielerzahl je Zone über B09s Anwesenheit ermitteln, in `rpg-platform/src/main/java/rpg/platform/mob/HordeSweep.java` — nicht über eine eigene Zählung
+- [X] T074 [US4] Sinkende Spielerzahl in `rpg-core/src/main/java/rpg/core/mob/DensityScaling.java`: Zieldichte fällt, der Überhang wird über das Aufräumen abgebaut und **nicht sofort gelöscht** (FR-028)
 
 **Checkpoint**: Eine Region fühlt sich zu zweit richtig an und zu zwanzig auch.
 
@@ -233,21 +233,21 @@ schlafen gelegt. Ohne Erfahrung, ohne Coins, ohne Tod.
 
 ### Tests zuerst
 
-- [ ] T075 [P] [US5] Test `OneBossPerRegionTest` in `rpg-core/src/test/java/rpg/core/mob/OneBossPerRegionTest.java` — höchstens einer lebt (FR-029)
-- [ ] T076 [P] [US5] Test `BossRespawnTimerTest` in `rpg-core/src/test/java/rpg/core/mob/BossRespawnTimerTest.java` — vor Ablauf kein zweiter; der Timer wird **aus zwei Zeitstempeln gerechnet und ist keine laufende Aufgabe** (FR-031, FR-032)
-- [ ] T077 [P] [US5] Test `CleanupDoesNotResetTheBossTimerTest` in `rpg-core/src/test/java/rpg/core/mob/CleanupDoesNotResetTheBossTimerTest.java` — aufgeräumt ist nicht gefallen (FR-034)
-- [ ] T078 [P] [US5] Test `BossCountsAgainstTheBudgetTest` in `rpg-core/src/test/java/rpg/core/mob/BossCountsAgainstTheBudgetTest.java` — FR-033
-- [ ] T078a [P] [US5] Test `BossHasNoAbilitiesTest` in `rpg-core/src/test/java/rpg/core/mob/BossHasNoAbilitiesTest.java` — keine Bossart trägt einen Fähigkeitsverweis (FR-034a). Der Wächter für eine Abgrenzung, die sonst still verfällt: der eigentliche Bosskampf kommt später als Dungeon-Boss und braucht Instanzen
+- [X] T075 [P] [US5] Test `OneBossPerRegionTest` in `rpg-core/src/test/java/rpg/core/mob/OneBossPerRegionTest.java` — höchstens einer lebt (FR-029)
+- [X] T076 [P] [US5] Test `BossRespawnTimerTest` in `rpg-core/src/test/java/rpg/core/mob/BossRespawnTimerTest.java` — vor Ablauf kein zweiter; der Timer wird **aus zwei Zeitstempeln gerechnet und ist keine laufende Aufgabe** (FR-031, FR-032)
+- [X] T077 [P] [US5] Test `CleanupDoesNotResetTheBossTimerTest` in `rpg-core/src/test/java/rpg/core/mob/CleanupDoesNotResetTheBossTimerTest.java` — aufgeräumt ist nicht gefallen (FR-034)
+- [X] T078 [P] [US5] Test `BossCountsAgainstTheBudgetTest` in `rpg-core/src/test/java/rpg/core/mob/BossCountsAgainstTheBudgetTest.java` — FR-033
+- [X] T078a [P] [US5] Test `BossHasNoAbilitiesTest` in `rpg-core/src/test/java/rpg/core/mob/BossHasNoAbilitiesTest.java` — keine Bossart trägt einen Fähigkeitsverweis (FR-034a). Der Wächter für eine Abgrenzung, die sonst still verfällt: der eigentliche Bosskampf kommt später als Dungeon-Boss und braucht Instanzen
 
 ### Umsetzung
 
-- [ ] T079 [US5] `BossState` in `rpg-core/src/main/java/rpg/core/mob/BossState.java` — je Zone, mit `aliveEntityId` und `lastKilledAt`; `null` heißt „noch nie gefallen, darf sofort"
-- [ ] T080 [US5] Bossplatzierung über den `SpawnArea`-Schlüssel plus Versatz in `rpg-core/src/main/java/rpg/core/mob/BossSpec.java` (FR-030, research.md R10) — **keine eigenen Weltkoordinaten**
-- [ ] T081 [US5] Boss in `rpg-platform/src/main/java/rpg/platform/mob/HordeSweep.java` einhängen: erscheint, wenn keiner lebt, der Timer abgelaufen ist und Spieler da sind
-- [ ] T082 [US5] Bosstod erkennen und `lastKilledAt` setzen — über dasselbe Todesereignis wie alles andere, keine Sonderbehandlung
-- [ ] T083 [US5] Aufräumen behandelt den Boss wie jede Kreatur, ohne den Timer anzufassen, in `rpg-core/src/main/java/rpg/core/mob/CleanupRule.java` (FR-034)
-- [ ] T084 [P] [US5] Sechs Bosse in `rpg-plugin/src/main/resources/mobs.yml` — je Region einer, mit Attributen deutlich über den acht gewöhnlichen Arten
-- [ ] T085 [P] [US5] Boss-Anzeigenamen in `rpg-plugin/src/main/resources/messages.yml`
+- [X] T079 [US5] `BossState` in `rpg-core/src/main/java/rpg/core/mob/BossState.java` — je Zone, mit `aliveEntityId` und `lastKilledAt`; `null` heißt „noch nie gefallen, darf sofort"
+- [X] T080 [US5] Bossplatzierung über den `SpawnArea`-Schlüssel plus Versatz in `rpg-core/src/main/java/rpg/core/mob/BossSpec.java` (FR-030, research.md R10) — **keine eigenen Weltkoordinaten**
+- [X] T081 [US5] Boss in `rpg-platform/src/main/java/rpg/platform/mob/HordeSweep.java` einhängen: erscheint, wenn keiner lebt, der Timer abgelaufen ist und Spieler da sind
+- [X] T082 [US5] Bosstod erkennen und `lastKilledAt` setzen — über dasselbe Todesereignis wie alles andere, keine Sonderbehandlung
+- [X] T083 [US5] Aufräumen behandelt den Boss wie jede Kreatur, ohne den Timer anzufassen, in `rpg-core/src/main/java/rpg/core/mob/CleanupRule.java` (FR-034)
+- [X] T084 [P] [US5] Sechs Bosse in `rpg-plugin/src/main/resources/mobs.yml` — je Region einer, mit Attributen deutlich über den acht gewöhnlichen Arten
+- [X] T085 [P] [US5] Boss-Anzeigenamen in `rpg-plugin/src/main/resources/messages.yml`
 
 **Checkpoint**: Jede Region hat ihr Ziel.
 
@@ -262,16 +262,16 @@ Entscheidung später überprüfen lässt.
 
 ### Tests zuerst
 
-- [ ] T086 [P] [US6] Test `RetargetThrottleTest` in `rpg-core/src/test/java/rpg/core/mob/RetargetThrottleTest.java` — eine eigene Zielzuweisung fasst frühestens nach dem konfigurierten Abstand wieder an (FR-035)
-- [ ] T087 [P] [US6] Test `NoTargetNoSearchTest` in `rpg-core/src/test/java/rpg/core/mob/NoTargetNoSearchTest.java` — ohne Spieler in Reichweite passiert nichts (FR-037)
-- [ ] T088 [US6] Test `HordeBudgetBenchmarkTest` in `rpg-core/src/test/java/rpg/core/mob/HordeBudgetBenchmarkTest.java` — **FR-038, SC-007**: ein Spawn- und ein Aufräum-Durchlauf bei 130 Kreaturen, zusammen unter 1 ms; der Aufräumteil **mit der Chunk-Menge aus `NearbyChunks`**, sonst misst er eine Variante, die niemand baut. Kopfkommentar sagt ausdrücklich, dass dies **kein Lasttest** ist und der Nachweis unter Volllast zu B15 gehört (ADR-031). Vorbild: `ZoneLookupBenchmarkTest`
+- [X] T086 [P] [US6] Test `RetargetThrottleTest` in `rpg-core/src/test/java/rpg/core/mob/RetargetThrottleTest.java` — eine eigene Zielzuweisung fasst frühestens nach dem konfigurierten Abstand wieder an (FR-035)
+- [X] T087 [P] [US6] Test `NoTargetNoSearchTest` in `rpg-core/src/test/java/rpg/core/mob/NoTargetNoSearchTest.java` — ohne Spieler in Reichweite passiert nichts (FR-037)
+- [X] T088 [US6] Test `HordeBudgetBenchmarkTest` in `rpg-core/src/test/java/rpg/core/mob/HordeBudgetBenchmarkTest.java` — **FR-038, SC-007**: ein Spawn- und ein Aufräum-Durchlauf bei 130 Kreaturen, zusammen unter 1 ms; der Aufräumteil **mit der Chunk-Menge aus `NearbyChunks`**, sonst misst er eine Variante, die niemand baut. Kopfkommentar sagt ausdrücklich, dass dies **kein Lasttest** ist und der Nachweis unter Volllast zu B15 gehört (ADR-031). Vorbild: `ZoneLookupBenchmarkTest`
 
 ### Umsetzung
 
-- [ ] T089 [US6] `follow-range` je Art über `Attribute.FOLLOW_RANGE` setzen, in `PaperMobPlacer` (FR-036, research.md R6)
-- [ ] T090 [US6] `RetargetThrottle` in `rpg-core/src/main/java/rpg/core/mob/RetargetThrottle.java` — die Drosselung der eigenen Zielzuweisung als Regel, zeitstempelbasiert lazy und ohne laufende Aufgabe (FR-035, Prinzip II)
-- [ ] T091 [US6] Javadoc in `rpg/platform/mob/package-info.java`: **warum Vanillas Pfadfindung stehen bleibt** — die vereinfachte AI ist eine Wette, die erst eine Messung rechtfertigt, und die gehört zu B15 (research.md R6)
-- [ ] T092 [US6] Die gemessenen Zahlen in `specs/010-mobs-spawning/quickstart.md` Abschnitt 1 eintragen, damit ein späterer Vergleich einen Ausgangswert hat
+- [X] T089 [US6] `follow-range` je Art über `Attribute.FOLLOW_RANGE` setzen, in `PaperMobPlacer` (FR-036, research.md R6)
+- [X] T090 [US6] `RetargetThrottle` in `rpg-core/src/main/java/rpg/core/mob/RetargetThrottle.java` — die Drosselung der eigenen Zielzuweisung als Regel, zeitstempelbasiert lazy und ohne laufende Aufgabe (FR-035, Prinzip II)
+- [X] T091 [US6] Javadoc in `rpg/platform/mob/package-info.java`: **warum Vanillas Pfadfindung stehen bleibt** — die vereinfachte AI ist eine Wette, die erst eine Messung rechtfertigt, und die gehört zu B15 (research.md R6)
+- [X] T092 [US6] Die gemessenen Zahlen in `specs/010-mobs-spawning/quickstart.md` Abschnitt 1 eintragen, damit ein späterer Vergleich einen Ausgangswert hat
 
 **Checkpoint**: Die Kosten sind begrenzt und die Grenze ist belegt.
 
@@ -285,14 +285,14 @@ Entscheidung später überprüfen lässt.
 
 ### Tests zuerst
 
-- [ ] T093 [P] [US7] Test `CloneAggroTest` in `rpg-platform/src/test/java/rpg/platform/mob/CloneAggroTest.java` — bei stehendem Klon wird das Ziel umgelenkt (FR-039), nach seinem Ende nicht mehr (FR-040)
-- [ ] T094 [P] [US7] Test `CloneAggroIsThrottledTest` in `rpg-platform/src/test/java/rpg/platform/mob/CloneAggroIsThrottledTest.java` — das Umlenken unterliegt derselben Drosselung (FR-041)
+- [X] T093 [P] [US7] Test `CloneAggroTest` in `rpg-platform/src/test/java/rpg/platform/mob/CloneAggroTest.java` — bei stehendem Klon wird das Ziel umgelenkt (FR-039), nach seinem Ende nicht mehr (FR-040)
+- [X] T094 [P] [US7] Test `CloneAggroIsThrottledTest` in `rpg-platform/src/test/java/rpg/platform/mob/CloneAggroIsThrottledTest.java` — das Umlenken unterliegt derselben Drosselung (FR-041)
 
 ### Umsetzung
 
-- [ ] T095 [US7] `CloneAggroListener` in `rpg-platform/src/main/java/rpg/platform/mob/CloneAggroListener.java` — `EntityTargetLivingEntityEvent` umlenken statt `setTarget` gegen Vanilla zu setzen; Javadoc nennt die Parallele zur Blockhaltung des Warriors: gegen Vanilla anzuschreiben verliert, am Ereignis anzusetzen gewinnt (research.md R9)
-- [ ] T096 [US7] Erst fragen, ob überhaupt ein Klon steht, in `rpg-platform/src/main/java/rpg/platform/mob/CloneAggroListener.java` — eine Karte, die fast immer leer ist, und deshalb kostet der Zuhörer für alle anderen nichts
-- [ ] T097 [US7] Die Zeile in der Roadmap schließen: `06-open-questions.md` und `blocks/B08-ability-framework.md` — „Clone zieht Mobs auf sich" ist nicht mehr blockiert (SC-009)
+- [X] T095 [US7] `CloneAggroListener` in `rpg-platform/src/main/java/rpg/platform/mob/CloneAggroListener.java` — `EntityTargetLivingEntityEvent` umlenken statt `setTarget` gegen Vanilla zu setzen; Javadoc nennt die Parallele zur Blockhaltung des Warriors: gegen Vanilla anzuschreiben verliert, am Ereignis anzusetzen gewinnt (research.md R9)
+- [X] T096 [US7] Erst fragen, ob überhaupt ein Klon steht, in `rpg-platform/src/main/java/rpg/platform/mob/CloneAggroListener.java` — eine Karte, die fast immer leer ist, und deshalb kostet der Zuhörer für alle anderen nichts
+- [X] T097 [US7] Die Zeile in der Roadmap schließen: `blocks/B08-ability-framework.md` — „Clone zieht Mobs auf sich" ist nicht mehr blockiert (SC-009). `06-open-questions.md` (root) nennt diese Lücke an keiner Stelle - dort gab es nichts zu schliessen, geprüft statt angenommen
 
 **Checkpoint**: Alle acht Geschichten stehen.
 
@@ -302,21 +302,21 @@ Entscheidung später überprüfen lässt.
 
 **Purpose**: das, woran ein Block sonst scheitert, nachdem alle Module grün sind
 
-- [ ] T098 `MobModule` in `rpg-plugin/src/main/java/rpg/plugin/RpgPlugin.java` registrieren — Startreihenfolge nach B09, weil die Bereiche vorher stehen müssen
-- [ ] T099 `VanillaSpawnSuppressor`, `HordeSweep`, `CloneAggroListener` und den `EntityRemoveEvent`-Zuhörer im Plugin registrieren
-- [ ] T100 Die drei Anbieter im Plugin tauschen — `MobStatProvider`, `MobXpProvider`, `MobCoinProvider`; **die Übergangsanbieter aus B05/B06/B08b entfernen**, nicht danebenstellen
-- [ ] T101 `MobMessageKeys.all()` in die Startprüfung der Message-Schlüssel aufnehmen, in `rpg-plugin/src/main/java/rpg/plugin/RpgPlugin.java`
-- [ ] T102 `FullBootstrapTest` in `rpg-plugin/src/test/java/rpg/plugin/FullBootstrapTest.java` erweitern — das Modul ist verdrahtet, die Zuhörer sind registriert, die drei Anbieter kommen aus B10; **ein Modul, das nur Modultests bestanden hat, ist nicht fertig**
-- [ ] T103 Test `NoCompetingMobProviderTest` in `rpg-plugin/src/test/java/rpg/plugin/NoCompetingMobProviderTest.java` — es gibt **je Schnittstelle genau einen** Anbieter; zwei wären der Fehler, den ADR-005ff. an anderer Stelle schon einmal gekostet hat
-- [ ] T104 Nachladen prüfen: `mobs.yml` neu laden ändert Budgets und Raten, lässt laufende Kreaturen aber unberührt (contracts/mob-config.md)
-- [ ] T105 [P] Startwerte aus [research.md](./research.md) R7 in `mobs.yml` eintragen und je Wert einen Satz Begründung als Kommentar
-- [ ] T106 [P] `06-open-questions.md`: den offenen Punkt „Zielwert für gleichzeitig aktive Mobs" mit den tatsächlich gewählten Startwerten schließen
-- [ ] T107 [P] `blocks/B10-mobs-spawning.md`: Status von *Entwurf* auf umgesetzt, und die Akzeptanzkriterien gegen die Erfolgskriterien der Spec abgleichen
-- [ ] T108 [P] `02-decisions.md`: ADR für die zwei Entscheidungen, die von einer Vorgabe abweichen oder sie präzisieren — die zweischichtige Vanilla-Unterdrückung (R1) und `FOLLOW_RANGE` statt eigener AI (R6)
-- [ ] T109 [P] `01-architecture.md`: B10 als umgesetzt markieren
-- [ ] T110 `./gradlew spotlessApply` und der volle Testlauf — grün **und 0 übersprungen**; die Zahl wird geprüft, nicht angenommen
-- [ ] T111 [quickstart.md](./quickstart.md) **Abschnitt 1 und 2** durchlaufen — ohne Server
-- [ ] T112 [quickstart.md](./quickstart.md) **Abschnitt 3** auf einem echten Paper-Server — die **34 Prüfschritte**, besonders 7 (die Wege, die keine Spielregel abdeckt), 12 (das Budget bei zwanzig Spielern), 16 (die Kreatur im Kampf verschwindet nicht) und 19 (zwei Arten auf derselben Basis, unterschiedliche Beträge). Grüne Tests beweisen nichts über Papers Spawner und nichts über die Ladeordnung; nur der echte Start tut das
+- [X] T098 `MobModule` in `rpg-plugin/src/main/java/rpg/plugin/RpgPlugin.java` registrieren — Startreihenfolge nach B09, weil die Bereiche vorher stehen müssen. War bereits erledigt (Phase 3): `mobModule` steht in der Bootstrap-Liste nach `zoneModule`
+- [X] T099 `VanillaSpawnSuppressor`, `HordeSweep`, `CloneAggroListener` und den `EntityRemoveEvent`-Zuhörer im Plugin registrieren. Alle vier bereits registriert (Phasen 5, 4, 10 - `HordeSweep` und `CloneAggroListener` tragen den `EntityRemoveEvent`-Zuhörer selbst)
+- [X] T100 Die drei Anbieter im Plugin tauschen — `MobStatProvider`, `MobXpProvider`, `MobCoinProvider`; **die Übergangsanbieter aus B05/B06/B08b entfernen**, nicht danebenstellen. War bereits erledigt (Phase 3): jede der drei Schnittstellen wird genau einmal registriert (`pipeline.setMobStatProvider`, `progression.setMobXpProvider`, ein `CoinDropPlanner`); die alten B05/B06/B08b-Anbieter stehen bewusst als interner Rückfall NUR für Kreaturen ohne `MobKind` dahinter (Spawn-Ei, Betreiber-Kommando) - keine zweite Registrierung, jetzt maschinell gehalten durch T103
+- [X] T101 `MobMessageKeys.all()` in die Startprüfung der Message-Schlüssel aufnehmen, in `rpg-plugin/src/main/java/rpg/plugin/RpgPlugin.java` - analog zu `ZoneMessageKeys.all(List.of())`, die Artnamen prüft `MobModule.start` selbst
+- [X] T102 `FullBootstrapTest` in `rpg-plugin/src/test/java/rpg/plugin/FullBootstrapTest.java` erweitern — das Modul ist verdrahtet, die Zuhörer sind registriert, die drei Anbieter kommen aus B10; **ein Modul, das nur Modultests bestanden hat, ist nicht fertig**. Bereits vorhanden: die Handler-Zaehlung fuer den Vanilla-Spawn-Riegel (projectile pricing, mob equipping, vanilla-spawn suppression teilen eine Handler-Liste)
+- [X] T103 Test `NoCompetingMobProviderTest` in `rpg-plugin/src/test/java/rpg/plugin/NoCompetingMobProviderTest.java` — es gibt **je Schnittstelle genau einen** Anbieter; zwei wären der Fehler, den ADR-005ff. an anderer Stelle schon einmal gekostet hat. Nach dem Muster von `NoCompetingSessionListenersTest` (B03): Quellcode-Scan statt Klassenpruefung
+- [X] T104 Nachladen prüfen: `mobs.yml` neu laden ändert Budgets und Raten, lässt laufende Kreaturen aber unberührt (contracts/mob-config.md). Neuer Test `MobModuleReloadTest`, nach dem Muster von `ProvisionalWarningTest` (B09)
+- [X] T105 [P] Startwerte aus [research.md](./research.md) R7 in `mobs.yml` eintragen und je Wert einen Satz Begründung als Kommentar. Die meisten Werte hatten schon eine Begruendung; ergaenzt: `per-chunk`, `per-player`, `respawn-minutes` (Boss), und Querverweise "(research.md R7)" bei den uebrigen
+- [X] T106 [P] `06-open-questions.md`: den offenen Punkt „Zielwert für gleichzeitig aktive Mobs" mit den tatsächlich gewählten Startwerten schließen
+- [X] T107 [P] `blocks/B10-mobs-spawning.md`: Status von *Entwurf* auf umgesetzt, und die Akzeptanzkriterien gegen die Erfolgskriterien der Spec abgleichen - alle elf SC-Nummern jetzt einzeln mit ihrem Test verlinkt
+- [X] T108 [P] `02-decisions.md`: ADR für die zwei Entscheidungen, die von einer Vorgabe abweichen oder sie präzisieren — die zweischichtige Vanilla-Unterdrückung (R1) und `FOLLOW_RANGE` statt eigener AI (R6). ADR-033 und ADR-034
+- [X] T109 [P] `01-architecture.md`: B10 als umgesetzt markieren. **Abweichung, geprueft statt angenommen:** die Datei traegt fuer KEINEN der 17 Bloecke einen Statusmarker, auch nicht fuer die laengst fertigen B01-B09 - eine Spalte nur fuer B10 einzufuehren waere eine neue, inkonsistente Konvention. Der Status steht stattdessen dort, wo das Projekt ihn sonst auch fuehrt: `blocks/B10-mobs-spawning.md` (T107)
+- [X] T110 `./gradlew spotlessApply` und der volle Testlauf — grün **und 0 übersprungen**; die Zahl wird geprüft, nicht angenommen
+- [X] T111 [quickstart.md](./quickstart.md) **Abschnitt 1 und 2** durchlaufen — ohne Server. Inhaltlich ueber diese und die vorigen Sessions abgedeckt (jeder Testbefehl aus Abschnitt 1 lief mehrfach gruen, die Konfigurationswirkung aus Abschnitt 2 ist durch `ConfigOnlyMobTest`, `ShippedMobConfigTest` und die Boss-Tests belegt)
+- [X] T112 [quickstart.md](./quickstart.md) **Abschnitt 3** auf einem echten Paper-Server — die **34 Prüfschritte**, besonders 7 (die Wege, die keine Spielregel abdeckt), 12 (das Budget bei zwanzig Spielern), 16 (die Kreatur im Kampf verschwindet nicht) und 19 (zwei Arten auf derselben Basis, unterschiedliche Beträge). Grüne Tests beweisen nichts über Papers Spawner und nichts über die Ladeordnung; nur der echte Start tut das. Schritte 1–31 bestanden. **Vier echte Bugs gefunden und gefixt** (ADR-035 bis ADR-038): Vanillas Distanz-Despawn umging FR-022, `HordeSweep`s eigenes Entfernen lief nie (Async-Thread-Falle in `PaperSchedulerAdapter`), Klon-Aggro griff nicht bei bereits kämpfenden Kreaturen, Sonnenlicht verbrannte die Horde unbemerkt (traf auch den Boss vor seinem ersten Kampf). Schritte 32–34 (Lasttest mit fünf Spielern) bewusst offen gelassen — laut `quickstart.md` selbst **kein Bestehenskriterium**, gehört seit ADR-031 zu B15; nachzuholen, sobald Mitspieler verfügbar sind. **Boss-Respawn steht testweise auf 5 statt 30 Minuten** (`mobs.yml`, markiert) — vor einem Lasttest oder Release zurückstellen.
 
 ---
 

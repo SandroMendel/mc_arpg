@@ -22,7 +22,10 @@
 budget:
   server-wide: 800
   per-zone: 130
+  # Eine volle Horde auf 16x16 Bloecken, ohne dass sie sichtbar ineinandersteht (research.md R7).
   per-chunk: 12
+  # Was ein Spieler in einer Hack'n'Slash-Runde noch ueberblickt, bevor eine Horde zum Gewusel wird
+  # (research.md R7).
   per-player: 25
 
 horde:
@@ -30,18 +33,20 @@ horde:
   # laufend ersetzt, die Dichte pendelt sich um den Zielwert ein. Kein Zonenzustand
   # "Welle laeuft / geraeumt / Pause" - und damit auch nicht die Anschlussfrage, was mit einer Welle
   # passiert, die niemand zu Ende raeumt.
+  # Bei einer Kreatur je Durchlauf fuellt sich eine komplett geraeumte Horde in gut vier Minuten
+  # wieder auf (research.md R7) - kein gebuendelter Sprung, sondern ein stetiges Auffuellen.
   respawn-interval-ms: 2000
-  # Dichtezuwachs je zusaetzlichem Spieler. Zu fuenft rund doppelt so voll wie allein.
+  # Dichtezuwachs je zusaetzlichem Spieler. Zu fuenft rund doppelt so voll wie allein (research.md R7).
   # Beruehrt NIEMALS Attribute (FR-026) - es sind mehr, nicht haertere.
   density-per-player: 0.20
   # Nach dem letzten Spieler in der Zone. Lang genug fuer einen kurzen Rueckweg, kurz genug, dass
-  # eine verlassene Region nicht ueber Stunden Entitaeten traegt.
+  # eine verlassene Region nicht ueber Stunden Entitaeten traegt (research.md R7).
   cleanup-after-seconds: 60
   # Wer weiter weg ist als das von JEDEM Spieler, wird entfernt - nicht schlafen gelegt.
-  # Deutlich ueber der Sichtweite, unter der Chunk-Ladeweite.
+  # Deutlich ueber der Sichtweite, unter der Chunk-Ladeweite (research.md R7).
   cleanup-radius: 96.0
   # Abstand, in dem eine eigene Zielzuweisung fruehestens wieder anfasst (FR-035). Zehn Ticks;
-  # darunter merkt niemand den Unterschied.
+  # darunter merkt niemand den Unterschied (research.md R7).
   retarget-interval-ms: 500
 
 kinds:
@@ -194,6 +199,16 @@ kinds:
     xp: 99
     coins: 30
 
+  # Der Boss dieser Region - siehe die Erklaerung bei greenfields.warden-of-the-field.
+  dustlands.dune-warlord:
+    base: HUSK
+    level: 20
+    attributes: { health: 2040.0, defense: 120.0, physicalDamage: 60.0 }
+    follow-range: 30.0
+    xp: 1100
+    coins: 700
+    boss: true
+
   # --- Safari-Plains, Levelband 21-30 -----------------------------------------------------------
 
   safari-plains.plains-raider:
@@ -259,6 +274,15 @@ kinds:
     follow-range: 28.7
     xp: 151
     coins: 46
+
+  safari-plains.savanna-overlord:
+    base: EVOKER
+    level: 30
+    attributes: { health: 3080.0, defense: 190.0, physicalDamage: 96.0 }
+    follow-range: 33.0
+    xp: 1650
+    coins: 1100
+    boss: true
 
   # --- Terracotta-Canyons, Levelband 31-40 -----------------------------------------------------------
 
@@ -326,6 +350,15 @@ kinds:
     xp: 203
     coins: 62
 
+  terracotta-canyons.canyon-warden:
+    base: ENDERMAN
+    level: 40
+    attributes: { health: 4150.0, defense: 260.0, physicalDamage: 132.0 }
+    follow-range: 36.0
+    xp: 2270
+    coins: 1500
+    boss: true
+
   # --- Darkforest, Levelband 41-50 -----------------------------------------------------------
 
   darkforest.rotwood-shambler:
@@ -391,6 +424,15 @@ kinds:
     follow-range: 32.0
     xp: 255
     coins: 78
+
+  darkforest.gloom-sovereign:
+    base: EVOKER
+    level: 50
+    attributes: { health: 5250.0, defense: 340.0, physicalDamage: 172.0 }
+    follow-range: 37.0
+    xp: 2900
+    coins: 1950
+    boss: true
 
   # --- Pale-Wilds, Levelband 51-60 (Endgame) -----------------------------------------------------------
 
@@ -458,6 +500,15 @@ kinds:
     xp: 307
     coins: 94
 
+  pale-wilds.pale-sovereign:
+    base: WITHER_SKELETON
+    level: 60
+    attributes: { health: 6400.0, defense: 420.0, physicalDamage: 210.0 }
+    follow-range: 38.0
+    xp: 3550
+    coins: 2400
+    boss: true
+
 hordes:
   greenfields:
     areas:
@@ -477,7 +528,10 @@ hordes:
       kind: 'greenfields.warden-of-the-field'
       area: 'greenfields-east'
       offset: { x: 0.0, y: 0.0, z: 0.0 }
-      respawn-minutes: 30
+      # TEMPORAER auf 5 fuer T112-Tests (Schritt 27) heruntergesetzt - vor Abschluss von B10
+      # wieder auf 30 zurueckstellen (research.md R7: lang genug, dass er ein Ereignis bleibt und
+      # keine wiederkehrende Nebenbeschaeftigung).
+      respawn-minutes: 5
   dustlands:
     areas:
       dustlands-east:
@@ -490,6 +544,11 @@ hordes:
         - { kind: 'dustlands.cavern-biter', weight: 4 }
         - { kind: 'dustlands.shifting-swarm', weight: 3 }
         - { kind: 'dustlands.dune-hexer', weight: 2 }
+    boss:
+      kind: 'dustlands.dune-warlord'
+      area: 'dustlands-east'
+      offset: { x: 0.0, y: 0.0, z: 0.0 }
+      respawn-minutes: 30
   safari-plains:
     areas:
       safari-plains-east:
@@ -502,6 +561,11 @@ hordes:
         - { kind: 'safari-plains.raid-vanguard', weight: 4 }
         - { kind: 'safari-plains.raid-marauder', weight: 3 }
         - { kind: 'safari-plains.raid-caller', weight: 2 }
+    boss:
+      kind: 'safari-plains.savanna-overlord'
+      area: 'safari-plains-east'
+      offset: { x: 0.0, y: 0.0, z: 0.0 }
+      respawn-minutes: 30
   terracotta-canyons:
     areas:
       terracotta-canyons-east:
@@ -514,6 +578,11 @@ hordes:
         - { kind: 'terracotta-canyons.flitting-vex', weight: 4 }
         - { kind: 'terracotta-canyons.canyon-vanguard', weight: 3 }
         - { kind: 'terracotta-canyons.hollow-wanderer', weight: 2 }
+    boss:
+      kind: 'terracotta-canyons.canyon-warden'
+      area: 'terracotta-canyons-east'
+      offset: { x: 0.0, y: 0.0, z: 0.0 }
+      respawn-minutes: 30
   darkforest:
     areas:
       darkforest-east:
@@ -526,6 +595,11 @@ hordes:
         - { kind: 'darkforest.thicket-caller', weight: 4 }
         - { kind: 'darkforest.thicket-vanguard', weight: 3 }
         - { kind: 'darkforest.night-glider', weight: 2 }
+    boss:
+      kind: 'darkforest.gloom-sovereign'
+      area: 'darkforest-east'
+      offset: { x: 0.0, y: 0.0, z: 0.0 }
+      respawn-minutes: 30
   pale-wilds:
     areas:
       pale-wilds-east:
@@ -538,3 +612,8 @@ hordes:
         - { kind: 'pale-wilds.wild-hoglin', weight: 4 }
         - { kind: 'pale-wilds.corrupted-zoglin', weight: 3 }
         - { kind: 'pale-wilds.pale-ooze', weight: 2 }
+    boss:
+      kind: 'pale-wilds.pale-sovereign'
+      area: 'pale-wilds-east'
+      offset: { x: 0.0, y: 0.0, z: 0.0 }
+      respawn-minutes: 30

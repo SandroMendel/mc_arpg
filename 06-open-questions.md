@@ -255,9 +255,15 @@ die Befunde der Umsetzung dort unter „Umsetzung".
       dass die Spec sich ändert. Verlangt wird nur, dass sie konfigurierbar ist —
       und dass mehrere Arten auf demselben Vanilla-Entity unterscheidbar bleiben.
       *(2026-08-24)*
-- [ ] Zielwert für gleichzeitig aktive Mobs: als Ausgangspunkt 800 serverweit
-      aus dem M4-Nachweis, auf sechs Regionen verteilt rund 130 je Zone. Beide
-      Werte sind konfigurierbar; die endgültigen Startwerte legt `/plan` fest.
+- [x] **Zielwert für gleichzeitig aktive Mobs: 800 serverweit, 130 je Zone.**
+      Genau die Ausgangswerte aus der Frage, jetzt ausgeliefert in `mobs.yml`
+      und von `ServerWideBudgetHoldsTest` gegen genau die Situation abgesichert,
+      in der sie heute noch nie greift — sechs Zonen zu je 130 sind 780 und
+      bleiben darunter. Dazu zwei weitere Grenzen, die die Frage nicht nannte,
+      aber ohne die 800 keinen Sinn ergäbe: 12 je Chunk (keine Horde steht
+      sichtbar ineinander) und 25 je anwesendem Spieler (was eine
+      Hack'n'Slash-Runde noch überblickt). Alle vier bleiben konfigurierbar.
+      *(2026-08-26)*
 
 ## B08b (Währung & Konto) — neu durch ADR-027 *(2026-08-22)*
 
