@@ -141,6 +141,29 @@ einem Reload auf jedes vorhandene Exemplar in jedem Inventar, ohne dass ein Inve
   sichtbar noch aufsammelbar**. Eigentümer ist derselbe, den B05 bereits über
   `CombatDeathEvent.lootRecipient()` benennt — der **größte Beitragende**, nicht der letzte Treffer.
 
+### Session 2026-08-28, Teil 3 — was die Party-Frage aufdeckte
+
+Beim Nachfassen fiel auf, dass **B06 ein gebautes Party-System besitzt** (`Party`, `PartyRegistry`,
+`ShareCalculator`) und dass Teil 2 es vollständig übersehen hatte. B06 behandelt eine Party
+ausdrücklich als **einen** Beitragenden und verteilt Erfahrung und Coins gleichmäßig auf die
+Mitglieder in Reichweite, samt Nähe-Bonus — *„damit gemeinsames Spielen nicht schlechter ist als
+allein zu spielen"*. Für Beute galt das nicht: `DamageShare.topContributor` stammt aus B05, und **B05
+kennt keine Partys**. In einer festen Gruppe wäre jedes Item dauerhaft an denselben Spieler
+gegangen, während sich Erfahrung und Coins teilen — der Tank hätte nie etwas bekommen.
+
+- **Q8 · Die Party gilt auch für Beute als ein Beitragender, und der Gegenstand wandert reihum.**
+  Gezählt werden die **Gegenstände**, nicht die Kills: Beute ist wahrscheinlichkeitsbehaftet, und
+  eine Runde je Kill ließe die Runde dessen verfallen, dessen Gegner nichts fallen lässt. Nur
+  Mitglieder **in Reichweite** sind in der Runde, gemessen wie in B06 zum gestorbenen Gegner. Der
+  Reihenfolgezeiger ist Laufzeitzustand und vergeht mit der Party.
+- **Q9 · Verschleiß bemisst sich am ankommenden Schaden, vor Abwehr.** Am durchgekommenen gemessen
+  wäre eine Abwärtsspirale entstanden — verschlissene Rüstung lässt mehr durch, das nutzt sie
+  schneller ab — und gute Rüstung wäre doppelt belohnt worden.
+- **Q10 · Der Klon nutzt nichts ab**, weder durch ausgeteilten noch durch eingesteckten Schaden. Er
+  ist selbst eine Fähigkeit, und Fähigkeiten schonen die Ausrüstung.
+- **Q11 · Volles Inventar ändert nichts an der Beute.** Sie fällt, der Spieler wird gewarnt, sie
+  verfällt nach Vanillas Frist. Genau der Fall, für den ADR-018 die Warnung vorgesehen hat.
+
 #### Die eine Kollision, und wie sie aufgelöst wird
 
 **Frei kaufbare Trims machen Ausrüstungsstufen optisch ununterscheidbar.** In der ausgelieferten
@@ -242,8 +265,19 @@ eigene Ausbeute sieht — ohne NPC und ohne Verbrauchswirkung.
 
 1. **Given** eine Art mit konfigurierter Beutetabelle, **When** ein Spieler sie tötet, **Then** fällt
    der konfigurierte Eintrag mit der konfigurierten Wahrscheinlichkeit und Stückzahl
-2. **Given** zwei Spieler, die dieselbe Kreatur bekämpft haben, **When** sie stirbt, **Then** gehört
-   die Beute dem **größten Beitragenden** — auch wenn der andere den letzten Treffer gelandet hat
+2. **Given** zwei Spieler **ohne Party**, die dieselbe Kreatur bekämpft haben, **When** sie stirbt,
+   **Then** gehört die Beute dem **größten Beitragenden** — auch wenn der andere den letzten Treffer
+   gelandet hat
+2a. **Given** eine Party aus drei Mitgliedern in Reichweite, **When** nacheinander drei Gegenstände
+    fallen, **Then** bekommt jedes Mitglied genau einen — unabhängig davon, wer den Schaden gemacht
+    hat
+2b. **Given** dieselbe Party, **When** zwanzig Gegner sterben und dabei nur vier Gegenstände fallen,
+    **Then** verteilen sich diese **vier** reihum — die Kills ohne Beute verbrauchen keine Runde
+2c. **Given** eine Party, deren drittes Mitglied außer Reichweite steht, **When** ein Gegenstand
+    fällt, **Then** geht er an das nächste Mitglied **in** Reichweite, und der Abwesende behält
+    seine Position für den nächsten Gegenstand
+2d. **Given** ein Mitglied, das die Party mitten im Kampf verlässt, **When** danach ein Gegenstand
+    fällt, **Then** ist es nicht mehr in der Runde, und die übrigen rücken auf
 3. **Given** dieselbe Lage, **When** der andere Spieler hinsieht, **Then** ist die Beute für ihn
    **nicht sichtbar**
 4. **Given** dieselbe Lage, **When** der andere Spieler über die Stelle läuft, **Then** hebt er
@@ -359,6 +393,11 @@ dann Reparieren gegen einen bekannten Kontostand.
    der Zustand **seiner Waffe**, der seiner Rüstung nicht
 3. **Given** derselbe Spieler, **When** er Schaden über eine **Fähigkeit** austeilt, **Then** ändert
    sich **kein** Zustandswert — Fähigkeiten schonen die Waffe
+3a. **Given** ein Spieler mit beschworenem Klon, **When** der Klon Schaden austeilt oder einsteckt,
+    **Then** ändert sich **kein** Zustandswert des Beschwörers
+3b. **Given** zwei Spieler mit unterschiedlich guter Rüstung, **When** beide denselben Treffer
+    einstecken, **Then** verschleißt ihre Rüstung **gleich stark** — gemessen wird der ankommende
+    Schaden, nicht der durchgekommene
 4. **Given** ein Spieler, **When** er stirbt, **Then** verliert er kein Item und keine Erfahrung, und
    **beide** Zustandswerte sinken um den Todesbetrag
 5. **Given** dieselbe Konfiguration, **When** man den Todesbetrag gegen den Verschleiß eines ganzen
@@ -449,6 +488,16 @@ Wegen.
   Treffer. `DamageShare` kann leer sein; dann gibt es keinen Eigentümer und keine Beute.
 - **Der größte Beitragende hat den Server verlassen, bevor die Kreatur stirbt.** Die Beute fällt
   ihm zu und verschwindet ungesehen — sie geht nicht an den Zweitplatzierten über.
+- **Die Party löst sich auf, während Beute am Boden liegt.** Der Anspruch ist beim Fallen vergeben
+  worden und bleibt bestehen; die Auflösung nimmt niemandem, was ihm schon gehört.
+- **Eine Party, deren Mitglieder alle außer Reichweite stehen.** Der Anspruch fällt auf den größten
+  Beitragenden zurück (FR-026c) — dieselbe Regel wie ohne Party, statt die Beute verfallen zu lassen.
+- **Ein Spieler ohne Party neben einer Party.** Er ist ein eigener Beitragender und konkurriert mit
+  der Party als Ganzem, genau wie bei Erfahrung und Coins.
+- **Das Inventar des Empfängers ist voll, wenn die Beute fällt.** Sie liegt trotzdem da, er wird
+  gewarnt, und sie verfällt nach Vanillas Frist wie jede andere. Das ist genau der Fall, für den
+  ADR-018 die Warnung vorgesehen hat: der Spieler schafft selbst Platz, und niemand hält ihm
+  stillschweigend etwas zurück.
 - **Ein Mob stirbt, während die Zone gerade aufgeräumt wird.** Ein Entfernen ist kein Tod (B10,
   `RemovalIsNotADeathTest`) — es fällt nichts.
 - **Beute fällt in einen Bereich, den der Eigentümer nicht mehr sieht** — etwa hinter einer
@@ -540,10 +589,25 @@ Wegen.
 
 ### Beute: wem sie gehört
 
-- **FR-026**: Gefallene Beute MUSS **genau einem** Empfänger gehören: dem **größten Beitragenden**
-  aus `CombatDeathEvent.lootRecipient()`, **nicht** dem letzten Treffer und **nicht** anteilig
-  verteilt. Erfahrung und Coins teilen sich nach Anteil, weil sie teilbar sind; ein Gegenstand ist
-  es nicht (B05, ADR-029).
+- **FR-026**: Gefallene Beute MUSS **genau einem** Empfänger gehören. **Außerhalb einer Party** ist
+  das der **größte Beitragende** aus `CombatDeathEvent.lootRecipient()` — **nicht** der letzte
+  Treffer und **nicht** anteilig verteilt. Erfahrung und Coins teilen sich nach Anteil, weil sie
+  teilbar sind; ein Gegenstand ist es nicht (B05, ADR-029).
+- **FR-026a**: Ist der größte Beitragende Mitglied einer **Party**, MUSS die Party als **ein**
+  Beitragender gelten — dieselbe Regel, die B06 für Erfahrung und Coins anwendet
+  (`ShareCalculator`, Schritt 3). Der Anspruch fällt dann der Party zu, nicht dem einzelnen
+  Mitglied.
+- **FR-026b**: Der Anspruch einer Party MUSS **reihum je gefallenem Gegenstand** an ihre Mitglieder
+  **in Reichweite** gehen — nicht je getötetem Gegner. Beute ist wahrscheinlichkeitsbehaftet
+  (FR-021); eine Runde je Kill ließe die Runde dessen verfallen, dessen Gegner nichts fallen lässt.
+  Fallen bei einem Tod mehrere Gegenstände, gehen sie an aufeinanderfolgende Mitglieder.
+- **FR-026c**: Ein Mitglied **außerhalb der Reichweite** MUSS übersprungen werden, ohne seine
+  Position in der Reihenfolge zu verlieren — gemessen wie in B06 zum **gestorbenen Gegner**, dem
+  einzigen gemeinsamen Bezugspunkt. Ist kein Mitglied in Reichweite, fällt der Anspruch auf den
+  größten Beitragenden aus FR-026 zurück.
+- **FR-026d**: Der Reihenfolgezeiger MUSS **Laufzeitzustand der Party** sein und mit ihr vergehen.
+  Die Party wird laut B06 nicht persistiert; ein persistierter Zeiger wäre der einzige Teil von ihr,
+  der einen Neustart überlebt.
 - **FR-027**: Der Anspruch MUSS am **Charakter** hängen, nicht am Spieler (ADR-011). Ein Spieler mit
   drei Charakteren bekommt mit dem zweiten nicht, was der erste erbeutet hat.
 - **FR-028**: Gefallene Beute DARF **ausschließlich für ihren Eigentümer sichtbar** sein. Für jeden
@@ -581,11 +645,19 @@ Wegen.
 - **FR-039**: Es MUSS **zwei** Zustandswerte je Charakter geben, getrennt nach `LadderSlot.ARMOR`
   und `LadderSlot.WEAPON` (Q5).
 - **FR-040**: Der Zustand der **Rüstung** MUSS durch **erlittenen** Schaden sinken — anteilig zum
-  tatsächlich genommenen Schaden, unabhängig von dessen Herkunft, mit Ausnahme von
-  `DamageOrigin.ADMIN`.
+  **ankommenden Schaden vor Abwehr**, nicht zu dem, was danach übrig bleibt. Herkunft egal, mit
+  Ausnahme von `DamageOrigin.ADMIN`.
+- **FR-040a**: Die Bemessung vor Abwehr ist **die Anforderung, nicht eine Feinheit**. Am
+  durchgekommenen Schaden gemessen entstünde eine Abwärtsspirale — verschlissene Rüstung lässt mehr
+  durch, das nutzt sie schneller ab, das lässt noch mehr durch — und gute Rüstung wäre doppelt
+  belohnt. Vor Abwehr bleibt die Verschleißrate von der Rüstungsgüte unabhängig.
 - **FR-041**: Der Zustand der **Waffe** MUSS durch **ausgeteilten Schaden aus einem Autoattack**
   sinken — `DamageOrigin.MELEE` und `PROJECTILE`. Schaden aus `DamageOrigin.ABILITY` DARF **keinen**
   Zustandswert verändern.
+- **FR-041a**: Ein **beschworener Klon** (B08 `SummonEffect`) DARF **keinen** Zustandswert seines
+  Beschwörers verändern — weder durch den Schaden, den er austeilt, noch durch den, den er
+  einsteckt. Er ist eine eigene Kreatur mit einer Momentaufnahme der Werte, und er ist selbst eine
+  Fähigkeit; dass Fähigkeiten die Ausrüstung schonen, gilt für ihn wie für jede andere.
 - **FR-042**: Der **Tod** MUSS **beide** Zustandswerte um einen eigenen, festen Betrag senken. Ein
   Tod durch `DeathCause.ADMIN` ist ausgenommen.
 - **FR-043**: Der Todesbetrag MUSS **um ein Vielfaches über** dem Verschleiß eines gewöhnlichen
@@ -728,6 +800,9 @@ Wegen.
   weder durch Zufall, noch durch Timing, noch nach einem Relogin, noch durch einen Charakterwechsel.
 - **SC-006**: Die Beute geht an den **größten Beitragenden**, nachweisbar an einem Kampf, in dem ein
   anderer Spieler den letzten Treffer landet.
+- **SC-006a**: In einer Party aus drei Mitgliedern in Reichweite bekommt über **neun** gefallene
+  Gegenstände **jedes Mitglied genau drei** — unabhängig davon, wer den Schaden gemacht hat. Beute
+  ist damit so egalitär wie Erfahrung und Coins, und der Tank geht nicht leer aus.
 - **SC-007**: Ein Spieler kann Beute in Coins verwandeln und daraus beim NPC eine Ausrüstungsstufe
   kaufen — der Kreislauf aus B10, B11, B08b und B07 schließt sich ohne Eingriff des Betreibers.
 - **SC-008**: Klassenausrüstung ist über **keinen** der Wege Verkauf, Enderchest, Mülleimer, Wurf
@@ -796,7 +871,9 @@ sie sich ohne Umbau ändern lassen, und jeder ist eine Konfigurationsfrage.
 |---|---|
 | **B03** | `CharacterInventory` — Rucksack und Enderchest je Charakter |
 | **B04** | `StatEngine.apply` mit `SourceKind.BUFF`; der Verschleißfaktor auf den Ausrüstungsbeitrag |
-| **B05** | `CombatDeathEvent.lootRecipient()` als Eigentümer der Beute, `playerVictim` als Auslöser des Todesverschleißes, `DamageOrigin` zur Trennung von Autoattack und Fähigkeit |
+| **B05** | `CombatDeathEvent.lootRecipient()` als Eigentümer der Beute, `playerVictim` als Auslöser des Todesverschleißes, `DamageOrigin` zur Trennung von Autoattack und Fähigkeit, der ankommende Schaden vor Abwehr als Verschleißmaß |
+| **B06** | `PartyRegistry` für die Mitgliedschaft, `ShareCalculator`s Reichweitenbegriff und die Regel „eine Party ist ein Beitragender" |
+| **B08** | `SummonEffect` — der Klon ist vom Verschleiß ausgenommen |
 | **B07** | `BoundEquipment`, `TierAppearance`, `LadderSlot`, `EquipmentTier.requiredLevel`, die Unzerstörbarkeit aus `BoundItemFactory` |
 | **B08b** | `Currency`, `EquipmentPurchase`, `BookingReason.VENDOR_PURCHASE` und `.REPAIR`; die Eigentumsmechanik aus `rpg.platform.currency` als Vorlage für den Beuteanspruch |
 | **B09** | Die sechs Safe-Cores als Standorte der NPCs, Regionen als Anker der Beutetabellen |

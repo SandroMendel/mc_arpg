@@ -1869,8 +1869,13 @@ Constitution
 `/specify`", und die vier dort benannten Fragen waren beantwortet. Beim Abgleich des Steckbriefs
 gegen den **gebauten Code** stellte sich heraus, dass die Hälfte seines Umfangs bereits von
 Nachbarblöcken erledigt ist — und dass an einer Stelle Steckbrief und Code einander widersprechen.
-Sieben Fragen an den Auftraggeber schlossen den Rest. Dieser ADR hält fest, was dabei entschieden
-wurde; die vollständige Fassung steht in `specs/011-items-loot-equipment/spec.md`.
+Elf Fragen an den Auftraggeber schlossen den Rest, in drei Runden. Dieser ADR hält fest, was dabei
+entschieden wurde; die vollständige Fassung steht in `specs/011-items-loot-equipment/spec.md`.
+
+**Die dritte Runde ist die lehrreichste.** Sie entstand aus der Frage des Auftraggebers, was in einer
+Party mit der Beute passiert — und deckte auf, dass die ersten beiden Runden ein **gebautes
+Party-System** übersehen hatten. Zwei fertige Blöcke wollten Unvereinbares, ohne dass es jemandem
+aufgefallen wäre; siehe den Nachtrag zu Abschnitt 2.
 
 ### 1. Verschleiß ist ein Wert am Charakter, nicht Haltbarkeit am ItemStack
 
@@ -1959,6 +1964,39 @@ ein zweiter Anlauf sonst liefe:
 - **Anteilige Aufteilung wie bei Coins**: ein Gegenstand teilt sich nicht. Der einzige Ausweg wäre
   eine Würfelrunde gewesen, und die hätte den mit ADR-027 abgeschafften Zufall zurückgeholt.
 
+#### Nachtrag: in einer Party wandert die Beute reihum
+
+**Der erste Entwurf hatte das Party-System übersehen.** B06 besitzt eines — `Party`,
+`PartyRegistry`, `ShareCalculator` — und behandelt eine Party ausdrücklich als **einen**
+Beitragenden: ihr Anteil ist die Summe der Mitgliedsanteile, und er wird gleichmäßig auf die
+Mitglieder **in Reichweite** verteilt, samt Nähe-Bonus, *„damit gemeinsames Spielen nicht schlechter
+ist als allein zu spielen"*.
+
+**Für Beute galt das nicht, und das war ein Widerspruch.** `DamageShare.topContributor` stammt aus
+B05, und **B05 kennt keine Partys** — es teilt rohen Schaden je Angreifer-UUID auf. In einer festen
+Gruppe wäre also jeder Gegenstand dauerhaft an denselben Spieler gegangen, während Erfahrung und
+Coins sich teilen. Der Tank und der Unterstützer hätten nie etwas bekommen. B05s Regel ist gegen
+Kill-Stealing zwischen Fremden gedacht; innerhalb einer Party wirkt sie gegen die Absicht von B06.
+
+**Entscheidung.** Die Party gilt auch für Beute als **ein** Beitragender. Weil ein Gegenstand sich
+nicht teilt, wandert er **reihum** unter den Mitgliedern in Reichweite.
+
+**Gezählt werden die Gegenstände, nicht die Kills.** Beute ist wahrscheinlichkeitsbehaftet; eine
+Runde je Kill ließe die Runde dessen verfallen, dessen Gegner nichts fallen lässt, und über einen
+Abend gliche sich das nicht aus. Je Gegenstand gezählt ist die Verteilung exakt gleichmäßig, und
+mehrere Gegenstände aus einem Tod gehen an aufeinanderfolgende Mitglieder.
+
+Wer außer Reichweite steht, wird übersprungen und behält seine Position — gemessen wie in B06 zum
+**gestorbenen Gegner**, dem einzigen gemeinsamen Bezugspunkt. Steht niemand in Reichweite, fällt der
+Anspruch auf den größten Beitragenden zurück. Der Reihenfolgezeiger ist **Laufzeitzustand der
+Party**: sie wird laut B06 nicht persistiert, und ein persistierter Zeiger wäre der einzige Teil von
+ihr, der einen Neustart überlebte.
+
+**Verworfen.** **Ein eigenes Exemplar je Mitglied** — niemand ginge leer aus, aber die Beute
+vervielfachte sich mit der Partygröße und unterliefe Beutetabellen wie Preise. **Eine Würfelrunde
+(Need/Greed)** — vertraut aus anderen Spielen, holt aber den mit ADR-027 abgeschafften Zufall
+zurück und braucht eine eigene Oberfläche mit Zeitfenster.
+
 ### 3. Kosmetik erst auf der Höchststufe
 
 **Kontext.** Stufe 60 ist die Höchststufe; danach fehlt ein Ziel. Der Auftraggeber wollte
@@ -1982,6 +2020,26 @@ ohnehin unberührt gewesen, weil er über Farbe statt Trim unterscheidet.
 Unterscheidungsmerkmal geben. Machbar, aber es ist eine Änderung an `classes.yml` und an B07s
 Erscheinungsbildvalidierung — in einem Block, der B07 ausdrücklich nicht verändern soll. Wenn das
 gewünscht wird, gehört es in einen eigenen ADR und nicht hier hinein.
+
+### 3a. Verschleiß bemisst sich vor der Abwehr, nicht danach
+
+**Entscheidung.** Der Rüstungsverschleiß richtet sich nach dem **ankommenden** Schaden, nicht nach
+dem, was nach der Abwehr durchkommt.
+
+**Begründung.** Am durchgekommenen Schaden gemessen wäre eine **Abwärtsspirale** entstanden:
+verschlissene Rüstung mindert den Ausrüstungsbeitrag, also kommt mehr durch, also verschleißt sie
+schneller, also kommt noch mehr durch. Genau die Rückkopplung, die ein Spieler nicht mehr aufhalten
+kann, sobald sie einmal läuft. Zusätzlich wäre gute Rüstung doppelt belohnt worden — weniger Schaden
+**und** langsamerer Verschleiß. Vor der Abwehr gemessen ist die Verschleißrate von der
+Rüstungsgüte unabhängig, und die Rüstung nutzt sich an dem ab, was sie tatsächlich abfängt.
+
+**Verworfen.** **Eine Pauschale je Treffer** wäre gegen beide Effekte ebenso immun und noch
+einfacher, ließe aber einen Kratzer so viel kosten wie einen Bosstreffer.
+
+**Ebenfalls entschieden:** ein **beschworener Klon** (B08 `SummonEffect`) nutzt nichts ab — weder
+durch ausgeteilten noch durch eingesteckten Schaden. Er ist eine eigene Kreatur mit einer
+Momentaufnahme der Werte und selbst eine Fähigkeit; dass Fähigkeiten die Ausrüstung schonen, gilt
+für ihn wie für jede andere.
 
 ### 4. Was ohne Diskussion folgte
 
