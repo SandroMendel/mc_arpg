@@ -30,7 +30,7 @@ abgeschrieben):
 | Lagerplatz: Enderchest | **Erledigt in B03.** `CharacterInventory` führt Rucksack **und** Enderchest je Charakter, nicht je Spieler |
 | Klassenausrüstung ist unablegbar | **Erledigt in B07/ADR-018.** `EquipmentLockListener` bricht Klick, Drag, Hand-Tausch und Wurf ab; `BoundEquipment.isBoundTo` ist das Prädikat |
 | Nicht-Ziel „kein Wirtschaftssystem" präzisieren | **Erledigt.** `00-vision-scope.md` sagt seit ADR-018 ausdrücklich „kein Spieler-zu-Spieler-Handel" |
-| `BookingReason` für Verkauf und Reparatur | **Steht bereit.** `VENDOR_PURCHASE` und `REPAIR` existieren, bislang ungenutzt |
+| `BookingReason` für Verkauf und Reparatur | **Steht bereit.** `VENDOR_SALE`, `VENDOR_PURCHASE` und `REPAIR` existieren, bislang ungenutzt |
 | Wem gehört gefallene Beute? | **Erledigt in B05.** `CombatDeathEvent.lootRecipient()` gibt den **größten Beitragenden** heraus — ausdrücklich *nicht* den letzten Treffer. Siehe unten |
 | Beute nur für ihren Eigentümer sichtbar | **Vorgebaut in B08b.** `CoinPile` löst genau das für Coins, samt aller Fallen. Siehe unten |
 | Ausrüstungsschaden beim Tod | **Naht vorhanden.** `CombatDeathEvent.playerVictim` trägt im Javadoc: *„B11 applies equipment damage only then"* |
@@ -347,7 +347,7 @@ Kontostand, ohne dass Beute existiert — Items lassen sich per Befehl vergeben.
 
 1. **Given** ein Spieler mit einem verkäuflichen Item, **When** er es dem NPC verkauft, **Then**
    verschwindet das Item und der Kontostand steigt um den konfigurierten Erlös, gebucht unter
-   `VENDOR_PURCHASE`
+   `VENDOR_SALE`
 2. **Given** ein Spieler, der seine Klassenrüstung oder -waffe verkaufen will, **When** er es
    versucht, **Then** wird der Vorgang abgelehnt, das Item bleibt am Charakter, und der Kontostand
    bleibt unverändert
@@ -703,7 +703,7 @@ Wegen.
 - **FR-058**: Der **Verkaufsbestand** MUSS je Region konfigurierbar sein und sich zwischen den
   Regionen unterscheiden dürfen. Ankaufserlöse folgen weiterhin der Vorlage (FR-016).
 - **FR-059**: Der NPC MUSS unverwundbar sein und DARF **nicht** gegen das Mob-Budget aus B10 zählen.
-- **FR-060**: Verkauf MUSS den konfigurierten Erlös unter `VENDOR_PURCHASE` gutschreiben und das
+- **FR-060**: Verkauf MUSS den konfigurierten Erlös unter `VENDOR_SALE` gutschreiben und das
   Item entfernen.
 - **FR-061**: Der Stufenaufstieg am NPC MUSS **Mindestlevel und Coins** prüfen und dafür die
   vorhandene Kaufroute aus B08b (`EquipmentPurchase`) benutzen. Ein zweiter Kaufmechanismus ist
@@ -875,7 +875,7 @@ sie sich ohne Umbau ändern lassen, und jeder ist eine Konfigurationsfrage.
 | **B06** | `PartyRegistry` für die Mitgliedschaft, `ShareCalculator`s Reichweitenbegriff und die Regel „eine Party ist ein Beitragender" |
 | **B08** | `SummonEffect` — der Klon ist vom Verschleiß ausgenommen |
 | **B07** | `BoundEquipment`, `TierAppearance`, `LadderSlot`, `EquipmentTier.requiredLevel`, die Unzerstörbarkeit aus `BoundItemFactory` |
-| **B08b** | `Currency`, `EquipmentPurchase`, `BookingReason.VENDOR_PURCHASE` und `.REPAIR`; die Eigentumsmechanik aus `rpg.platform.currency` als Vorlage für den Beuteanspruch |
+| **B08b** | `Currency`, `EquipmentPurchase`, `BookingReason.VENDOR_SALE`, `.VENDOR_PURCHASE` und `.REPAIR`; die Eigentumsmechanik aus `rpg.platform.currency` als Vorlage für den Beuteanspruch |
 | **B09** | Die sechs Safe-Cores als Standorte der NPCs, Regionen als Anker der Beutetabellen |
 | **B10** | Mob-Arten als Anker der Beutetabellen, Entity-Technik für die NPCs |
 | **B13** | Die Ausgabeschnittstelle für Title und Sound (ADR-005) |

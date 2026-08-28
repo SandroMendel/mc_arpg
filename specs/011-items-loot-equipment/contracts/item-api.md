@@ -120,7 +120,7 @@ das einzige Schloss**.
 | B05 | `CombatDeathEvent.lootRecipient()`, `playerVictim`, `DamageOrigin`, der ankommende Schaden |
 | B06 | `PartyRegistry.partyOf` und `membersOf`, die Reichweite aus `progression.yml` |
 | B07 | `BoundEquipment.isBoundTo` und `.isBound`, `TierAppearance`, `LadderSlot` |
-| B08b | `Currency`, `EquipmentPurchase`, `BookingReason.VENDOR_PURCHASE` und `.REPAIR` |
+| B08b | `Currency`, `EquipmentPurchase`, `BookingReason.VENDOR_SALE`, `.VENDOR_PURCHASE` und `.REPAIR` |
 | B09 | die sechs Safe-Cores, die Regionen |
 | B10 | die Mob-Arten, die Platzierungstechnik für die NPCs |
 
