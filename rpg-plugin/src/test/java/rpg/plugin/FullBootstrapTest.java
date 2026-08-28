@@ -703,6 +703,39 @@ class FullBootstrapTest {
         assertThat(plugin.getDataFolder().toPath().resolve("zones.yml")).exists();
     }
 
+    // --- B11: items, equipment and loot ---
+
+    @Test
+    void theItemConfigurationIsWrittenOutLikeEveryOther() {
+        // Dieselbe Falle wie bei zones.yml, und sie kostet dasselbe: ohne die Zeile in
+        // DEFAULT_CONFIG_FILES startet der Block gegen eine Datei, die es nicht gibt.
+        assertThat(plugin.getDataFolder().toPath().resolve("items.yml")).exists();
+    }
+
+    @Test
+    void theItemModuleIsWiredAndItsFacadeAnswers() {
+        // Ein Modul, dessen Modultests gruen sind, ist nicht fertig. Fertig ist es, wenn es im
+        // Plugin verdrahtet ist und der Start gruen bleibt - das ist die Lehre aus B10.
+        rpg.core.item.Items items = plugin.items();
+
+        assertThat(items).as("B11 haengt im Bootstrap").isNotNull();
+        assertThat(items.templateKeys())
+                .as("die ausgelieferten Vorlagen sind geladen")
+                .isNotEmpty();
+        assertThat(items.wear().perDeath())
+                .as("die Verschleisskurve steht - und der Tod wiegt schwerer als der Alltag")
+                .isGreaterThan(items.wear().perDamageTaken());
+    }
+
+    @Test
+    void anUnknownItemTemplateAnswersEmptyRatherThanThrowing() {
+        // Die Zusage aus contracts/item-api.md: nichts wirft, nichts antwortet mit null. Eine
+        // Vorlage kann zwischen zwei Reloads verschwinden, waehrend ein Exemplar davon noch in
+        // einem Inventar liegt (FR-007).
+        assertThat(plugin.items().template("potion.does-not-exist")).isEmpty();
+        assertThat(plugin.items().sellPriceOf("potion.does-not-exist")).isEmpty();
+    }
+
     @Test
     void everyZoneListenerIsRegistered() {
         // FOUR listeners, not the six the task list expected. Two of them - the join and the quit -

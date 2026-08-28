@@ -179,6 +179,17 @@ public final class MobModule implements Module {
     }
 
     /** Die öffentliche Artabfrage (contracts/mob-api.md §2). */
+    /**
+     * Jede konfigurierte Artkennung.
+     *
+     * <p>Fuer B11s Startpruefung: eine Beutetabelle nennt Arten, und ob es sie gibt, weiss nur
+     * dieser Block. B11 haelt deshalb keine eigene Liste - eine zweite waere genau bis zur
+     * naechsten neuen Art richtig.
+     */
+    public java.util.Set<String> kindKeys() {
+        return config().kinds().keySet();
+    }
+
     public MobKinds kinds() {
         return MobKinds.backedBy(this::config, registry);
     }

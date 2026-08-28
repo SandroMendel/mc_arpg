@@ -463,3 +463,63 @@ zone:
     entry-unlocked: '{zone} - level {band-min}-{band-max} ({price} coins)'
     entry-locked: '{zone} - level {band-min}-{band-max} (not discovered)'
     entry-here: '{zone} - you are here'
+
+# ---------------------------------------------------------------------------------------------
+# B11 - Items, Ausrüstung & Loot.
+#
+# Der Name einer Vorlage ist ein SCHLÜSSEL, kein Text. Er lebt hier und nirgends sonst; eine
+# Vorlage umzubenennen ist eine Zeile in dieser Datei, und keine Beutetabelle und kein
+# Händlerbestand muss dafür angefasst werden (Prinzip V). ItemModule.start weist den Start ab,
+# wenn eine konfigurierte Vorlage hier keinen Namen hat - ein Trank, der als
+# item.potion.minor-healing.name durchs Inventar liefe, ist kein Zustand, den man bemerkt.
+#
+# Die Wirkungswerte stehen NICHT hier. Sie kommen aus items.yml und werden bei jedem Laden neu
+# abgeleitet (FR-002) - stünden sie hier, wäre ein Balancing zwei Dateien statt einer, und die
+# zweite würde vergessen.
+# ---------------------------------------------------------------------------------------------
+item:
+  # Die acht Raritätsstufen. Ein Etikett, sonst nichts: ein epischer Trank heilt nicht mehr als
+  # ein gewöhnlicher, er ist seltener (FR-014, ADR-027).
+  rarity:
+    common: { name: 'Common' }
+    uncommon: { name: 'Uncommon' }
+    rare: { name: 'Rare' }
+    epic: { name: 'Epic' }
+    legendary: { name: 'Legendary' }
+    mythic: { name: 'Mythic' }
+    divine: { name: 'Divine' }
+    special: { name: 'Special' }
+
+  potion:
+    minor-healing:
+      name: 'Minor Healing Potion'
+      lore: 'A thin red brew. Enough to finish a fight you nearly lost.'
+    healing:
+      name: 'Healing Potion'
+      lore: 'Brewed for people who expect to be hit.'
+    greater-healing:
+      name: 'Greater Healing Potion'
+      lore: 'The last one you drink before deciding to run.'
+    lesser-mana:
+      name: 'Lesser Mana Potion'
+      lore: 'Bitter. Works anyway.'
+    mana:
+      name: 'Mana Potion'
+      lore: 'Steadier than the lesser sort, and twice the price.'
+    stoneskin:
+      name: 'Stoneskin Draught'
+      lore: 'Your skin remembers being rock. Briefly.'
+    fury:
+      name: 'Draught of Fury'
+      lore: 'Faster, harder, and no help at all when it wears off.'
+
+  trim:
+    ember:
+      name: 'Ember Trim'
+      lore: 'Worn by those who have nothing left to prove.'
+    frost:
+      name: 'Frost Trim'
+      lore: 'Cold enough to be noticed across a battlefield.'
+    verdant:
+      name: 'Verdant Trim'
+      lore: 'The rarest of the three, and the hardest to explain.'

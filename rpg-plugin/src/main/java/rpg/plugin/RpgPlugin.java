@@ -128,7 +128,8 @@ public class RpgPlugin extends JavaPlugin {
                     "abilities.yml",
                     "currency.yml",
                     "zones.yml",
-                    "mobs.yml");
+                    "mobs.yml",
+                    "items.yml");
 
     private final BootstrapState bootstrapState = new BootstrapState();
 
@@ -161,6 +162,7 @@ public class RpgPlugin extends JavaPlugin {
     private CurrencyModule currencyModule;
     private ZoneModule zoneModule;
     private rpg.core.mob.MobModule mobModule;
+    private rpg.core.item.ItemModule itemModule;
     /** Der selbst neu eingeplante Durchlauf je bevoelkerter Zone (B10, US2/US3). */
     private rpg.platform.mob.HordeSweep mobSweep;
     private rpg.persistence.zone.ZonePersistenceModule zonePersistenceModule;
@@ -425,6 +427,16 @@ public class RpgPlugin extends JavaPlugin {
         // Bereich wirklich existiert, ginge sonst ins Leere. Die Abhaengigkeit steht auch in
         // MobModule.dependencies(); die Reihenfolge hier ist die zweite Absicherung.
         mobModule = new rpg.core.mob.MobModule(getLogger(), messages, () -> zoneModule.zones());
+        // B11. Nach B09 UND B10, aus demselben Grund wie B10 nach B09: die Beutetabellen nennen
+        // Regionen und Arten, und die Startpruefung, dass es beide wirklich gibt, ginge sonst ins
+        // Leere. Eine Art mit Tippfehler waere eine still leere Beutetabelle - und das sieht aus
+        // wie kaputte Beute statt wie ein kaputter Buchstabe.
+        itemModule =
+                new rpg.core.item.ItemModule(
+                        getLogger(),
+                        messages,
+                        () -> zoneModule.zones(),
+                        () -> mobModule.kindKeys());
         return List.of(
                 persistenceModule,
                 sessionModule,
@@ -437,7 +449,8 @@ public class RpgPlugin extends JavaPlugin {
                 currencyModule,
                 zonePersistenceModule,
                 zoneModule,
-                mobModule);
+                mobModule,
+                itemModule);
     }
 
     /**
@@ -2123,6 +2136,17 @@ public class RpgPlugin extends JavaPlugin {
      */
     public rpg.core.zone.ZoneTracker zoneTracker() {
         return zoneTracker;
+    }
+
+    /**
+     * B11s Fassade, wie sie verdrahtet wurde — für den Bootstrap-Test.
+     *
+     * <p>Aus demselben Grund wie {@link #zones()}: dass die Modultests von B11 grün sind, sagt
+     * nichts darüber, ob {@code items.yml} beim echten Start gelesen wird und die Fassade danach
+     * antwortet. Genau diese Lücke hat B10 zweimal Rot gekostet.
+     */
+    public rpg.core.item.Items items() {
+        return itemModule;
     }
 
     /** The zone query as it was assembled, for the bootstrap test. */
