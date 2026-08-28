@@ -58,7 +58,14 @@ class TwoCopiesAreIdenticalTest {
     @DisplayName("nirgends in diesem Block wird gewuerfelt - ausser bei der Stueckzahl der Beute")
     void nothingRollsExceptTheLootCount() throws IOException {
         // FR-021 nennt die Stueckzahl ausdruecklich als den EINZIGEN Zufall dieses Blocks. Ueberall
-        // sonst waere ein Zufallsgenerator der Roll-Mechanismus unter anderem Namen.
+        // sonst waere ein Wurf der Roll-Mechanismus unter anderem Namen.
+        //
+        // Geprueft wird der AUFRUF, nicht der Typ. Der erste Anlauf verbot das Wort "Random"
+        // ueberhaupt - und schlug bei LootPlanner an, der einen Generator entgegennimmt und an
+        // LootTable weiterreicht, ohne selbst zu wuerfeln. Ihn auf die Ausnahmeliste zu setzen
+        // haette die Pruefung stumpf gemacht: dann duerfte er spaeter auch wuerfeln, und niemand
+        // saehe es. Wer wuerfeln will, ruft eine dieser Methoden auf.
+        List<String> forbidden = List.of(".nextDouble(", ".nextInt(", ".nextLong(", "Math.random");
         List<String> offenders = new ArrayList<>();
 
         for (Path source : productionSources()) {
@@ -67,15 +74,17 @@ class TwoCopiesAreIdenticalTest {
                 continue; // Die Stueckzahl. Die eine erlaubte Stelle.
             }
             String code = Files.readString(source);
-            if (code.contains("Random") || code.contains("Math.random")) {
-                offenders.add(name);
+            for (String call : forbidden) {
+                if (code.contains(call)) {
+                    offenders.add(name + " calls " + call);
+                }
             }
         }
 
         assertThat(offenders)
                 .as(
-                        "ein Zufallsgenerator ausserhalb der Stueckzahl waere der Roll-Mechanismus"
-                                + " unter anderem Namen (FR-010, FR-021, ADR-027)")
+                        "ein Wurf ausserhalb der Stueckzahl waere der Roll-Mechanismus unter"
+                                + " anderem Namen (FR-010, FR-021, ADR-027)")
                 .isEmpty();
     }
 

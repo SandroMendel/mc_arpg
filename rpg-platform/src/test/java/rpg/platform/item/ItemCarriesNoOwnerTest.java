@@ -84,21 +84,35 @@ class ItemCarriesNoOwnerTest {
     }
 
     @Test
-    @DisplayName("und nirgends in diesem Paket haengt eine Identitaet am Gegenstand")
+    @DisplayName("und nirgends in diesem Paket haengt eine Identitaet AM GEGENSTAND")
     void nothingInThisPackageTiesAnIdentityToAnItem() throws IOException {
         // Die zweite Art, dieselbe Zusage zu brechen: nicht im Vermerk, sondern in einer Tabelle
         // daneben. Ein `Map<ItemStack, UUID>` waere dasselbe Problem mit mehr Schritten.
+        //
+        // Gesucht wird deshalb nach genau dieser Form - nicht nach dem Wort "ownerCharacterId".
+        // Der erste Anlauf tat das und schlug bei LootDropListener an, der eine Charakterkennung
+        // an OwnedDrops WEITERREICHT, ohne sie irgendwo am Gegenstand festzumachen. Das ist
+        // genau, was passieren soll, und eine Ausnahmeliste haette die Pruefung stumpf gemacht.
         List<String> offenders = new ArrayList<>();
 
         for (Path source : itemSources()) {
             String code = Files.readString(source);
-            if (code.contains("ownerCharacterId") || code.contains("ownerPlayerId")) {
-                offenders.add(source.getFileName().toString());
+            for (String shape :
+                    List.of(
+                            "Map<ItemStack,",
+                            "Map<Item,",
+                            "Map<org.bukkit.inventory.ItemStack,",
+                            "Map<org.bukkit.entity.Item,")) {
+                if (code.contains(shape)) {
+                    offenders.add(source.getFileName() + " keys identity by " + shape);
+                }
             }
         }
 
         assertThat(offenders)
-                .as("Eigentum gehoert zu liegender Beute (rpg.platform.drop), nicht zum Gegenstand")
+                .as(
+                        "Eigentum gehoert zu LIEGENDER Beute (rpg.platform.drop, an der Entitaet)"
+                                + " und endet beim Aufheben - niemals an einem Inventarposten")
                 .isEmpty();
     }
 

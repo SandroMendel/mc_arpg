@@ -163,6 +163,15 @@ public class RpgPlugin extends JavaPlugin {
     private ZoneModule zoneModule;
     private rpg.core.mob.MobModule mobModule;
     private rpg.core.item.ItemModule itemModule;
+
+    /**
+     * B11s Vermerk über liegende Beute — gesetzt in {@link #assembleItemLayer()}.
+     *
+     * <p>Gebraucht wird er im Rückruf für den Charaktereintritt, der weiter oben in der
+     * Zusammenstellung sitzt. Deshalb ein Feld und keine lokale Variable; {@code null} heißt
+     * schlicht, dass B11 noch nicht verdrahtet ist.
+     */
+    private rpg.platform.drop.OwnedDropRegistry itemDropVisibility;
     /** Der selbst neu eingeplante Durchlauf je bevoelkerter Zone (B10, US2/US3). */
     private rpg.platform.mob.HordeSweep mobSweep;
     private rpg.persistence.zone.ZonePersistenceModule zonePersistenceModule;
@@ -255,6 +264,9 @@ public class RpgPlugin extends JavaPlugin {
         assembleCombatLayer();
         assembleProgressionLayer();
         assembleMobLayer();
+        // B11 nach B10, und das ist keine Formalie: die Beutetabellen nennen Arten und Regionen,
+        // und ohne sie waere die Zuordnung ins Leere gelaufen.
+        assembleItemLayer();
 
         // Same cadence as B02's autosave, and for the same reason: a crash should cost one interval,
         // not a whole session's loot. The quit path captures on its own; this is only for the case
@@ -1840,6 +1852,16 @@ public class RpgPlugin extends JavaPlugin {
                     org.bukkit.entity.Player player = getServer().getPlayer(playerId);
                     if (player != null) {
                         pileRegistry.showPilesTo(player, characterId);
+                        // Und B11s Beute gleich mit. Dieselbe Falle, derselbe Moment - beide
+                        // Mechanismen haengen an showEntity, und das ist Zustand der VERBINDUNG.
+                        //
+                        // Der Haken gehoert B08b, aber diese Zeile steht im Plugin, und das
+                        // Plugin ist der Kompositionswurzel: es darf beide Bloecke kennen. B11
+                        // haengt dadurch NICHT an B08b - es haengt an einem Rueckruf, den die
+                        // Verdrahtung setzt.
+                        if (itemDropVisibility != null) {
+                            itemDropVisibility.showTo(player, characterId);
+                        }
                     }
                 });
 
@@ -1925,6 +1947,113 @@ public class RpgPlugin extends JavaPlugin {
                 .info(
                         "[mob] phase=START state=SWEEP_ARMED - the budget is now the only source of"
                                 + " living creatures (FR-018c)");
+    }
+
+    /**
+     * B11s Beute: was ein Tod hinterlässt, und wem es gehört (US2).
+     *
+     * <p><b>Nach B10</b>, weil die Beutetabellen Arten und Regionen nennen — und nach B06, weil die
+     * Party mitentscheidet, wer den nächsten Gegenstand bekommt.
+     *
+     * <p><b>Zwei Dinge werden hier geteilt statt gebaut.</b> Die Eigentumsmechanik für liegende
+     * Gegenstände kommt aus {@code rpg.platform.drop} und ist dieselbe, die B08b für Coin-Haufen
+     * benutzt (ADR-039). Und wer worauf Anspruch hat, entscheidet {@code LootPlanner} in
+     * {@code rpg-core} — bukkit-frei, wie {@code CoinDropPlanner}.
+     */
+    private void assembleItemLayer() {
+        rpg.platform.item.ItemStackFactory itemFactory =
+                new rpg.platform.item.ItemStackFactory(itemModule, messages);
+
+        rpg.platform.drop.OwnedDropPlatform dropPlatform =
+                rpg.platform.drop.OwnedDropPlatform.vanilla(this);
+        rpg.platform.drop.OwnedDropRegistry dropRegistry =
+                new rpg.platform.drop.OwnedDropRegistry(dropPlatform);
+        // Vorgealtert wie ein Coin-Haufen: es gibt keinen Setter fuer die Verfallszeit, und Beute
+        // soll nicht laenger liegen als Coins.
+        rpg.platform.drop.OwnedDrops drops =
+                new rpg.platform.drop.OwnedDrops(dropPlatform, dropRegistry, 0);
+
+        PartyRegistry parties = registry.getService(PartyRegistry.class);
+        StatEngine stats = registry.getService(StatEngine.class);
+
+        rpg.core.item.LootPlanner lootPlanner =
+                new rpg.core.item.LootPlanner(
+                        itemModule::config,
+                        parties,
+                        // Dieselbe Reichweitenpruefung, die B06 fuer Erfahrung benutzt.
+                        () -> new PaperProximityCheck(getServer()),
+                        // Und dieselbe Zahl aus progression.yml. Eine zweite in items.yml waere
+                        // eine zu viel: niemand koennte erklaeren, warum Erfahrung und Beute
+                        // unterschiedlich weit reichen.
+                        () -> progressionModule.config().partyRange(),
+                        stats::characterIdOf,
+                        new rpg.core.item.PartyLootRotation(),
+                        new java.util.Random());
+
+        rpg.platform.item.LootDropListener lootDrops =
+                new rpg.platform.item.LootDropListener(
+                        getServer(),
+                        lootPlanner,
+                        itemFactory,
+                        drops,
+                        this::onlinePlayerOfCharacter,
+                        this::isBossKind,
+                        eventBus,
+                        getLogger());
+        lootDrops.subscribeTo(eventBus);
+
+        // Das zweite Schloss. Unsichtbarkeit ist Darstellung, und Darstellung ist niemals die
+        // Autoritaet (Constitution VI) - hier wird der CHARAKTER geprueft, den Vanillas setOwner
+        // nicht kennt (ADR-011).
+        getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new rpg.platform.drop.OwnedDropPickupListener(
+                                dropRegistry, this::activeCharacterOf),
+                        this);
+
+        // showEntity haengt an der VERBINDUNG. Ohne diese Zeile bliebe Beute nach einem Relogin
+        // unsichtbar, waehrend beide Schloesser weiter passen - unsichtbar aber aufsammelbar ist
+        // das Schlechteste von beidem. Dieselbe Falle, die B08b fuer Coin-Haufen gefunden hat.
+        itemDropVisibility = dropRegistry;
+
+        getLogger()
+                .info(
+                        "[item] phase=START state=LOOT_ARMED - loot belongs to one character,"
+                                + " and in a party it rotates (FR-026b)");
+    }
+
+    /** Der Charakter, den dieser Spieler gerade spielt — B03 besitzt die Antwort. */
+    private java.util.Optional<java.util.UUID> activeCharacterOf(java.util.UUID playerId) {
+        org.bukkit.entity.Player player = getServer().getPlayer(playerId);
+        return player == null ? java.util.Optional.empty() : characterIdOf(player);
+    }
+
+    /** Der Spieler, der diesen Charakter gerade spielt — leer, wenn er offline ist. */
+    private java.util.Optional<org.bukkit.entity.Player> onlinePlayerOfCharacter(
+            java.util.UUID characterId) {
+        for (org.bukkit.entity.Player online : getServer().getOnlinePlayers()) {
+            if (characterIdOf(online).filter(characterId::equals).isPresent()) {
+                return java.util.Optional.of(online);
+            }
+        }
+        return java.util.Optional.empty();
+    }
+
+    /**
+     * Ob diese Artkennung zu einem Boss gehört.
+     *
+     * <p>B10 führt die Bosse in {@code mobs.yml} unter {@code hordes.<zone>.boss.kind}, nicht über
+     * ein Kennzeichen an der Art — die Antwort kommt deshalb von dort und nicht aus einer zweiten
+     * Liste.
+     */
+    private boolean isBossKind(String kindKey) {
+        for (rpg.core.mob.HordeSpec horde : mobModule.config().hordes().values()) {
+            if (horde.boss() != null && horde.boss().kindKey().equals(kindKey)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
