@@ -21,7 +21,7 @@ sie stammen, sechs NPCs und den Verschleiß, der dem Tod seine Strafe gibt.
    im Betrieb auffallen. Sie wandert nach `rpg.platform.drop` und wird von beiden Blöcken benutzt —
    dasselbe Vorgehen, mit dem ADR-029 den `ShareCalculator` aus `XpDistributor` gezogen hat.
 3. **Vanillas Beute ist schon unterdrückt** (R3). `CombatDeathListener` räumt `getDrops()` und setzt
-   `setDroppedExp(0)`. FR-027 ist ohne Code erfüllt und wird nur noch mit einem Test gesichert.
+   `setDroppedExp(0)`. FR-022 ist ohne Code erfüllt und wird nur noch mit einem Test gesichert.
 
 **Der eine Punkt, an dem dieser Plan einen fremden Block anfasst**, ist der Verschleiß (R1). Die
 Stufenwerte sind **Grundwerte, keine Modifikatoren** — B07 hat das ausdrücklich so gebaut, weil

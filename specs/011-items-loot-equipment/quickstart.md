@@ -130,8 +130,8 @@ Konfigurationen nicht, das Jar allein deployt die YAML-Änderungen **nicht** mit
 37. Zwei NPCs vergleichen — unterschiedlicher Bestand (FR-058)
 38. NPC angreifen — unverwundbar; er zählt **nicht** gegen B10s Budget (FR-052)
 39. Verkaufen — Coins gebucht unter `VENDOR_PURCHASE`, Item weg (FR-053)
-40. **Klassenrüstung verkaufen wollen** — abgelehnt (FR-056, SC-007)
-41. Dieselbe in Enderchest legen, in den Mülleimer geben, wegwerfen — jedes Mal abgelehnt (SC-007)
+40. **Klassenrüstung verkaufen wollen** — abgelehnt (FR-063, SC-008)
+41. Dieselbe in Enderchest legen, in den Mülleimer geben, wegwerfen — jedes Mal abgelehnt (SC-008)
 42. Kaufen mit vollem Inventar — abgelehnt **vor** der Buchung (FR-064)
 43. Kaufen mit zu wenig Coins — abgelehnt, Kontostand unverändert
 44. **Stufe kaufen** mit ausreichendem Level und Coins — Leiter steigt um genau eine Stufe, neues
@@ -150,7 +150,7 @@ Konfigurationen nicht, das Jar allein deployt die YAML-Änderungen **nicht** mit
 
 ### Abbruch mitten im Vorgang
 
-56. Während eines Kaufs ausloggen — **entweder ganz oder gar nicht** gebucht (FR-065, SC-008)
+56. Während eines Kaufs ausloggen — **entweder ganz oder gar nicht** gebucht (FR-065, SC-009)
 57. Server während eines Verkaufs stoppen — dito
 
 **Schritte 1–57 sind das Bestehenskriterium.** Ein Lasttest gehört nach ADR-031 zu B15 und hält

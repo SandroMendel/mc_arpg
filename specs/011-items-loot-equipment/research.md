@@ -101,7 +101,7 @@ eigene Aufgabengruppe geführt und ist von den übrigen Aufgaben unabhängig.
 
 ## R3 · Vanillas Beute ist bereits unterdrückt
 
-**Die Frage.** FR-027 verlangt, dass Vanillas eigene Drops unterdrückt werden.
+**Die Frage.** FR-022 verlangt, dass Vanillas eigene Drops unterdrückt werden.
 
 **Der Fund.** `CombatDeathListener` (B05) tut das bereits:
 
@@ -110,7 +110,7 @@ event.setDroppedExp(0);
 event.getDrops().clear();
 ```
 
-**Entscheidung.** FR-027 ist ohne eine Zeile Code erfüllt. B11 baut nichts und **prüft es mit einem
+**Entscheidung.** FR-022 ist ohne eine Zeile Code erfüllt. B11 baut nichts und **prüft es mit einem
 Test ab**, damit die Zusage nicht unbemerkt wegfällt, wenn jemand B05 anfasst.
 
 ---
@@ -191,7 +191,7 @@ erklären warum.
 
 ## R7 · Der NPC und B10s Budget
 
-**Die Frage.** FR-052 verlangt, dass der NPC nicht gegen das Mob-Budget aus B10 zählt.
+**Die Frage.** FR-059 verlangt, dass der NPC nicht gegen das Mob-Budget aus B10 zählt.
 
 **Der Fund.** `HordeRegistry` zählt **nur, was es selbst gesetzt hat** — jeder Eintrag trägt
 `entityId`, `kindKey`, `zoneKey`, `chunkKey`, `spawnedAt`. Eine Entität, die nicht durch B10s
@@ -260,6 +260,6 @@ B11 einführt.
 |---|---|
 | R1 | B07 bekommt eine additive Naht — kleiner Eingriff, aber ein Eingriff. Muss im Constitution Check auftauchen |
 | R2 | **Rückbau statt Aufbau**: `item_instance`, Repository, Record und das Feld in `SessionBundle` fallen weg |
-| R3 | FR-027 ist bereits erfüllt — nur noch abzusichern |
+| R3 | FR-022 ist bereits erfüllt — nur noch abzusichern |
 | R5 | Die Eigentumsmechanik wird aus B08b **herausgezogen**, nicht in B11 nachgebaut |
 | R7 | Für das Budget ist nichts zu tun |
