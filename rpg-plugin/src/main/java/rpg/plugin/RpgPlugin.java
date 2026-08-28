@@ -1418,6 +1418,32 @@ public class RpgPlugin extends JavaPlugin {
 
         characterEntry = (player, character) -> enterGameState(player, character, equipment);
 
+        // EIN Aufstieg, EIN neuer Satz Ausruestung - und zwar sofort.
+        //
+        // Bis hierher hoerte auf dieses Ereignis nur B07s Werteberechnung. Die Zahlen stiegen also
+        // beim Kauf, die getragenen STUECKE aber nicht: sie werden ausschliesslich in
+        // enterGameState gebaut, und das laeuft beim Eintritt. Wer eine Stufe kaufte, sah seine
+        // neue Ruestung erst nach dem naechsten Einloggen - mit den neuen Werten daran, was den
+        // Fehler noch schwerer erkennbar machte.
+        //
+        // Auf dem Entity-Scheduler, weil hier Inventarslots geschrieben werden (ADR-007), und
+        // hinter einer Barriere, weil ein Fehler beim Anziehen keinen Kauf zurueckdrehen darf, der
+        // bereits gebucht ist (Prinzip VI).
+        eventBus.subscribe(
+                rpg.core.classes.TierAdvancedEvent.class,
+                event ->
+                        onlinePlayerOfCharacter(event.characterId())
+                                .ifPresent(
+                                        player ->
+                                                scheduler.runSyncOnEntity(
+                                                        new rpg.core.scheduler.EntityRef(
+                                                                player.getUniqueId()),
+                                                        () ->
+                                                                reapplyEquipment(
+                                                                        equipment,
+                                                                        player,
+                                                                        event.characterId()))));
+
         ClassSelectionListener selection =
                 new ClassSelectionListener(
                         classesModule.selection(),
@@ -2403,6 +2429,19 @@ gearDisplay =
                                 messages,
                                 getLogger()),
                         this);
+
+        // Der Aufschlag eines geworfenen Tranks. Vanilla wirft und verbraucht; hier wirkt es -
+        // auf JEDEN Getroffenen, nicht nur auf den Werfer.
+        getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new rpg.platform.item.PotionSplashListener(
+                                itemModule,
+                                consumableBuffs,
+                                resources,
+                                stats::characterIdOf,
+                                getLogger()),
+                        this);
     }
 
     /** Das Level eines Charakters — B06 besitzt die Antwort. */
@@ -2414,6 +2453,31 @@ gearDisplay =
     private java.util.Optional<rpg.core.session.CharacterClass> classOfCharacter(
             java.util.UUID characterId) {
         return abilityModule.registry().classOf(characterId);
+    }
+
+    /**
+     * Baut die getragene Ausrüstung neu — nach einem Stufenaufstieg.
+     *
+     * <p><b>Dieselbe Reihenfolge wie beim Eintritt</b>: erst die Stücke, dann der Zustand darauf.
+     * Andersherum stünde die Zustandszeile auf Stücken, die gleich überschrieben werden.
+     *
+     * <p>Hinter einer Barriere: der Kauf ist zu diesem Zeitpunkt gebucht und die Stufe vergeben.
+     * Ein Fehler beim Anziehen darf daran nichts ändern — der Spieler sieht dann seine alte
+     * Rüstung, was beim nächsten Eintritt von selbst richtig wird (Prinzip VI).
+     */
+    private void reapplyEquipment(
+            ClassEquipmentApplier equipment, org.bukkit.entity.Player player, java.util.UUID characterId) {
+        try {
+            equipment.apply(player, characterId);
+            refreshGearDisplay(player, characterId);
+        } catch (RuntimeException failure) {
+            getLogger()
+                    .warning(
+                            "[classes] could not re-apply equipment after a tier advance for "
+                                    + characterId
+                                    + ": "
+                                    + failure);
+        }
     }
 
     /**

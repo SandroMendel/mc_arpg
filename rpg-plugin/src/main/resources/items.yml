@@ -99,9 +99,20 @@ templates:
 
   # --- Verbrauchbares -----------------------------------------------------------------------
 
+  # HEILTRAENKE WERDEN GEWORFEN, nicht getrunken (SPLASH_POTION).
+  #
+  # Ein Trank, den man nur selbst trinkt, hilft in einer Gruppe genau einem. Geworfen hilft er
+  # allen, die im Radius stehen - und macht aus dem Heiltrank eine Entscheidung, wohin man ihn
+  # wirft, statt einer Taste, die man drueckt.
+  #
+  # Das Material ist die einzige Wahrheit darueber: ThrownConsumables liest es, und Vanilla wirft.
+  # Ein zusaetzlicher Schluessel splash: true waere eine zweite Wahrheit, die der ersten
+  # widersprechen koennte.
+  #
+  # Manatraenke bleiben POTION: sie wirken auf den, der sie braucht, und das ist der Traeger.
   potion.minor-healing:
     category: CONSUMABLE
-    material: 'POTION'
+    material: 'SPLASH_POTION'
     rarity: COMMON
     sell-price: 3
     effect:
@@ -110,7 +121,7 @@ templates:
 
   potion.healing:
     category: CONSUMABLE
-    material: 'POTION'
+    material: 'SPLASH_POTION'
     rarity: UNCOMMON
     sell-price: 14
     min-level: 15
@@ -120,7 +131,7 @@ templates:
 
   potion.greater-healing:
     category: CONSUMABLE
-    material: 'POTION'
+    material: 'SPLASH_POTION'
     rarity: RARE
     sell-price: 60
     min-level: 35

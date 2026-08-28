@@ -44,6 +44,43 @@ public final class ItemMessageKeys {
         return MessageKey.of("item." + templateKey + ".lore");
     }
 
+    // --- Was ein Verbrauchbares GENAU tut (FR-002) -------------------------------------
+    //
+    // Ein Trank namens "Healing Potion" sagt einem Spieler nicht, ob er 40 oder 420 heilt - und
+    // der Unterschied zwischen den dreien im Bestand ist genau das. Ohne die Zahl bleibt nur
+    // Ausprobieren, und Ausprobieren kostet einen Trank.
+
+    /** Wie viel geheilt wird. Platzhalter: {@code amount}. */
+    public static final MessageKey EFFECT_HEAL = MessageKey.of("item.effect.heal");
+
+    /** Wie viel Mana zurückkommt. Platzhalter: {@code amount}. */
+    public static final MessageKey EFFECT_MANA = MessageKey.of("item.effect.mana");
+
+    /** Ein zeitlicher Beitrag. Platzhalter: {@code attribute}, {@code amount}, {@code seconds}. */
+    public static final MessageKey EFFECT_BUFF = MessageKey.of("item.effect.buff");
+
+    /** Dass dieser Trank geworfen wird und jeden im Radius trifft. */
+    public static final MessageKey EFFECT_SPLASH = MessageKey.of("item.effect.splash");
+
+    /** Die Abklingzeit. Platzhalter: {@code seconds}. */
+    public static final MessageKey EFFECT_COOLDOWN = MessageKey.of("item.effect.cooldown");
+
+    /**
+     * Der sichtbare Name eines Attributs, {@code item.attribute.<key>}.
+     *
+     * <p>Hier und nicht in B04: dort ist ein Attribut ein Rechenwert mit einem
+     * Konfigurationsschlüssel, und der ist kein Spielertext. Wenn B13 die Anzeige übernimmt,
+     * zieht dieser Schlüssel dorthin um — bis dahin braucht ihn genau eine Stelle, nämlich die
+     * Lore eines Buff-Tranks.
+     */
+    public static MessageKey attributeName(rpg.core.stats.Attribute attribute) {
+        // Aus HEALTH_REGEN wird health-regen. NICHT ueber Attribute.key(): der ist camelCase
+        // ("healthRegen"), und MessageKey laesst nur Kleinschreibung mit Bindestrich zu - was
+        // richtig ist, denn ein Schluessel ist ein Pfad in einer YAML-Datei und kein Java-Bezeichner.
+        return MessageKey.of(
+                "item.attribute." + attribute.name().toLowerCase(java.util.Locale.ROOT).replace('_', '-'));
+    }
+
     /** Der Name einer Raritätsstufe, {@code item.rarity.<key>.name}. */
     public static MessageKey rarityName(Rarity rarity) {
         return MessageKey.of("item.rarity." + rarity.configKey() + ".name");
@@ -256,6 +293,11 @@ public final class ItemMessageKeys {
                     TRASH_NOTHING_HELD,
                     TRASH_BOUND,
                     VENDOR_SELL_LORE,
+                    EFFECT_HEAL,
+                    EFFECT_MANA,
+                    EFFECT_BUFF,
+                    EFFECT_SPLASH,
+                    EFFECT_COOLDOWN,
                     GEAR_CONDITION_LORE);
 
     /**
@@ -274,6 +316,9 @@ public final class ItemMessageKeys {
             keys.add(rarityName(rarity));
         }
         keys.addAll(FIXED);
+        for (rpg.core.stats.Attribute attribute : rpg.core.stats.Attribute.values()) {
+            keys.add(attributeName(attribute));
+        }
         for (LadderSlot slot : LadderSlot.values()) {
             keys.add(vendorRepair(slot));
             keys.add(vendorUpgrade(slot));

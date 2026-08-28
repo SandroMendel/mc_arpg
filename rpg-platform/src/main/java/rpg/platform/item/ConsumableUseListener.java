@@ -108,6 +108,18 @@ public final class ConsumableUseListener implements Listener {
             return;
         }
 
+        if (ThrownConsumables.isThrown(items.template(ItemTag.templateOf(stack).orElse("")).orElse(null))) {
+            // Ein Wurftrank: Vanilla wirft ihn und verbraucht ihn selbst. Hier wird nur GEPRUEFT,
+            // ob er geworfen werden darf - und bei einer Ablehnung abgebrochen, damit der Spieler
+            // ihn nicht verliert. Was beim Aufschlag passiert, entscheidet PotionSplashListener.
+            //
+            // NICHT abbrechen im Erfolgsfall ist der ganze Punkt: der Wurf selbst ist Vanillas
+            // Arbeit, samt Flugbahn, Aufprall und Partikeln. Ihn nachzubauen waere eine zweite
+            // Fassung von etwas, das es schon gibt.
+            allowOrRefuseThrow(event, stack);
+            return;
+        }
+
         // Ab hier gehoert der Vorgang uns: Vanilla soll ihn nicht auch noch anfassen.
         event.setCancelled(true);
 
@@ -117,6 +129,32 @@ public final class ConsumableUseListener implements Listener {
             // Ein Fehler hier darf den Spieler nicht in einen kaputten Zustand bringen
             // (Constitution VI).
             logger.log(Level.WARNING, "[item] could not use a consumable", failure);
+        }
+    }
+
+    /**
+     * Lässt Vanilla werfen — oder bricht ab und sagt, warum nicht.
+     *
+     * <p><b>Geprüft wird vor dem Wurf, nicht danach.</b> Ein Trank, der auf halbem Flug für ungültig
+     * erklärt wird, ist ein verlorener Trank; ein abgebrochener Rechtsklick kostet nichts.
+     */
+    private void allowOrRefuseThrow(PlayerInteractEvent event, ItemStack stack) {
+        Player player = event.getPlayer();
+        Optional<UUID> characterId = characterOf.apply(player.getUniqueId());
+        if (characterId.isEmpty()) {
+            event.setCancelled(true);
+            return;
+        }
+        String templateKey = ItemTag.templateOf(stack).orElseThrow();
+        ConsumableUse.Result result =
+                rule.use(
+                        items.template(templateKey),
+                        characterId.get(),
+                        levelOf.apply(characterId.get()),
+                        classOf.apply(characterId.get()).orElse(null));
+        if (!result.isSuccess()) {
+            event.setCancelled(true);
+            tell(player, result);
         }
     }
 
@@ -202,7 +240,18 @@ public final class ConsumableUseListener implements Listener {
      */
     public static ConsumableUse.WouldDoSomething wouldDoSomething(
             Resources resources, Function<UUID, Optional<UUID>> holderOf) {
-        return (characterId, effect) -> {
+        return (characterId, template) -> {
+            if (ThrownConsumables.isThrown(template)) {
+                // Ein Wurftrank wirkt auf den, der getroffen wird - nicht auf den Werfer.
+                // Ob er etwas bringt, steht erst beim Aufschlag fest, und bis dahin ist
+                // "nein" die falsche Antwort: sie hielte einen Spieler mit vollem Leben davon
+                // ab, einen verwundeten Mitspieler zu heilen.
+                return true;
+            }
+            ConsumableEffect effect = template.effect();
+            if (effect == null) {
+                return false;
+            }
             Optional<UUID> holder = holderOf.apply(characterId);
             if (holder.isEmpty()) {
                 return false;

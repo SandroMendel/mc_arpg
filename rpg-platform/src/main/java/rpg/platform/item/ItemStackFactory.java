@@ -97,11 +97,16 @@ public final class ItemStackFactory {
         ItemTemplate found = template.get();
         meta.displayName(text(ItemMessageKeys.nameOf(found.key()), found.key()));
 
-        List<Component> lore = new ArrayList<>(2);
+        List<Component> lore = new ArrayList<>(4);
         MessageKey loreKey = ItemMessageKeys.loreOf(found.key());
         if (messages.contains(loreKey)) {
             lore.add(text(loreKey, ""));
         }
+        // Die genauen Werte - und zwar ABGELEITET, wie alles andere hier auch. Wer heal in
+        // items.yml aendert und neu laedt, aendert damit auch diese Zeile auf jedem vorhandenen
+        // Exemplar (SC-001). Eine eingebrannte Zahl waere nach dem ersten Balancing eine Luege auf
+        // dem Gegenstand.
+        lore.addAll(EffectLore.of(messages, found, ThrownConsumables.isThrown(found)));
         lore.add(text(ItemMessageKeys.rarityName(found.rarity()), found.rarity().configKey()));
         meta.lore(lore);
 

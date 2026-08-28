@@ -490,6 +490,31 @@ item:
     divine: { name: 'Divine' }
     special: { name: 'Special' }
 
+  # Was ein Verbrauchbares GENAU tut. Ein Trank namens "Healing Potion" sagt nicht, ob er 40 oder
+  # 420 heilt - und der Unterschied zwischen den dreien im Bestand ist genau das. Diese Zeilen
+  # werden bei JEDEM Laden aus items.yml abgeleitet: wer dort eine Zahl ändert, ändert sie damit
+  # auch auf jedem vorhandenen Exemplar (SC-001).
+  effect:
+    heal: '&cHeals &f{amount}&c health'
+    mana: '&9Restores &f{amount}&9 mana'
+    buff: '&b{attribute} &f+{amount}&b for &f{seconds}s'
+    splash: '&dThrown - affects everyone it hits'
+    cooldown: '&8Cooldown {seconds}s'
+
+  # Die Attributnamen für die Lore eines Buff-Tranks. In B04 ist ein Attribut ein Rechenwert mit
+  # einem Konfigurationsschlüssel, und der ist kein Spielertext.
+  attribute:
+    health: 'Health'
+    health-regen: 'Health regeneration'
+    defense: 'Defence'
+    mana: 'Mana'
+    mana-regen: 'Mana regeneration'
+    physical-damage: 'Physical damage'
+    magic-damage: 'Magic damage'
+    attack-speed: 'Attack speed'
+    movement-speed: 'Movement speed'
+    ability-cooldown: 'Ability cooldown'
+
   # Die fünf Ablehnungen (FR-037). Jede hat ihre eigene Meldung: "geht nicht" ist keine Antwort,
   # und ein Spieler, der den Grund nicht erfährt, hält den Trank für kaputt.
   refused:

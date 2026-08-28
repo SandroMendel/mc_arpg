@@ -57,10 +57,21 @@ public final class ConsumableUse {
         }
     }
 
-    /** Ob dieser Charakter von der Wirkung überhaupt etwas hätte. */
+    /**
+     * Ob dieser Charakter von diesem Trank überhaupt etwas hätte.
+     *
+     * <p><b>Die ganze Vorlage und nicht nur die Wirkung</b>, seit es Wurftränke gibt: bei einem
+     * geworfenen Trank hängt die Antwort nicht am Werfer. Wer bei vollem Leben einen Heiltrank
+     * auf einen verwundeten Mitspieler wirft, tut sehr wohl etwas — die Prüfung aus FR-036
+     * würde ihn daran hindern, und zwar aus einem Grund, der für Wurftränke gar nicht gilt.
+     *
+     * <p>Ob ein Trank geworfen wird, entscheidet sein Material, und Materialien gehören der
+     * Plattformschicht. Deshalb steht die Antwort dort und nicht hier: {@code rpg-core} würde
+     * sonst Vanilla-Materialnamen lesen müssen (Prinzip III).
+     */
     @FunctionalInterface
     public interface WouldDoSomething {
-        boolean forEffect(UUID characterId, ConsumableEffect effect);
+        boolean forTemplate(UUID characterId, ItemTemplate template);
     }
 
     private final ConsumableCooldown cooldowns;
@@ -107,7 +118,7 @@ public final class ConsumableUse {
                     Outcome.ON_COOLDOWN, cooldowns.remaining(characterId, found.key(), cooldown));
         }
 
-        if (!wouldDoSomething.forEffect(characterId, effect)) {
+        if (!wouldDoSomething.forTemplate(characterId, found)) {
             // FR-036. Ein Heiltrank bei vollem Leben - abgelehnt statt wirkungslos verbraucht.
             return Result.of(Outcome.NO_EFFECT);
         }
