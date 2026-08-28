@@ -194,6 +194,52 @@ class ItemConfigSchemaTest {
 
             assertThatThrownBy(() -> bind(doc)).hasMessageContaining("base-per-tier");
         }
+
+        @Test
+        @DisplayName("FR-044: ein Tod, der NICHT schwerer wiegt als ein Kampf, startet nicht")
+        void adeathThatWeighsNoMoreThanAFightAborts() {
+            // Der Fall, den ein Balancing-Durchgang aus Versehen erzeugt: die Schadensraten
+            // hochgedreht, den Todesbetrag vergessen. Von aussen bliebe er unsichtbar - alles
+            // liefe weiter, nur der Tod taete nicht mehr weh, und damit waere die Todesstrafe aus
+            // ADR-017 stillschweigend abgeschaltet.
+            //
+            // Geprueft wird hier ueber den LADEWEG und nicht ueber validate() direkt: ein Betreiber
+            // ruft keine Methode auf, er bearbeitet eine Datei.
+            Map<String, Object> doc = document();
+            wear(doc).put("per-damage-taken", 0.5);
+            wear(doc).put("per-death", 1.0);
+
+            assertThatThrownBy(() -> bind(doc))
+                    .hasMessageContaining("per-death")
+                    .hasMessageContaining("death-factor-min");
+        }
+    }
+
+    @Nested
+    @DisplayName("Inventar")
+    class InventorySection {
+
+        @Test
+        @DisplayName("der Abschnitt darf FEHLEN - dann gilt die Vorgabe (FR-076)")
+        void thesectionMayBeMissing() {
+            // Eine Pflichtangabe daraus zu machen hiesse, jede vorhandene items.yml beim Aufspielen
+            // abzuweisen - fuer eine Zahl, die vorher gar nicht konfigurierbar war.
+            Map<String, Object> doc = document();
+            doc.remove("inventory");
+
+            assertThat(bind(doc).inventoryFullCooldown())
+                    .isEqualTo(ItemConfig.DEFAULT_INVENTORY_FULL_COOLDOWN);
+        }
+
+        @Test
+        @DisplayName("und eine eigene Ruhezeit wird uebernommen")
+        void anowncooldownIsTaken() {
+            Map<String, Object> doc = document();
+            doc.put("inventory", new java.util.LinkedHashMap<>(Map.of("full-warning-cooldown-ms", 3000)));
+
+            assertThat(bind(doc).inventoryFullCooldown())
+                    .isEqualTo(java.time.Duration.ofMillis(3000));
+        }
     }
 
     // -----------------------------------------------------------------------------------

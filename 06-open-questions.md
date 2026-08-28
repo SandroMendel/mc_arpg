@@ -279,10 +279,16 @@ könnte weder verkaufen noch reparieren.
       Rangkosten in `abilities.yml`, Reparatur in B11. Kein zentraler Katalog.
 - [ ] Startguthaben bei Charaktererstellung: null oder ein Betrag?
 - [ ] Verlieren Coins beim Tod? ADR-017 sagt nichts dazu.
-- [x] **Wieviel wirft ein Mob ab?** Die *Form* steht seit `/specify` B11: Tabelle je Art, sonst die
+- [x] **Wieviel wirft ein Mob ab?** Beantwortet und gebaut. Die Form: Tabelle je Art, sonst die
       der Region, Boss mit eigener; ein Eintrag trägt Wahrscheinlichkeit und Stückzahlspanne
-      (FR-018 bis FR-021). **Was konkret drinsteht, bleibt Inhaltsarbeit** und entsteht bei
-      `/speckit-tasks` B11 entlang der sechs Levelbänder. *(2026-08-28)*
+      (FR-018 bis FR-021). Der Inhalt steht seit dem 2026-08-29 in `items.yml` — zehn Vorlagen
+      und Tabellen entlang der sechs Levelbänder.
+
+      **Ab hier ist das keine offene Blockfrage mehr, sondern Balancing für B16.** Welcher Trank
+      in welcher Region wie oft fällt, ändert eine Zahl in `items.yml` und keine Zeile Java —
+      genau dafür ist die ganze Bauweise da (SC-001, SC-002). Eine Frage, die durch Bearbeiten
+      einer Konfigurationsdatei beantwortet wird, gehört nicht in eine Liste offener
+      Architekturfragen; sie stünde dort für immer. *(2026-08-28, geschlossen 2026-08-29)*
 
 ## B11 (Items) — neu zugeschnitten durch ADR-027, ausspezifiziert am 2026-08-28
 
@@ -306,6 +312,24 @@ Die Klärungssitzung vom 2026-08-28 hat sieben weitere Fragen beantwortet; alles
       *(2026-08-28, ADR-039)*
 - [x] **Ein NPC je Region**, sechs insgesamt, im Safe-Core, mit eigenem Bestand je Region.
       *(2026-08-28, ADR-039)*
+
+### Was die Umsetzung zusätzlich beantwortet hat (2026-08-29)
+
+- [x] **Woran hängt der Verschleiß?** Nicht an `DamageDealtEvent`, wie der Aufgabenzettel
+      annahm: das aggregierte Ereignis trägt keine `DamageOrigin` (ein Autoattack ließe sich
+      nicht von einer Fähigkeit unterscheiden, FR-041) und den Schaden **nach** der Abwehr, wo
+      FR-040a den davor verlangt. Er hängt an B05s `DamageInterceptor` auf Stufe `MODIFIERS` —
+      der Naht, die B05 ausdrücklich für B08 und B11 gebaut hat. Nur der Tod hängt am Ereignis.
+- [x] **Wie viele Ruhezeiten braucht die Warnung bei vollem Inventar?** Eine, und sie steht in
+      `items.yml` (FR-076). B07 hatte die Zahl fest im Quelltext; der Zuhörer wurde erweitert,
+      nicht verdoppelt — ein zweiter für dieselbe Bedingung hätte zwei Warnungen für einen
+      Aufsammelversuch erzeugt.
+- [x] **Wo wird „höchstens eine Trimfarbe" erzwungen?** An beiden Stellen, und das ist Absicht:
+      in `CosmeticApplication`, damit der Spieler eine Antwort bekommt, und als partieller
+      `UNIQUE`-Index in `V11_3`, damit es auch stimmt, wenn ein Betreiberbefehl schreibt.
+- [ ] **Boss-Respawn steht weiterhin auf dem Testwert.** `mobs.yml` führt
+      `respawn-minutes: 5`; gemeint sind 30. Kein B11-Thema, aber es steht seit B10 offen und
+      geht sonst unter.
 
 - [x] Ausrüstungsslots: nur Vanilla-Armor + Waffe
 - [x] Raritätsstufen (8, mit Farben): Common (Weiß) → Uncommon (Hellgrün) →

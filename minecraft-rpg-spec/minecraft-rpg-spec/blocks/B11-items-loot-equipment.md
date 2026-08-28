@@ -23,19 +23,35 @@
 > Roll-Mechanismus entfällt vollständig — **jedes Item hat feste Attributwerte** —, und der
 > NPC-Händler gehört hierher.
 
-Items außerhalb der Klassenausrüstung: Aufstiegsmaterial, Verbrauchbares,
-Kosmetik. Umfasst Item-Definition, Instanziierung, Haltbarkeit und Beute.
+Items außerhalb der Klassenausrüstung: Verbrauchbares, Kosmetik, Beute.
+Umfasst Item-Definition, Instanziierung, Verschleiß und Beutetabellen.
+
+> **Nachgezogen am 2026-08-29, nach der Umsetzung.** Zwei Aussagen in diesem
+> Steckbrief widersprachen am Ende dem Code, und beide sind unten korrigiert:
+> das **Aufstiegsmaterial** (es gibt keines — der Aufstieg kostet Coins und
+> Level, und die Kategorie `MATERIAL` existiert nicht) und die **Haltbarkeit als
+> Vanilla-Durability** (Ausrüstung zerbricht nie; sie verliert Beitrag).
 
 ## Umfang
 
 **Weiterhin in B11:**
 
-- Aufstiegsmaterial für die Klassenleitern aus B07 — inklusive der Frage, wer den
-  Aufstieg bezahlt (Coins, Level, Material). B07 liefert dafür nur einen
-  undurchsichtigen `cost`-Block und legt ihn nicht aus.
+- ~~Aufstiegsmaterial für die Klassenleitern aus B07~~ — **entfallen.** Die Frage
+  „wer bezahlt den Aufstieg" ist beantwortet, und die Antwort enthält kein
+  Material: **Coins und ein Mindestlevel**, gebucht durch B08bs vorhandene Route
+  `EquipmentPurchase` (FR-061). Der undurchsichtige `cost`-Block aus B07 wird von
+  `CostSpec` ausgelegt und lässt genau einen Schlüssel zu — `coins`. Eine
+  Item-Kategorie `MATERIAL` gibt es nicht; `ItemCategory` kennt `CONSUMABLE` und
+  `COSMETIC`.
 - Verbrauchbares (Tränke, Nahrung) und dessen Wirkung über `SourceKind.BUFF`
-- Durability und Reparatur — die Todesstrafe nach ADR-017 unverändert tragfähig,
-  weil Haltbarkeitsverlust auf nicht ablegbarer Rüstung genauso funktioniert
+- **Verschleiß** und Reparatur — die Todesstrafe nach ADR-017 unverändert
+  tragfähig. **Aber nicht als Vanilla-Durability:** Ausrüstung zerbricht nie
+  (FR-038). Der Haltbarkeitsbalken bleibt als Anzeige, und was sinkt, ist ihr
+  **Beitrag** zu den Werten — bis zu 80 % bei Zustand null. Ein zerbrochener
+  Brustpanzer wäre eine gelöschte Stufe, und die kann niemand zurückgeben; B07
+  hält die Stücke deshalb unzerstörbar. B11 hebt das nicht auf, sondern löst den
+  Einwand, der dort steht: die Schwächung geht durch die Werteberechnung und ist
+  ablesbar.
 - Kosmetik: Netherite-Templates (Trims) und Färbung der Klassenrüstung. Das
   Stufen-Schema in B07 führt dafür ein reserviertes Feld.
 - Beutetabellen je Mob und Zone — für die oben genannten Kategorien, **nicht**
@@ -147,9 +163,13 @@ Weitere Vorgaben:
 - [x] **Handel zwischen Spielern**: Nicht erlaubt (konsistent mit den
       Nicht-Zielen in `00-vision-scope.md`). *(2026-08-19)*
 - [x] **Was passiert mit Items beim Tod**: Kein Item-/XP-Verlust, aber
-      Ausrüstungsschaden (Durability-Verlust) als Todesstrafe. Reparatur-
-      Mechanik (vermutlich gegen Coins) ist damit Teil von B11 und bei
-      `/specify` auszuarbeiten. *(2026-08-19)*
+      **Verschleiß** als Todesstrafe — auf beide Leitern, und um ein Vielfaches
+      dessen, was ein ganzer Kampf kostet (FR-043). Die Ordnung ist eine
+      Startprüfung und keine Zahlenwahl: eine Konfiguration, in der der Tod nicht
+      schwerer wiegt, bricht den Start ab (FR-044). Repariert wird gegen Coins
+      beim NPC, und das ist der **einzige** Weg — Amboss, Zauberpult und
+      Schleifstein sind für gebundene Ausrüstung gesperrt (FR-056).
+      *(2026-08-19, umgesetzt 2026-08-29)*
 
 ## Akzeptanzkriterien (Entwurf)
 

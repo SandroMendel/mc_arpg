@@ -49,7 +49,7 @@ Querschnitt: B15 Performance/Observability · B16 Content-Config
 | B08 | Fähigkeiten-Framework | 1 | B04, B05, B07 |
 | B09 | Zonen & Regionen | 2 | B01 |
 | B10 | Mobs & Horden-Spawning | 2 | B04, B05, B09 |
-| B11 | Items, Ausrüstung & Loot | 2 | B04, B09, B10 |
+| B11 | Items, Ausrüstung & Loot | 2 | B03, B04, B05, B06, B07, B08b, B09, B10 |
 | B12 | Statistiken & Leaderboards | 3 | B02, B05, B06 |
 | B13 | UI, HUD & Texte | 3 | B04, B08, B09 |
 | B14 | Commands, Permissions, Admin | 3 | alle |
@@ -72,16 +72,34 @@ Abhängigkeitsrichtung strikt: `plugin → platform → core`, `core` kennt niem
 ## Datenfluss Spielerwert (Beispiel)
 
 ```
-Item angelegt / Level-Up / Buff
-        ↓
-StatModifier registriert (Quelle, Typ, Wert)
-        ↓
-StatRecalculation (nur bei Änderung, nie pro Tick)
-        ↓
-StatSnapshot (unveränderlich, im Session-Cache)
-        ↓                       ↓
-Kampf-Pipeline (B05)     Vanilla-Attribut-Sync + HUD (B13)
+Stufenaufstieg / Level-Up / Verschleiß        Buff / Trank / Zonenwirkung
+        ↓                                              ↓
+BaseStatContributor (Klasse, Level, Gear)      StatModifier (Quelle, Typ, Wert)
+        ↓                                              ↓
+        └──────────────► StatRecalculation ◄───────────┘
+                    (nur bei Änderung, nie pro Tick)
+                                ↓
+                StatSnapshot (unveränderlich, im Session-Cache)
+                    ↓                            ↓
+        Kampf-Pipeline (B05)          Vanilla-Attribut-Sync + HUD (B13)
 ```
+
+> **Korrigiert am 2026-08-29.** Hier stand ursprünglich „Item angelegt →
+> StatModifier". Das ist seit ADR-017 und ADR-039 in zwei Punkten falsch, und
+> beide sind für den nächsten Block wichtig:
+>
+> 1. **Ausrüstung ist kein Modifikator, sondern ein Grundwert.** Sie kommt über
+>    `ClassStatContributor` als `addBase` herein, nicht als `SourceKind.EQUIPMENT`.
+>    Der Grund steht in B07: das Modifikatorband aus B04 (±30 %) würde die 1385
+>    Lebensenergie der Höchststufe stillschweigend abschneiden.
+> 2. **Ein Item legt gar keine Werte an.** Es trägt seine Vorlagen-ID und sonst
+>    nichts (ADR-004 in der Fassung von ADR-027); die einzige Stelle, an der B11
+>    den Ausrüstungsbeitrag beeinflusst, ist der Verschleißfaktor — er
+>    multipliziert den Stufenbeitrag über die Naht `GearConditionFactor`
+>    (FR-047, FR-080).
+>
+> Was weiterhin als Modifikator läuft: Tränke, Fähigkeitsbuffs und
+> Zonenwirkungen — alles, was zeitlich begrenzt ist.
 
 ## Persistenzstrategie in Kurzform
 

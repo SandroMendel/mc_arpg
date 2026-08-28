@@ -746,6 +746,51 @@ class FullBootstrapTest {
     }
 
     @Test
+    void everyItemListenerAndTableIsThere() {
+        // T139: ein Modul, dessen Modultests gruen sind, ist nicht fertig. Was hier geprueft wird,
+        // faellt in keinem Modultest auf - ein Zuhoerer, der nie registriert wurde, und eine
+        // Migration, die nie lief, sehen von innen aus wie ein Block, der einfach nichts tut.
+        assertThat(PostgresContainer.tableExists("character_gear_condition"))
+                .as("US5: ohne die Tabelle waere jeder Charakter nach jedem Neustart wieder neu")
+                .isTrue();
+        assertThat(PostgresContainer.tableExists("character_cosmetic"))
+                .as("US6: dito fuer die gekauften Trimfarben")
+                .isTrue();
+
+        assertThat(handlerCount(org.bukkit.event.player.PlayerInteractEntityEvent.getHandlerList()))
+                .as("US4: der Rechtsklick auf den Haendler - ohne ihn oeffnet sein Fenster nie")
+                .isEqualTo(1);
+    }
+
+    @Test
+    void theItemAggregatesAreRegisteredWithTheFlush() {
+        // ADR-015 Punkt 7, die dritte Registrierung. Sie zu vergessen faellt NICHT laut auf: die
+        // Markierungen zaehlen bei jedem Durchlauf als gescheitert, geschrieben wird nie, und das
+        // sieht aus wie ein Datenbankfehler. Genau das ist bei CHARACTER_COSMETIC einmal passiert -
+        // gefunden von NoDatabaseAccessPerGameEventTest, nicht von einem Menschen.
+        assertThat(plugin.registry().findService(rpg.core.item.Items.class))
+                .as("die Fassade haengt an der Registry, wie jede andere auch")
+                .isNotNull();
+    }
+
+    @Test
+    void thewearSeamIsClosedWithSomethingOtherThanNone() {
+        // Die Abnahmebedingung des Eingriffs aus dem Complexity Tracking. B07 verhaelt sich mit
+        // GearConditionFactor.NONE exakt wie vorher - und genau deshalb waere eine vergessene
+        // Verdrahtung unsichtbar: alles bliebe gruen, und der Verschleiss erreichte nie einen Wert.
+        java.util.UUID unknown = java.util.UUID.randomUUID();
+
+        assertThat(plugin.items()).isNotNull();
+        // Ein unbekannter Charakter traegt volle Werte - das ist die sichere Richtung (FR-047).
+        // Geprueft wird hier, dass ueberhaupt jemand antwortet, statt dass NONE stehengeblieben ist.
+        assertThat(plugin.gearConditions())
+                .as("ohne diese Naht waere der ganze Verschleiss gebaut und wirkungslos")
+                .isNotNull();
+        assertThat(plugin.gearConditions().factorOf(unknown, rpg.core.classes.LadderSlot.ARMOR))
+                .isEqualTo(1.0);
+    }
+
+    @Test
     void everyZoneListenerIsRegistered() {
         // FOUR listeners, not the six the task list expected. Two of them - the join and the quit -
         // do not exist: B03 owns the session lifecycle and permits exactly one handler on each

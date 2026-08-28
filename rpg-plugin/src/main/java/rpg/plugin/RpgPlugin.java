@@ -2693,6 +2693,18 @@ public class RpgPlugin extends JavaPlugin {
         return itemModule;
     }
 
+    /**
+     * B11s Verschleißzustand, für den Bootstrap-Test.
+     *
+     * <p><b>Warum gerade der eine Zugriff nach außen ist.</b> Die Naht aus dem Complexity Tracking
+     * ist so gebaut, dass B07 sich mit {@code GearConditionFactor.NONE} <em>bitgenau</em> wie vorher
+     * verhält — was heißt, dass eine vergessene Verdrahtung nichts rot macht. Der ganze Verschleiß
+     * wäre gebaut und wirkungslos, und kein Test außer diesem würde es merken.
+     */
+    public rpg.core.item.GearConditions gearConditions() {
+        return gearConditionModule == null ? null : gearConditionModule.conditions();
+    }
+
     /** The zone query as it was assembled, for the bootstrap test. */
     public rpg.core.zone.Zones zones() {
         return zoneModule == null ? null : zoneModule.zones();
