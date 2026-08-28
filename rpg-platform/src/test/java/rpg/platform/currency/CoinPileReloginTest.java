@@ -11,6 +11,8 @@ import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import rpg.platform.drop.OwnedDropPlatform;
+
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -138,7 +140,7 @@ class CoinPileReloginTest {
     }
 
     /** Haelt fest, wem welcher Haufen gezeigt wurde. */
-    private static final class RecordingDisplay implements CoinPile.PilePlatform {
+    private static final class RecordingDisplay implements OwnedDropPlatform {
 
         final List<Map.Entry<Item, UUID>> shown = new ArrayList<>();
 

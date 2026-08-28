@@ -7,6 +7,8 @@ import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import rpg.platform.drop.OwnedDropPlatform;
+
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Server;
@@ -65,11 +67,11 @@ public final class CoinPile {
     private final CurrencyConfig config;
     private final Clock clock;
     private final Logger logger;
-    private final PilePlatform platform;
+    private final OwnedDropPlatform platform;
 
     public CoinPile(
             Plugin plugin, Server server, CurrencyConfig config, Clock clock, Logger logger) {
-        this(plugin, server, config, clock, logger, PilePlatform.vanilla(plugin));
+        this(plugin, server, config, clock, logger, OwnedDropPlatform.vanilla(plugin));
     }
 
     /** With a chosen platform seam - only a test has reason to pass anything but the vanilla one. */
@@ -79,7 +81,7 @@ public final class CoinPile {
             CurrencyConfig config,
             Clock clock,
             Logger logger,
-            PilePlatform platform) {
+            OwnedDropPlatform platform) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.server = Objects.requireNonNull(server, "server");
         this.config = Objects.requireNonNull(config, "config");
@@ -208,61 +210,6 @@ public final class CoinPile {
 
         platform.harden(pile, plan.holderId(), config.spawnTicksLived());
         return pile;
-    }
-
-    /**
-     * Everything about a pile that only a real server can actually do.
-     *
-     * <p><b>Why this is a seam at all.</b> MockBukkit implements neither {@code Item.setOwner} nor
-     * {@code Entity.setVisibleByDefault}, and it reports an unimplemented call as a <em>skipped</em>
-     * test rather than a failure. Without this seam, six tests about merging, entitlement and the cap
-     * would silently report as skipped and the build would still say SUCCESSFUL - which is the worst
-     * outcome available: a green build that proved nothing.
-     *
-     * <p>So the platform-specific calls are named, and a test substitutes a recorder. What that test
-     * then proves is <b>what we ask for and about whom</b>; that Paper honours it is proved on a real
-     * server (quickstart.md 3.1).
-     *
-     * <p><b>The two halves are not equal in weight.</b> Visibility is a requirement (FR-027a). The
-     * owner flag is <em>hardening</em>: it makes other clients not even try, which is cheap - but it
-     * knows players, not characters, so {@link CoinPickupListener} checks the character regardless
-     * (ADR-011). Presentation is never the authority (Constitution VI).
-     */
-    public interface PilePlatform {
-
-        /** Hides the pile from everyone (FR-027a). */
-        void hideFromEveryone(Item pile);
-
-        /** Shows it to the one player entitled to it, if they are online. */
-        void showTo(Item pile, Player player);
-
-        /** The vanilla-side locks and the pre-ageing that stands in for a despawn setter. */
-        void harden(Item pile, UUID ownerId, int spawnTicksLived);
-
-        /** What a real server does. */
-        static PilePlatform vanilla(Plugin plugin) {
-            Objects.requireNonNull(plugin, "plugin");
-            return new PilePlatform() {
-                @Override
-                public void hideFromEveryone(Item pile) {
-                    pile.setVisibleByDefault(false);
-                }
-
-                @Override
-                public void showTo(Item pile, Player player) {
-                    player.showEntity(plugin, pile);
-                }
-
-                @Override
-                public void harden(Item pile, UUID ownerId, int spawnTicksLived) {
-                    pile.setOwner(ownerId);
-                    pile.setCanMobPickup(false);
-                    pile.setWillAge(true);
-                    // Pre-aged, because there is no despawn setter (research.md R1c).
-                    pile.setTicksLived(spawnTicksLived);
-                }
-            };
-        }
     }
 
     /**

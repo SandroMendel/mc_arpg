@@ -14,6 +14,8 @@ import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import rpg.platform.drop.OwnedDropPlatform;
+
 import org.bukkit.World;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
@@ -256,7 +258,7 @@ class CoinPileDropTest {
     }
 
     /** Haelt fest, was von der Plattform verlangt wurde. */
-    static final class RecordingPlatform implements CoinPile.PilePlatform {
+    static final class RecordingPlatform implements OwnedDropPlatform {
 
         record Hardened(Item pile, UUID ownerId, int spawnTicksLived) {}
 

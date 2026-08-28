@@ -111,16 +111,16 @@ Blöcke bleibt unverändert grün.** Wo eine Zusicherung umgedreht werden muss, 
 
 ### Gruppe B · Die Eigentumsmechanik aus B08b herausziehen (research.md R5)
 
-- [ ] T036 `OwnedDrops` in `rpg-platform/src/main/java/rpg/platform/drop/OwnedDrops.java` — Schnittstelle nach [contracts/item-api.md](./contracts/item-api.md) §2
-- [ ] T037 `OwnedDrop` in `rpg-platform/src/main/java/rpg/platform/drop/OwnedDrop.java` — setzt den Gegenstand, `setVisibleByDefault(false)`, `showEntity` für den Berechtigten, `setOwner`, `setCanMobPickup(false)`, eindeutige Kennung gegen das Verschmelzen. **Aus `CoinPile` gehoben, nicht neu geschrieben**
-- [ ] T038 `OwnedDropRegistry` in `rpg-platform/src/main/java/rpg/platform/drop/OwnedDropRegistry.java` — stellt die Sichtbarkeit nach Relogin und Charakterwechsel wieder her. Javadoc übernimmt die Begründung aus `CoinPileRegistry`: **`showEntity` ist Zustand der Verbindung**, und „unsichtbar aber aufsammelbar ist das Schlechteste von beidem"
-- [ ] T039 `OwnedDropPickupListener` in `rpg-platform/src/main/java/rpg/platform/drop/OwnedDropPickupListener.java` — **das zweite Schloss**: `PlayerAttemptPickupItemEvent` prüft den **Charakter**, weil `setOwner` nur Spieler kennt (ADR-011). Unsichtbarkeit ist Darstellung und niemals die Autorität (Prinzip VI)
-- [ ] T040 [P] Test `OwnedDropVisibilityTest` in `rpg-platform/src/test/java/rpg/platform/drop/OwnedDropVisibilityTest.java` — nur der Eigentümer sieht den Gegenstand; ein zweiter Spieler nicht
-- [ ] T041 [P] Test `OwnedDropPickupTest` in `rpg-platform/src/test/java/rpg/platform/drop/OwnedDropPickupTest.java` — ein Fremder hebt **nichts** auf, auch wenn er ihn sähe; der zweite Charakter desselben Spielers ebenfalls nicht
-- [ ] T042 [P] Test `OwnedDropSurvivesReloginTest` in `rpg-platform/src/test/java/rpg/platform/drop/OwnedDropSurvivesReloginTest.java` — nach `restoreVisibility` sieht der Eigentümer wieder, was ihm gehört (FR-030)
-- [ ] T043 [P] Test `OwnedDropsDoNotMergeTest` in `rpg-platform/src/test/java/rpg/platform/drop/OwnedDropsDoNotMergeTest.java` — zwei gleichartige Gegenstände verschiedener Eigentümer verschmelzen nicht (FR-031)
-- [ ] T044 `CoinPile` in `rpg-platform/src/main/java/rpg/platform/currency/CoinPile.java` auf `OwnedDrops` umstellen — behält, was ihm eigen ist (Betrag im Datencontainer, Zusammenfassen **vor** dem Ablegen), gibt die Eigentumsmechanik ab
-- [ ] T045 Vollen Testlauf von B08b fahren: `./gradlew :rpg-platform:test --tests 'rpg.platform.currency.*'` — **unverändert grün**. Die Zusicherungen über Coin-Haufen gelten weiter, nur die Innereien liegen woanders
+- [X] T036 `OwnedDrops` in `rpg-platform/src/main/java/rpg/platform/drop/OwnedDrops.java` — Schnittstelle nach [contracts/item-api.md](./contracts/item-api.md) §2
+- [X] T037 `OwnedDrop` in `rpg-platform/src/main/java/rpg/platform/drop/OwnedDrop.java` — setzt den Gegenstand, `setVisibleByDefault(false)`, `showEntity` für den Berechtigten, `setOwner`, `setCanMobPickup(false)`, eindeutige Kennung gegen das Verschmelzen. **Aus `CoinPile` gehoben, nicht neu geschrieben**
+- [X] T038 `OwnedDropRegistry` in `rpg-platform/src/main/java/rpg/platform/drop/OwnedDropRegistry.java` — stellt die Sichtbarkeit nach Relogin und Charakterwechsel wieder her. Javadoc übernimmt die Begründung aus `CoinPileRegistry`: **`showEntity` ist Zustand der Verbindung**, und „unsichtbar aber aufsammelbar ist das Schlechteste von beidem"
+- [X] T039 `OwnedDropPickupListener` in `rpg-platform/src/main/java/rpg/platform/drop/OwnedDropPickupListener.java` — **das zweite Schloss**: `PlayerAttemptPickupItemEvent` prüft den **Charakter**, weil `setOwner` nur Spieler kennt (ADR-011). Unsichtbarkeit ist Darstellung und niemals die Autorität (Prinzip VI)
+- [X] T040 [P] Test `OwnedDropVisibilityTest` in `rpg-platform/src/test/java/rpg/platform/drop/OwnedDropVisibilityTest.java` — nur der Eigentümer sieht den Gegenstand; ein zweiter Spieler nicht
+- [X] T041 [P] Test `OwnedDropPickupTest` in `rpg-platform/src/test/java/rpg/platform/drop/OwnedDropPickupTest.java` — ein Fremder hebt **nichts** auf, auch wenn er ihn sähe; der zweite Charakter desselben Spielers ebenfalls nicht
+- [X] T042 [P] Test `OwnedDropSurvivesReloginTest` in `rpg-platform/src/test/java/rpg/platform/drop/OwnedDropSurvivesReloginTest.java` — nach `restoreVisibility` sieht der Eigentümer wieder, was ihm gehört (FR-030)
+- [X] T043 [P] Test `OwnedDropsDoNotMergeTest` in `rpg-platform/src/test/java/rpg/platform/drop/OwnedDropsDoNotMergeTest.java` — zwei gleichartige Gegenstände verschiedener Eigentümer verschmelzen nicht (FR-031)
+- [X] T044 `CoinPile` in `rpg-platform/src/main/java/rpg/platform/currency/CoinPile.java` auf `OwnedDrops` umstellen — behält, was ihm eigen ist (Betrag im Datencontainer, Zusammenfassen **vor** dem Ablegen), gibt die Eigentumsmechanik ab
+- [X] T045 Vollen Testlauf von B08b fahren: `./gradlew :rpg-platform:test --tests 'rpg.platform.currency.*'` — **unverändert grün**. Die Zusicherungen über Coin-Haufen gelten weiter, nur die Innereien liegen woanders
 
 ### Gruppe C · `item_instance` zurückbauen (research.md R2)
 

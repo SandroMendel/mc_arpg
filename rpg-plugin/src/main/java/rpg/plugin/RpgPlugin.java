@@ -1823,7 +1823,10 @@ public class RpgPlugin extends JavaPlugin {
                                         .isSuccess(),
                         Clock.systemUTC(),
                         getLogger(),
-                        rpg.platform.currency.CoinPile.PilePlatform.vanilla(this));
+                        // Seit ADR-039 geteilt mit B11: die Mechanik fuer liegende Gegenstaende,
+                        // die genau einem Charakter gehoeren, liegt in rpg.platform.drop und
+                        // gehoert keinem Block allein (research.md R5).
+                        rpg.platform.drop.OwnedDropPlatform.vanilla(this));
 
         rpg.platform.currency.CoinPile piles =
                 new rpg.platform.currency.CoinPile(

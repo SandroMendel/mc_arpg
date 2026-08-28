@@ -11,6 +11,8 @@ import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import rpg.platform.drop.OwnedDropPlatform;
+
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -278,7 +280,7 @@ class CoinPileCapTest {
     }
 
     /** Diese Tests handeln nicht von Sichtbarkeit - die Anzeige tut hier nichts. */
-    private static final class NoDisplay implements CoinPile.PilePlatform {
+    private static final class NoDisplay implements OwnedDropPlatform {
 
         @Override
         public void hideFromEveryone(org.bukkit.entity.Item pile) {}
