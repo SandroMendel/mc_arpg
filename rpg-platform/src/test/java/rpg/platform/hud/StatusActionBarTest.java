@@ -23,9 +23,9 @@ import rpg.core.stats.ResourceChangedEvent;
 import rpg.core.stats.ResourceKind;
 
 /**
- * Die eigene Gesundheit und Verteidigung auf der Actionbar.
+ * Die eigene Gesundheit, Mana und Verteidigung auf der Actionbar.
  *
- * <p>Zwei Auslöser: jede Änderung der Gesundheit und jede Neuberechnung - und dazu eine stetige
+ * <p>Zwei Auslöser: jede Änderung einer Ressource und jede Neuberechnung - und dazu eine stetige
  * Auffrischung. Die ist nicht vermeidbar: Minecraft blendet eine Actionbar nach etwa zwei Sekunden
  * aus, eine dauerhafte Anzeige heißt also erneut senden.
  */
@@ -54,25 +54,68 @@ class StatusActionBarTest {
     }
 
     @Test
-    @DisplayName("die Zeile nennt Leben, Maximum, Prozent und Verteidigung")
+    @DisplayName("die Zeile nennt Leben, Maximum, Prozent, MANA und Verteidigung")
     void theLineCarriesEveryNumber() {
+        PlayerMock player = server.addPlayer();
+        statuses.give(player.getUniqueId(), 620.0, 2000.0, 75.0, 300.0, 148.0);
+
+        bar.show(player.getUniqueId());
+
+        assertThat(actionBarOf(player)).isEqualTo("620/2000 HP (31%) 75/300 MP DEF 148");
+    }
+
+    @Test
+    @DisplayName("ohne Mana faellt der Manateil weg - 0/0 saehe aus wie ein Fehler")
+    void withoutManaThatPartIsOmitted() {
         PlayerMock player = server.addPlayer();
         statuses.give(player.getUniqueId(), 620.0, 2000.0, 148.0);
 
         bar.show(player.getUniqueId());
 
-        assertThat(actionBarOf(player)).isEqualTo("620/2000 HP (31%) DEF 148");
+        assertThat(actionBarOf(player))
+                .as("eine Zahl, die nichts sagt, nimmt dreien den Platz weg, die etwas sagen")
+                .isEqualTo("620/2000 HP (31%) DEF 148");
+    }
+
+    @Test
+    @DisplayName("wer einen Zaehler hat, liest ihn mit - beim Berserker die Wut")
+    void aHolderWithAMeterReadsItToo() {
+        PlayerMock player = server.addPlayer();
+        statuses.giveWithMeter(player.getUniqueId(), 620.0, 2000.0, 75.0, 300.0, 148.0, 47.0);
+
+        bar.show(player.getUniqueId());
+
+        assertThat(actionBarOf(player)).isEqualTo("620/2000 HP (31%) 75/300 MP DEF 148 RAGE 47");
+    }
+
+    @Test
+    @DisplayName("wer keinen hat, bekommt auch keine Null - Magier und Rogue lesen drei Zahlen")
+    void withoutAMeterThatPartIsOmitted() {
+        // Kein Platzhalter, der leer bleibt, und keine Null, die nichts bedeutet: dieselbe
+        // Entscheidung wie beim Mana eines Mobs. WELCHE Klasse einen Zaehler hat, steht dabei
+        // nirgends im Code - sie hat einen, wenn eine ihrer Faehigkeiten einen METER-Effekt traegt.
+        PlayerMock player = server.addPlayer();
+        statuses.give(player.getUniqueId(), 620.0, 2000.0, 75.0, 300.0, 148.0);
+
+        bar.show(player.getUniqueId());
+
+        assertThat(actionBarOf(player))
+                .isEqualTo("620/2000 HP (31%) 75/300 MP DEF 148")
+                .doesNotContain("RAGE");
     }
 
     @Test
     @DisplayName("gerundet, nicht mit Nachkommastellen - die Bruchteile sind Rauschen")
     void valuesAreRounded() {
         PlayerMock player = server.addPlayer();
-        statuses.give(player.getUniqueId(), 1234.7, 2000.0, 147.6);
+        statuses.give(player.getUniqueId(), 1234.7, 2000.0, 74.6, 300.0, 147.6);
 
         bar.show(player.getUniqueId());
 
-        assertThat(actionBarOf(player)).contains("1235/2000").contains("DEF 148");
+        assertThat(actionBarOf(player))
+                .contains("1235/2000")
+                .contains("75/300")
+                .contains("DEF 148");
     }
 
     @Test
@@ -89,10 +132,15 @@ class StatusActionBarTest {
     }
 
     @Test
-    @DisplayName("eine Manaänderung zeichnet die Gesundheitszeile NICHT neu")
-    void aManaChangeIsIgnored() {
+    @DisplayName("eine Manaänderung zeichnet die Zeile neu - Mana steht jetzt darauf")
+    void aManaChangeRedrawsToo() {
+        // UMGEKEHRT statt gelöscht. Vorher stand hier, dass eine Manaänderung NICHT neu zeichnet:
+        // die Zeile nannte Mana nicht, also wäre das ein Paket ohne sichtbaren Unterschied gewesen.
+        // Seit Mana auf der Zeile steht, ist das Gegenteil richtig - ohne diese Neuzeichnung hinkten
+        // die Kosten eines Zaubers bis zu einer Sekunde nach, lang genug um wie ein verschluckter
+        // Klick auszusehen.
         PlayerMock player = server.addPlayer();
-        statuses.give(player.getUniqueId(), 500.0, 1000.0, 20.0);
+        statuses.give(player.getUniqueId(), 500.0, 1000.0, 40.0, 200.0, 20.0);
         EventBus eventBus = new DefaultEventBus(QUIET);
         bar.subscribeTo(eventBus);
 
@@ -106,7 +154,7 @@ class StatusActionBarTest {
                         50.0,
                         ChangeCause.DELTA));
 
-        assertThat(scheduler.entityTasks).as("nicht einmal eingeplant").isZero();
+        assertThat(scheduler.entityTasks).as("eingeplant und gezeichnet").isEqualTo(1);
     }
 
     @Test

@@ -23,8 +23,6 @@ import org.mockbukkit.mockbukkit.entity.PlayerMock;
 import org.yaml.snakeyaml.Yaml;
 
 import rpg.core.ability.Ability;
-import rpg.platform.ability.AbilityHotbar;
-import rpg.platform.ability.AbilityItemTag;
 import rpg.core.ability.AbilityConfig;
 import rpg.core.ability.AbilityConfigSchema;
 import rpg.core.classes.AbilityBinding;
@@ -35,6 +33,8 @@ import rpg.core.config.SchemaValidator;
 import rpg.core.message.MessageKey;
 import rpg.core.message.Messages;
 import rpg.core.session.CharacterClass;
+import rpg.platform.ability.AbilityHotbar;
+import rpg.platform.ability.AbilityItemTag;
 
 /**
  * T115 - die Hotbar der drei <b>ausgelieferten</b> Loadouts (FR-055, FR-056).
@@ -77,39 +77,44 @@ class AbilityHotbarTest {
     class FullyUnlocked {
 
         @Test
-        @DisplayName("Warrior: Waffe, vier aktive, kein Marker - fünf belegte Slots")
+        @DisplayName("Warrior: vier aktive und zwei Marker - die Waffe bleibt unberührt")
         void warrior() throws Exception {
             hotbar.layOut(player, allOf(CharacterClass.WARRIOR));
 
-            assertThat(occupied()).isEqualTo(4);
+            // Vier aktive, dahinter Raserei und Lebensraub. Der Warrior trug frueher KEINEN Marker:
+            // seine beiden Passiven hatten kein Item und waren fuer den Spieler damit unsichtbar.
+            assertThat(occupied()).isEqualTo(6);
             assertThat(player.getInventory().getItem(AbilityHotbar.WEAPON_SLOT))
                     .as("Slot 0 gehört der Waffe aus B07 und wird hier nicht angefasst")
                     .isNull();
-            assertThat(materialsFrom(1)).hasSize(4);
+            assertThat(materialsFrom(1))
+                    .as("die Marker stehen hinter den aktiven, nach Id sortiert")
+                    .endsWith(Material.GHAST_TEAR, Material.BLAZE_POWDER);
         }
 
         @Test
-        @DisplayName("Rogue: drei aktive und ein Totem - der Marker steht hinter den aktiven")
+        @DisplayName("Rogue: drei aktive und drei Marker - das Totem steht zuletzt")
         void rogue() throws Exception {
             hotbar.layOut(player, allOf(CharacterClass.ROGUE));
 
-            assertThat(occupied()).isEqualTo(4);
+            assertThat(occupied()).isEqualTo(6);
             assertThat(materialsFrom(1))
                     .as("das Totem ist der letzte, nicht der erste")
-                    .endsWith(Material.TOTEM_OF_UNDYING);
+                    .endsWith(Material.FLINT, Material.SPIDER_EYE, Material.TOTEM_OF_UNDYING);
         }
 
         @Test
-        @DisplayName("Mage: vier aktive und ZWEI Marker für eine Fähigkeit - sechs belegte Slots")
+        @DisplayName("Mage: vier aktive und drei Marker - sieben belegte Slots von acht")
         void mage() throws Exception {
             hotbar.layOut(player, allOf(CharacterClass.MAGE));
 
             // Aufstieg & Fall trägt zwei: die Wind Charge für den Sprung, den Trank für den Fall.
             // Ein Slot je Marker, nicht je Fähigkeit - sonst wäre die dreistufige Einstellung
             // (an / aus / nur Sprung) für den Spieler nicht ablesbar.
-            assertThat(occupied()).isEqualTo(6);
+            assertThat(occupied()).isEqualTo(7);
             assertThat(materialsFrom(1))
-                    .endsWith(Material.WIND_CHARGE, Material.POTION);
+                    .endsWith(
+                            Material.GLISTERING_MELON_SLICE, Material.WIND_CHARGE, Material.POTION);
         }
     }
 
@@ -118,18 +123,26 @@ class AbilityHotbarTest {
     class NotYetUnlocked {
 
         @Test
-        @DisplayName("auf Stufe 1 hat der Warrior keinen einzigen Fähigkeiten-Slot")
-        void levelOneWarriorHasNoAbilitySlot() throws Exception {
-            // Wut ist passiv und trägt keinen Marker: auf Stufe 1 ist die Hotbar leer.
-            hotbar.layOut(player, unlockedAt(CharacterClass.WARRIOR, 1));
+        @DisplayName("eine Passive belegt einen Slot - UMGEKEHRT: vorher belegte sie keinen")
+        void aPassiveNowTakesASlot() throws Exception {
+            // Gegen eine EIGENE Auswahl, nicht gegen die ausgelieferte Datei. Diese Tests handeln von
+            // der Mechanik - was nicht freigeschaltet ist, belegt nichts -, und die haengt nicht
+            // davon ab, welche Freischaltstufen gerade konfiguriert sind. Als sie noch aus
+            // classes.yml lasen, sind sie an einer reinen Balancing-Aenderung zerbrochen.
+            //
+            // Umgekehrt statt geloescht: hier stand, dass eine Passive die Hotbar leer laesst. Das war
+            // richtig, solange keine ein Item trug - und genau der Zustand war das Problem. Wer eine
+            // Passive besitzt, sah davon nichts.
+            hotbar.layOut(player, only("warrior.rage"));
 
-            assertThat(occupied()).isZero();
+            assertThat(occupied()).isEqualTo(1);
+            assertThat(player.getInventory().getItem(1)).isNotNull();
         }
 
         @Test
-        @DisplayName("auf Stufe 5 kommt genau einer dazu, und zwar direkt neben der Waffe")
-        void levelFiveAddsExactlyOne() throws Exception {
-            hotbar.layOut(player, unlockedAt(CharacterClass.WARRIOR, 5));
+        @DisplayName("eine freigeschaltete Aktive belegt genau einen Slot, direkt neben der Waffe")
+        void oneActiveTakesExactlyOneSlot() throws Exception {
+            hotbar.layOut(player, only("warrior.shield"));
 
             assertThat(occupied()).isEqualTo(1);
             assertThat(player.getInventory().getItem(1)).isNotNull();
@@ -137,16 +150,48 @@ class AbilityHotbarTest {
         }
 
         @Test
+        @DisplayName("was nicht dabei ist, belegt nichts - eine von vier Fähigkeiten, ein Slot")
+        void whatIsNotUnlockedOccupiesNothing() throws Exception {
+            // Das ist die Zusage von FR-056, seit der Marker die alte Formulierung ueberholt hat: die
+            // Belegung folgt aus der uebergebenen Liste, nicht aus dem, was die Klasse insgesamt kann.
+            hotbar.layOut(player, only("warrior.leap"));
+
+            assertThat(occupied()).isEqualTo(1);
+        }
+
+        @Test
         @DisplayName("ein zweiter Aufbau lässt keine Reste stehen")
         void layingOutTwiceLeavesNoLeftovers() throws Exception {
             hotbar.layOut(player, allOf(CharacterClass.MAGE));
-            assertThat(occupied()).isEqualTo(6);
+            assertThat(occupied()).isEqualTo(7);
 
-            // Neu aufbauen statt nachbessern - die Zusage ist, dass der Stand allein aus dem Level
-            // folgt. Ein Rest aus dem vorherigen Aufbau würde genau das brechen.
-            hotbar.layOut(player, unlockedAt(CharacterClass.MAGE, 5));
+            // Neu aufbauen statt nachbessern - die Zusage ist, dass der Stand allein aus dem folgt,
+            // was freigeschaltet ist. Ein Rest aus dem vorherigen Aufbau würde genau das brechen.
+            hotbar.layOut(player, only("mage.magic-life", "mage.lightning"));
 
-            assertThat(occupied()).isEqualTo(1);
+            // Zwei statt sieben: der Blitz und der Marker von Magisches Leben. Haette der vorherige
+            // Aufbau etwas stehen lassen, stuende hier mehr.
+            assertThat(occupied()).isEqualTo(2);
+        }
+    }
+
+    @Test
+    @DisplayName("jeder Gegenstand trägt eine Zeile darunter, die sagt was die Fähigkeit tut")
+    void everyItemCarriesItsDescription() throws Exception {
+        // Der Name allein beantwortet "was ist das" nicht: "Block", "Wirbel", "Aufstieg & Fall" sind
+        // Namen, keine Erklärungen. Die achtzehn Beschreibungen standen längst in messages.yml und
+        // wurden von nichts gelesen - der Gegenstand trug nur seinen Namen.
+        hotbar.layOut(player, allOf(CharacterClass.WARRIOR));
+
+        for (int slot = 1; slot < 9; slot++) {
+            ItemStack item = player.getInventory().getItem(slot);
+            if (item == null) {
+                continue;
+            }
+            assertThat(item.getItemMeta().lore())
+                    .as("Slot %d", slot)
+                    .isNotNull()
+                    .hasSize(1);
         }
     }
 
@@ -183,6 +228,12 @@ class AbilityHotbarTest {
             }
         }
         return found.toArray(new Material[0]);
+    }
+
+    /** Genau diese Faehigkeiten, unabhaengig von jeder konfigurierten Freischaltstufe. */
+    private static List<Ability> only(String... abilityIds) throws Exception {
+        AbilityConfig abilities = shippedAbilities();
+        return java.util.Arrays.stream(abilityIds).map(abilities::require).toList();
     }
 
     private static List<Ability> allOf(CharacterClass id) throws Exception {

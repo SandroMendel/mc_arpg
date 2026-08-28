@@ -10,6 +10,7 @@ import java.util.logging.Level;
 
 import org.bukkit.plugin.java.JavaPlugin;
 
+import rpg.core.ability.AbilityMessageKeys;
 import rpg.core.classes.ClassMessageKeys;
 import rpg.core.classes.ClassRegistry;
 import rpg.core.combat.CombatMessageKeys;
@@ -17,6 +18,7 @@ import rpg.core.combat.CombatModule;
 import rpg.core.combat.CombatPipeline;
 import rpg.core.config.ConfigLoader;
 import rpg.core.config.ConfigValidationException;
+import rpg.core.currency.CurrencyMessageKeys;
 import rpg.core.event.DefaultEventBus;
 import rpg.core.event.EventBus;
 import rpg.core.message.MapMessages;
@@ -39,6 +41,7 @@ import rpg.persistence.PersistenceMessageKeys;
 import rpg.persistence.PersistenceModule;
 import rpg.persistence.ability.AbilityModule;
 import rpg.persistence.classes.ClassesModule;
+import rpg.persistence.currency.CurrencyModule;
 import rpg.persistence.inventory.InventoryModule;
 import rpg.persistence.progression.ProgressionModule;
 import rpg.persistence.session.SessionModule;
@@ -64,7 +67,6 @@ import rpg.platform.combat.VanillaDamageListener;
 import rpg.platform.combat.VanillaDamageMapping;
 import rpg.platform.config.YamlConfigLoader;
 import rpg.platform.hud.StatusActionBar;
-import rpg.platform.hud.TargetReport;
 import rpg.platform.progression.ExperienceBar;
 import rpg.platform.progression.PaperProximityCheck;
 import rpg.platform.progression.ProgressionDeathListener;
@@ -120,9 +122,25 @@ public class RpgPlugin extends JavaPlugin {
                     "combat.yml",
                     "progression.yml",
                     "classes.yml",
-                    "abilities.yml");
+                    "abilities.yml",
+                    "currency.yml");
 
     private final BootstrapState bootstrapState = new BootstrapState();
+
+    /**
+     * Puts a character into play. Held as a field because two callers need it: the class selection,
+     * and {@link #enterCharacter} - see there for why the second one exists.
+     */
+    private rpg.platform.classes.CharacterEntry characterEntry;
+
+    /** The puff and the click that tell a player their ability took hold. */
+    private rpg.platform.ability.AbilityFeedback abilityFeedback;
+
+    /**
+     * The counter behind Rage. Held because the action bar draws it, and only this class sees both
+     * the effect that keeps it and the readout that wants it.
+     */
+    private rpg.core.ability.effect.MeterEffect abilityMeter;
 
     private DefaultModuleRegistry registry;
     private EventBus eventBus;
@@ -135,6 +153,7 @@ public class RpgPlugin extends JavaPlugin {
     private StatsModule statsModule;
     private CombatModule combatModule;
     private ProgressionModule progressionModule;
+    private CurrencyModule currencyModule;
     private ClassesModule classesModule;
     private AbilityModule abilityModule;
     private rpg.core.ability.AbilityRuntime abilityRuntime;
@@ -292,6 +311,8 @@ public class RpgPlugin extends JavaPlugin {
         declared.addAll(ProgressionMessageKeys.all());
         declared.addAll(ClassMessageKeys.all());
         declared.addAll(CombatMessageKeys.all());
+        declared.addAll(AbilityMessageKeys.all());
+        declared.addAll(CurrencyMessageKeys.all());
         MessageKeyValidator.verifyAllPresent(loaded, declared);
 
         getLogger().info("[messages] " + declared.size() + " declared key(s) resolved");
@@ -336,6 +357,10 @@ public class RpgPlugin extends JavaPlugin {
                         classesModule,
                         getLogger(),
                         Clock.systemUTC());
+        // Layer 1, and it depends on nothing but the session (ADR-027). That is what lets it close
+        // B07 and B08 instead of queueing behind them.
+        currencyModule =
+                new CurrencyModule(persistenceModule, sessionModule, getLogger(), Clock.systemUTC());
         return List.of(
                 persistenceModule,
                 sessionModule,
@@ -344,7 +369,8 @@ public class RpgPlugin extends JavaPlugin {
                 progressionModule,
                 classesModule,
                 inventoryModule,
-                abilityModule);
+                abilityModule,
+                currencyModule);
     }
 
     /**
@@ -486,10 +512,17 @@ public class RpgPlugin extends JavaPlugin {
                                 .map(
                                         snapshot -> {
                                             var resources = stats.resources(holderId);
+                                            // Mana comes from the same reading as health, so the two
+                                            // halves of the line can never be from different rounds.
+                                            // A mob's maximum is zero, and the readout leaves the
+                                            // mana part out rather than printing 0/0.
                                             return new rpg.platform.hud.CombatStatusSource.Status(
                                                     resources.currentHealth(),
                                                     resources.maxHealth(),
-                                                    snapshot.get(rpg.core.stats.Attribute.DEFENSE));
+                                                    resources.currentMana(),
+                                                    resources.maxMana(),
+                                                    snapshot.get(rpg.core.stats.Attribute.DEFENSE),
+                                                    meterOf(holderId));
                                         });
 
         StatusActionBar actionBar =
@@ -499,11 +532,43 @@ public class RpgPlugin extends JavaPlugin {
         // whichever module happens to keep a map of them.
         actionBar.startRefresh(this::playersInPlay);
 
-        TargetReport targets =
-                new TargetReport(getServer(), statusSource, scheduler, messages, getLogger());
-        targets.subscribeTo(eventBus);
+        // Und die dritte Anzeige: was eine Kreatur ist und wie viel von ihr uebrig ist, ueber ihrem
+        // Kopf. Ebenfalls nur bis B13. Eine Zeile, kein zweiter Entitaetstyp je Mob (Prinzip II).
+        new rpg.platform.hud.MobNameplate(
+                        getServer(), stats, statusSource, scheduler, messages, getLogger())
+                .subscribeTo(eventBus);
 
+        // KEINE Zielzeile im Chat mehr. Sie sagte dasselbe wie das Namensschild ueber der Kreatur,
+        // nur einmal je halber Sekunde und untereinander - bei einem laengeren Kampf war der Chat
+        // voll und die Zahl trotzdem schwerer zu lesen als ueber dem Kopf des Gegners.
+        //
+        // Der Sweep darunter bleibt: er schliesst die Schadensfenster, und daran haengen spaeter
+        // Statistik und Quests. Ohne ihn hoert niemand mehr von einem Kampf, der einfach aufhoert.
         startDamageWindowSweep(combatModule.config().aggregationWindow(), combatModule.pipeline());
+    }
+
+    /**
+     * Credits health and mana that accrued since the last pass, for everyone in play.
+     *
+     * <p>The characters, not the players: regeneration belongs to the character (ADR-011), and the
+     * two ids are different things even though B05 keys damage by holder.
+     */
+    private void settleRegeneration() {
+        rpg.core.ability.ResourceRegeneration regeneration =
+                abilityModule == null ? null : abilityModule.regeneration();
+        if (regeneration == null) {
+            return;
+        }
+        regeneration.settleAll(charactersInPlay());
+    }
+
+    /** Every character currently being played. */
+    private List<java.util.UUID> charactersInPlay() {
+        return sessionModule.registry().all().stream()
+                .map(rpg.core.session.PlayerSession::activeCharacter)
+                .flatMap(java.util.Optional::stream)
+                .map(rpg.core.session.PlayerCharacter::characterId)
+                .toList();
     }
 
     /** Everyone currently playing a character, from the registry that decides it. */
@@ -559,6 +624,11 @@ public class RpgPlugin extends JavaPlugin {
                     intervals.sweep();
                     buffs.expire();
                     projectiles.sweep();
+                    // Regeneration belongs here for the same reason the three above do: it is
+                    // "something that happens later". It was originally settled only when somebody
+                    // asked - and a wounded player standing still asks nothing, so health never
+                    // climbed unless they used an ability. Riding this sweep adds no task.
+                    settleRegeneration();
                     if (isEnabled()) {
                         startAbilitySweep(intervals, buffs, projectiles);
                     }
@@ -617,11 +687,18 @@ public class RpgPlugin extends JavaPlugin {
                 new rpg.core.ability.effect.ManaRestoreEffect(statsModule.engine()));
         effects.register(
                 rpg.core.ability.EffectType.EVADE, new rpg.core.ability.effect.EvadeEffect());
+        effects.register(
+                rpg.core.ability.EffectType.MITIGATE,
+                new rpg.core.ability.effect.MitigateEffect());
         // The shield keeps the absorption pool itself, so the instance is held rather than discarded -
         // the pipeline has to be able to ask it what it can take.
         rpg.core.ability.effect.ShieldEffect shields =
                 new rpg.core.ability.effect.ShieldEffect(Clock.systemUTC());
         effects.register(rpg.core.ability.EffectType.SHIELD, shields);
+        // UND der Abnehmer dazu. Ohne ihn fuellte sich der Vorrat bei jedem Wirken und niemand las
+        // ihn je: Block und Magieschild waren acht Sekunden lang nichts. Registriert VOR den
+        // Passiven, damit Zweites Leben sieht, was nach dem Schild uebrig ist.
+        pipeline.registerInterceptor(shields.interceptor());
 
         // Buff and debuff differ only in who they land on, and the targeting decided that already.
         rpg.core.ability.effect.BuffEffect buffs =
@@ -630,6 +707,7 @@ public class RpgPlugin extends JavaPlugin {
         effects.register(rpg.core.ability.EffectType.DEBUFF, buffs);
         rpg.core.ability.effect.MeterEffect meter =
                 new rpg.core.ability.effect.MeterEffect(statsModule.engine(), Clock.systemUTC());
+        abilityMeter = meter;
         effects.register(rpg.core.ability.EffectType.METER, meter);
 
         // The three that need the world. The two B10 gaps - mob aggression towards a clone, mobs
@@ -665,6 +743,17 @@ public class RpgPlugin extends JavaPlugin {
         // Both directions: the dispatcher hands periodic effects TO the runner, and the runner hands
         // each due application back THROUGH the dispatcher, so it stays behind the same error barrier.
         effects.setIntervalRunner(intervals);
+        // Und der Beobachter, der zeichnet, was gelandet ist. Er haengt hier und nicht in den
+        // Primitiven: die leben in rpg-core und koennen einen Partikel gar nicht sehen.
+        effects.setObserver(
+                (ability, spec, casterId, targets) ->
+                        abilityFeedback.showImpact(ability, casterId, targets));
+        // The sweep runs off the tick; a due application must not. It walks the combat pipeline,
+        // which publishes a death, which reaches listeners that look up entities - and that is a
+        // chunk read. Bound to the caster, who is a player and therefore resolvable from any thread.
+        intervals.setOnTick(
+                (casterId, task) ->
+                        scheduler.runSyncOnEntity(new rpg.core.scheduler.EntityRef(casterId), task));
         startAbilitySweep(intervals, buffs, projectiles);
 
         abilityRuntime =
@@ -684,11 +773,27 @@ public class RpgPlugin extends JavaPlugin {
         // The one place in this block that schedules anything: entity-bound, single-shot (ADR-024).
         // A character with nothing running has no task, which is what SC-005 asserts.
         abilityRuntime.setScheduling(
-                (characterId, delay, task) ->
+                (holderId, delay, task) ->
                         scheduler.runSyncOnEntityDelayed(
-                                new rpg.core.scheduler.EntityRef(characterId), delay, task));
+                                new rpg.core.scheduler.EntityRef(holderId), delay, task));
 
         abilityHotbar = new rpg.platform.ability.AbilityHotbar(messages, getLogger());
+        abilityFeedback = new rpg.platform.ability.AbilityFeedback(getServer(), getLogger());
+        // Die Haltung einer gehaltenen Faehigkeit - beim Warrior der hochgehaltene Schild. Beide
+        // Enden, weil nur der Runtime weiss, wann sie aufhoert: nach ihrer Dauer ODER durch einen
+        // zweiten Rechtsklick.
+        abilityRuntime.setSustain(
+                new rpg.core.ability.AbilityRuntime.Sustain() {
+                    @Override
+                    public void started(java.util.UUID characterId, rpg.core.ability.Ability ability) {
+                        withPlayer(characterId, player -> abilityFeedback.holdPose(player, ability));
+                    }
+
+                    @Override
+                    public void ended(java.util.UUID characterId, rpg.core.ability.Ability ability) {
+                        withPlayer(characterId, player -> abilityFeedback.releasePose(player, ability));
+                    }
+                });
 
         // The passive triggers, hung on the three hooks B05 already has (research.md R6). Which stage
         // each one uses is not interchangeable - see PassiveInterceptors.
@@ -727,11 +832,31 @@ public class RpgPlugin extends JavaPlugin {
                 .getPluginManager()
                 .registerEvents(
                         new rpg.platform.ability.AbilityTriggerListener(
-                                (player, abilityId) ->
-                                        abilityRuntime.trigger(
-                                                characterIdOf(player).orElse(player.getUniqueId()),
-                                                abilityId),
-                                (player, key) -> player.sendMessage(messages.get(key)),
+                                (player, abilityId) -> {
+                                    java.util.UUID characterId =
+                                            characterIdOf(player).orElse(player.getUniqueId());
+                                    rpg.core.ability.AbilityResult result =
+                                            abilityRuntime.trigger(characterId, abilityId);
+                                    if (result.isSuccess()) {
+                                        // Nur bei Erfolg. Eine Ablehnung hat schon Worte für sich,
+                                        // und ein Puff dazu ließe "noch im Cooldown" aussehen wie
+                                        // eine Fähigkeit, die gewirkt hat.
+                                        abilities.find(abilityId)
+                                                .ifPresent(
+                                                        ability ->
+                                                                abilityFeedback.show(player, ability));
+                                    }
+                                    // Asked straight after the trigger, while the state that caused
+                                    // the refusal is still the state: the cooldown still running, the
+                                    // sustained ability still sustaining.
+                                    return new rpg.platform.ability.AbilityTriggerListener.Outcome(
+                                            result,
+                                            resolveNames(
+                                                    abilityRuntime.placeholdersFor(
+                                                            characterId, abilityId, result)));
+                                },
+                                (player, key, values) ->
+                                        player.sendMessage(messages.get(key, values)),
                                 getLogger()),
                         this);
 
@@ -844,13 +969,15 @@ public class RpgPlugin extends JavaPlugin {
                 new ClassEquipmentApplier(
                         classesModule.boundEquipment(), new BoundItemFactory(messages), getLogger());
 
+        characterEntry = (player, character) -> enterGameState(player, character, equipment);
+
         ClassSelectionListener selection =
                 new ClassSelectionListener(
                         classesModule.selection(),
                         new ClassSelectionMenu(classes, messages),
                         sessionModule.registry(),
                         guard,
-                        (player, character) -> enterGameState(player, character, equipment),
+                        characterEntry,
                         // The one place that sees all three blocks: B03 owns the characters, B06 the
                         // levels, B07 the tiers, and a menu entry needs all of it.
                         classesModule::slotsFor,
@@ -964,6 +1091,74 @@ public class RpgPlugin extends JavaPlugin {
                                                                 "ability",
                                                                 messages.get(
                                                                         ability.displayNameKey()))))));
+    }
+
+    /**
+     * Turns the one placeholder value that is a message key into the text it names.
+     *
+     * <p>B08 owns no wording (Constitution V), so when a refusal has to name an ability - "Finish
+     * Whirl first" - the block hands over the display-name KEY and this is where it becomes a word.
+     * Everything else in the map is already a number and passes through untouched.
+     */
+    private java.util.Map<String, String> resolveNames(java.util.Map<String, String> values) {
+        String abilityKey = values.get("ability");
+        if (abilityKey == null) {
+            return values;
+        }
+        java.util.Map<String, String> resolved = new java.util.HashMap<>(values);
+        resolved.put("ability", messages.get(rpg.core.message.MessageKey.of(abilityKey)));
+        return resolved;
+    }
+
+    /**
+     * Der Zaehler dieses Traegers, oder null, wenn er keinen hat.
+     *
+     * <p><b>Ohne die Klasse zu nennen.</b> Ein Charakter hat einen Zaehler, wenn eine seiner
+     * freigeschalteten Faehigkeiten einen METER-Effekt traegt - heute die Raserei des Warriors,
+     * morgen vielleicht etwas anderes, ohne dass hier eine Zeile geaendert werden muss. Genau so
+     * fragt der Doppelsprung nach seiner Faehigkeit, statt {@code mage.rise-and-fall} in den Code zu
+     * schreiben (SC-001).
+     *
+     * <p>Null fuer jeden anderen: ein Mob, ein Magier, ein Rogue. Die Actionbar laesst den Teil dann
+     * weg, statt eine Null zu zeigen, die nichts bedeutet.
+     */
+    private double meterOf(java.util.UUID holderId) {
+        if (abilityModule == null || abilityMeter == null) {
+            return 0.0;
+        }
+        java.util.UUID characterId =
+                statsModule.engine().characterIdOf(holderId).orElse(null);
+        if (characterId == null) {
+            return 0.0;
+        }
+        return abilityModule
+                .registry()
+                .capability(characterId, rpg.core.ability.EffectType.METER)
+                .flatMap(
+                        ability ->
+                                ability.effects().stream()
+                                        .filter(
+                                                spec ->
+                                                        spec.type()
+                                                                == rpg.core.ability.EffectType.METER)
+                                        .findFirst())
+                .map(spec -> abilityMeter.valueAt(holderId, spec, Clock.systemUTC().instant()))
+                .orElse(0.0);
+    }
+
+    /**
+     * Fuehrt etwas am Spieler hinter einem Charakter aus, wenn er da ist.
+     *
+     * <p>Ueber den Halter, denn das ist die Id, unter der ein Spieler adressierbar ist - und die
+     * Uebersetzung gehoert dem Stat-Engine (siehe {@code StatEngine#holderOf}).
+     */
+    private void withPlayer(
+            java.util.UUID characterId, java.util.function.Consumer<org.bukkit.entity.Player> action) {
+        statsModule
+                .engine()
+                .holderOf(characterId)
+                .map(getServer()::getPlayer)
+                .ifPresent(action);
     }
 
     private void layOutAbilities(org.bukkit.entity.Player player, java.util.UUID characterId) {
@@ -1155,6 +1350,152 @@ public class RpgPlugin extends JavaPlugin {
                                 + ", party range "
                                 + progressionModule.config().partyRange()
                                 + " blocks");
+
+        registerCurrencyListeners(distributor, stats);
+    }
+
+    /**
+     * The Paper-facing half of B08b: coin piles fall, and picking one up books it.
+     *
+     * <p>Wired after B06's, and from its pieces: the entitlement rule is
+     * {@code XpDistributor}'s own {@code ShareCalculator} (ADR-029), so coins and experience value
+     * the same kill identically. A second implementation would have agreed only until somebody
+     * edited one.
+     */
+    private void registerCurrencyListeners(XpDistributor distributor, StatEngine stats) {
+        rpg.core.currency.CurrencyConfig config = currencyModule.config();
+        rpg.core.currency.DefaultCurrency currency = currencyModule.currency();
+
+        rpg.core.currency.CoinDropPlanner planner =
+                new rpg.core.currency.CoinDropPlanner(
+                        distributor.shareCalculator(),
+                        new rpg.core.currency.ConfigMobCoinProvider(config, getLogger()),
+                        config,
+                        // The one question this block asks B04, as a one-method interface rather
+                        // than a dependency on the whole engine.
+                        stats::characterIdOf);
+
+        rpg.platform.currency.CoinPileRegistry pileRegistry =
+                new rpg.platform.currency.CoinPileRegistry(
+                        config,
+                        // Through the admin path, not through Currency directly: the owner of the
+                        // oldest pile is very likely logged out - that is often why it is the oldest
+                        // - and they still have to be credited (FR-030c).
+                        (characterId, amount, reason) ->
+                                currencyModule
+                                        .admin()
+                                        .creditWhereverTheyAre(characterId, amount, reason)
+                                        .isSuccess(),
+                        Clock.systemUTC(),
+                        getLogger(),
+                        rpg.platform.currency.CoinPile.PilePlatform.vanilla(this));
+
+        rpg.platform.currency.CoinPile piles =
+                new rpg.platform.currency.CoinPile(
+                        this, getServer(), config, Clock.systemUTC(), getLogger());
+
+        // A pile is invisible by default and shown to one player; that showing lives on the
+        // connection and dies with it. Without this, a relogin left a pile invisible but still
+        // collectable - the worst of both, and exactly what was reported from the server.
+        currencyModule.setCharacterEntered(
+                (playerId, characterId) -> {
+                    org.bukkit.entity.Player player = getServer().getPlayer(playerId);
+                    if (player != null) {
+                        pileRegistry.showPilesTo(player, characterId);
+                    }
+                });
+
+        rpg.platform.currency.CoinDropListener coinDrops =
+                new rpg.platform.currency.CoinDropListener(
+                        getServer(), planner, piles, pileRegistry, currency, getLogger());
+        coinDrops.subscribeTo(eventBus);
+
+        getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new rpg.platform.currency.CoinPickupListener(
+                                currency, sessionModule.registry(), pileRegistry, messages),
+                        this);
+
+        registerCurrencyWindow(config, currency);
+        closeTheTwoShippedBlocks(currency);
+
+        getLogger()
+                .info(
+                        "[currency] listeners registered - piles despawn after "
+                                + config.pileDespawn().toSeconds()
+                                + "s, at most "
+                                + config.maxPiles()
+                                + " at once");
+    }
+
+    /**
+     * What this whole block was built for: B07 and B08 stop being unfinished.
+     *
+     * <p>Both shipped with a hole in them, named rather than filled (Workflow rule 5). B07 carries a
+     * {@code cost} block on every equipment tier and passes it through unread; B08's rank advance
+     * could not fail for want of money because there was no money. Neither guessed a price, and this
+     * is where the guessing would have shown - it does not, because there is nothing to reconcile.
+     *
+     * <p>Two lines, and they are the point of ADR-027.
+     */
+    private void closeTheTwoShippedBlocks(rpg.core.currency.DefaultCurrency currency) {
+        // FR-050: every configured price is checked now, not the first time somebody tries to pay
+        // one. A key nobody can charge would leave a tier quietly free.
+        rpg.core.currency.CostBlockValidator.validateClasses(classesModule.config());
+
+        // FR-051: the rank advance gets its price check - last, after unlock and maximum rank, so a
+        // refusal for any other reason still costs nothing (FR-052).
+        abilityRuntime.setRankCost(
+                new rpg.core.currency.AbilityRankCost(currency, getLogger()));
+
+        getLogger().info("[currency] B07 tier costs validated, B08 rank costs installed");
+    }
+
+    /**
+     * The window and the command, both provisional (ADR-028).
+     *
+     * <p>B14 replaces the command and B13 takes over the display; what stays is
+     * {@code CurrencyAdmin} and {@code CoinLedger} underneath. That is the whole point of keeping
+     * this method short: everything it builds is meant to be thrown away.
+     */
+    private void registerCurrencyWindow(
+            rpg.core.currency.CurrencyConfig config, rpg.core.currency.DefaultCurrency currency) {
+        rpg.platform.currency.CurrencyMenu menu =
+                new rpg.platform.currency.CurrencyMenu(messages, config.historyPageSize());
+        rpg.platform.currency.CurrencyMenuListener menuListener =
+                new rpg.platform.currency.CurrencyMenuListener(
+                        menu, currencyModule.ledger(), scheduler, getLogger());
+        getServer().getPluginManager().registerEvents(menuListener, this);
+
+        rpg.plugin.command.CoinsCommand coins =
+                new rpg.plugin.command.CoinsCommand(
+                        getServer(),
+                        sessionModule.registry(),
+                        currency,
+                        currencyModule.admin(),
+                        menuListener,
+                        messages,
+                        // A character who is not loaded still has a balance, and the window has to
+                        // show it (FR-042). The lookup is a database read - fine here, because a
+                        // command is not a game event.
+                        characterId ->
+                                currencyModule
+                                        .balances()
+                                        .find(characterId)
+                                        .join()
+                                        .map(rpg.core.currency.CharacterBalance::balance)
+                                        .orElse(0L));
+
+        var command = getCommand("coins");
+        if (command == null) {
+            // plugin.yml and this method have to agree; if they do not, saying so beats a command
+            // that silently does not exist.
+            getLogger().severe("[currency] /coins is not declared in plugin.yml - not registered");
+            return;
+        }
+        command.setExecutor(coins);
+        command.setTabCompleter(coins);
     }
 
     /**
@@ -1234,6 +1575,31 @@ public class RpgPlugin extends JavaPlugin {
      */
     public rpg.core.combat.DefaultCombatPipeline combatPipeline() {
         return combatModule == null ? null : combatModule.pipeline();
+    }
+
+    /**
+     * The regeneration as it was assembled, for the bootstrap test.
+     *
+     * <p>Same reason as {@link #statEngine()}, plus one of its own: this is the piece that rides the
+     * ability sweep, and whether a wounded player standing still actually heals is a property of the
+     * WIRED server - it rode the right sweep with the wrong ids for a whole release and looked fine
+     * in every unit test.
+     */
+    public rpg.core.ability.ResourceRegeneration abilityRegeneration() {
+        return abilityModule == null ? null : abilityModule.regeneration();
+    }
+
+    /**
+     * Puts a character into play exactly as choosing one in the menu does, for the bootstrap test.
+     *
+     * <p><b>Not a shortcut, the real path</b> - session activation, inventory, class equipment,
+     * ability hotbar, experience bar, in that order. A test that assembled a character by hand would
+     * prove only that its own assembly works, and this is the one thing that has to be proven about
+     * the wired server: that a player who joins can actually use what the blocks built.
+     */
+    public boolean enterCharacter(
+            org.bukkit.entity.Player player, rpg.core.session.PlayerCharacter character) {
+        return characterEntry != null && characterEntry.enter(player, character);
     }
 
     /** The bootstrap phase, which decides whether the server accepts player sessions (FR-013). */

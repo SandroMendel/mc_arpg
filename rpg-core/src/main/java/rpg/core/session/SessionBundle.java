@@ -7,6 +7,7 @@ import java.util.UUID;
 
 import rpg.core.ability.AbilityState;
 import rpg.core.classes.ClassProgress;
+import rpg.core.currency.CharacterBalance;
 import rpg.core.inventory.CharacterInventory;
 import rpg.core.persistence.ItemInstance;
 import rpg.core.persistence.PlayerState;
@@ -29,6 +30,7 @@ import rpg.core.stats.CharacterResources;
  * @param classProgress reached armour and weapon tier per character (B07)
  * @param inventories stored inventory contents per character
  * @param abilities rank, running cooldown and toggle per character and ability (B08)
+ * @param balances coins held per character (B08b)
  */
 public record SessionBundle(
         UUID playerId,
@@ -39,7 +41,8 @@ public record SessionBundle(
         List<CharacterProgress> progress,
         List<ClassProgress> classProgress,
         List<CharacterInventory> inventories,
-        List<AbilityState> abilities) {
+        List<AbilityState> abilities,
+        List<CharacterBalance> balances) {
 
     public SessionBundle {
         Objects.requireNonNull(playerId, "playerId");
@@ -51,6 +54,51 @@ public record SessionBundle(
         classProgress = List.copyOf(Objects.requireNonNull(classProgress, "classProgress"));
         inventories = List.copyOf(Objects.requireNonNull(inventories, "inventories"));
         abilities = List.copyOf(Objects.requireNonNull(abilities, "abilities"));
+        balances = List.copyOf(Objects.requireNonNull(balances, "balances"));
+    }
+
+    /**
+     * A bundle without balances - the shape before B08b existed.
+     *
+     * <p>Same reason as the three constructors below: nine call sites predate this list, and a test
+     * about sessions should not have to name a type it does not use.
+     */
+    public SessionBundle(
+            UUID playerId,
+            Optional<PlayerState> accountState,
+            List<PlayerCharacter> characters,
+            List<ItemInstance> items,
+            List<CharacterResources> resources,
+            List<CharacterProgress> progress,
+            List<ClassProgress> classProgress,
+            List<CharacterInventory> inventories,
+            List<AbilityState> abilities) {
+        this(
+                playerId,
+                accountState,
+                characters,
+                items,
+                resources,
+                progress,
+                classProgress,
+                inventories,
+                abilities,
+                List.of());
+    }
+
+    /**
+     * What one character holds in coins, or empty if it has never been written (B08b).
+     *
+     * <p>Loaded here rather than fetched later, for the reason B02 gives once and every block since
+     * has followed: the login path never waits on a second round trip.
+     *
+     * <p><b>Empty means no stored row, which means zero</b> - not the configured starting balance.
+     * That is credited once at creation as an ordinary booking (FR-011a, FR-011b).
+     */
+    public Optional<CharacterBalance> balanceOf(UUID characterId) {
+        return balances.stream()
+                .filter(balance -> balance.characterId().equals(characterId))
+                .findFirst();
     }
 
     /**

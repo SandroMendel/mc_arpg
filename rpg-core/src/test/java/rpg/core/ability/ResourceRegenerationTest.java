@@ -41,7 +41,12 @@ class ResourceRegenerationTest {
         fixture.stats.mana = 50.0;
         combat = new FakeCombat();
         regeneration =
-                new ResourceRegeneration(fixture.stats, combat, fixture.registry, fixture.clock);
+                new ResourceRegeneration(
+                        fixture.stats,
+                        combat,
+                        fixture.registry,
+                        fixture.clock,
+                        java.util.logging.Logger.getLogger("regeneration-test"));
     }
 
     @Nested

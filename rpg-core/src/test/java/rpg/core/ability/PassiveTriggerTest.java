@@ -144,12 +144,12 @@ class PassiveTriggerTest {
                             () -> rolls[index[0]++]);
 
             // Erster Wurf 0.9 gegen eine Chance von 0.5: verfehlt, KEIN Effekt.
-            dispatcher.fire(chancy.character, AbilityTrigger.ON_KILL, null, null);
+            dispatcher.fire(chancy.holder, AbilityTrigger.ON_KILL, null, null);
             assertThat(applied).isEmpty();
             assertThat(index[0]).as("genau ein Wurf, obwohl es zwei Effekte sind").isEqualTo(1);
 
             // Zweiter Wurf 0.1: trifft, BEIDE Effekte.
-            dispatcher.fire(chancy.character, AbilityTrigger.ON_KILL, null, null);
+            dispatcher.fire(chancy.holder, AbilityTrigger.ON_KILL, null, null);
             assertThat(applied).containsExactly("heal", "mana");
             assertThat(index[0]).isEqualTo(2);
         }
@@ -170,15 +170,15 @@ class PassiveTriggerTest {
                             guarded.clock,
                             () -> 0.0);
 
-            assertThat(dispatcher.fire(guarded.character, AbilityTrigger.ON_DEATH, null, null))
+            assertThat(dispatcher.fire(guarded.holder, AbilityTrigger.ON_DEATH, null, null))
                     .isTrue();
-            assertThat(dispatcher.fire(guarded.character, AbilityTrigger.ON_DEATH, null, null))
+            assertThat(dispatcher.fire(guarded.holder, AbilityTrigger.ON_DEATH, null, null))
                     .as("innerhalb des Cooldowns stirbt er regulär")
                     .isFalse();
 
             guarded.clock.advance(Duration.ofMinutes(11));
 
-            assertThat(dispatcher.fire(guarded.character, AbilityTrigger.ON_DEATH, null, null))
+            assertThat(dispatcher.fire(guarded.holder, AbilityTrigger.ON_DEATH, null, null))
                     .as("danach wieder")
                     .isTrue();
             assertThat(applied).hasSize(2);
@@ -206,7 +206,7 @@ class PassiveTriggerTest {
                             .stateOf(togglable.character, "probe.toggle")
                             .withToggle(ToggleState.OFF));
 
-            assertThat(dispatcher.fire(togglable.character, AbilityTrigger.ON_KILL, null, null))
+            assertThat(dispatcher.fire(togglable.holder, AbilityTrigger.ON_KILL, null, null))
                     .isFalse();
             assertThat(applied).isEmpty();
         }
@@ -234,7 +234,7 @@ class PassiveTriggerTest {
 
             assertThat(
                             dispatcher.fire(
-                                    evasive.character,
+                                    evasive.holder,
                                     AbilityTrigger.ON_DAMAGE_TAKEN,
                                     DamageType.PHYSICAL,
                                     null))
@@ -244,12 +244,184 @@ class PassiveTriggerTest {
 
             assertThat(
                             dispatcher.fire(
-                                    evasive.character,
+                                    evasive.holder,
                                     AbilityTrigger.ON_DAMAGE_TAKEN,
                                     DamageType.MAGIC,
                                     null))
                     .isTrue();
             assertThat(avoided).containsExactly("avoided");
+        }
+    }
+
+    /**
+     * Magisches Leben mildert den Auto-Angriff, statt magischem Schaden auszuweichen.
+     *
+     * <p>Der Filter steht hier auf der Herkunft, nicht auf dem Schadenstyp - und das ist der Kern:
+     * die alte Fassung wies magischen Schaden ab und traf damit im Spiel auf nichts, weil Mobs
+     * physisch zuschlagen. Die neue antwortet auf Schwert und Pfeil und laesst den gewirkten
+     * Feuerball in voller Hoehe stehen.
+     */
+    @Nested
+    @DisplayName("Herkunfts-Filter - die Milderung des Auto-Angriffs")
+    class OriginFilter {
+
+        private AbilityFixture mitigating;
+        private PassiveDispatcher dispatcher;
+
+        /** Was von 100 Schaden uebrig blieb. Nach genau dem fragt die Faehigkeit. */
+        private double remaining;
+
+        @BeforeEach
+        void setUp() throws Exception {
+            mitigating = AbilityFixture.withAutoAttackMitigation();
+            EffectDispatcher effects = new EffectDispatcher(quiet());
+            effects.register(EffectType.MITIGATE, new rpg.core.ability.effect.MitigateEffect());
+            dispatcher =
+                    new PassiveDispatcher(
+                            mitigating.registry,
+                            effects,
+                            mitigating.stats,
+                            mitigating.repository,
+                            mitigating.clock,
+                            () -> 0.0);
+        }
+
+        /** Ein Treffer ueber 100, wie ihn der Modifikator-Hook stellt. */
+        private boolean hit(DamageType type, rpg.core.combat.DamageOrigin origin) {
+            remaining = 100.0;
+            return dispatcher.fire(
+                    mitigating.holder,
+                    AbilityTrigger.ON_DAMAGE_TAKEN,
+                    type,
+                    origin,
+                    new EffectContext.TriggerData(
+                            100.0, () -> {}, share -> remaining *= 1.0 - share, null));
+        }
+
+        @Test
+        @DisplayName("der Nahkampfschlag wird gemildert - physisch wie magisch")
+        void itSoftensMeleeOfEitherType() {
+            assertThat(hit(DamageType.PHYSICAL, rpg.core.combat.DamageOrigin.MELEE)).isTrue();
+            assertThat(remaining).as("Rang 1 nimmt zehn Prozent").isEqualTo(90.0);
+
+            assertThat(hit(DamageType.MAGIC, rpg.core.combat.DamageOrigin.MELEE))
+                    .as("der Schadenstyp ist offen - genau das war vorher der Fehler")
+                    .isTrue();
+            assertThat(remaining).isEqualTo(90.0);
+        }
+
+        @Test
+        @DisplayName("der Pfeil zaehlt als Auto-Angriff, der gewirkte Treffer nicht")
+        void itSeparatesAutoAttackFromAbility() {
+            assertThat(hit(DamageType.PHYSICAL, rpg.core.combat.DamageOrigin.PROJECTILE)).isTrue();
+            assertThat(remaining).as("der Skelettpfeil ist ein Auto-Angriff").isEqualTo(90.0);
+
+            assertThat(hit(DamageType.MAGIC, rpg.core.combat.DamageOrigin.ABILITY))
+                    .as("gegen Gewirktes steht das Magieschild, nicht diese Faehigkeit")
+                    .isFalse();
+            assertThat(remaining).isEqualTo(100.0);
+        }
+
+        @Test
+        @DisplayName("Sturzschaden bleibt unberuehrt - ein Fall ist kein Angriff")
+        void itLeavesTheEnvironmentAlone() {
+            assertThat(hit(DamageType.PHYSICAL, rpg.core.combat.DamageOrigin.ENVIRONMENT))
+                    .isFalse();
+            assertThat(remaining).isEqualTo(100.0);
+        }
+
+        @Test
+        @DisplayName("ohne bekannte Herkunft feuert sie nicht, statt alles zu mildern")
+        void itStaysSilentWithoutAnOrigin() {
+            assertThat(hit(DamageType.PHYSICAL, null))
+                    .as("lieber stumm als jeden Treffer beantworten")
+                    .isFalse();
+            assertThat(remaining).isEqualTo(100.0);
+        }
+
+        @Test
+        @DisplayName("der Rang weitet die Milderung - das ist die Spanne")
+        void theRankWidensTheBand() {
+            mitigating.registry.put(
+                    mitigating.registry.stateOf(mitigating.character, "probe.mitigate").withRank(5));
+
+            assertThat(hit(DamageType.PHYSICAL, rpg.core.combat.DamageOrigin.MELEE)).isTrue();
+            assertThat(remaining)
+                    .as("Rang 5: zehn Prozent plus viermal fuenf")
+                    .isEqualTo(70.0);
+        }
+    }
+
+    @Nested
+    @DisplayName("Wen eine Passive trifft - den Traeger oder sein Gegenueber")
+    class Targeting {
+
+        @Test
+        @DisplayName("eine Passive mit SELF wirkt auf den Traeger - der Normalfall")
+        void selfTargetedPassivesHitTheHolder() {
+            fixture.stats.health = 500.0;
+
+            fire(AbilityTrigger.ON_DAMAGE_DEALT, 200.0);
+
+            assertThat(fixture.stats.health)
+                    .as("Lebensraub heilt den, der zuschlaegt")
+                    .isEqualTo(500.0 + 200.0 * 0.08);
+        }
+
+        @Test
+        @DisplayName("eine Passive, die NICHT auf sich selbst zielt, trifft das Gegenueber")
+        void aNonSelfPassiveHitsTheCounterpart() throws Exception {
+            // Die Vergiftete Klinge vergiftet, was der Rogue TRIFFT - und sie sagt das auch, mit
+            // ihrem Zielmodus. Der Dispatcher setzte trotzdem pauschal den Traeger ein, und der
+            // Rogue vergiftete sich selbst.
+            AbilityFixture poisoner = AbilityFixture.withCounterpartPassive();
+            List<UUID> hit = new ArrayList<>();
+            EffectDispatcher recording = new EffectDispatcher(quiet());
+            recording.register(
+                    EffectType.DAMAGE, context -> hit.addAll(context.targets()));
+            PassiveDispatcher dispatcher =
+                    new PassiveDispatcher(
+                            poisoner.registry,
+                            recording,
+                            poisoner.stats,
+                            poisoner.repository,
+                            poisoner.clock,
+                            () -> 0.0);
+            UUID victim = UUID.randomUUID();
+
+            dispatcher.fire(
+                    poisoner.holder,
+                    AbilityTrigger.ON_DAMAGE_DEALT,
+                    DamageType.PHYSICAL,
+                    new EffectContext.TriggerData(50.0, () -> {}, victim));
+
+            assertThat(hit).containsExactly(victim);
+        }
+
+        @Test
+        @DisplayName("ohne Gegenueber bleibt der Traeger - besser auf dem Falschen als gar nicht")
+        void withoutACounterpartTheHolderStands() throws Exception {
+            AbilityFixture poisoner = AbilityFixture.withCounterpartPassive();
+            List<UUID> hit = new ArrayList<>();
+            EffectDispatcher recording = new EffectDispatcher(quiet());
+            recording.register(
+                    EffectType.DAMAGE, context -> hit.addAll(context.targets()));
+            PassiveDispatcher dispatcher =
+                    new PassiveDispatcher(
+                            poisoner.registry,
+                            recording,
+                            poisoner.stats,
+                            poisoner.repository,
+                            poisoner.clock,
+                            () -> 0.0);
+
+            dispatcher.fire(
+                    poisoner.holder,
+                    AbilityTrigger.ON_DAMAGE_DEALT,
+                    DamageType.PHYSICAL,
+                    new EffectContext.TriggerData(50.0, () -> {}));
+
+            assertThat(hit).containsExactly(poisoner.holder);
         }
     }
 
@@ -263,7 +435,7 @@ class PassiveTriggerTest {
 
     private void fire(AbilityTrigger trigger, double damage) {
         passives.fire(
-                fixture.character,
+                fixture.holder,
                 trigger,
                 DamageType.PHYSICAL,
                 new EffectContext.TriggerData(damage, () -> {}));

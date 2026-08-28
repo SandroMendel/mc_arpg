@@ -142,7 +142,8 @@ public final class AbilityModule implements Module {
                         context.registry().getService(rpg.core.stats.StatEngine.class),
                         context.registry().getService(rpg.core.combat.CombatPipeline.class),
                         registry,
-                        clock);
+                        clock,
+                        logger);
 
         sessions.lifecycle().addAttachment(new AbilitySessionAttachment());
         context.registry().registerService(ID, AbilityRegistry.class, registry);

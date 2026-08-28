@@ -99,6 +99,19 @@ public final class AbilityProjectile implements Listener, ProjectileEffect.Launc
      * @return how many were dropped
      */
     public int sweep() {
+        if (inFlight.isEmpty()) {
+            return 0;
+        }
+        if (!server.isPrimaryThread()) {
+            // Looking a projectile up is a chunk read, and the sweep that drives this runs off the
+            // tick. Skipping is safe because nothing here is time-critical: the map only ever holds
+            // projectiles that were lost, and one more pass will come.
+            //
+            // It is however NOT sufficient on its own - off the tick this never cleans at all. No
+            // shipped ability launches a projectile today, so the map stays empty and the question
+            // is academic; the day one does, this needs the same hop the interval runner got.
+            return 0;
+        }
         int before = inFlight.size();
         inFlight.keySet().removeIf(id -> server.getEntity(id) == null);
         return before - inFlight.size();

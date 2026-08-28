@@ -1294,6 +1294,114 @@ geändertes Balancing wirkt auf jedes vorhandene Exemplar.
 Er ist der Ort, an dem Items zu Coins werden. B10 liefert die Entity-Technik, die er mitbenutzt; das
 macht ihn nicht zu einem Mob.
 
-**Nicht geändert:** Das Nicht-Ziel „kein Wirtschaftssystem" aus `00-vision-scope.md` meint **kein
+**Nicht geändert:** Das Nicht-Ziel „kein Wirtschaftssystem" aus  meint **kein
 Spieler-zu-Spieler-Handel und kein Crafting**. NPC-Verkauf gegen Coins ist davon gedeckt und war es
-immer; die Formulierung wird bei `/specify` B11 präzisiert.
+immer; die Formulierung wird bei  B11 präzisiert.
+
+### Nachtrag (2026-08-22): die drei Folgen sind nachgezogen
+
+B08b ist umgesetzt, und damit ist eingelöst, was oben als offen benannt war:
+
+- **B07** löst den `cost`-Block aus, statt ihn undurchsichtig weiterzureichen — und zwar **ohne dass
+  B07 angefasst wurde**. Die Auslegung geschieht in B08b (`CostSpec`, `EquipmentPurchase`), weil
+  `ClassSourceInvariantsTest` die Vokabel in B07s Quellen verbietet. Der Test ist unverändert grün
+  und beweist ab jetzt, dass die Auslegung am richtigen Ort geschieht.
+- **B08s `RankResult`** hat sein `NOT_ENOUGH_COINS`, und das Javadoc, das „es gibt keine Währung"
+  sagte, ist korrigiert. Die Zusicherung in `AbilityRankTest` wurde **umgedreht statt gelöscht**,
+  damit die Änderung im Diff sichtbar bleibt. Die Preisprüfung hängt über eine Naht
+  (`AbilityRuntime.RankCost`) darin — B08 zeigt nicht auf B08b.
+- **B11** baut Verkauf und Reparatur darauf auf; `BookingReason` hält die drei Werte bereits vor.
+
+---
+
+## ADR-028: Ein Kommando und ein Fenster in einem Schicht-1-Block, befristet
+
+**Status:** Angenommen · **Datum:** 2026-08-22 · **Blöcke:** B08b, später B14 und B13
+
+**Kontext.** B08b braucht einen Aufrufweg für den Admin-Eingriff (FR-039 bis FR-046) und eine Anzeige
+für Stand und Verlauf (FR-046a, FR-046b, FR-056). Kommandos, Rechtebaum und Tab-Completion gehören
+B14, Anzeige gehört B13 — beide Schicht 3, beide hängen von allen anderen Blöcken ab. Im Projekt
+existiert bislang **kein einziges** Kommando; `plugin.yml` hat keinen `commands`-Block.
+
+**Entscheidung.** B08b legt beides an, **vorläufig**:
+
+- **Ein** Kommando `/coins`. Ohne Argument öffnet es das Fenster für die eigenen Charaktere, mit
+  Spielerargument für einen fremden. `set`, `add` und `remove` bleiben Kommandoargumente.
+- **Ein Fenster** aus reinen Vanilla-Materialien (ADR-005): Charakterauswahl, danach der Verlauf des
+  gewählten Charakters, seitenweise.
+
+Die gesamte Logik liegt in `Currency`, `CurrencyAdmin` und `CoinLedger` in `rpg-core` — bukkitfrei
+und serverfrei prüfbar. Kommando und Fenster sind Schalen darüber.
+
+**Warum gelesen wird geklickt und geschrieben getippt.** Ein Betrag lässt sich in einem Inventar
+nicht sinnvoll eintippen; ihn über Knöpfe zusammenzuklicken wäre eine Zahleneingabe, die wie eine
+Oberfläche aussieht. Lesen dagegen ist genau das, wofür ein Fenster taugt — und ein Verlauf über
+Hunderte Zeilen ist im Chat unlesbar.
+
+**Warum der Charakter gewählt werden muss.** Ein Spieler hat bis zu drei, und jeder hat seinen
+eigenen Stand (ADR-011). Ein zusammengeworfener Verlauf wäre nicht mehr charaktergebunden, und eine
+Summe über drei Stände wäre eine Zahl, die es im Spiel nicht gibt.
+
+**Warum das trotz Prinzip III gilt.** Eine Schnittstelle ohne Aufrufweg ist vorhanden und
+unbenutzbar. Der Verstoss wird eingegrenzt statt vermieden: er betrifft zwei Dateien und einen
+`plugin.yml`-Eintrag, nicht die Blockstruktur. Für das Fenster ist er ohnehin klein — B07 hält seine
+Klassenauswahl bereits im eigenen Block, Oberfläche beim Block ist also schon gängige Praxis; B13
+besitzt HUD und Mehrsprachigkeit, nicht jedes Inventar.
+
+*Geprüfte Alternativen:*
+
+- **Nur die Schnittstellen liefern, Aufruf B14 und B13 überlassen**: verworfen. Der Betrieb hat die
+  Fähigkeit ausdrücklich angefordert, und bis B14 wäre kein Fehler in der Währung gutzumachen —
+  Währung ist der Teil, bei dem sich Spieler beschweren.
+- **Auf B14 warten**: verworfen aus demselben Grund; B14 ist mehrere Blöcke entfernt.
+- **Über einen Konfigurationsschalter buchen**: verworfen — kein Verursacher, keine Berechtigung,
+  kein Audit-Eintrag, und ein Neustart je Eingriff.
+- **Verlauf als Chat-Ausgabe**: verworfen. Unlesbar ab der zweiten Seite und ohne Weg, den Charakter
+  zu wählen.
+
+**Auswirkung.** `plugin.yml` bekommt seinen ersten `commands`-Block. `CoinLedger` bekommt einen
+Versatz statt nur eines Limits, weil Blättern sonst nicht ausdrückbar ist. Die Ablösung ist in
+FR-046 als Anforderung festgehalten, nicht als Absicht: B14 ersetzt die Schale, B13 übernimmt die
+Anzeige, und die Schnittstellen darunter bleiben stehen.
+
+---
+
+## ADR-029: Der Anteilsrechner wird aus `XpDistributor` herausgelöst
+
+**Status:** Angenommen · **Datum:** 2026-08-22 · **Blöcke:** B06 (Eingriff), B08b (Nutzer)
+
+**Kontext.** B08b muss Coins nach derselben Regel verteilen wie B06 die Erfahrung: Anteil am Schaden,
+Gruppe als **ein** Beitragender, gleichmäßige Teilung auf die Mitglieder in Reichweite, Nähe-Bonus,
+Abrunden mit Rest auf dem Tisch. Diese Regel steht in `XpDistributor` und war von aussen nicht
+aufrufbar.
+
+**Entscheidung.** Der Rechner wird als `ShareCalculator` herausgelöst und bleibt in **B06s Paket**.
+`XpDistributor` benutzt ihn weiter und vergibt danach Erfahrung; `CoinDropPlanner` benutzt ihn und
+baut danach Wurfpläne.
+
+*Warum nicht nachbauen:* Zwei Umsetzungen derselben Regel bleiben genau so lange gleich, bis jemand
+eine von beiden anfasst. Die Abweichung träfe dann zwei Spieler **derselben Gruppe**
+unterschiedlich — sichtbar im Spiel und für niemanden erklärbar.
+
+*Warum nicht umziehen:* Die Regel gehört B06. Etwas zieht nicht in ein anderes Paket, weil ein
+zweiter Nutzer dazukommt.
+
+*Warum kein Aufruf von `XpDistributor` aus B08b:* Der vergibt Erfahrung als Nebenwirkung. Ein Aufruf
+für Coins hätte sie ein zweites Mal vergeben.
+
+**Verhaltensneutral, und das ist geprüft.** Die Abnahmebedingung war, dass **sämtliche B06-Tests grün
+bleiben, ohne dass einer angepasst wird** — `XpDistributorTest`, `DistributionRoundingTest` und
+`PartyRegistryTest`. Sie sind es. Dazu kommt `ShareCalculatorTest`, der dieselbe Aufteilung ohne
+Vergabe prüft.
+
+**Nebenbefund, der eine Annahme des Auftraggebers korrigiert hat.** Bei der Klärung zu B08b stand die
+Frage im Raum, ob eine Beteiligung von 20 % leer ausgeht — „so wie bei der XP". Das trifft nicht zu:
+B06 teilt rein proportional (Szenario 2: 60 % ergeben 60 XP, 40 % ergeben 40 XP), und ein
+Party-Mitglied ohne jeden Schaden erhält in Reichweite trotzdem seinen Anteil (Szenario 5). Weder
+`progression.yml` noch die Anteilsbildung kennen einen Schwellenwert. Nach der Klarstellung wurde die
+anteilige Verteilung für Coins bestätigt (FR-024a) — eine Schwelle nur für Coins wäre die erste
+Stelle gewesen, an der zwei Regeln denselben Kill unterschiedlich bewerten.
+
+**Auswirkung.** `XpDistributor` bietet `shareCalculator()` als Zugang. Der Rechner wird **im
+Konstruktor gebaut, nicht hereingereicht**: wer eine andere Fassung übergeben könnte, könnte Coins
+und Erfahrung wieder auseinanderlaufen lassen — genau das, was die Herauslösung verhindern soll.

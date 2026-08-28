@@ -34,6 +34,18 @@ public enum AbilityResult {
 
     NOT_UNLOCKED(AbilityMessageKeys.NOT_UNLOCKED),
 
+    /**
+     * The ability is passive: the player has it, and it is not triggered by clicking.
+     *
+     * <p><b>Its own value rather than NOT_UNLOCKED</b>, which is what a passive marker used to answer.
+     * That was reachable long before anybody noticed - the rogue's Totem of Undying is a passive with
+     * an item - and it told a player who owns the ability that they would unlock it later.
+     *
+     * <p>Now that every passive carries a marker, saying "this works on its own" is the point of the
+     * slot rather than an edge case.
+     */
+    PASSIVE(AbilityMessageKeys.PASSIVE),
+
     ALREADY_CASTING(AbilityMessageKeys.ALREADY_CASTING),
 
     ALREADY_SUSTAINING(AbilityMessageKeys.ALREADY_SUSTAINING),

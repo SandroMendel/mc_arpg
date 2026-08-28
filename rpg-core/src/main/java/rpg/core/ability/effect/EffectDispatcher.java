@@ -61,6 +61,47 @@ public final class EffectDispatcher {
     }
 
     /**
+     * Told after an effect landed, so somebody can draw it.
+     *
+     * <p><b>Why an observer and not a call inside each primitive.</b> Drawing is presentation and
+     * primitives are rules; there are sixteen of them and every one would need the same three lines.
+     * More to the point, a primitive lives in {@code rpg-core}, which cannot see a particle at all.
+     *
+     * <p>It is told about <em>every</em> effect, including the periodic ones handed to the sweep -
+     * which is what turns a whirl from one puff at the start into a puff on every tick, on everything
+     * it is actually hitting.
+     */
+    @FunctionalInterface
+    public interface Observer {
+        void applied(Ability ability, EffectSpec spec, UUID casterId, List<UUID> targets);
+
+        /** Draws nothing. The default, and what every test uses. */
+        static Observer none() {
+            return (ability, spec, casterId, targets) -> {};
+        }
+    }
+
+    private volatile Observer observer = Observer.none();
+
+    /** Installs the observer. At startup, not during play. */
+    public void setObserver(Observer observer) {
+        this.observer = java.util.Objects.requireNonNull(observer, "observer");
+    }
+
+    /** Draws, and never lets a drawing failure reach the rules. */
+    private void notifyObserver(
+            Ability ability, EffectSpec spec, UUID casterId, List<UUID> targets) {
+        try {
+            observer.applied(ability, spec, casterId, targets);
+        } catch (RuntimeException failure) {
+            logger.log(
+                    Level.WARNING,
+                    "[abilities] " + ability.id() + ": drawing " + spec.type() + " failed",
+                    failure);
+        }
+    }
+
+    /**
      * Applies one prepared effect, behind the same barrier as the rest.
      *
      * <p>For {@link IntervalEffectRunner}, which resolves stacking into a single value before handing
@@ -79,6 +120,7 @@ public final class EffectDispatcher {
         }
         try {
             effect.apply(new EffectContext(ability, spec, casterId, targets, rank, snapshot, null));
+            notifyObserver(ability, spec, casterId, targets);
         } catch (RuntimeException failure) {
             logger.log(
                     Level.WARNING,
@@ -138,6 +180,7 @@ public final class EffectDispatcher {
             try {
                 effect.apply(
                         new EffectContext(ability, spec, casterId, targets, rank, snapshot, data));
+                notifyObserver(ability, spec, casterId, targets);
             } catch (RuntimeException failure) {
                 // Confined to this one effect of this one trigger. The player keeps playing, the
                 // remaining effects still run, and the log names what to look at.

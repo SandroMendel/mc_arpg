@@ -18,6 +18,8 @@ import rpg.core.message.MessageKey;
  * @param id unique across all abilities, opaque to B07 which only names it
  * @param kind active or passive; must match what the class binding says (FR-007)
  * @param displayNameKey a message key, never text (FR-009)
+ * @param descriptionKey a message key for the line under the name on the hotbar item, or {@code null}
+ *     for an ability that carries none. A key, never text, for the same reason the name is one
  * @param manaCost zero for a passive - a passive is not triggered and costs nothing (FR-047)
  * @param cooldown zero or more; for a passive it gates how often its trigger may fire (FR-048)
  * @param castTime zero means it takes effect in the same tick, with no cast state at all (FR-044)
@@ -45,6 +47,7 @@ public record Ability(
         String id,
         AbilityKind kind,
         MessageKey displayNameKey,
+        MessageKey descriptionKey,
         double manaCost,
         Duration cooldown,
         Duration castTime,
@@ -61,6 +64,16 @@ public record Ability(
         TargetSpec target,
         List<EffectSpec> effects,
         int maxRank,
+        /**
+         * What one rank costs, exactly as configured and <b>not interpreted here</b>.
+         *
+         * <p>The same arrangement B07 uses for its equipment tiers: the price lives with whoever
+         * charges it, and B08b reads it (ADR-027, FR-053). This block knows nothing about coins -
+         * it carries the map through and hands it over.
+         *
+         * <p>An empty map means the rank is free (FR-054).
+         */
+        java.util.Map<String, Object> rankCost,
         java.util.List<String> items) {
 
     public Ability {
@@ -90,6 +103,7 @@ public record Ability(
 
         // V13
         items = items == null ? List.of() : List.copyOf(items);
+        rankCost = rankCost == null ? java.util.Map.of() : java.util.Map.copyOf(rankCost);
         effects = List.copyOf(effects);
         if (effects.isEmpty()) {
             throw new IllegalArgumentException(

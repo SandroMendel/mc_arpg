@@ -70,16 +70,17 @@ class ClassMessageKeyResolutionTest {
                 .contains("{max}")
                 .contains("{percent}")
                 .contains("{defense}");
-        assertThat(messages.get(CombatMessageKeys.TARGET_REPORT))
-                .contains("{target}")
+        // Die Zielzeile im Chat stand hier, bis das Namensschild ueber der Kreatur dasselbe sagte -
+        // nur lesbarer und ohne den Chat zu fuellen. Der Test dazu ist nicht ersatzlos gestrichen,
+        // sondern umgezogen: geprueft wird jetzt, was an ihre Stelle getreten ist.
+        assertThat(messages.get(CombatMessageKeys.MOB_NAMEPLATE))
+                .contains("{name}")
                 .contains("{health}")
                 .contains("{max}")
-                .contains("{percent}")
-                .contains("{defense}")
-                .contains("{damage}");
-        assertThat(messages.get(CombatMessageKeys.TARGET_SLAIN))
-                .contains("{target}")
-                .contains("{damage}");
+                .contains("{defense}");
+        assertThat(messages.get(CombatMessageKeys.STATUS_ACTION_BAR_WITH_METER))
+                .as("die Wut des Berserkers")
+                .contains("{meter}");
     }
 
     // --- fixtures ---

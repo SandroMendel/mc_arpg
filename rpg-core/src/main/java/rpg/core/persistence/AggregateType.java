@@ -74,5 +74,36 @@ public enum AggregateType {
      *
      * <p>Registration 1 of 3 (ADR-015), as above.
      */
-    CHARACTER_ABILITIES
+    CHARACTER_ABILITIES,
+
+    /**
+     * What one character holds in coins (B08b).
+     *
+     * <p>Own table for the same reason as the four above: one owner, one writer, one position in the
+     * flush order. Belongs to the character and never to the account (ADR-011) - two characters of
+     * one player keep separate purses.
+     *
+     * <p><b>Absence of a row means zero</b>, not the configured starting balance. That balance is
+     * credited once at creation as an ordinary booking (FR-011a); reading it from configuration
+     * instead would let a later change to that number enrich every unbooked character silently.
+     *
+     * <p>Registration 1 of 3 (ADR-015), as above.
+     */
+    CHARACTER_BALANCE,
+
+    /**
+     * Every change to a balance, append-only (B08b).
+     *
+     * <p><b>Unlike every type above, this one is never updated.</b> A correction is a new entry with
+     * its own reason; an editable history is not a history. The write path therefore follows
+     * {@link #AUDIT_LOG} rather than the character aggregates: entries are queued behind one
+     * synthetic id and drained by the writer, so no entry is ever marked twice or written twice.
+     *
+     * <p>Bookings from ordinary play are pruned after a configured time; entries naming an operator
+     * are kept indefinitely (FR-038). At 800 mobs this becomes the largest table in the project
+     * within weeks, which is why there is a retention rule at all.
+     *
+     * <p>Registration 1 of 3 (ADR-015), as above.
+     */
+    COIN_LEDGER
 }

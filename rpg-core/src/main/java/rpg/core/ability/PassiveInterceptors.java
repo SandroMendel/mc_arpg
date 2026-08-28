@@ -48,9 +48,16 @@ public final class PassiveInterceptors {
                         damage.targetId(),
                         AbilityTrigger.ON_DAMAGE_TAKEN,
                         damage.type(),
+                        damage.origin(),
                         new EffectContext.TriggerData(
                                 damage.rawDamage(),
                                 damage::cancel,
+                                // The share comes off the RAW number, which is what this stage deals
+                                // in - the mitigated one does not exist yet and is computed from it
+                                // afterwards. Read fresh on every call rather than captured, so two
+                                // mitigations on one hit each take their share of what is left.
+                                share ->
+                                        damage.setRawDamage(damage.rawDamage() * (1.0 - share)),
                                 damage.attackerId().orElse(null)));
             }
         };
@@ -80,6 +87,7 @@ public final class PassiveInterceptors {
                                                 attacker,
                                                 AbilityTrigger.ON_DAMAGE_DEALT,
                                                 damage.type(),
+                                                damage.origin(),
                                                 new EffectContext.TriggerData(
                                                         damage.finalDamage(),
                                                         damage::cancel,
@@ -127,6 +135,7 @@ public final class PassiveInterceptors {
                                 targetId,
                                 AbilityTrigger.ON_DEATH,
                                 damage.type(),
+                                damage.origin(),
                                 new EffectContext.TriggerData(damage.finalDamage(), damage::cancel));
                 if (!saved) {
                     return;

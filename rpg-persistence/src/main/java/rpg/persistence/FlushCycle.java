@@ -74,6 +74,14 @@ public final class FlushCycle implements WriteBehindCoordinator {
                     // (ADR-015). The other two are the AggregateType constant and the repository
                     // wired in AbilityModule.
                     AggregateType.CHARACTER_ABILITIES,
+                    // B08b's balance references a character as well - registration 2 of 3
+                    // (ADR-015). The other two are the AggregateType constant and the repository
+                    // wired in CurrencyModule.
+                    AggregateType.CHARACTER_BALANCE,
+                    // The ledger references a character too, and it is written append-only behind a
+                    // single queue id rather than one mark per entry - see AUDIT_LOG, which solves
+                    // the same shape.
+                    AggregateType.COIN_LEDGER,
                     AggregateType.ITEM_INSTANCE,
                     AggregateType.STATISTICS,
                     AggregateType.AUDIT_LOG);

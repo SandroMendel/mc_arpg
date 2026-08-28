@@ -20,6 +20,14 @@ public final class AbilityMessageKeys {
 
     public static final MessageKey NOT_UNLOCKED = MessageKey.of("ability.rejected.not-unlocked");
 
+    /**
+     * The player clicked a passive marker.
+     *
+     * <p>Not a rejection in the usual sense: they have the ability, it is simply not the kind that is
+     * clicked. Telling them so is the whole reason the marker occupies a slot.
+     */
+    public static final MessageKey PASSIVE = MessageKey.of("ability.passive");
+
     public static final MessageKey ALREADY_CASTING =
             MessageKey.of("ability.rejected.already-casting");
 
@@ -36,6 +44,10 @@ public final class AbilityMessageKeys {
     public static final MessageKey RANK_ADVANCED = MessageKey.of("ability.rank.advanced");
 
     public static final MessageKey RANK_AT_MAXIMUM = MessageKey.of("ability.rank.at-maximum");
+
+    /** Since B08b: a rank has a price, and it was not affordable (FR-051). */
+    public static final MessageKey RANK_NOT_ENOUGH_COINS =
+            MessageKey.of("ability.rank.not-enough-coins");
 
     public static final MessageKey TOGGLE_CHANGED = MessageKey.of("ability.toggle.changed");
 
@@ -58,6 +70,7 @@ public final class AbilityMessageKeys {
                 GLOBAL_LOCK,
                 NOT_ENOUGH_MANA,
                 NOT_UNLOCKED,
+                PASSIVE,
                 ALREADY_CASTING,
                 ALREADY_SUSTAINING,
                 NO_CHARGES,
@@ -65,6 +78,7 @@ public final class AbilityMessageKeys {
                 UNLOCKED,
                 RANK_ADVANCED,
                 RANK_AT_MAXIMUM,
+                RANK_NOT_ENOUGH_COINS,
                 TOGGLE_CHANGED,
                 SECOND_LIFE_TITLE,
                 SECOND_LIFE_SUBTITLE);

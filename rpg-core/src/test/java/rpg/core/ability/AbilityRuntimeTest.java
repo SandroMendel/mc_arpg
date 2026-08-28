@@ -117,6 +117,34 @@ class AbilityRuntimeTest {
         }
 
         @Test
+        @DisplayName("Halter und Charakter sind zwei Ids - der Block übersetzt an der Grenze")
+        void theBlockTranslatesBetweenTheTwoIds() {
+            // Der Block ist nach CHARAKTER verschlüsselt (ADR-011), der Stat-Engine nach HALTER. Bis
+            // diese Übersetzung existierte, ging die Charakter-Id direkt an den Engine, jeder Aufruf
+            // warf, der Trigger-Listener fing es ab wie vorgesehen - und auf dem Server tat keine
+            // Fähigkeit etwas und kein Mana wurde je abgezogen. Kein Test sah es, weil die Fixtur
+            // beide Ids gleichsetzte.
+            double before = fixture.stats.mana;
+
+            assertThat(fixture.runtime.trigger(fixture.character, "probe.strike"))
+                    .isEqualTo(AbilityResult.TRIGGERED);
+
+            assertThat(fixture.stats.mana)
+                    .as("abgezogen wurde beim HALTER - sonst hätte das Double geworfen")
+                    .isLessThan(before);
+        }
+
+        @Test
+        @DisplayName("mit der Halter-Id kennt der Block den Charakter nicht - die Gegenprobe")
+        void aHolderIdIsNotACharacterId() {
+            // Die andere Richtung derselben Verwechslung, und der Grund, warum die Übersetzung an der
+            // Grenze sitzt statt im Aufrufer: der Block darf NUR Charakter-Ids annehmen.
+            assertThat(fixture.runtime.trigger(fixture.holder, "probe.strike"))
+                    .isEqualTo(AbilityResult.NO_CHARACTER);
+            assertThat(fixture.stats.mana).as("und nichts angefasst").isEqualTo(100.0);
+        }
+
+        @Test
         @DisplayName("eine noch nicht freigeschaltete Fähigkeit wird abgewiesen")
         void aLockedAbilityIsRefused() {
             fixture.unlocked.clear();
@@ -125,6 +153,31 @@ class AbilityRuntimeTest {
 
             assertThat(result).isEqualTo(AbilityResult.NOT_UNLOCKED);
             assertThat(fixture.stats.mana).isEqualTo(100.0);
+        }
+
+        @Test
+        @DisplayName("ein Klick auf einen Passiv-Marker sagt PASSIVE, nicht \"noch nicht freigeschaltet\"")
+        void clickingAPassiveMarkerSaysSo() {
+            // Seit jede Passive einen Marker in der Hotbar traegt, ist das ein Fall, den ein Spieler
+            // taeglich ausloest - vorher war er selten, aber nie unmoeglich: das Totem des Rogue ist
+            // eine Passive MIT Gegenstand. Die Antwort lautete NOT_UNLOCKED und erzaehlte damit
+            // jemandem, der die Faehigkeit besitzt, er bekomme sie spaeter.
+            AbilityResult result = fixture.runtime.trigger(fixture.character, "probe.lifesteal");
+
+            assertThat(result).isEqualTo(AbilityResult.PASSIVE);
+            assertThat(fixture.stats.mana).as("ein Marker kostet nichts").isEqualTo(100.0);
+            assertThat(fixture.applications).as("und wirkt nichts").isEmpty();
+        }
+
+        @Test
+        @DisplayName("eine NICHT freigeschaltete Passive bleibt bei \"noch nicht freigeschaltet\"")
+        void aLockedPassiveStillSaysNotUnlocked() {
+            // Die Unterscheidung ist der ganze Punkt: PASSIVE heisst \"du hast sie, sie laeuft von
+            // selbst\". Wer sie noch nicht hat, darf das nicht zu hoeren bekommen.
+            fixture.unlocked.remove("probe.lifesteal");
+
+            assertThat(fixture.runtime.trigger(fixture.character, "probe.lifesteal"))
+                    .isEqualTo(AbilityResult.NOT_UNLOCKED);
         }
 
         @Test

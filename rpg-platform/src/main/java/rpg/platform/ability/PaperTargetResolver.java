@@ -4,8 +4,8 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.BiPredicate;
 
@@ -177,8 +177,27 @@ public final class PaperTargetResolver implements TargetResolver {
         }
         Location eye =
                 caster instanceof LivingEntity living ? living.getEyeLocation() : caster.getLocation();
+        org.bukkit.util.Vector direction = eye.getDirection().normalize();
+
+        // AUF DEN BODEN, auf den gezeigt wird - nicht blind die volle Reichweite geradeaus.
+        //
+        // Vorher wurde der Anker immer genau range Bloecke in Blickrichtung gesetzt. Wer geradeaus
+        // sieht, traf damit einen Punkt in Augenhoehe sechzehn Bloecke weit weg; wer auf den Boden
+        // vor sich sah, einen Punkt tief IM Boden. In beiden Faellen stand im Umkreis nichts, und
+        // der Blitzsturm tat sichtbar gar nichts.
+        org.bukkit.util.RayTraceResult hit =
+                caster.getWorld()
+                        .rayTraceBlocks(
+                                eye,
+                                direction,
+                                spec.range(),
+                                org.bukkit.FluidCollisionMode.NEVER,
+                                true);
         Location anchor =
-                eye.clone().add(eye.getDirection().normalize().multiply(spec.range()));
+                hit == null || hit.getHitPosition() == null
+                        // Freie Sicht: das Ende der Reichweite, so wie bisher.
+                        ? eye.clone().add(direction.clone().multiply(spec.range()))
+                        : hit.getHitPosition().toLocation(caster.getWorld());
         return pick(casterId, anchor, withRadius(spec), candidate -> true);
     }
 

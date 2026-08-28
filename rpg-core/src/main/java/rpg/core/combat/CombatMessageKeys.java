@@ -23,20 +23,52 @@ public final class CombatMessageKeys {
     public static final MessageKey STATUS_ACTION_BAR = MessageKey.of("combat.status.action-bar");
 
     /**
+     * The same line for a holder without mana - a mob.
+     *
+     * <p>Its own key rather than a placeholder that stays empty: a text with a hole in it is a text
+     * somebody has to remember to keep tidy, and an operator translating this file should see the two
+     * shapes side by side.
+     */
+    public static final MessageKey STATUS_ACTION_BAR_NO_MANA =
+            MessageKey.of("combat.status.action-bar-no-mana");
+
+    /**
      * What the player just hit, in chat.
      *
      * <p>Placeholders: {@code target}, {@code health}, {@code max}, {@code percent},
      * {@code defense}, {@code damage}, {@code hits}.
      */
-    public static final MessageKey TARGET_REPORT = MessageKey.of("combat.target.report");
+    /**
+     * The line floating over a creature: what it is, and how much of it is left.
+     *
+     * <p>ONE line, because vanilla gives an entity exactly one name and this project ships no
+     * resource pack and no second entity per mob (ADR-005, Constitution II). Name and health share
+     * it; a floating health bar UNDER the name would cost a display entity per creature.
+     */
+    public static final MessageKey MOB_NAMEPLATE = MessageKey.of("combat.mob.nameplate");
 
-    /** The same, for a target that did not survive the window. */
-    public static final MessageKey TARGET_SLAIN = MessageKey.of("combat.target.slain");
+    /**
+     * Die Zeile eines Spielers, der zusaetzlich einen Zaehler traegt - heute nur der Warrior.
+     *
+     * <p>Ein eigener Text statt eines Platzhalters, der bei allen anderen leer bliebe: fuer einen
+     * Magier stuende sonst ein Rest Formatierung ohne Zahl auf der Zeile, und drei Werte, die etwas
+     * sagen, verloeren Platz an einen vierten, der nichts sagt. Dieselbe Entscheidung wie bei
+     * {@link #STATUS_ACTION_BAR_NO_MANA}.
+     *
+     * <p><b>Welche Klasse den Zaehler hat, steht nicht hier und nicht im Code</b>: sie hat ihn, wenn
+     * eine ihrer Faehigkeiten einen METER-Effekt traegt. Heute ist das die Raserei des Warriors.
+     */
+    public static final MessageKey STATUS_ACTION_BAR_WITH_METER =
+            MessageKey.of("combat.status.action-bar-with-meter");
 
     private CombatMessageKeys() {}
 
     /** Every key this block can emit, for the resolution test in the plugin module. */
     public static List<MessageKey> all() {
-        return List.of(STATUS_ACTION_BAR, TARGET_REPORT, TARGET_SLAIN);
+        return List.of(
+                STATUS_ACTION_BAR,
+                STATUS_ACTION_BAR_NO_MANA,
+                MOB_NAMEPLATE,
+                STATUS_ACTION_BAR_WITH_METER);
     }
 }

@@ -8,6 +8,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import rpg.core.combat.CombatPipeline;
 import rpg.core.stats.Attribute;
@@ -38,23 +40,80 @@ public final class ResourceRegeneration {
     private final CombatPipeline combat;
     private final AbilityRegistry registry;
     private final Clock clock;
+    private final Logger logger;
 
     private final Map<UUID, State> states = new ConcurrentHashMap<>();
 
     public ResourceRegeneration(
-            StatEngine stats, CombatPipeline combat, AbilityRegistry registry, Clock clock) {
+            StatEngine stats,
+            CombatPipeline combat,
+            AbilityRegistry registry,
+            Clock clock,
+            Logger logger) {
         this.stats = Objects.requireNonNull(stats, "stats");
         this.combat = Objects.requireNonNull(combat, "combat");
         this.registry = Objects.requireNonNull(registry, "registry");
         this.clock = Objects.requireNonNull(clock, "clock");
+        this.logger = Objects.requireNonNull(logger, "logger");
+    }
+
+    /**
+     * Settles every character that is currently in play.
+     *
+     * <p><b>Why this exists at all, and why the paragraph below used to say "never periodically".</b>
+     * The original design settled only when somebody asked - before a mana check, before damage,
+     * before a read. That is correct for <em>mana</em>, where the question "can I afford this" is the
+     * only moment the number matters. It is wrong for <em>health</em>: a wounded player standing
+     * still asks nothing, and expects their health to climb anyway. Until this method existed, a
+     * player who never triggered an ability never regenerated at all.
+     *
+     * <p>It is the same distinction ADR-024 draws for the scheduler: timestamp arithmetic answers
+     * questions, it does not perform actions. Regeneration turned out to be an action.
+     *
+     * <p><b>No new task.</b> This rides the one sweep that already drives every timed ability effect,
+     * so Constitution II is untouched: still no recurring work per player, per entity or per party -
+     * one pass that walks a list. Settling is arithmetic plus two map operations, and it is
+     * idempotent, so an extra pass costs a subtraction that yields zero.
+     */
+    public void settleAll(java.util.Collection<UUID> characterIds) {
+        if (characterIds == null || characterIds.isEmpty()) {
+            return;
+        }
+        int failed = 0;
+        RuntimeException first = null;
+        for (UUID characterId : characterIds) {
+            try {
+                settle(characterId);
+            } catch (RuntimeException failure) {
+                // One character's failure must not stop the rest of the sweep (Constitution VI).
+                failed++;
+                if (first == null) {
+                    first = failure;
+                }
+            }
+        }
+        if (first != null) {
+            // ONE line per pass, naming how many it stood for.
+            //
+            // This used to be swallowed in silence, with a comment arguing that a line per character
+            // per pass would be the loudest thing in the log at 150 players. True - and it meant that
+            // when every settlement threw, the log said nothing at all and regeneration looked like a
+            // feature nobody had built. A sweep that fails for everyone SHOULD be the loudest thing in
+            // the log; what it must not be is one line per player.
+            logger.log(
+                    Level.WARNING,
+                    "[abilities] regeneration failed for " + failed + " character(s) this pass",
+                    first);
+        }
     }
 
     /**
      * Credits whatever has accrued since the last settlement.
      *
      * <p>Call before checking mana, before applying damage and before reading a resource (FR-037) -
-     * never periodically. The answer "not enough mana" must never be down to an outstanding
-     * settlement.
+     * and, since {@link #settleAll}, also from the sweep. The answer "not enough mana" must never be
+     * down to an outstanding settlement, which is why the on-demand calls stay even though the sweep
+     * would eventually get there.
      */
     public void settle(UUID characterId) {
         Objects.requireNonNull(characterId, "characterId");
@@ -67,7 +126,15 @@ public final class ResourceRegeneration {
             return;
         }
 
-        ResourceView resources = stats.resources(characterId);
+        UUID holderId = stats.holderOf(characterId).orElse(null);
+        if (holderId == null) {
+            // Not in play. Move the clock on rather than accruing against a holder that is gone -
+            // the absence path (settleAbsence) is what credits the time somebody was away.
+            states.put(characterId, new State(now, combatEnd(characterId, now)));
+            return;
+        }
+
+        ResourceView resources = stats.resources(holderId);
         if (resources.currentHealth() <= 0.0) {
             // Dead. The clock moves on but nothing accrues, and settling anyway would let a corpse
             // heal itself back over the respawn screen (FR-038b).
@@ -79,14 +146,14 @@ public final class ResourceRegeneration {
         AbilityConfig config = registry.config();
 
         credit(
-                characterId,
-                stats.value(characterId, Attribute.HEALTH_REGEN),
+                holderId,
+                stats.value(holderId, Attribute.HEALTH_REGEN),
                 split,
                 config.healthCombatFactor(),
                 stats::changeHealth);
         credit(
-                characterId,
-                stats.value(characterId, Attribute.MANA_REGEN),
+                holderId,
+                stats.value(holderId, Attribute.MANA_REGEN),
                 split,
                 config.manaCombatFactor(),
                 stats::changeMana);
@@ -143,7 +210,7 @@ public final class ResourceRegeneration {
     }
 
     private void credit(
-            UUID characterId,
+            UUID holderId,
             double ratePerSecond,
             Split split,
             double combatFactor,
@@ -157,7 +224,7 @@ public final class ResourceRegeneration {
         if (amount > 0.0) {
             // changeHealth and changeMana clamp, so a surplus is discarded rather than reported
             // (FR-038a).
-            apply.accept(characterId, amount);
+            apply.accept(holderId, amount);
         }
     }
 

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -370,6 +371,48 @@ class AbilityConfigValidationTest {
 
             assertThatThrownBy(() -> AbilityConfigFixture.bind(document))
                     .hasMessageContaining("METER needs a positive decay-per-second");
+        }
+
+        @Test
+        @DisplayName("V43: ein Herkunftsfilter auf einem Primitive ohne Filter bricht ab")
+        void originsWhereTheyMeanNothingAreRejected() {
+            Map<String, Object> document = AbilityConfigFixture.valid();
+            Map<String, Object> effect = AbilityConfigFixture.effectOf(document, "probe.strike", 0);
+            effect.put("origins", new ArrayList<>(List.of("MELEE")));
+
+            // DAMAGE liest ihn nie. Stehen liesse man damit eine Datei, die einen Filter behauptet,
+            // den es nicht gibt - und das faellt im Spiel niemandem auf.
+            assertThatThrownBy(() -> AbilityConfigFixture.bind(document))
+                    .hasMessageContaining("origins is a filter on SHIELD, EVADE and MITIGATE");
+        }
+
+        @Test
+        @DisplayName("V44: eine Milderung ueber 100 Prozent bricht ab - das waere eine Heilung")
+        void mitigationAboveOneIsRejected() {
+            Map<String, Object> document = AbilityConfigFixture.valid();
+            Map<String, Object> effect = AbilityConfigFixture.effectOf(document, "probe.strike", 0);
+            effect.put("type", "MITIGATE");
+            effect.remove("damage-type");
+            effect.put("amount", 1.5);
+
+            assertThatThrownBy(() -> AbilityConfigFixture.bind(document))
+                    .hasMessageContaining("amount is a share between 0 and 1");
+        }
+
+        @Test
+        @DisplayName("ein einzelner Herkunftsname wird wie eine Liste gelesen")
+        void aSingleOriginIsReadAsAList() throws Exception {
+            Map<String, Object> document = AbilityConfigFixture.valid();
+            Map<String, Object> effect = AbilityConfigFixture.effectOf(document, "probe.strike", 0);
+            effect.put("type", "MITIGATE");
+            effect.remove("damage-type");
+            effect.put("amount", 0.2);
+            effect.put("origins", "MELEE");
+
+            AbilityConfig config = AbilityConfigFixture.bind(document);
+
+            assertThat(config.abilities().get("probe.strike").effects().getFirst().origins())
+                    .containsExactly(rpg.core.combat.DamageOrigin.MELEE);
         }
 
         @Test

@@ -11,7 +11,7 @@
  * <ul>
  *   <li><b>B07 classes</b>: per-class base values and growth curves. B06 ships one class-neutral
  *       growth table in configuration; B07 replaces the numbers, not the mechanism.
- *   <li><b>B08 abilities</b>: unlocking by level, coin upgrades, mana. B06 publishes the level-up
+ *   <li><b>B08 abilities</b>: unlocking by level, rank upgrades, mana. B06 publishes the level-up
  *       event and answers the level query.
  *   <li><b>B09 zones</b>: zone geometry, access rules, zone objectives. B06 offers the level query
  *       and one entry point every further XP source uses.

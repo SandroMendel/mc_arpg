@@ -32,6 +32,20 @@ final class AbilityFixture {
 
     final UUID character = UUID.randomUUID();
 
+    /**
+     * Der HALTER hinter diesem Charakter - eine ANDERE UUID, so wie auf einem echten Server.
+     *
+     * <p>Vorher gab es nur eine. Der Block ist nach Charakter verschluesselt, der Stat-Engine nach
+     * Halter, und weil die Fixtur beide gleichsetzte, konnte kein Test die Verwechslung sehen: das
+     * Double beantwortete jede Frage unabhaengig davon, welche der beiden Ids ankam. Auf dem Server
+     * warf dieselbe Frage {@code NoSuchElementException}, der Listener fing sie ab wie vorgesehen, und
+     * das Ergebnis war ein Server, auf dem keine Faehigkeit etwas tat und niemand regenerierte.
+     *
+     * <p>Zwei verschiedene Werte sind deshalb keine Genauigkeit um ihrer selbst willen, sondern die
+     * einzige Art, wie ein Test diesen Fehler ueberhaupt bemerken kann.
+     */
+    final UUID holder = UUID.randomUUID();
+
     /** Moves only when a test moves it - a cooldown test that slept would take as long as a cooldown. */
     final MovableClock clock = new MovableClock(Instant.parse("2026-08-22T12:00:00Z"));
 
@@ -64,6 +78,9 @@ final class AbilityFixture {
     final CountingScheduling scheduling = new CountingScheduling();
 
     private AbilityFixture(AbilityConfig config, Logger logger) {
+        // Das Paar, das ein echter Server haette: Halter und Charakter sind zwei Werte.
+        this.stats.holderId = this.holder;
+        this.stats.characterId = this.character;
         this.dispatcher = new EffectDispatcher(logger);
         this.dispatcher.register(
                 rpg.core.ability.EffectType.DAMAGE,
@@ -231,6 +248,32 @@ final class AbilityFixture {
         return unlocked(document, "probe.two");
     }
 
+    /**
+     * Eine Passive, die NICHT auf sich selbst zielt - die Vergiftete Klinge im Kleinen.
+     *
+     * <p>Der einzige Fall unter den achtzehn, und deshalb der, der uebersehen wurde: sie vergiftet,
+     * was der Rogue trifft, und sagte das mit ihrem Zielmodus - waehrend der Dispatcher pauschal den
+     * Traeger einsetzte und den Rogue sich selbst vergiften liess.
+     */
+    static AbilityFixture withCounterpartPassive() throws Exception {
+        Map<String, Object> document = AbilityConfigFixture.valid();
+        Map<String, Object> ability = AbilityConfigFixture.passiveAbility();
+        ability.put("trigger", "ON_DAMAGE_DEALT");
+        ability.put("display-name-key", "ability.probe.poison.name");
+        Map<String, Object> target = new LinkedHashMap<>();
+        target.put("mode", "NEAREST");
+        target.put("range", 4.0);
+        target.put("max-targets", 1);
+        ability.put("target", target);
+        Map<String, Object> effect = new LinkedHashMap<>();
+        effect.put("type", "DAMAGE");
+        effect.put("damage-type", "PHYSICAL");
+        effect.put("amount", 0.2);
+        ability.put("effects", new ArrayList<>(List.of(effect)));
+        AbilityConfigFixture.abilities(document).put("probe.poison", ability);
+        return unlocked(document, "probe.poison");
+    }
+
     /** Eine Passive mit langem Cooldown - Second Life im Kleinen, fuer FR-048. */
     static AbilityFixture withCooldownPassive() throws Exception {
         Map<String, Object> document = AbilityConfigFixture.valid();
@@ -268,6 +311,29 @@ final class AbilityFixture {
         ability.put("effects", new ArrayList<>(List.of(evade)));
         AbilityConfigFixture.abilities(document).put("probe.evade", ability);
         return unlocked(document, "probe.evade");
+    }
+
+    /**
+     * Magisches Leben in seiner heutigen Form: ein Anteil statt eines Ausweichens, gefiltert
+     * ueber die HERKUNFT statt ueber den Schadenstyp.
+     *
+     * <p>Rang 1 mildert zehn Prozent, jeder weitere fuenf - eine groebere Stufung als die
+     * ausgelieferte, damit ein Test den Rangunterschied an einer runden Zahl ablesen kann.
+     */
+    static AbilityFixture withAutoAttackMitigation() throws Exception {
+        Map<String, Object> document = AbilityConfigFixture.valid();
+        Map<String, Object> ability = AbilityConfigFixture.passiveAbility();
+        ability.put("trigger", "ON_DAMAGE_TAKEN");
+        ability.put("display-name-key", "ability.probe.mitigate.name");
+        ability.put("max-rank", 5);
+        Map<String, Object> mitigate = new LinkedHashMap<>();
+        mitigate.put("type", "MITIGATE");
+        mitigate.put("amount", 0.10);
+        mitigate.put("per-rank", 0.05);
+        mitigate.put("origins", new ArrayList<>(List.of("MELEE", "PROJECTILE")));
+        ability.put("effects", new ArrayList<>(List.of(mitigate)));
+        AbilityConfigFixture.abilities(document).put("probe.mitigate", ability);
+        return unlocked(document, "probe.mitigate");
     }
 
     private static Map<String, Object> heal(double amount) {
@@ -376,8 +442,21 @@ final class AbilityFixture {
         }
     }
 
-    /** Only what B08 actually reads: mana, one attribute and a snapshot. */
+    /**
+     * Only what B08 actually reads: mana, one attribute and a snapshot.
+     *
+     * <p><b>Aber id-genau.</b> Jede Methode hier nimmt eine HALTER-Id, genau wie die echte
+     * Schnittstelle, und eine unbekannte beantwortet sie so wie der echte Engine: mit
+     * {@link NoSuchElementException}. Ein Aufrufer, der wieder eine Charakter-Id herueberreicht, faellt
+     * damit im Test auf - vorher war das unsichtbar, weil dieses Double die Id ignorierte.
+     */
     static final class FakeStats implements rpg.core.stats.StatEngine {
+
+        /** Das Paar, das ein echter Server haette. Von der Fixtur gesetzt. */
+        UUID holderId;
+
+        UUID characterId;
+
         double mana = 100.0;
         double maxMana = 100.0;
         double health = 1000.0;
@@ -386,8 +465,16 @@ final class AbilityFixture {
 
         final Map<rpg.core.stats.Attribute, Double> values = new HashMap<>();
 
+        /** Wie {@code DefaultStatEngine.require}: wer nicht Halter ist, existiert hier nicht. */
+        private void requireHolder(UUID id) {
+            if (this.holderId != null && !this.holderId.equals(id)) {
+                throw new java.util.NoSuchElementException("no stat holder for " + id);
+            }
+        }
+
         @Override
         public rpg.core.stats.StatSnapshot snapshot(UUID holderId) {
+            requireHolder(holderId);
             return new rpg.core.stats.StatSnapshot(
                     new double[rpg.core.stats.Attribute.count()], 1L);
         }
@@ -399,6 +486,7 @@ final class AbilityFixture {
 
         @Override
         public double value(UUID holderId, rpg.core.stats.Attribute attribute) {
+            requireHolder(holderId);
             if (attribute == rpg.core.stats.Attribute.ABILITY_COOLDOWN) {
                 return cooldownReduction;
             }
@@ -407,11 +495,13 @@ final class AbilityFixture {
 
         @Override
         public rpg.core.stats.ResourceView resources(UUID holderId) {
+            requireHolder(holderId);
             return new rpg.core.stats.ResourceView(health, maxHealth, mana, maxMana);
         }
 
         @Override
         public double changeMana(UUID holderId, double delta) {
+            requireHolder(holderId);
             mana = Math.max(0.0, Math.min(maxMana, mana + delta));
             return mana;
         }
@@ -449,7 +539,23 @@ final class AbilityFixture {
 
         @Override
         public java.util.Optional<UUID> characterIdOf(UUID holderId) {
-            return java.util.Optional.of(holderId);
+            if (this.holderId == null) {
+                return java.util.Optional.of(holderId);
+            }
+            return this.holderId.equals(holderId)
+                    ? java.util.Optional.ofNullable(this.characterId)
+                    // Kein Charakter dahinter - im Spiel ein Mob.
+                    : java.util.Optional.empty();
+        }
+
+        @Override
+        public java.util.Optional<UUID> holderOf(UUID characterId) {
+            if (this.characterId == null) {
+                return java.util.Optional.of(characterId);
+            }
+            return this.characterId.equals(characterId)
+                    ? java.util.Optional.of(this.holderId)
+                    : java.util.Optional.empty();
         }
 
         @Override
@@ -462,6 +568,7 @@ final class AbilityFixture {
 
         @Override
         public double changeHealth(UUID holderId, double delta) {
+            requireHolder(holderId);
             health = Math.max(0.0, Math.min(maxHealth, health + delta));
             return health;
         }

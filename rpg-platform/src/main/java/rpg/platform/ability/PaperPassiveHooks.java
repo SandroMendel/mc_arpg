@@ -52,9 +52,12 @@ public final class PaperPassiveHooks {
      */
     public BehindTargetCheck behindTarget() {
         return (attackerId, targetId) -> {
-            Entity attacker = server.getEntity(attackerId);
-            Entity target = server.getEntity(targetId);
+            Entity attacker = entity(attackerId);
+            Entity target = entity(targetId);
             if (attacker == null || target == null) {
+                // Off the tick a mob is unresolvable, and that answers this question correctly anyway:
+                // the caller is then a periodic effect ticking in the sweep, and a poison tick is not
+                // a blow from behind. See entity(UUID) for why asking would be worse than not knowing.
                 return false;
             }
             Location targetAt = target.getLocation();
@@ -106,10 +109,31 @@ public final class PaperPassiveHooks {
         lastPosition.remove(characterId);
     }
 
+    /**
+     * An entity by id, without breaking the thread rule (Constitution I.1).
+     *
+     * <p>{@code Server#getEntity} walks the chunk structure and Paper's AsyncCatcher throws when that
+     * happens off the owning thread. These hooks are reached from two directions: a player's blow,
+     * which arrives on the tick, and the ability sweep, which is deliberately asynchronous - and the
+     * second one used to take the server's log apart with a stack trace per hit.
+     *
+     * <p>Same shape as {@code PaperSchedulerAdapter.resolve}: a player is resolvable from any thread,
+     * everything else only on the tick. Empty off the tick is a <b>narrower</b> answer than the truth,
+     * not a wrong one - and the callers above are written so that "I could not look" and "no" mean the
+     * same thing to them.
+     */
+    private Entity entity(UUID id) {
+        Player player = server.getPlayer(id);
+        if (player != null) {
+            return player;
+        }
+        return server.isPrimaryThread() ? server.getEntity(id) : null;
+    }
+
     /** Applies a vanilla status effect by name. */
     public StatusEffectEffect.Applier statusEffects() {
         return (holderId, effectName, duration, amplifier) -> {
-            Entity entity = server.getEntity(holderId);
+            Entity entity = entity(holderId);
             if (!(entity instanceof org.bukkit.entity.LivingEntity living)) {
                 return;
             }

@@ -1,0 +1,97 @@
+# B08b - currency and account. Every balancing number lives here, never in code (Principle V).
+#
+# Prices are NOT here. They stay with whoever charges them (ADR-027):
+#   - equipment tier costs in classes.yml
+#   - ability rank costs in abilities.yml
+#   - repair in B11
+# A central price catalogue would be a second home for numbers that already have one, and the
+# two would drift the first time somebody edited only one of them.
+#
+# Every value below is validated at startup. A bad value stops the server with a message rather
+# than starting a currency whose rules nobody read.
+
+account:
+  # What a freshly created character starts with (FR-011).
+  #
+  # Zero is the shipped value: the first equipment tier costs nothing, so nobody is blocked.
+  #
+  # A value above zero is booked as an ordinary credit at character creation, with the reason
+  # STARTING_BALANCE, and shows up in the ledger (FR-011a). It is NOT applied when reading: a
+  # character with no balance row has zero, not "whatever the config says right now" (FR-011b).
+  # Otherwise raising this number later would silently enrich every character that had never
+  # touched a coin - with no booking and no trace.
+  starting-balance: 0
+
+drops:
+  # What a creature drops when it dies (FR-022). Same shape as `mob-xp` in progression.yml and
+  # `mobs` in combat.yml, so the three files side by side read alike: a default plus overrides
+  # keyed by the Bukkit type name in upper case.
+  #
+  # A missing entry means THE DEFAULT, not zero (FR-023): a mob Mojang added last week should not
+  # be silently worthless. An explicit 0 does mean zero - that is a choice, not an omission.
+  #
+  # Until B10 exists, this file is the truth about what a creature drops (FR-032).
+  default: 4
+  by-type:
+    ZOMBIE: 5
+    HUSK: 5
+    DROWNED: 6
+    SKELETON: 5
+    STRAY: 6
+    SPIDER: 4
+    CAVE_SPIDER: 5
+    CREEPER: 8
+    ENDERMAN: 18
+    WITCH: 20
+    PIGLIN: 9
+    PIGLIN_BRUTE: 25
+    HOGLIN: 14
+    BLAZE: 16
+    WITHER_SKELETON: 22
+    GHAST: 20
+    SLIME: 3
+    MAGMA_CUBE: 5
+    PHANTOM: 10
+    PILLAGER: 11
+
+  # How long a pile lies before it is gone for good (FR-029). Nobody is credited for a pile that
+  # expires - the player had time and let it pass.
+  #
+  # AT MOST 300. There is no per-entity despawn setter in the Paper API, so a pile is spawned
+  # PRE-AGED against vanilla's own 6000-tick item lifetime (research.md R1c). A larger number could
+  # not take effect, so the start refuses it rather than ignoring it.
+  #
+  # Caveat worth knowing: this arithmetic assumes vanilla's despawn rate. If this server changed
+  # item-despawn-rate, piles live shorter or longer than the number below. They ALWAYS despawn
+  # either way, so the tick budget is safe - only the number stops being exact.
+  despawn-seconds: 120
+
+  # Piles of the same character within this radius are merged into one instead of a second entity
+  # being spawned (FR-028). Kept small: it is one lookup per kill.
+  merge-radius: 3.0
+
+  # Hard ceiling on piles lying in the world at once (FR-030).
+  #
+  # When it is reached, the OLDEST pile in the world is credited to its owner and cleared away so
+  # the new one can appear (FR-030a). No coin is ever lost this way.
+  #
+  # Note the asymmetry, it is deliberate (FR-030d): a pile whose TIMER runs out is credited to
+  # nobody, a pile the SERVER clears away is credited. Your own neglect costs you; server load does
+  # not. Whoever "unifies" those two later takes away one side's reason for existing.
+  #
+  # At 400 piles and a 120s despawn this only bites above roughly 3.3 new piles per second - horde
+  # load, not everyday play.
+  max-piles: 400
+
+ledger:
+  # How long bookings from ordinary play are kept (FR-038).
+  #
+  # Operator interventions are NEVER pruned - they are the ones somebody will ask about a year
+  # later. At 800 mobs this table becomes the largest in the project within weeks, which is why
+  # there is a limit at all.
+  retention-days: 30
+
+history:
+  # Entries per page in the history window (FR-046a). 45 = five rows; the bottom row carries the
+  # paging buttons. Every page is one database query, so this is a ceiling, not a hint.
+  page-size: 45

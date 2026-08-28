@@ -45,7 +45,7 @@ Ein Baustein innerhalb einer Fähigkeit.
 
 | Feld | Typ | Regel |
 |---|---|---|
-| `type` | `EffectType` | eines der sechzehn Primitives |
+| `type` | `EffectType` | eines der achtzehn Primitives |
 | `amount` | double | Wert auf Rang 1 |
 | `perRank` | double | Zuwachs je weiterem Rang; ≥ 0 |
 | `duration` | Duration \| null | nur bei zeitlich wirkenden Primitives |
@@ -53,7 +53,8 @@ Ein Baustein innerhalb einer Fähigkeit.
 | `maxStacks` | int | Vorgabe 1; > 1 nur mit `interval` (FR-010c) |
 | `stackCap` | double \| null | Obergrenze der Gesamtwirkung je Intervall über alle Stapel |
 | `attribute` | `Attribute` \| null | Pflicht bei `BUFF`, `DEBUFF` und `METER` |
-| `damageType` | `DamageType` \| null | Pflicht bei `DAMAGE`; bei `SHIELD` und `EVADE` **optional** als Filter (FR-015a, FR-016a) |
+| `damageType` | `DamageType` \| null | Pflicht bei `DAMAGE`; bei `SHIELD`, `EVADE` und `MITIGATE` **optional** als Filter (FR-015a, FR-016a) |
+| `origins` | Set<`DamageOrigin`> | zweiter Filter derselben drei: **woher** der Treffer kam; leer heißt "von überall". Magisches Leben filtert hierueber und nicht ueber den Typ |
 | `statusEffect` | String \| null | Pflicht bei `STATUS_EFFECT` |
 | `buildPerHit` | double \| null | Pflicht bei `METER` — wie stark ein Treffer den Zähler hebt |
 | `idleBefore` | Duration \| null | Pflicht bei `METER` — Ruhefrist, bevor er zu fallen beginnt |
@@ -62,7 +63,7 @@ Ein Baustein innerhalb einer Fähigkeit.
 Der Wert auf Rang *r* ist `amount + perRank × (r − 1)`. Eine Multiplikation beim Auslesen, kein
 zweiter Satz Definitionen (FR-063).
 
-### `EffectType` — die sechzehn Primitives
+### `EffectType` — die achtzehn Primitives
 
 | Primitive | Wirkung | Anmerkung |
 |---|---|---|
@@ -78,10 +79,12 @@ zweiter Satz Definitionen (FR-063).
 | `KNOCKBACK` | Impuls vom Auslöser weg | |
 | `TELEPORT` | augenblickliche Versetzung | Reichweite aus `TargetSpec` |
 | `PROJECTILE` | ein Geschoss, das die übrigen Effekte beim Treffer anwendet | trägt die Werte vom Abwurf (wie B05s `projectileDamage`) |
-| `EVADE` | Wahrscheinlichkeit, eingehenden Schaden vollständig zu vermeiden | mit Typfilter — Mages Magic Life weicht nur magischem aus |
+| `EVADE` | Wahrscheinlichkeit, eingehenden Schaden vollständig zu vermeiden | mit Typfilter; ganz oder gar nicht |
+| `MITIGATE` | nimmt einen **Anteil** vom eingehenden Treffer und laesst den Rest stehen | Mages Magisches Leben. Wirkt immer statt selten; Herkunftsfilter trennt Auto-Angriff von Gewirktem |
 | `METER` | Zähler 0–100, steigt bei Schaden, fällt nach Ruhefrist, skaliert Attribute | Warriors Wut. **Lazy** aus letztem Stand plus Zeit; keine Aufgabe, keine Tabelle |
 | `SUMMON` | ein Wesen mit den Werten des Auslösers, das nicht angreift und beim Ende einen Effekt auslöst | Rogues Klon. **Aggro-Umlenkung bis B10 wirkungslos** (ADR-025) |
 | `INVISIBILITY` | unsichtbar und unverwundbar für eine Dauer, endet bei ausgeteiltem Schaden | **Dass Mobs ihn nicht angreifen und Bosse ihn dennoch sehen, folgt mit B10** |
+| `DOUBLE_JUMP` | ein zweiter Sprung in der Luft, danach verlangsamter Fall | Mages Rise & Fall. Wird **nicht angewandt**, sondern als Fähigkeit ausgelesen — deshalb ohne Anwendungsklasse |
 
 **Kein eigenes Primitive für Schaden über Zeit.** Das `interval`-Feld macht jeden Effekt periodisch:
 `DAMAGE` mit Intervall ist ein DoT, `MANA_RESTORE` mit Intervall ist der Manatrank. Vier Fähigkeiten

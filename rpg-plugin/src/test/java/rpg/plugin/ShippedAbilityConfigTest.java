@@ -39,7 +39,15 @@ import rpg.core.session.CharacterClass;
 class ShippedAbilityConfigTest {
 
     /** Das Raster, dem alle drei Klassen folgen. Die Unique ist immer die letzte. */
-    private static final List<Integer> UNLOCK_LEVELS = List.of(1, 5, 15, 25, 35, 45);
+    /**
+     * Die ausgelieferte Freischaltung: <b>alles ab Stufe 1</b> (Entscheidung vom 2026-08-22).
+     *
+     * <p>Vorher stand hier die Leiter 1, 5, 15, 25, 35, 45. Sie war Balancing, keine Mechanik - und
+     * die Mechanik „was nicht freigeschaltet ist, belegt nichts" ist davon unberuehrt und wird in
+     * {@code AbilityHotbarTest} weiterhin gegen eine gestaffelte Testkonfiguration geprueft. Was hier
+     * steht, ist eine Aussage ueber die <em>ausgelieferte Datei</em>, und die hat sich geaendert.
+     */
+    private static final List<Integer> UNLOCK_LEVELS = List.of(1, 1, 1, 1, 1, 1);
 
     @Test
     @DisplayName("die ausgelieferte abilities.yml besteht das Schema und enthält achtzehn")
@@ -64,16 +72,16 @@ class ShippedAbilityConfigTest {
         }
 
         @Test
-        @DisplayName("jede Klasse hat genau eine Unique, und es ist die auf Stufe 45")
+        @DisplayName("jede Klasse hat genau eine Unique")
         void everyClassHasExactlyOneUnique() throws Exception {
             for (CharacterClass id : CharacterClass.values()) {
                 List<AbilityBinding> unique =
                         bindings(id).stream().filter(AbilityBinding::unique).toList();
 
+                // Genau eine je Klasse bleibt die Zusage (ADR-022, SC-006). Dass sie die LETZTE
+                // Freischaltung war, stand ebenfalls hier - das war eine Aussage ueber die Leiter,
+                // und die gibt es seit dem 2026-08-22 nicht mehr.
                 assertThat(unique).as(id + " hat genau eine Unique").hasSize(1);
-                assertThat(unique.get(0).unlockLevel())
-                        .as(id + ": die Unique ist die letzte Freischaltung")
-                        .isEqualTo(45);
             }
         }
 
@@ -106,7 +114,7 @@ class ShippedAbilityConfigTest {
     class UnlockLevels {
 
         @Test
-        @DisplayName("alle drei Klassen folgen 1, 5, 15, 25, 35, 45")
+        @DisplayName("alle drei Klassen schalten alles ab Stufe 1 frei")
         void allThreeFollowTheSameGrid() throws Exception {
             for (CharacterClass id : CharacterClass.values()) {
                 assertThat(bindings(id).stream().map(AbilityBinding::unlockLevel).sorted().toList())
@@ -116,12 +124,13 @@ class ShippedAbilityConfigTest {
         }
 
         @Test
-        @DisplayName("auf Stufe 1 ist genau eine Fähigkeit verfügbar, auf 45 alle sechs")
-        void exactlyOneAtLevelOne() throws Exception {
+        @DisplayName("auf Stufe 1 sind alle sechs verfügbar, und es kommt spaeter keine dazu")
+        void allSixAtLevelOne() throws Exception {
             for (CharacterClass id : CharacterClass.values()) {
-                assertThat(unlockedAt(id, 1)).as(id + " auf Stufe 1").hasSize(1);
-                assertThat(unlockedAt(id, 44)).as(id + " auf Stufe 44").hasSize(5);
-                assertThat(unlockedAt(id, 45)).as(id + " auf Stufe 45").hasSize(6);
+                assertThat(unlockedAt(id, 1)).as(id + " auf Stufe 1").hasSize(6);
+                assertThat(unlockedAt(id, 45))
+                        .as(id + ": auf Stufe 45 ist nichts hinzugekommen")
+                        .hasSize(6);
             }
         }
     }
@@ -178,12 +187,52 @@ class ShippedAbilityConfigTest {
     class Hotbar {
 
         @Test
-        @DisplayName("Warrior fünf belegte Slots, Rogue fünf, Mage sieben")
+        @DisplayName("Warrior sieben belegte Slots, Rogue sieben, Mage acht")
         void theOccupiedSlotsFollowFromTheLoadout() throws Exception {
-            // Waffe + aktive Fähigkeiten + Marker passiver Fähigkeiten, die ein Item tragen.
-            assertThat(occupiedSlots(CharacterClass.WARRIOR)).isEqualTo(5);
-            assertThat(occupiedSlots(CharacterClass.ROGUE)).isEqualTo(5);
-            assertThat(occupiedSlots(CharacterClass.MAGE)).isEqualTo(7);
+            // Waffe + aktive Fähigkeiten + Marker passiver Fähigkeiten. Seit JEDE Passive einen
+            // Marker trägt, sind das mehr als vorher: ein Spieler soll seinen Fähigkeiten ansehen
+            // können, dass er sie hat - auch denen, die er nie anklickt.
+            assertThat(occupiedSlots(CharacterClass.WARRIOR)).isEqualTo(7);
+            assertThat(occupiedSlots(CharacterClass.ROGUE)).isEqualTo(7);
+            assertThat(occupiedSlots(CharacterClass.MAGE)).isEqualTo(8);
+        }
+
+        @Test
+        @DisplayName("jede der achtzehn nennt eine Beschreibung - sonst bliebe die Lore leer")
+        void everyAbilityNamesADescription() throws Exception {
+            AbilityConfig abilities = shippedAbilities();
+            for (CharacterClass id : CharacterClass.values()) {
+                for (AbilityBinding binding : bindings(id)) {
+                    Ability ability = abilities.require(binding.abilityId());
+                    assertThat(ability.descriptionKey()).as("%s", ability.id()).isNotNull();
+                }
+            }
+        }
+
+        /**
+         * T103: jede der achtzehn nennt einen Rangpreis, und zwar denselben.
+         *
+         * <p><b>Die Eins ist ein Platzhalter, und dieser Test hält genau das fest.</b> Fehlt der
+         * Block, ist der Aufstieg gratis (FR-054) - eine vergessene Zeile sähe also aus wie eine
+         * Entscheidung und fiele nur im Spiel auf, wenn überhaupt. Solange alle achtzehn gleich
+         * sind, ist die Zusicherung "hier wurde noch nichts ausbalanciert" prüfbar.
+         *
+         * <p>Wer die Preise wirklich setzt, lässt diesen Test fallen und schreibt an seine Stelle
+         * die Aussage, die dann gilt - so wie die Freischaltleiter oben ersetzt wurde, statt
+         * gelöscht zu werden.
+         */
+        @Test
+        @DisplayName("T103: alle achtzehn kosten einen Coin - der Platzhalter, nicht das Balancing")
+        void everyAbilityNamesAPlaceholderRankCost() throws Exception {
+            AbilityConfig abilities = shippedAbilities();
+            for (CharacterClass id : CharacterClass.values()) {
+                for (AbilityBinding binding : bindings(id)) {
+                    Ability ability = abilities.require(binding.abilityId());
+                    assertThat(ability.rankCost())
+                            .as("%s - ohne rank-cost waere der Aufstieg gratis", ability.id())
+                            .containsExactly(Map.entry("coins", 1));
+                }
+            }
         }
 
         @Test

@@ -43,6 +43,14 @@ import rpg.core.session.SessionRegistry;
 public final class DefaultStatEngine implements StatEngine {
 
     private final Map<UUID, StatHolder> holders = new ConcurrentHashMap<>();
+
+    /**
+     * Character id to holder id - the reverse of what {@link StatHolder} carries.
+     *
+     * <p>A map rather than a scan over {@link #holders}: the regeneration sweep asks once per player
+     * per pass, and a scan would turn that into holders squared every half second.
+     */
+    private final Map<UUID, UUID> holderByCharacter = new ConcurrentHashMap<>();
     private final List<BaseStatContributor> contributors = new CopyOnWriteArrayList<>();
 
     private final Scheduler scheduler;
@@ -176,7 +184,15 @@ public final class DefaultStatEngine implements StatEngine {
         java.util.Objects.requireNonNull(playerId, "playerId");
         java.util.Objects.requireNonNull(characterId, "characterId");
         java.util.Objects.requireNonNull(initial, "initial");
-        holders.put(playerId, new StatHolder(playerId, characterId, initial));
+        StatHolder previous = holders.put(playerId, new StatHolder(playerId, characterId, initial));
+        if (previous != null) {
+            // A character switch reuses the holder. Without this the previous character would still
+            // resolve to it, and the switch would leave one live id too many behind.
+            previous.characterId()
+                    .filter(earlier -> !earlier.equals(characterId))
+                    .ifPresent(holderByCharacter::remove);
+        }
+        holderByCharacter.put(characterId, playerId);
         return playerId;
     }
 
@@ -199,11 +215,21 @@ public final class DefaultStatEngine implements StatEngine {
     }
 
     @Override
+    public Optional<UUID> holderOf(UUID characterId) {
+        java.util.Objects.requireNonNull(characterId, "characterId");
+        return Optional.ofNullable(holderByCharacter.get(characterId));
+    }
+
+    @Override
     public void remove(UUID holderId) {
         StatHolder holder = holders.remove(holderId);
         if (holder == null) {
             return;
         }
+        // The reverse index goes with it. Left behind, it would answer with a holder that no longer
+        // exists, and the caller would get NoSuchElementException one call later instead of the empty
+        // Optional that says "not in play".
+        holder.characterId().ifPresent(holderByCharacter::remove);
         holder.markRemoved();
         holder.clearSources();
         holder.setSnapshot(null);

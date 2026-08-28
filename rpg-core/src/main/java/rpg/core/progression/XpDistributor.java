@@ -38,6 +38,7 @@ public final class XpDistributor {
     private final StatEngine stats;
     private final ProgressionConfig config;
     private final Logger logger;
+    private final ShareCalculator shareCalculator;
 
     public XpDistributor(
             DefaultProgression progression,
@@ -50,6 +51,19 @@ public final class XpDistributor {
         this.stats = Objects.requireNonNull(stats, "stats");
         this.config = Objects.requireNonNull(config, "config");
         this.logger = Objects.requireNonNull(logger, "logger");
+        this.shareCalculator =
+                new ShareCalculator(parties, config, progression::proximityCheck);
+    }
+
+    /**
+     * The split, shared with B08b (ADR-029).
+     *
+     * <p>Built here rather than injected: the rule belongs to this block, and a caller who could
+     * hand in a different one could make experience and coins disagree - which is the exact failure
+     * the extraction was meant to rule out.
+     */
+    public ShareCalculator shareCalculator() {
+        return shareCalculator;
     }
 
     /**
@@ -77,78 +91,12 @@ public final class XpDistributor {
             return 0L;
         }
 
-        UUID[] attackers = shares.keySet().toArray(new UUID[0]);
-        boolean[] handled = new boolean[attackers.length];
-        UUID[] members = new UUID[config.partyMaxSize()];
-        UUID[] inRange = new UUID[config.partyMaxSize()];
-
-        long credited = 0L;
-        for (int i = 0; i < attackers.length; i++) {
-            if (handled[i]) {
-                continue;
-            }
-            UUID attacker = attackers[i];
-            int memberCount = parties.membersOf(attacker, members);
-
-            if (memberCount <= 1) {
-                // No party, or a party of one - which behaves exactly like no party (FR-035, FR-046).
-                handled[i] = true;
-                credited += grant(attacker, share(shares, attacker, amount));
-                continue;
-            }
-
-            // Step 3: one contributor, whose share is the sum of the members' shares (FR-040).
-            double partyShare = 0.0;
-            for (int m = 0; m < memberCount; m++) {
-                partyShare += shares.getOrDefault(members[m], 0.0);
-            }
-            for (int j = i; j < attackers.length; j++) {
-                if (!handled[j] && parties.sameParty(attacker, attackers[j])) {
-                    handled[j] = true;
-                }
-            }
-
-            long partyAmount = (long) Math.floor(amount * partyShare);
-            if (partyAmount <= 0L) {
-                continue;
-            }
-
-            // Step 4: only members in range, measured from the dead creature (FR-041a, FR-042).
-            int reachable = reachable(origin, members, memberCount, inRange);
-            if (reachable == 0) {
-                continue;
-            }
-
-            // Step 5: the bonus applies to the party share BEFORE it is divided (FR-043).
-            long withBonus = (long) Math.floor(partyAmount * (1.0 + config.bonusFor(reachable)));
-            long each = withBonus / reachable;
-            if (each <= 0L) {
-                continue;
-            }
-            for (int m = 0; m < reachable; m++) {
-                credited += grant(inRange[m], each);
-            }
-        }
-        return credited;
-    }
-
-    /**
-     * Which members are close enough.
-     *
-     * <p>Without a registered check only the contributor itself counts, so the split falls back to
-     * the no-party behaviour instead of handing experience to everyone or swallowing it (FR-044).
-     */
-    private int reachable(WorldPoint origin, UUID[] members, int memberCount, UUID[] out) {
-        ProximityCheck check = progression.proximityCheck();
-        if (check == null || origin == null) {
-            out[0] = members[0];
-            return 1;
-        }
-        return check.inRange(origin, members, memberCount, config.partyRange(), out);
-    }
-
-    private long share(Map<UUID, Double> shares, UUID attacker, long amount) {
-        return (long) Math.floor(amount * shares.getOrDefault(attacker, 0.0));
+        // The split itself lives in ShareCalculator since ADR-029: B08b needs the very same rule for
+        // coins, and two implementations of it would agree only until somebody edited one.
+        long[] credited = {0L};
+        shareCalculator.allocate(
+                shares, amount, origin, (holderId, share) -> credited[0] += grant(holderId, share));
+        return credited[0];
     }
 
     /**

@@ -158,6 +158,7 @@ class IntervalAndMeterTest {
                             null,
                             original.attribute(),
                             original.damageType(),
+                            original.origins(),
                             original.statusEffect(),
                             original.buildPerHit(),
                             original.idleBefore(),
@@ -167,6 +168,7 @@ class IntervalAndMeterTest {
                     ability.id(),
                     ability.kind(),
                     ability.displayNameKey(),
+                    ability.descriptionKey(),
                     ability.manaCost(),
                     ability.cooldown(),
                     ability.castTime(),
@@ -183,6 +185,7 @@ class IntervalAndMeterTest {
                     ability.target(),
                     List.of(periodic),
                     ability.maxRank(),
+                    ability.rankCost(),
                     ability.items());
         }
     }
@@ -303,8 +306,8 @@ class IntervalAndMeterTest {
             spec =
                     new EffectSpec(
                             EffectType.METER, 30.0, 0.0, null, null, 1, null,
-                            Attribute.PHYSICAL_DAMAGE, null, null, 20.0, Duration.ofSeconds(4), 5.0,
-                            false);
+                            Attribute.PHYSICAL_DAMAGE, null, null, null, 20.0,
+                            Duration.ofSeconds(4), 5.0, false);
         }
 
         @Test
@@ -376,6 +379,72 @@ class IntervalAndMeterTest {
 
     // --- helpers ---
 
+    @Nested
+    @DisplayName("Wo eine faellige Anwendung laeuft - nicht dort, wo sie beschlossen wird")
+    class OnTheTick {
+
+        @Test
+        @DisplayName("die Anwendung geht an den Tick des Auslösers, nicht an den Sweep-Thread")
+        void applicationsAreHandedToTheCastersTick() {
+            // Der Sweep entscheidet, WAS fällig ist - Arithmetik über eine Map, und die gehört nicht
+            // auf den Tick. Die Anwendung schon: sie läuft durch die ganze Kampf-Pipeline, die einen
+            // Tod veröffentlicht, den Listener hören, die Entitäten nachschlagen - und das ist ein
+            // Chunk-Zugriff, den Papers AsyncCatcher abseits des Ticks ablehnt.
+            //
+            // Auf dem Server bedeutete das einen Stacktrace JE TICK eines einzigen Gifts, aus drei
+            // verschiedenen Listenern: Erfahrungsverteilung, Münzabwurf, Hinterhalt-Prüfung.
+            List<UUID> hops = new ArrayList<>();
+            runner.setOnTick(
+                    (casterId, task) -> {
+                        hops.add(casterId);
+                        task.run();
+                    });
+            start(poison(6, 1, 1, null), 5.0);
+
+            fixture.clock.advance(Duration.ofSeconds(1));
+            runner.sweep();
+
+            assertThat(hops).containsExactly(fixture.character);
+            assertThat(applied).as("und angekommen ist sie trotzdem").hasSize(1);
+        }
+
+        @Test
+        @DisplayName("ein Auslöser mit zwei Effekten kostet EINEN Sprung, nicht zwei")
+        void oneHopPerCasterNotPerInstance() {
+            // Prinzip II schließt eine Aufgabe je laufendem Effekt aus. Gruppiert nach Auslöser ist
+            // das auch bei zweihundert Gifts eines Spielers ein Sprung.
+            List<UUID> hops = new ArrayList<>();
+            runner.setOnTick(
+                    (casterId, task) -> {
+                        hops.add(casterId);
+                        task.run();
+                    });
+            runner.start(
+                    fixture.strike(), poison(6, 1, 1, null), fixture.character, UUID.randomUUID(), 1,
+                    snapshot());
+            runner.start(
+                    fixture.strike(), poison(6, 1, 1, null), fixture.character, UUID.randomUUID(), 1,
+                    snapshot());
+
+            fixture.clock.advance(Duration.ofSeconds(1));
+            runner.sweep();
+
+            assertThat(hops).hasSize(1);
+            assertThat(applied).as("zwei Ziele, ein Sprung").hasSize(2);
+        }
+
+        @Test
+        @DisplayName("ohne Sprung wirkt es hier und jetzt - der Standard, den jeder Test benutzt")
+        void inlineByDefault() {
+            start(poison(6, 1, 1, null), 5.0);
+
+            fixture.clock.advance(Duration.ofSeconds(1));
+            runner.sweep();
+
+            assertThat(applied).hasSize(1);
+        }
+    }
+
     private void start(EffectSpec spec, double expectedPerTick) {
         runner.start(fixture.strike(), spec, fixture.character, UUID.randomUUID(), 1, snapshot());
     }
@@ -392,6 +461,7 @@ class IntervalAndMeterTest {
                 cap,
                 null,
                 rpg.core.combat.DamageType.PHYSICAL,
+                null,
                 null,
                 null,
                 null,

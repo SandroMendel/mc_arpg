@@ -137,7 +137,10 @@ class NoDatabaseAccessPerGameEventTest {
                 new AggregateType[] {
                     AggregateType.CHARACTER_STATS,
                     AggregateType.CHARACTER_PROGRESS,
-                    AggregateType.ITEM_INSTANCE
+                    AggregateType.ITEM_INSTANCE,
+                    // B08b: both reference a character, and the ledger references it per entry.
+                    AggregateType.CHARACTER_BALANCE,
+                    AggregateType.COIN_LEDGER
                 }) {
             assertThat(order.indexOf(child))
                     .as(child + " must come after CHARACTER")

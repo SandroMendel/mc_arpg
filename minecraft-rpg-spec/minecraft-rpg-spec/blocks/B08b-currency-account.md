@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Schicht** | 1 — Regel-Engine |
-| **Status** | Entwurf *(2026-08-22)* — eingeschoben durch ADR-027, bereit für `/specify` |
+| **Status** | **Implementiert** *(2026-08-22)* — 150 Aufgaben, davon 145 erledigt; **1609 Tests** im Projekt, 0 Fehler, 0 übersprungen (188 davon neu). Offen allein: der Durchlauf auf einem echten Paper-Server und der Lasttest, der B10 braucht. Spec unter `specs/008b-currency-account/` |
 | **Abhängig von** | B02, B03, B06 |
 | **Benötigt von** | B07, B08, B11, B12 |
 
@@ -60,21 +60,48 @@ Ein Kontostand je Charakter, Buchungen darauf, und eine Kostenprüfung, die ande
   beide dasselbe Geld ausgeben
 - Alle Beträge sind ganzzahlig. Bruchteile einer Münze sind eine Rundungsquelle ohne Nutzen
 
-## Offene Fragen
+## Offene Fragen — alle vier geschlossen *(2026-08-22, bei `/clarify`)*
 
-- [ ] **Startguthaben** bei Charaktererstellung: null oder ein Betrag? Null heisst, die erste
-      Ausrüstungsstufe muss ohne Coins erreichbar sein — sie ist es heute (`cost: {}` auf Stufe 1)
-- [ ] **Wieviel wirft ein Mob ab?** Content, bei `/specify` B10 oder B11 auszuarbeiten. Hier zählt
-      nur, dass es eine Quelle gibt
-- [ ] **Sichtbarkeit**: Wo sieht ein Spieler seinen Stand? Das ist B13, aber die Schnittstelle
-      entsteht hier
-- [ ] **Verlust beim Tod?** ADR-017 sagt: kein Item- und kein XP-Verlust, aber Haltbarkeitsschaden.
-      Ob Coins davon betroffen sind, ist offen
+- [X] **Startguthaben** bei Charaktererstellung → **konfigurierbar, Standard null**, und es ist eine
+      **Gutschrift bei der Erstellung** mit eigenem Verlaufseintrag, kein Wert, der beim Lesen gilt.
+      Ein Charakter ohne Kontozeile hat **null**. Sonst hätte eine spätere Erhöhung der Zahl jeden
+      noch unbebuchten Charakter über Nacht reicher gemacht — ohne Buchung und ohne Spur.
+- [X] **Wieviel wirft ein Mob ab?** → Konfiguration in `currency.yml` (`drops.by-type` plus
+      Standardwert), bis B10 den Provider über dieselbe Schnittstelle ablöst. Ein **fehlender**
+      Eintrag heisst der Standardwert, nicht null; eine **ausdrückliche** Null heisst null.
+- [X] **Sichtbarkeit** → Ein Fenster mit Charakterauswahl und seitenweisem Verlauf, vorläufig hier
+      (ADR-028), später B13. **Drei Stände nebeneinander, nie eine Summe.**
+- [X] **Verlust beim Tod?** → **Nein.** Das zieht die Linie von ADR-017 gerade durch: der Tod kostet
+      Haltbarkeit und Zeit, nicht Fortschritt. Es gibt keinen Buchungsgrund dafür, und ein Test hält
+      fest, dass das so bleibt.
 
-## Akzeptanzkriterien (Entwurf)
+## Was beim Umsetzen dazukam
 
-- Ein Charakter kann nicht mehr ausgeben, als er hat — auch nicht bei zwei Buchungen im selben Tick.
-- Der Stand übersteht Relogin und Serverneustart.
-- Zwei Charaktere desselben Spielers haben getrennte Stände.
-- Eine Buchung ohne Grund ist nicht möglich.
-- Keine Buchung erzeugt einen Datenbankzugriff im Spielereignis.
+Zwei Entscheidungen des Auftraggebers haben den Zuschnitt nach `/specify` erweitert:
+
+- **Coins fallen, statt gutgeschrieben zu werden.** Ein Kill lässt einen Haufen liegen, den nur der
+  Berechtigte **sieht** und aufheben kann; erst das Aufheben bucht. Nicht Abgeholtes verfällt.
+- **Ein dauerhafter Verlauf und Admin-Eingriffe** — setzen, hinzufügen, entfernen, jeweils mit
+  Verursacher, im Verlauf und zusätzlich im Audit-Log aus B02.
+
+Daraus folgten zwei ADRs: **ADR-028** (Kommando und Fenster in einem Schicht-1-Block, befristet bis
+B14/B13) und **ADR-029** (Herauslösung des Anteilsrechners aus `XpDistributor`, verhaltensneutral).
+
+## Akzeptanzkriterien — erfüllt
+
+- [X] Ein Charakter kann nicht mehr ausgeben, als er hat — geprüft mit 1000 nebenläufigen Abbuchungen.
+- [X] Der Stand übersteht Relogin und Serverneustart — gegen echtes PostgreSQL.
+- [X] Zwei Charaktere desselben Spielers haben getrennte Stände.
+- [X] Eine Buchung ohne Grund ist nicht möglich — es gibt keine Signatur dafür, und ein Quelltest hält
+      das fest.
+- [X] Keine Buchung erzeugt einen Datenbankzugriff im Spielereignis.
+
+## Offen
+
+- **Der Durchlauf auf einem echten Paper-Server** (`specs/008b-currency-account/quickstart.md`,
+  Abschnitt 3, 22 Schritte). Grüne Tests sagen nichts über Papers `libraries:`-Klassenlader, und zwei
+  Paper-Aufrufe — `Item.setOwner` und `Entity.setVisibleByDefault` — kann MockBukkit gar nicht
+  ausführen. Was serverfrei geprüft ist: **dass und wem gegenüber** wir sie verlangen.
+- **Der Lasttest** für SC-006 braucht B10s Horden. Ob dieser Block überhaupt lasttestpflichtig wird,
+  ist die offene Frage aus `research.md` R8 — Prinzip VII nennt B05 und B10, und mit einem Entity je
+  Kill gehört B08b der Grössenordnung nach dazu.

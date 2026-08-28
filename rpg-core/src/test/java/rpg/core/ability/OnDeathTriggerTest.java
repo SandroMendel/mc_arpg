@@ -66,12 +66,12 @@ class OnDeathTriggerTest {
     @DisplayName("US2.4: tödlicher Schaden wird abgewiesen, statt den Charakter zu töten")
     void aLethalBlowIsRefused() {
         fixture.stats.health = 40.0;
-        ProbeDamage damage = new ProbeDamage(fixture.character, 100.0);
+        ProbeDamage damage = new ProbeDamage(fixture.holder, 100.0);
 
         interceptor.intercept(damage);
 
         assertThat(damage.cancelled).as("der Schlag landet gar nicht erst").isTrue();
-        assertThat(saved).containsExactly(fixture.character);
+        assertThat(saved).containsExactly(fixture.holder);
         assertThat(healed).hasSize(1);
     }
 
@@ -79,11 +79,11 @@ class OnDeathTriggerTest {
     @DisplayName("US2.5: innerhalb des Cooldowns stirbt er regulär")
     void withinTheCooldownHeDies() {
         fixture.stats.health = 40.0;
-        interceptor.intercept(new ProbeDamage(fixture.character, 100.0));
+        interceptor.intercept(new ProbeDamage(fixture.holder, 100.0));
         saved.clear();
 
         fixture.stats.health = 40.0;
-        ProbeDamage second = new ProbeDamage(fixture.character, 100.0);
+        ProbeDamage second = new ProbeDamage(fixture.holder, 100.0);
         interceptor.intercept(second);
 
         assertThat(second.cancelled).isFalse();
@@ -94,11 +94,11 @@ class OnDeathTriggerTest {
     @DisplayName("nach Ablauf des Cooldowns rettet es wieder")
     void afterTheCooldownItSavesAgain() {
         fixture.stats.health = 40.0;
-        interceptor.intercept(new ProbeDamage(fixture.character, 100.0));
+        interceptor.intercept(new ProbeDamage(fixture.holder, 100.0));
 
         fixture.clock.advance(Duration.ofMinutes(11));
         fixture.stats.health = 40.0;
-        ProbeDamage later = new ProbeDamage(fixture.character, 100.0);
+        ProbeDamage later = new ProbeDamage(fixture.holder, 100.0);
         interceptor.intercept(later);
 
         assertThat(later.cancelled).isTrue();
@@ -108,7 +108,7 @@ class OnDeathTriggerTest {
     @DisplayName("überlebbarer Schaden verbraucht die Chance NICHT")
     void survivableDamageDoesNotBurnTheChance() {
         fixture.stats.health = 500.0;
-        ProbeDamage scratch = new ProbeDamage(fixture.character, 100.0);
+        ProbeDamage scratch = new ProbeDamage(fixture.holder, 100.0);
 
         interceptor.intercept(scratch);
 
@@ -121,7 +121,7 @@ class OnDeathTriggerTest {
     void withoutTheAbilityNothingHappens() {
         fixture.unlocked.clear();
         fixture.stats.health = 40.0;
-        ProbeDamage damage = new ProbeDamage(fixture.character, 100.0);
+        ProbeDamage damage = new ProbeDamage(fixture.holder, 100.0);
 
         interceptor.intercept(damage);
 

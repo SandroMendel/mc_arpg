@@ -15,3 +15,22 @@ libraries:
   - com.zaxxer:HikariCP:7.1.0
   - org.flywaydb:flyway-core:13.3.0
   - org.flywaydb:flyway-database-postgresql:13.3.0
+
+# The first commands block in this project (ADR-028). Commands belong to B14 - layer 3, and it
+# depends on every other block, which makes it the last one, not the next. B08b needs an operator
+# to be able to correct a balance now, and an interface with no way to call it is present and
+# unusable. B14 replaces the shell and leaves the interface standing (FR-046).
+commands:
+  coins:
+    description: 'Open the coin window, or change a balance.'
+    usage: '/coins | /coins <player> | /coins set|add|remove <player> <class> <amount>'
+    permission: rpg.currency.balance
+
+permissions:
+  rpg.currency.balance:
+    description: 'Open your own coin window.'
+    # For everyone: seeing your own balance is not an administrative act.
+    default: true
+  rpg.currency.admin:
+    description: "Open another player's window, and change a balance."
+    default: op

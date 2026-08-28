@@ -3,12 +3,12 @@ package rpg.core.ability;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import rpg.core.ability.effect.EffectDispatcher;
 import rpg.core.scheduler.TaskHandle;
@@ -34,6 +34,12 @@ public final class AbilityRuntime {
     private final TargetResolver targets;
     private final EffectDispatcher effects;
     private final AbilityStateRepository repository;
+
+    /**
+     * Who charges for a rank. Free until B08b installs itself - which is what this block did for its
+     * whole life before a currency existed.
+     */
+    private volatile RankCost rankCost = RankCost.free();
     private final Clock clock;
 
     /**
@@ -66,12 +72,18 @@ public final class AbilityRuntime {
     /** How the runtime reaches the scheduler without knowing about Paper. */
     @FunctionalInterface
     public interface Scheduling {
-        /** Runs {@code task} on the character's tick after {@code delay}. */
-        TaskHandle after(UUID characterId, Duration delay, Runnable task);
+        /**
+         * Runs {@code task} on the tick of the entity behind this holder, after {@code delay}.
+         *
+         * <p><b>A HOLDER id, not a character id.</b> What is scheduled is bound to an entity, and an
+         * entity is addressed by holder - the character id names a row, not something standing in a
+         * world. The block translates before it calls this.
+         */
+        TaskHandle after(UUID holderId, Duration delay, Runnable task);
 
         /** Schedules nothing. Then a cast never completes, which a test can rely on. */
         static Scheduling none() {
-            return (characterId, delay, task) ->
+            return (holderId, delay, task) ->
                     new TaskHandle() {
                         @Override
                         public void cancel() {}
@@ -84,17 +96,78 @@ public final class AbilityRuntime {
         }
     }
 
+    /**
+     * Told while a sustained ability runs, so the platform can show it.
+     *
+     * <p><b>Warum eine Naht und kein Effekt.</b> Was der Warrior beim Block macht - den Schild
+     * hochhalten - ist keine Wirkung, sondern eine Haltung: sie aendert keine Zahl, sie sagt dem
+     * Spieler und allen um ihn herum, dass er gerade blockt. Ein Effekt haette sie einmal ausgeloest
+     * und nie beendet, und genau daran ist die erste Fassung gescheitert: der Vorrat lief acht
+     * Sekunden, der Spieler stand daneben, als waere nichts.
+     *
+     * <p>Beide Enden, weil beide Enden gebraucht werden: der Runtime weiss allein, wann eine
+     * gehaltene Faehigkeit aufhoert - nach ihrer Dauer ODER durch einen zweiten Rechtsklick -, und
+     * ohne das zweite Ereignis bliebe die Haltung stehen.
+     */
+    public interface Sustain {
+        void started(UUID characterId, Ability ability);
+
+        void ended(UUID characterId, Ability ability);
+
+        /** Zeigt nichts. Der Standard, und was jeder Test benutzt. */
+        static Sustain none() {
+            return new Sustain() {
+                @Override
+                public void started(UUID characterId, Ability ability) {}
+
+                @Override
+                public void ended(UUID characterId, Ability ability) {}
+            };
+        }
+    }
+
+    private volatile Sustain sustain = Sustain.none();
+
+    /** Installs the sustain hook. At startup, not during play. */
+    public void setSustain(Sustain sustain) {
+        this.sustain = Objects.requireNonNull(sustain, "sustain");
+    }
+
     /** Installs the scheduling. At startup, not during play. */
     public void setScheduling(Scheduling scheduling) {
         this.scheduling = Objects.requireNonNull(scheduling, "scheduling");
     }
 
+    /**
+     * The holder behind a character - the id everything outside this block speaks.
+     *
+     * <p><b>This block is keyed by character and that is correct</b>: unlocks, ranks, cooldowns and
+     * toggles belong to the character, not the account (ADR-011). But four things outside it are keyed
+     * by <em>holder</em> - the stat engine, the target resolver, the effects and the scheduler - and a
+     * holder is the player's UUID for a player and the entity's for a mob, which is what lets one
+     * pipeline damage both.
+     *
+     * <p>Until this method existed the character id was handed straight across all four boundaries.
+     * Every stat call threw {@code NoSuchElementException}, the trigger listener contained it as it is
+     * meant to, and the visible result was a server on which no ability did anything and no mana was
+     * ever spent. Empty means the character is not in play; every caller here says so in its own way
+     * rather than pretending otherwise.
+     */
+    private Optional<UUID> holderOf(UUID characterId) {
+        return stats.holderOf(characterId);
+    }
+
     private TaskHandle scheduleCompletion(UUID characterId, Duration delay) {
-        return scheduling.after(characterId, delay, () -> completeWindUp(characterId));
+        // Bound to the ENTITY, so the task runs on the thread that owns it (ADR-024) - and an entity
+        // is addressed by holder id. The callback still carries the character: what it resumes is the
+        // character's ability, not the player's.
+        return scheduling.after(
+                holderOf(characterId).orElse(characterId), delay, () -> completeWindUp(characterId));
     }
 
     private TaskHandle scheduleEnd(UUID characterId, Duration delay) {
-        return scheduling.after(characterId, delay, () -> expire(characterId));
+        return scheduling.after(
+                holderOf(characterId).orElse(characterId), delay, () -> expire(characterId));
     }
 
     /** Character plus ability - the key a charge pool hangs on. */
@@ -146,9 +219,13 @@ public final class AbilityRuntime {
             return AbilityResult.NO_CHARACTER;
         }
         if (!ability.isActive()) {
-            // A passive is not triggered by the player. Reaching here means an item carried a passive
-            // id, which the hotbar never builds - so this is a guard, not a player-facing case.
-            return AbilityResult.NOT_UNLOCKED;
+            // A passive is not triggered by the player - but it does carry a marker in the hotbar, so
+            // this IS a player-facing case. It always was: the rogue's Totem of Undying is a passive
+            // with an item, and this used to answer NOT_UNLOCKED - telling somebody who owns the
+            // ability that they would unlock it later.
+            return isUnlocked(characterId, abilityId)
+                    ? AbilityResult.PASSIVE
+                    : AbilityResult.NOT_UNLOCKED;
         }
         if (!isUnlocked(characterId, abilityId)) {
             return AbilityResult.NOT_UNLOCKED;
@@ -186,7 +263,14 @@ public final class AbilityRuntime {
         if (accrual != null) {
             accrual.settle(characterId);
         }
-        ResourceView resources = stats.resources(characterId);
+        // The holder, resolved once and used for everything below that is not this block's own state.
+        // Absent means the character is not in play - the same answer as no class at all, and the
+        // reason it is not checked earlier is that the cheaper gates above should still get to speak.
+        UUID holderId = holderOf(characterId).orElse(null);
+        if (holderId == null) {
+            return AbilityResult.NO_CHARACTER;
+        }
+        ResourceView resources = stats.resources(holderId);
         if (resources.currentMana() < ability.manaCost()) {
             return AbilityResult.NOT_ENOUGH_MANA;
         }
@@ -196,7 +280,7 @@ public final class AbilityRuntime {
         // slip past it.
         registry.lockGlobally(characterId, now.plus(registry.config().globalCooldown()));
         if (ability.manaCost() > 0.0) {
-            stats.changeMana(characterId, -ability.manaCost());
+            stats.changeMana(holderId, -ability.manaCost());
         }
         spendCharge(characterId, ability, now);
 
@@ -207,6 +291,73 @@ public final class AbilityRuntime {
             return AbilityResult.CASTING;
         }
         return takeEffect(characterId, ability, now);
+    }
+
+    /**
+     * The values that belong to a rejection, so the text a player reads has numbers in it.
+     *
+     * <p><b>Why this is a second call rather than part of the result.</b> {@link AbilityResult} is an
+     * enum - one instance per outcome, shared by every character - so it cannot carry anybody's
+     * seconds or anybody's mana. Until this existed the notifier passed the key alone and a player
+     * read "still on cooldown for {seconds}s" with the braces still in it.
+     *
+     * <p>Asked immediately after {@link #trigger}, while the state it reads is still the state that
+     * caused the refusal: the cooldown is still running, the sustained ability is still sustaining.
+     *
+     * <p><b>One value is a message key, not a text:</b> {@code ability}, because an ability's display
+     * name lives in messages.yml and this block owns no wording (Constitution V). The caller resolves
+     * that one entry before substituting - the plugin does it in the trigger seam.
+     *
+     * <p>Empty for every outcome that needs no values, success included.
+     */
+    public Map<String, String> placeholdersFor(
+            UUID characterId, String abilityId, AbilityResult result) {
+        Objects.requireNonNull(characterId, "characterId");
+        Objects.requireNonNull(abilityId, "abilityId");
+        Objects.requireNonNull(result, "result");
+
+        switch (result) {
+            case ON_COOLDOWN -> {
+                Duration left =
+                        registry.remainingCooldown(characterId, abilityId).orElse(Duration.ZERO);
+                // Rounded UP: at 200 ms left, "0s" reads as a bug, and telling somebody to wait a
+                // moment longer than they must is the harmless direction.
+                long seconds = Math.max(1L, (left.toMillis() + 999L) / 1000L);
+                return Map.of("seconds", Long.toString(seconds));
+            }
+            case NOT_ENOUGH_MANA -> {
+                return registry
+                        .find(abilityId)
+                        .map(ability -> Map.of("cost", whole(ability.manaCost())))
+                        .orElseGet(Map::of);
+            }
+            case NOT_UNLOCKED -> {
+                java.util.OptionalInt level = registry.unlockLevelOf(characterId, abilityId);
+                return level.isPresent()
+                        ? Map.of("level", Integer.toString(level.getAsInt()))
+                        : Map.of();
+            }
+            case ALREADY_SUSTAINING, ALREADY_CASTING -> {
+                // The one already running, not the one that was refused - "Finish X first" has to
+                // name X.
+                //
+                // The KEY, not the text: this block owns no wording (Constitution V), and the
+                // display name of an ability lives in messages.yml like every other string. The
+                // caller resolves it - see the note on the whole method.
+                return running(characterId)
+                        .flatMap(current -> registry.find(current.abilityId()))
+                        .map(ability -> Map.of("ability", ability.displayNameKey().value()))
+                        .orElseGet(Map::of);
+            }
+            default -> {
+                return Map.of();
+            }
+        }
+    }
+
+    /** No decimals: a mana cost of 20.0 reads as 20. */
+    private static String whole(double value) {
+        return Long.toString(Math.round(value));
     }
 
     /**
@@ -231,11 +382,20 @@ public final class AbilityRuntime {
         if (running.isWindingUp()) {
             // It never happened. Refund in full and leave the cooldown untouched (FR-045d).
             if (running.reservedMana() > 0.0) {
-                stats.changeMana(characterId, running.reservedMana());
+                // Only if they are still in play. A disconnect ends the wind-up too, and refunding
+                // mana to a holder that is gone would throw where nothing is wrong.
+                holderOf(characterId)
+                        .ifPresent(holderId -> stats.changeMana(holderId, running.reservedMana()));
             }
             return AbilityResult.ENDED;
         }
         // It did happen, and stopping it early does not undo that (FR-045e).
+        // Und die Haltung faellt - HIER, weil hier beide Wege zusammenlaufen: der zweite Rechtsklick
+        // und die abgelaufene Dauer. Eine der beiden Stellen zu vergessen hiesse, dass der Warrior
+        // je nach Ausgang den Schild nie wieder herunternimmt.
+        if (ability.sustained()) {
+            sustain.ended(characterId, ability);
+        }
         startCooldown(characterId, ability, clock.instant());
         return AbilityResult.ENDED;
     }
@@ -283,6 +443,7 @@ public final class AbilityRuntime {
                             endsAt,
                             0.0,
                             scheduleEnd(characterId, ability.duration())));
+            sustain.started(characterId, ability);
             // No cooldown yet: it starts when the ability actually ends, however that happens.
             return AbilityResult.SUSTAINING;
         }
@@ -365,8 +526,15 @@ public final class AbilityRuntime {
      * the same player advance separately, and the state key says so: it is a pair of character and
      * ability, and no player id appears in it anywhere.
      *
-     * <p><b>Nothing is charged.</b> See {@link RankResult} - there is no currency in this project,
-     * and inventing one here would put an economy in the wrong block.
+     * <p><b>A rank costs coins</b> since B08b exists (ADR-027). The check runs <em>last</em>, after
+     * the unlock and the maximum rank, so an advance refused for any other reason leaves the balance
+     * untouched (FR-052). What it costs lives in the ability configuration and is read by B08b -
+     * this block still knows nothing about coins, and installs the check through {@link RankCost}.
+     *
+     * <p>The paragraph that used to stand here said nothing was charged because the project had no
+     * currency, and that inventing one in this block would put an economy in the wrong place. That
+     * was right: the price was never guessed, and when a currency arrived, this method grew by one
+     * {@code if}.
      *
      * <p>Written through the buffer like every other change: the cache is authoritative for the
      * session and the write-behind cycle carries it to the database (Principle IV).
@@ -381,9 +549,42 @@ public final class AbilityRuntime {
         if (state.rank() >= ability.maxRank()) {
             return RankResult.AT_MAXIMUM;
         }
+        // LAST, after everything that is not about money (FR-052). A character at the maximum rank
+        // must not be charged for an advance that was never going to happen.
+        if (!rankCost.charge(characterId, ability)) {
+            return RankResult.NOT_ENOUGH_COINS;
+        }
         registry.put(state.withRank(state.rank() + 1));
         repository.markDirty(characterId);
         return RankResult.ADVANCED;
+    }
+
+    /**
+     * Who takes the price of a rank, if anybody does.
+     *
+     * <p><b>A seam rather than a dependency.</b> This block owns what a rank <em>costs</em> only in
+     * the sense that the number sits in its configuration file; what a coin <em>is</em> belongs to
+     * B08b, and B08 pointing at it would be layer 1 depending on layer 1 in the wrong direction
+     * (ADR-027). B08b installs the real one at wiring time.
+     *
+     * <p>The default charges nothing, which is exactly what happened before B08b existed.
+     */
+    @FunctionalInterface
+    public interface RankCost {
+        /**
+         * @return whether the price was paid; false refuses the advance and must have taken nothing
+         */
+        boolean charge(java.util.UUID characterId, Ability ability);
+
+        /** What this block did before there was a currency: nobody pays. */
+        static RankCost free() {
+            return (characterId, ability) -> true;
+        }
+    }
+
+    /** Installs the price check. Called once at wiring time by B08b. */
+    public void setRankCost(RankCost rankCost) {
+        this.rankCost = java.util.Objects.requireNonNull(rankCost, "rankCost");
     }
 
     /** The player's setting, or {@link ToggleState#ON} when they never changed it. */
@@ -414,9 +615,19 @@ public final class AbilityRuntime {
             return Duration.ZERO;
         }
         double reduction =
-                Math.min(
-                        MAX_COOLDOWN_REDUCTION,
-                        Math.max(0.0, stats.value(characterId, Attribute.ABILITY_COOLDOWN)));
+                holderOf(characterId)
+                        .map(
+                                holderId ->
+                                        Math.min(
+                                                MAX_COOLDOWN_REDUCTION,
+                                                Math.max(
+                                                        0.0,
+                                                        stats.value(
+                                                                holderId,
+                                                                Attribute.ABILITY_COOLDOWN))))
+                        // Not in play: no reduction, full cooldown. The alternative - throwing - would
+                        // turn a logout during a cast into an error.
+                        .orElse(0.0);
         long millis = Math.round(ability.cooldown().toMillis() * (1.0 - reduction));
         return Duration.ofMillis(millis);
     }
@@ -427,7 +638,16 @@ public final class AbilityRuntime {
      * <p>The snapshot is drawn once here and handed to every effect (FR-018). Drawing it per effect
      * would let a buff expiring mid-ability change what the second half of it does.
      */
-    private void apply(Ability ability, UUID casterId, int rank) {
+    private void apply(Ability ability, UUID characterId, int rank) {
+        // All three of these speak holder: the snapshot is the holder's, the resolver looks up an
+        // entity by it, and the effects address whatever they hit - which may be a mob, and a mob has
+        // no character at all.
+        UUID casterId = holderOf(characterId).orElse(null);
+        if (casterId == null) {
+            // Gone between the trigger and now - a wind-up outliving its player. Nothing to apply and
+            // nothing wrong.
+            return;
+        }
         StatSnapshot snapshot = stats.snapshot(casterId);
         List<UUID> resolved = targets.resolve(casterId, ability.target());
         effects.run(ability, casterId, resolved, rank, snapshot);

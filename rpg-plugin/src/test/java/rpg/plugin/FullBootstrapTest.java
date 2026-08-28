@@ -4,20 +4,27 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.UUID;
 
+import org.bukkit.block.BlockFace;
 import org.bukkit.event.HandlerList;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityRegainHealthEvent;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.player.AsyncPlayerPreLoginEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.ItemStack;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
+import org.mockbukkit.mockbukkit.entity.PlayerMock;
 
 import com.destroystokyo.paper.event.player.PlayerConnectionCloseEvent;
 
@@ -388,6 +395,12 @@ class FullBootstrapTest {
                         "abilities.on-damage-taken",
                         "abilities.on-damage-dealt",
                         "abilities.on-death");
+        assertThat(ids)
+                .as(
+                        "und der Schild. Er fehlte hier, und deshalb fiel ein Jahr lang nicht auf, "
+                                + "dass sein Vorrat sich fuellte und ihn niemand las - Block und "
+                                + "Magieschild waren acht Sekunden lang nichts")
+                .contains("abilities.shield");
     }
 
     @Test
@@ -449,18 +462,22 @@ class FullBootstrapTest {
 
     @Test
     void everyClassEventHasItsHandler() {
-        // The inventory lock and the selection both sit on InventoryClickEvent: the lock refuses to move
-        // a bound item, the selection refuses everything while the menu is open. Two handlers, two
-        // jobs - and if either is missing, bound equipment becomes removable (ADR-018).
+        // Three handlers sit on InventoryClickEvent, each with its own job: the equipment lock
+        // refuses to move a bound item (ADR-018), the class selection refuses everything while its
+        // menu is open, and B08b's currency window refuses everything while its own is - a ledger
+        // row is a fact, not an item somebody can pocket (ADR-028).
+        //
+        // Counted rather than merely "at least one": a handler that quietly disappears is how a
+        // bound item becomes removable, and nobody notices until it has happened in play.
         assertThat(handlerCount(org.bukkit.event.inventory.InventoryClickEvent.getHandlerList()))
-                .as("the equipment lock and the selection menu")
-                .isEqualTo(2);
+                .as("the equipment lock, the class selection and the currency window")
+                .isEqualTo(3);
         assertThat(handlerCount(org.bukkit.event.player.PlayerDropItemEvent.getHandlerList()))
                 .as("dropping is off for every item, bound or not (ADR-018)")
                 .isEqualTo(1);
         assertThat(handlerCount(org.bukkit.event.inventory.InventoryCloseEvent.getHandlerList()))
-                .as("every route out of the selection leads back into it")
-                .isEqualTo(1);
+                .as("the class selection reopens itself; the currency window just forgets its state")
+                .isEqualTo(2);
     }
 
     // --- character inventory (B07 groundwork for B11) ---------------------
@@ -486,12 +503,162 @@ class FullBootstrapTest {
                 .isPresent();
     }
 
+    // --- B08b: currency and account ---
+
+    @Test
+    void bothCurrencyTablesExistBecauseTheirMigrationsRan() {
+        assertThat(PostgresContainer.tableExists("character_balance")).isTrue();
+        assertThat(PostgresContainer.tableExists("coin_ledger")).isTrue();
+    }
+
+    @Test
+    void theCurrencyIsResolvableThroughTheRegistry() {
+        assertThat(plugin.registry().findService(rpg.core.currency.Currency.class))
+                .as("B07, B08, B11 and B12 are built against this")
+                .isPresent();
+        assertThat(plugin.registry().findService(rpg.core.currency.CurrencyAdmin.class))
+                .as("B14 takes the command over and keeps this")
+                .isPresent();
+    }
+
+    @Test
+    void theCoinsCommandIsRegistered() {
+        // The one place B08b reaches outside its layer (ADR-028). If plugin.yml and the wiring ever
+        // disagree, the command silently does not exist - so it is asserted rather than assumed.
+        assertThat(plugin.getCommand("coins")).isNotNull();
+        assertThat(plugin.getCommand("coins").getExecutor())
+                .isInstanceOf(rpg.plugin.command.CoinsCommand.class);
+    }
+
+    @Test
+    void thePickupAndWindowListenersAreRegistered() {
+        // Two handlers on InventoryClickEvent belong to the currency window and the class selection;
+        // what matters here is that the currency one is among them at all.
+        assertThat(handlerCount(org.bukkit.event.player.PlayerAttemptPickupItemEvent.getHandlerList()))
+                .as("without this a coin pile is an item a player can pocket")
+                .isGreaterThanOrEqualTo(1);
+    }
+
     @Test
     void stoppingTheServerShutsEverythingDownWithoutThrowing() {
         server.getPluginManager().disablePlugin(plugin);
 
         assertThat(plugin.bootstrapState().phase()).isEqualTo(BootstrapState.Phase.SHUTTING_DOWN);
         assertThat(plugin.bootstrapState().acceptsPlayers()).isFalse();
+    }
+
+    // --- B08: eine Fähigkeit, ausgelöst wie ein Spieler sie auslöst ---
+
+    @Test
+    void aRightClickInThinAirTriggersTheAbilityAndSpendsMana() {
+        // DER TEST, DEN ES NICHT GAB - und dessen Fehlen drei Fehlerberichte gekostet hat.
+        //
+        // Jeder Baustein von B08 war einzeln geprüft und grün. Was niemand fuhr, war die KETTE:
+        // Klick -> Listener -> Naht im Plugin -> Runtime -> Stat-Engine. In dieser Kette saßen zwei
+        // Fehler übereinander, und jeder allein hätte gereicht, damit auf dem Server nichts passiert:
+        //
+        //   1. Das Plugin reichte die CHARAKTER-Id in den Runtime, der Engine ist nach HALTER
+        //      verschlüsselt. Jeder Aufruf warf, der Listener fing es ab wie vorgesehen.
+        //   2. Der Listener hörte mit ignoreCancelled zu. Ein Rechtsklick in die LUFT ist von Geburt
+        //      an abgebrochen - ohne Block ist useInteractedBlock DENY -, also erreichte ihn genau
+        //      der Klick nie, den ein Spieler im Kampf macht.
+        //
+        // Deshalb steht dieser Test hier und nicht in rpg-core: nur hier ist die Verdrahtung echt,
+        // und nur hier ist der Klick ein echtes Bukkit-Ereignis statt eines Methodenaufrufs.
+        PlayerMock player = enterWarrior();
+        double before = plugin.statEngine().resources(player.getUniqueId()).currentMana();
+        assertThat(before).as("ein Charakter startet mit Mana").isGreaterThan(0.0);
+
+        ItemStack ability = firstAbilityItem(player);
+        assertThat(ability).as("die Hotbar wurde beim Eintritt belegt (FR-055)").isNotNull();
+
+        PlayerInteractEvent click =
+                new PlayerInteractEvent(
+                        player,
+                        Action.RIGHT_CLICK_AIR,
+                        ability,
+                        // KEIN Block - das ist der Punkt. Genau dieser Fall kam nie an.
+                        null,
+                        BlockFace.SELF,
+                        EquipmentSlot.HAND);
+        assertThat(click.isCancelled())
+                .as("Bukkit hält einen Luftklick von Anfang an für abgebrochen - hier bewiesen, "
+                        + "nicht behauptet")
+                .isTrue();
+
+        server.getPluginManager().callEvent(click);
+
+        assertThat(plugin.statEngine().resources(player.getUniqueId()).currentMana())
+                .as("der Klick hat gekostet - er ist also angekommen")
+                .isLessThan(before);
+        assertThat(player.nextMessage())
+                .as("und wurde nicht abgelehnt - eine Ablehnung würde einen Text schicken")
+                .isNull();
+    }
+
+    @Test
+    void aWoundedCharacterHealsWithoutDoingAnything() {
+        // Die zweite Hälfte desselben Fehlers. Die Regeneration ritt auf dem richtigen Sweep, bekam
+        // aber Charakter-Ids, warf bei jedem Charakter und wurde stumm geschluckt - ein Sweep, der
+        // sauber lief und nichts tat.
+        PlayerMock player = enterWarrior();
+        rpg.core.ability.ResourceRegeneration regeneration =
+                plugin.abilityRegeneration();
+        UUID characterId =
+                plugin.statEngine().characterIdOf(player.getUniqueId()).orElseThrow();
+
+        plugin.statEngine().changeHealth(player.getUniqueId(), -100.0);
+        double wounded = plugin.statEngine().resources(player.getUniqueId()).currentHealth();
+
+        // Zweimal: der erste Aufruf lernt den Charakter kennen (Erstkontakt schreibt nur den
+        // Zeitstempel), der zweite rechnet die verstrichene Zeit gut.
+        regeneration.settleAll(java.util.List.of(characterId));
+        regeneration.settleAll(java.util.List.of(characterId));
+
+        assertThat(plugin.statEngine().resources(player.getUniqueId()).currentHealth())
+                .as("ohne einen einzigen Klick")
+                .isGreaterThan(wounded);
+    }
+
+    /** Ein Spieler mit einem Berserker im Spiel - der Weg, den B03 auch im Betrieb geht. */
+    private PlayerMock enterWarrior() {
+        PlayerMock player = server.addPlayer();
+        UUID playerId = player.getUniqueId();
+        // Der Beitritt selbst hat die Sitzung schon geoeffnet - B03 erlaubt genau einen Join-Handler
+        // und der laeuft hier echt mit. Ein zweites beginLoad waere eine DuplicateSessionException,
+        // und zwar zu Recht.
+        rpg.core.session.SessionRegistry sessions =
+                plugin.registry().getService(rpg.core.session.SessionRegistry.class);
+        if (sessions.find(playerId).isEmpty()) {
+            plugin.sessionLifecycle().beginLoad(playerId, java.time.Duration.ofSeconds(5)).join();
+            // Nur dann: eine Sitzung, die der Beitritt geoeffnet hat, ist bereits READY, und
+            // READY -> READY ist ein verbotener Uebergang - zu Recht, sonst liesse sich ein
+            // Ladevorgang unbemerkt zweimal abschliessen.
+            plugin.sessionLifecycle().markReady(playerId);
+        }
+        // Der ECHTE Eintritt, nicht nur die Aktivierung: er belegt auch die Hotbar, und genau die
+        // Kette vom Gegenstand bis zum Mana ist hier der Prüfgegenstand.
+        assertThat(
+                        plugin.enterCharacter(
+                                player,
+                                rpg.core.session.PlayerCharacter.create(
+                                        playerId,
+                                        rpg.core.session.CharacterClass.WARRIOR,
+                                        java.time.Instant.now())))
+                .as("der Charakter ist im Spiel")
+                .isTrue();
+        return player;
+    }
+
+    /** Der erste belegte Fähigkeitsslot - Slot 0 gehört der Waffe aus B07. */
+    private static ItemStack firstAbilityItem(PlayerMock player) {
+        for (int slot = 1; slot < 9; slot++) {
+            ItemStack item = player.getInventory().getItem(slot);
+            if (rpg.platform.ability.AbilityItemTag.isAbilityItem(item)) {
+                return item;
+            }
+        }
+        return null;
     }
 
     // --- fixtures ---

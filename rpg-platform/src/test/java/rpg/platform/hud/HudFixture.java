@@ -32,8 +32,37 @@ final class HudFixture {
 
         private final Map<UUID, Status> byHolder = new HashMap<>();
 
+        /**
+         * A holder without mana - a mob.
+         *
+         * <p>Kept as the short form because most tests here are about health and defence, and a
+         * maximum of zero is what the readout uses to leave the mana part out.
+         */
         void give(UUID holderId, double health, double maxHealth, double defense) {
-            byHolder.put(holderId, new Status(health, maxHealth, defense));
+            byHolder.put(holderId, new Status(health, maxHealth, 0.0, 0.0, defense));
+        }
+
+        /** A player: health, mana and defence. */
+        void give(
+                UUID holderId,
+                double health,
+                double maxHealth,
+                double mana,
+                double maxMana,
+                double defense) {
+            byHolder.put(holderId, new Status(health, maxHealth, mana, maxMana, defense));
+        }
+
+        /** Ein Spieler MIT Zaehler - heute nur der Berserker. */
+        void giveWithMeter(
+                UUID holderId,
+                double health,
+                double maxHealth,
+                double mana,
+                double maxMana,
+                double defense,
+                double meter) {
+            byHolder.put(holderId, new Status(health, maxHealth, mana, maxMana, defense, meter));
         }
 
         @Override
@@ -115,11 +144,13 @@ final class HudFixture {
         }
         texts.put(
                 CombatMessageKeys.STATUS_ACTION_BAR.value(),
+                "{health}/{max} HP ({percent}%) {mana}/{maxMana} MP DEF {defense}");
+        texts.put(
+                CombatMessageKeys.STATUS_ACTION_BAR_NO_MANA.value(),
                 "{health}/{max} HP ({percent}%) DEF {defense}");
         texts.put(
-                CombatMessageKeys.TARGET_REPORT.value(),
-                "{target} {health}/{max} ({percent}%) DEF {defense} -{damage}");
-        texts.put(CombatMessageKeys.TARGET_SLAIN.value(), "{target} slain -{damage}");
+                CombatMessageKeys.STATUS_ACTION_BAR_WITH_METER.value(),
+                "{health}/{max} HP ({percent}%) {mana}/{maxMana} MP DEF {defense} RAGE {meter}");
         return new MapMessages(texts);
     }
 }

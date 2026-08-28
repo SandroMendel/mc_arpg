@@ -4,7 +4,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * The three numbers a readout needs about a holder.
+ * The numbers a readout needs about a holder.
  *
  * <p>A reading, not the engine. B04's {@code StatEngine} has twenty-one methods, twenty of which a
  * status line has no business calling - and a display that could {@code apply} a modifier or remove a
@@ -22,10 +22,35 @@ public interface CombatStatusSource {
     /**
      * @param health what is left
      * @param maxHealth what it is measured against, from the same calculation round
+     * @param mana what is left of it
+     * @param maxMana what that is measured against, from the same calculation round
      * @param defense the mitigation attribute, shown as a number rather than a percentage because it
      *     is the value a player compares between two pieces of equipment
      */
-    record Status(double health, double maxHealth, double defense) {
+    record Status(
+            double health,
+            double maxHealth,
+            double mana,
+            double maxMana,
+            double defense,
+            double meter) {
+
+        /** Ohne Zaehler - Mobs, Magier und Rogues. */
+        public Status(
+                double health, double maxHealth, double mana, double maxMana, double defense) {
+            this(health, maxHealth, mana, maxMana, defense, 0.0);
+        }
+
+        /**
+         * Ob dieser Traeger einen Zaehler hat.
+         *
+         * <p>Nicht "ist ein Warrior": das steht nirgends im Code. Er hat einen, wenn eine seiner
+         * Faehigkeiten einen METER-Effekt traegt - heute die Raserei, morgen vielleicht etwas
+         * anderes, ohne dass diese Zeile sich aendert.
+         */
+        public boolean hasMeter() {
+            return meter > 0.0;
+        }
 
         /** In {@code [0, 1]}; zero for a maximum of zero, which no live holder has. */
         public double fraction() {
@@ -35,6 +60,16 @@ public interface CombatStatusSource {
         /** Rounded, because a tenth of a hit point is noise at this scale. */
         public int percent() {
             return (int) Math.round(fraction() * 100.0);
+        }
+
+        /**
+         * A mob has no mana worth showing.
+         *
+         * <p>Its maximum is zero, and the readout leaves the mana part out rather than printing
+         * {@code 0/0} - a number that says nothing takes space from three that say something.
+         */
+        public boolean hasMana() {
+            return maxMana > 0.0;
         }
     }
 }
