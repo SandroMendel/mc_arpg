@@ -79,7 +79,12 @@ class FullBootstrapTest {
         // B02's tables and B03's, in one schema, applied by the plugin itself rather than by a test.
         assertThat(PostgresContainer.tableExists("player_state")).isTrue();
         assertThat(PostgresContainer.tableExists("character")).isTrue();
-        assertThat(PostgresContainer.tableExists("item_instance")).isTrue();
+        // Und der Rueckbau lief beim echten Start mit: item_instance ist mit V11_1 weg (ADR-039).
+        // Die Zusicherung wird umgedreht statt geloescht - sie beweist jetzt, dass eine
+        // RUECKBAUENDE Migration im Bootstrap genauso greift wie eine aufbauende, und das war
+        // vorher an keiner Stelle gezeigt.
+        assertThat(PostgresContainer.tableExists("item_instance")).isFalse();
+        assertThat(PostgresContainer.tableExists("character_inventory")).isTrue();
     }
 
     @Test

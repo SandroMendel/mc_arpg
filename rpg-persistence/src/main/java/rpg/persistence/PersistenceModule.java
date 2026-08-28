@@ -12,7 +12,6 @@ import rpg.core.module.Module;
 import rpg.core.module.ModuleContext;
 import rpg.core.persistence.AggregateType;
 import rpg.core.persistence.AuditLogRepository;
-import rpg.core.persistence.ItemInstanceRepository;
 import rpg.core.persistence.PersistenceConfig;
 import rpg.core.persistence.PersistenceStartupException;
 import rpg.core.persistence.PlayerStateRepository;
@@ -20,7 +19,6 @@ import rpg.core.persistence.StatisticsRepository;
 import rpg.core.persistence.WriteBehindBuffer;
 import rpg.core.persistence.WriteBehindCoordinator;
 import rpg.persistence.jdbc.JdbcAuditLogRepository;
-import rpg.persistence.jdbc.JdbcItemInstanceRepository;
 import rpg.persistence.jdbc.JdbcPlayerStateRepository;
 import rpg.persistence.jdbc.JdbcStatisticsRepository;
 
@@ -60,7 +58,6 @@ public final class PersistenceModule implements Module {
     private FlushCycle flushCycle;
     private OutageState outageState;
     private JdbcPlayerStateRepository playerStates;
-    private JdbcItemInstanceRepository itemInstances;
     private JdbcStatisticsRepository statistics;
     private JdbcAuditLogRepository auditLog;
     private SessionHandover sessionHandover;
@@ -109,15 +106,12 @@ public final class PersistenceModule implements Module {
         playerStates =
                 new JdbcPlayerStateRepository(
                         pools.loginPool(), context.scheduler(), flushCycle, logger, clock);
-        itemInstances =
-                new JdbcItemInstanceRepository(pools.loginPool(), context.scheduler(), flushCycle);
         statistics =
                 new JdbcStatisticsRepository(
                         pools.loginPool(), context.scheduler(), flushCycle, clock);
         auditLog = new JdbcAuditLogRepository(pools.loginPool(), context.scheduler(), flushCycle);
 
         flushCycle.register(AggregateType.PLAYER_STATE, playerStates);
-        flushCycle.register(AggregateType.ITEM_INSTANCE, itemInstances);
         flushCycle.register(AggregateType.STATISTICS, statistics);
         flushCycle.register(AggregateType.AUDIT_LOG, auditLog);
 
@@ -127,7 +121,6 @@ public final class PersistenceModule implements Module {
 
         // Published through the registry so other blocks reach them by interface only (FR-015).
         context.registry().registerService(ID, PlayerStateRepository.class, playerStates);
-        context.registry().registerService(ID, ItemInstanceRepository.class, itemInstances);
         context.registry().registerService(ID, StatisticsRepository.class, statistics);
         context.registry().registerService(ID, AuditLogRepository.class, auditLog);
         context.registry().registerService(ID, WriteBehindCoordinator.class, flushCycle);

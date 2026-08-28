@@ -139,7 +139,7 @@ CombatDeathEvent
 
 ## 3 · Persistenz (zwei neue Aggregate, eines fällt weg)
 
-### `character_gear_condition` — neu (`V11_1`)
+### `character_gear_condition` — neu (`V11_2`)
 
 | Spalte | Typ | |
 |---|---|---|
@@ -153,7 +153,7 @@ CombatDeathEvent
 Zwei Werte, getrennt nach `LadderSlot.ARMOR` und `WEAPON` (FR-039). `ON DELETE CASCADE`: ein
 gelöschter Charakter nimmt seinen Zustand mit.
 
-### `character_cosmetic` — neu (`V11_2`)
+### `character_cosmetic` — neu (`V11_3`)
 
 | Spalte | Typ | |
 |---|---|---|
@@ -169,7 +169,7 @@ Primärschlüssel `(character_id, template_key)`. Ein partieller `UNIQUE`-Index 
 Aussehen fällt auf die Stufe zurück (FR-066). Deshalb keine Fremdschlüsselprüfung gegen die
 Konfiguration.
 
-### `item_instance` — **fällt weg** (`V11_3`)
+### `item_instance` — **fällt weg** (`V11_1`)
 
 Rückbau nach research.md R2. Betroffen sind die Tabelle, `ItemInstance`,
 `ItemInstanceRepository`, `JdbcItemInstanceRepository` und das Feld `items` in `SessionBundle`.

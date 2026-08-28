@@ -2073,3 +2073,28 @@ keine Kontoführung, keine zweite Lagerung, kein zweiter Kaufmechanismus. Was bl
 als Datenobjekt, zwei Kategorien, die Beute, die NPCs und der Verschleiß. Die Spec schreibt diese
 Abgrenzung als prüfbare Anforderung fest (FR-079 bis FR-081), weil bei einem verkleinerten Block das
 versehentliche Nachbauen vorhandener Nähte der wahrscheinlichste Fehler ist.
+
+### Nachtrag aus der Umsetzung: was der Rückbau nebenbei gefunden hat
+
+**Der Rückbau von `item_instance` (V11_1) hat eine Falle in `StateVersionMigrator` freigelegt.** Die
+Methode `migrate` baute den `SessionBundle` mit einem kurzen Bequemlichkeitskonstruktor neu und ließ
+dabei **classProgress, inventories, abilities, balances und zoneStates** fallen — sie wurden zu
+`List.of()`.
+
+**Ausgelöst hat das nie etwas, und genau das ist das Unangenehme daran.** Solange
+`CURRENT_DATA_VERSION` auf 1 steht, kann kein Datensatz migrationsbedürftig sein: der Zweig ist
+unerreichbar, und `migrate` gibt den Bundle über einen Früh-Rückgabepfad unverändert zurück. Es war
+also kein Fehler im Betrieb, sondern **eine Falle für den Tag, an dem Version 2 eingeführt wird** —
+und an dem Tag hätte ein Spieler mit altem Datensatz seine Ausrüstungsstufe, sein Inventar, seine
+Fähigkeiten, seine Coins und seinen Zonenzustand für die ganze Sitzung als leer gesehen, weil
+`DefaultSessionLifecycle` den migrierten Bundle behält (`loaded.put`) und an jedes
+`SessionAttachment` reicht. Gesucht hätte man den Fehler in der Migration.
+
+**Die Lehre ist allgemein und wird als Test festgehalten:** ein von Hand zusammengesetzter Record
+verliert stillschweigend, was ein späterer Block hinzufügt. `StateVersionMigratorTest` liest den
+Quelltext und prüft, dass der Konstruktoraufruf **jede** Record-Komponente von `SessionBundle`
+nennt — die einzige Art, einen toten Zweig richtig zu halten.
+
+**Aufgefallen ist es nur, weil der Rückbau diese Zeile ohnehin anfassen musste.** Das ist das zweite
+Mal in diesem Projekt, dass eine Aufräumarbeit einen Fehler findet, den kein Test gesucht hätte —
+beim ersten Mal war es der Klassenlader (B08b/T132).

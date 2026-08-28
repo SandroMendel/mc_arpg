@@ -54,7 +54,7 @@ class WriteBehindBufferCoalescingTest {
         String id = UUID.randomUUID().toString();
 
         buffer.mark(AggregateType.PLAYER_STATE, id);
-        buffer.mark(AggregateType.ITEM_INSTANCE, id);
+        buffer.mark(AggregateType.CHARACTER_INVENTORY, id);
 
         assertThat(buffer.pending()).isEqualTo(2);
     }

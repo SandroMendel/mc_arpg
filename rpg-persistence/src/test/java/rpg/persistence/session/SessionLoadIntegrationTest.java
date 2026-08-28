@@ -22,7 +22,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import rpg.core.persistence.FlushReason;
-import rpg.core.persistence.ItemInstance;
 import rpg.core.persistence.PersistenceException;
 import rpg.core.persistence.PlayerState;
 import rpg.core.session.CharacterClass;
@@ -65,7 +64,7 @@ class SessionLoadIntegrationTest {
 
     @Test
     void loadingAWholeSessionTakesExactlyOneConnection() throws Exception {
-        UUID playerId = storedPlayerWithCharacterAndItems();
+        UUID playerId = storedPlayerWithCharacter();
         CountingDataSource counting = new CountingDataSource(harness.pools.loginPool());
         SessionBundleLoader loader =
                 new SessionBundleLoader(
@@ -75,7 +74,6 @@ class SessionLoadIntegrationTest {
 
         assertThat(counting.checkOuts()).isEqualTo(1);
         assertThat(bundle.characters()).hasSize(1);
-        assertThat(bundle.items()).hasSize(2);
         assertThat(bundle.accountState()).isPresent();
     }
 
@@ -90,7 +88,6 @@ class SessionLoadIntegrationTest {
 
         assertThat(bundle.isNewAccount()).isTrue();
         assertThat(bundle.characters()).isEmpty();
-        assertThat(bundle.items()).isEmpty();
         assertThat(counting.checkOuts()).isEqualTo(1);
     }
 
@@ -158,15 +155,11 @@ class SessionLoadIntegrationTest {
     }
 
     @Test
-    void theBundleCarriesEveryCharacterOfTheAccountAndTheirItems() throws Exception {
+    void theBundleCarriesEveryCharacterOfTheAccount() throws Exception {
         UUID playerId = UUID.randomUUID();
         storeAccount(playerId);
         PlayerCharacter warrior = harness.characters.create(playerId, CharacterClass.WARRIOR).get();
         PlayerCharacter mage = harness.characters.create(playerId, CharacterClass.MAGE).get();
-        harness.itemInstances.create(
-                new ItemInstance(UUID.randomUUID(), warrior.characterId(), "sword.iron", Map.of(), 0L));
-        harness.itemInstances.create(
-                new ItemInstance(UUID.randomUUID(), mage.characterId(), "staff.ash", Map.of(), 0L));
         harness.flushCycle.flushNow(FlushReason.INTERVAL).get();
 
         SessionBundle bundle =
@@ -179,10 +172,12 @@ class SessionLoadIntegrationTest {
                         .load(playerId);
 
         assertThat(bundle.characters()).hasSize(2);
-        assertThat(bundle.items()).hasSize(2);
-        // The bundle keeps ownership visible; it does not merge the two inventories (ADR-011).
-        assertThat(bundle.items())
-                .extracting(ItemInstance::ownerCharacterId)
+        // Der Bundle haelt die Charaktere getrennt und fuehrt sie nicht zusammen (ADR-011). Hier
+        // stand zusaetzlich eine Zusicherung ueber bundle.items(); die Liste ist mit ADR-039
+        // weggefallen (V11_1), und dieselbe Eigentumszusage haelt jetzt
+        // CharacterInventoryPersistenceTest an der Stelle, an der ein Gegenstand wirklich liegt.
+        assertThat(bundle.characters())
+                .extracting(PlayerCharacter::characterId)
                 .containsExactlyInAnyOrder(warrior.characterId(), mage.characterId());
     }
 
@@ -254,7 +249,7 @@ class SessionLoadIntegrationTest {
 
     @Test
     void aRefusedLoginLeavesTheStoredRevisionUntouched() throws Exception {
-        UUID playerId = storedPlayerWithCharacterAndItems();
+        UUID playerId = storedPlayerWithCharacter();
         long revisionBefore = storedRevision(playerId);
         List<PlayerCharacter> before = harness.characters.findByPlayer(playerId).get();
 
@@ -277,17 +272,18 @@ class SessionLoadIntegrationTest {
 
     // --- fixtures ---
 
-    private UUID storedPlayerWithCharacterAndItems() throws Exception {
+    /**
+     * Ein Konto mit einem gespeicherten Charakter.
+     *
+     * <p>Hieß einmal {@code storedPlayerWithCharacterAndItems} und legte zwei
+     * {@code item_instance}-Zeilen an. Die Tabelle ist mit ADR-039 zurückgebaut (V11_1); ein
+     * B11-Item liegt im Inventar-Blob und nicht in einer eigenen Zeile. Was die Tests hier prüfen —
+     * eine Anmeldung, eine Verbindung, ein Datensatz — hing nie an den Items.
+     */
+    private UUID storedPlayerWithCharacter() throws Exception {
         UUID playerId = UUID.randomUUID();
         storeAccount(playerId);
-        PlayerCharacter character =
-                harness.characters.create(playerId, CharacterClass.WARRIOR).get();
-        harness.itemInstances.create(
-                new ItemInstance(
-                        UUID.randomUUID(), character.characterId(), "sword.iron", Map.of(), 0L));
-        harness.itemInstances.create(
-                new ItemInstance(
-                        UUID.randomUUID(), character.characterId(), "potion.health", Map.of(), 0L));
+        harness.characters.create(playerId, CharacterClass.WARRIOR).get();
         harness.flushCycle.flushNow(FlushReason.INTERVAL).get();
         return playerId;
     }

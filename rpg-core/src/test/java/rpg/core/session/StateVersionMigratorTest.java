@@ -158,6 +158,46 @@ class StateVersionMigratorTest {
         return PlayerCharacter.create(UUID.randomUUID(), CharacterClass.WARRIOR, NOW);
     }
 
+    @org.junit.jupiter.api.DisplayName(
+            "der Migrator reicht JEDES Feld des Bundles durch - auch die, die es noch nicht gibt")
+    @Test
+    void theMigratorCarriesEveryComponentThrough() throws Exception {
+        // Warum das eine Quelltextpruefung ist und kein gewoehnlicher Test: solange
+        // CURRENT_DATA_VERSION auf 1 steht, kann kein Datensatz migrationsbeduerftig sein - der
+        // Zweig, der den Bundle neu baut, ist unerreichbar (siehe Klassenkommentar oben). Er laesst
+        // sich also nicht ausfuehren, aber sehr wohl lesen.
+        //
+        // Bis ADR-039 baute er den Bundle mit dem kurzen Konstruktor und liess classProgress,
+        // inventories, abilities, balances und zoneStates fallen. Das war folgenlos, solange der
+        // Zweig tot ist - und waere am Tag der Version 2 ein Spieler ohne Ausruestungsstufe,
+        // Inventar, Faehigkeiten und Coins gewesen, gesucht in der Migration.
+        //
+        // Diese Pruefung ist die einzige, die den toten Zweig richtig haelt.
+        java.nio.file.Path source =
+                java.nio.file.Path.of(
+                        "src", "main", "java", "rpg", "core", "session", "StateVersionMigrator.java");
+        String code = java.nio.file.Files.readString(source);
+        String constructorCall = code.substring(code.indexOf("return new SessionBundle("));
+
+        List<String> missing = new java.util.ArrayList<>();
+        for (java.lang.reflect.RecordComponent component :
+                SessionBundle.class.getRecordComponents()) {
+            String name = component.getName();
+            if (name.equals("characters")) {
+                continue; // wird absichtlich durch die migrierte Liste ersetzt
+            }
+            if (!constructorCall.contains("bundle." + name + "()")) {
+                missing.add(name);
+            }
+        }
+
+        assertThat(missing)
+                .as(
+                        "diese Felder fielen beim Migrieren auf List.of() zurueck - unsichtbar, bis"
+                                + " jemand Version 2 einfuehrt")
+                .isEmpty();
+    }
+
     private static PlayerCharacter withVersion(int dataVersion) {
         UUID playerId = UUID.randomUUID();
         return new PlayerCharacter(

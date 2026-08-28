@@ -12,8 +12,10 @@ public enum AggregateType {
     PLAYER_STATE,
     /** One metric for one player on one calendar day (FR-016a). */
     STATISTICS,
-    /** One concrete item instance owned by a player. */
-    ITEM_INSTANCE,
+    // ITEM_INSTANCE stand hier bis ADR-039. Die Tabelle wurde bei jedem Sitzungsstart geladen und
+    // nie geschrieben; B11 fuehrt ein Item im PersistentDataContainer innerhalb von
+    // CHARACTER_INVENTORY, nicht in einer eigenen Zeile (research.md R2, V11_1). Ein Aggregattyp
+    // ohne Schreiber ist eine Einladung an den naechsten Block, eine zweite Wahrheit anzulegen.
     /** One administrative action; append-only. */
     AUDIT_LOG,
     /** One character of an account, bound to a class (B03). */
@@ -54,8 +56,11 @@ public enum AggregateType {
      * to any one of them. With nowhere to keep it, the only consistent behaviour was to empty it on
      * every entry - which threw away whatever had been farmed.
      *
-     * <p>Distinct from {@link #ITEM_INSTANCE}, which is B11's model for RPG items with a template and
-     * rolled values. This is the raw contents, vanilla loot included, and B11 may well replace it.
+     * <p><b>Und B11 hat es nicht ersetzt, sondern uebernommen.</b> Hier stand einmal, dieser Typ sei
+     * "distinct from ITEM_INSTANCE, which is B11's model for RPG items with a template and rolled
+     * values". Beides ist ueberholt: die Roll-Werte sind mit ADR-027 entfallen, und die zweite
+     * Tabelle mit ADR-039 - ein B11-Item traegt seine Vorlagen-ID im PersistentDataContainer und
+     * liegt damit in genau diesem Blob. Es gibt nur noch eine Haltung fuer Gegenstaende.
      *
      * <p>Registration 1 of 3 (ADR-015), as above.
      */

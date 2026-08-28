@@ -152,9 +152,9 @@ rpg-platform/src/main/java/rpg/platform/item/  # neu
 └── InventoryFullWarning.java
 
 rpg-persistence/src/main/resources/db/migration/
-├── V11_1__character_gear_condition.sql
-├── V11_2__character_cosmetic.sql
-└── V11_3__drop_item_instance.sql              # der Rückbau (R2)
+├── V11_2__character_gear_condition.sql
+├── V11_3__character_cosmetic.sql
+└── V11_1__drop_item_instance.sql              # der Rückbau (R2)
 
 rpg-plugin/src/main/resources/items.yml        # neu
 ```

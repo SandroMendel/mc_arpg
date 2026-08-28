@@ -86,7 +86,6 @@ public final class FlushCycle implements WriteBehindCoordinator {
                     // (ADR-015). The other two are the AggregateType constant and the repository
                     // wired in ZonePersistenceModule.
                     AggregateType.CHARACTER_ZONE_STATE,
-                    AggregateType.ITEM_INSTANCE,
                     AggregateType.STATISTICS,
                     AggregateType.AUDIT_LOG);
 

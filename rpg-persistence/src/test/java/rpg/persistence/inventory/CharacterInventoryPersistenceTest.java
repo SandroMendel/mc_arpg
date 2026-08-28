@@ -161,6 +161,45 @@ class CharacterInventoryPersistenceTest {
     // --- fixtures ---
 
     /** Ein Charakter in der Datenbank - der Fremdschlüssel verlangt ihn. */
+    @Test
+    @DisplayName("ADR-011 - was ein Charakter traegt, traegt der andere desselben Kontos nicht")
+    void oneCharactersInventoryIsNotTheOthersEvenOnTheSameAccount() throws Exception {
+        // Uebernommen aus ItemOwnershipTest, das mit item_instance weggefallen ist (ADR-039,
+        // V11_1). Die TABELLE ist zurueckgebaut worden, die ZUSAGE nicht: ein Gegenstand gehoert
+        // dem Charakter und nicht dem Konto - ein Schwert des Kriegers taucht im Inventar des
+        // Magiers nicht auf. Seit B11 haengt sie hier, weil ein Gegenstand im Inventar-Blob lebt
+        // und nirgends sonst.
+        UUID playerId = UUID.randomUUID();
+        harness.playerStates.put(
+                rpg.core.persistence.PlayerState.initial(playerId, Clock.systemUTC().instant()));
+        harness.flushCycle.flushNow(rpg.core.persistence.FlushReason.SESSION_END).join();
+
+        UUID warrior = harness.characters.create(playerId, CharacterClass.WARRIOR).join().characterId();
+        UUID mage = harness.characters.create(playerId, CharacterClass.MAGE).join().characterId();
+
+        byte[] warriorBackpack = "sword.iron".getBytes(StandardCharsets.UTF_8);
+        byte[] mageBackpack = "staff.ash".getBytes(StandardCharsets.UTF_8);
+        repository.setLiveSource(
+                id -> {
+                    if (id.equals(warrior)) {
+                        return Optional.of(CharacterInventory.of(id, warriorBackpack, new byte[0]));
+                    }
+                    if (id.equals(mage)) {
+                        return Optional.of(CharacterInventory.of(id, mageBackpack, new byte[0]));
+                    }
+                    return Optional.empty();
+                });
+        write(warrior);
+        write(mage);
+
+        assertThat(repository.find(warrior).join().orElseThrow().contents())
+                .as("der Krieger traegt sein eigenes")
+                .isEqualTo(warriorBackpack);
+        assertThat(repository.find(mage).join().orElseThrow().contents())
+                .as("und der Magier desselben Kontos traegt seines - nicht das des Kriegers")
+                .isEqualTo(mageBackpack);
+    }
+
     private UUID storedCharacter() {
         UUID playerId = UUID.randomUUID();
         harness.playerStates.put(

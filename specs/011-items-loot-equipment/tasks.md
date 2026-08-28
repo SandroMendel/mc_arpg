@@ -29,7 +29,9 @@ Abnahmebedingung haben.
 - `rpg-core/src/main/java/rpg/core/item/` — Vorlagen, Beute, Verschleiß, Preise, **ohne Bukkit**
 - `rpg-platform/src/main/java/rpg/platform/item/` — hier und nur hier wird Paper angefasst
 - `rpg-platform/src/main/java/rpg/platform/drop/` — **neu, geteilt** zwischen B08b und B11 (R5)
-- `rpg-persistence/src/main/resources/db/migration/` — `V11_1`, `V11_2`, `V11_3`
+- `rpg-persistence/src/main/resources/db/migration/` — `V11_1` (Rückbau), `V11_2` (Zustand),
+  `V11_3` (Kosmetik). **Umnummeriert gegenüber dem Plan:** Flyway läuft hier ohne `outOfOrder`, also
+  müssen die Nummern in der Reihenfolge stehen, in der sie entstehen — und der Rückbau kam zuerst
 - `rpg-plugin/src/main/resources/items.yml` — neu
 - `rpg-plugin/src/main/java/rpg/plugin/RpgPlugin.java` — die Verdrahtung
 - Tests jeweils unter `src/test/java/` desselben Moduls
@@ -122,11 +124,11 @@ Blöcke bleibt unverändert grün.** Wo eine Zusicherung umgedreht werden muss, 
 
 ### Gruppe C · `item_instance` zurückbauen (research.md R2)
 
-- [ ] T046 Migration `V11_3__drop_item_instance.sql` in `rpg-persistence/src/main/resources/db/migration/` — **bricht ab, wenn Zeilen vorhanden sind**, statt sie zu löschen; danach `DROP TABLE rpg.item_instance`. Der Kopfkommentar begründet den Rückbau wie `V3_2` seinerzeit den Umzug: eine Tabelle, die geladen und nie geschrieben wird, ist eine Falle für den nächsten Block
-- [ ] T047 Test `DropItemInstanceMigrationTest` in `rpg-persistence/src/test/java/` — gegen echtes PostgreSQL (Testcontainers, Prinzip VII): leere Tabelle wird entfernt; **eine Tabelle mit einer Zeile bricht die Migration ab**, und die Transaktion rollt zurück
-- [ ] T048 `ItemInstance`, `ItemInstanceRepository` und `JdbcItemInstanceRepository` entfernen — aus `rpg-core/src/main/java/rpg/core/persistence/` und `rpg-persistence/src/main/java/rpg/persistence/jdbc/`
-- [ ] T049 Feld `items` aus `SessionBundle` in `rpg-core/src/main/java/rpg/core/session/SessionBundle.java` entfernen und alle Aufrufer nachziehen — es lädt bei jedem Sitzungsstart eine Liste, die niemand liest
-- [ ] T050 Vollen Testlauf von B02 und B03 fahren — **unverändert grün**; wo ein Test das Feld `items` belegte, wird die Zusicherung **umgedreht statt gelöscht**: der Bundle trägt es nicht mehr
+- [X] T046 Migration `V11_1__drop_item_instance.sql` in `rpg-persistence/src/main/resources/db/migration/` — **bricht ab, wenn Zeilen vorhanden sind**, statt sie zu löschen; danach `DROP TABLE rpg.item_instance`. Der Kopfkommentar begründet den Rückbau wie `V3_2` seinerzeit den Umzug: eine Tabelle, die geladen und nie geschrieben wird, ist eine Falle für den nächsten Block
+- [X] T047 Test `DropItemInstanceMigrationTest` in `rpg-persistence/src/test/java/` — gegen echtes PostgreSQL (Testcontainers, Prinzip VII): leere Tabelle wird entfernt; **eine Tabelle mit einer Zeile bricht die Migration ab**, und die Transaktion rollt zurück
+- [X] T048 `ItemInstance`, `ItemInstanceRepository` und `JdbcItemInstanceRepository` entfernen — aus `rpg-core/src/main/java/rpg/core/persistence/` und `rpg-persistence/src/main/java/rpg/persistence/jdbc/`
+- [X] T049 Feld `items` aus `SessionBundle` in `rpg-core/src/main/java/rpg/core/session/SessionBundle.java` entfernen und alle Aufrufer nachziehen — es lädt bei jedem Sitzungsstart eine Liste, die niemand liest
+- [X] T050 Vollen Testlauf von B02 und B03 fahren — **unverändert grün**; wo ein Test das Feld `items` belegte, wird die Zusicherung **umgedreht statt gelöscht**: der Bundle trägt es nicht mehr
 
 **Checkpoint**: Die Nähte stehen, nichts Fremdes ist kaputt.
 
@@ -242,7 +244,7 @@ existiert.
 - [ ] T099 [US5] Test `ASummonWearsNothingTest` in `rpg-core/src/test/java/rpg/core/item/ASummonWearsNothingTest.java` — ein Klon nutzt weder Waffe noch Rüstung seines Beschwörers ab (FR-041a)
 - [ ] T100 [US5] Test `DeathCostsMoreThanAFightTest` in `rpg-core/src/test/java/rpg/core/item/DeathCostsMoreThanAFightTest.java` — **SC-013**: der Todesbetrag übersteigt den Verschleiß eines ganzen gewöhnlichen Kampfes um ein Vielfaches (FR-043)
 - [ ] T101 [P] [US5] `GearCondition` und `GearConditionRepository` in `rpg-core/src/main/java/rpg/core/item/` — zwei Werte je Charakter, versioniert ([data-model.md](./data-model.md) §3)
-- [ ] T102 [P] [US5] Migration `V11_1__character_gear_condition.sql` — Muster von `V7_1__character_class_progress.sql`, `ON DELETE CASCADE`
+- [ ] T102 [P] [US5] Migration `V11_2__character_gear_condition.sql` — Muster von `V7_1__character_class_progress.sql`, `ON DELETE CASCADE`
 - [ ] T103 [US5] `JdbcGearConditionRepository` in `rpg-persistence/src/main/java/rpg/persistence/jdbc/` — Write-Behind wie überall; **kein Datenbankzugriff je Spielereignis** (Prinzip II)
 - [ ] T104 [US5] Test `JdbcGearConditionRepositoryTest` gegen echtes PostgreSQL (Testcontainers, Prinzip VII) — Schreiben, Lesen, Migration, `ON DELETE CASCADE` beim Löschen eines Charakters
 - [ ] T105 [US5] `GearConditions` als öffentliche Fassade in `rpg-core/src/main/java/rpg/core/item/GearConditions.java` — `conditionOf` und `factorOf` nach [contracts/item-api.md](./contracts/item-api.md) §1
@@ -270,7 +272,7 @@ existiert.
 **Independent Test**: Trimfarbe kaufen und anwenden, ohne dass Beute oder Verbrauchbares existieren.
 
 - [ ] T118 [P] [US6] `CosmeticUnlock` und `CosmeticRepository` in `rpg-core/src/main/java/rpg/core/item/` — Besitz und Anwendung je **Charakter** ([data-model.md](./data-model.md) §3)
-- [ ] T119 [P] [US6] Migration `V11_2__character_cosmetic.sql` — mit **partiellem `UNIQUE`-Index** auf `(character_id) WHERE applied`: FR-071 wird eine Datenbankregel statt einer Absichtserklärung
+- [ ] T119 [P] [US6] Migration `V11_3__character_cosmetic.sql` — mit **partiellem `UNIQUE`-Index** auf `(character_id) WHERE applied`: FR-071 wird eine Datenbankregel statt einer Absichtserklärung
 - [ ] T120 [US6] `JdbcCosmeticRepository` und Test gegen echtes PostgreSQL — der Teilindex weist eine zweite angewandte Farbe **auf Datenbankebene** zurück
 - [ ] T121 [US6] `CosmeticApplication` in `rpg-core/src/main/java/rpg/core/item/CosmeticApplication.java` — **erst auf der Höchststufe anwendbar** (FR-069)
 - [ ] T122 [US6] Test `CosmeticOnlyAtTopTierTest` in `rpg-core/src/test/java/rpg/core/item/CosmeticOnlyAtTopTierTest.java` — unterhalb abgelehnt, **der Besitz bleibt trotzdem**; Javadoc und Test nennen den Grund: sonst sähen Schurkenstufe 4 und 6 gleich aus (B07s FR-016, ADR-039)

@@ -16,7 +16,6 @@ import org.junit.jupiter.api.Test;
 
 import rpg.core.persistence.AuditEntry;
 import rpg.core.persistence.FlushReason;
-import rpg.core.persistence.ItemInstance;
 import rpg.core.persistence.PlayerState;
 import rpg.persistence.support.PersistenceHarness;
 import rpg.persistence.support.PostgresContainer;
@@ -45,12 +44,16 @@ class AnonymizationTest {
         harness.playerStates.put(PlayerState.initial(playerId, Instant.now()));
         harness.flushCycle.flushNow(FlushReason.INTERVAL).get();
 
-        // The item hangs off a character since ADR-011, which adds a level anonymisation has to
-        // reach through. That is exactly why it is set up here rather than avoided.
+        // Ein Charakter haengt zwischen Konto und allem, was ihm gehoert (ADR-011) - eine Ebene,
+        // durch die die Anonymisierung hindurchreichen muss. Genau deshalb wird er hier angelegt
+        // und nicht vermieden.
+        //
+        // Hier stand zusaetzlich ein item_instance-Eintrag als Beispiel fuer eine Kindzeile. Die
+        // Tabelle ist mit ADR-039 zurueckgebaut (V11_1); die Ebene, um die es geht, ist der
+        // Charakter selbst, und der steht unveraendert. Der erste Test unten sieht ohnehin JEDE
+        // Tabelle durch - er passt sich also von allein an, was es gerade gibt.
         UUID characterId = insertCharacter(playerId);
         harness.statistics.increment(playerId, METRIC, 25);
-        harness.itemInstances.create(
-                new ItemInstance(UUID.randomUUID(), characterId, "sword.iron", Map.of(), 0L));
         harness.auditLog.append(
                 new AuditEntry(
                         Instant.now(),
@@ -162,12 +165,14 @@ class AnonymizationTest {
                         id,
                         true);
         total += count("SELECT count(*) FROM rpg.character WHERE player_id = ?", id, true);
-        // Items reach the account only through their character (ADR-011), which is the level an
-        // anonymisation written before B03 would have walked straight past.
+        // Was ein Charakter besitzt, erreicht das Konto nur ueber ihn (ADR-011) - die Ebene, an der
+        // eine vor B03 geschriebene Anonymisierung vorbeigelaufen waere. Die Abfrage ging bis
+        // ADR-039 ueber rpg.item_instance; seit V11_1 gibt es die Tabelle nicht mehr, und ein
+        // Gegenstand liegt im Inventar-Blob. Die geprueffte Ebene ist dieselbe geblieben.
         total +=
                 count(
-                        "SELECT count(*) FROM rpg.item_instance i"
-                                + " JOIN rpg.character c ON c.character_id = i.owner_character_id"
+                        "SELECT count(*) FROM rpg.character_inventory ci"
+                                + " JOIN rpg.character c ON c.character_id = ci.character_id"
                                 + " WHERE c.player_id = ?",
                         id,
                         true);

@@ -9,7 +9,6 @@ import rpg.core.ability.AbilityState;
 import rpg.core.classes.ClassProgress;
 import rpg.core.currency.CharacterBalance;
 import rpg.core.inventory.CharacterInventory;
-import rpg.core.persistence.ItemInstance;
 import rpg.core.persistence.PlayerState;
 import rpg.core.progression.CharacterProgress;
 import rpg.core.stats.CharacterResources;
@@ -25,7 +24,6 @@ import rpg.core.zone.ZoneCharacterState;
  * @param playerId the account
  * @param accountState the stored account record, empty for a first-time player
  * @param characters every character of the account, at most one per class
- * @param items the items belonging to those characters
  * @param resources stored health and mana per character (B04)
  * @param progress stored level and experience per character (B06)
  * @param classProgress reached armour and weapon tier per character (B07)
@@ -37,7 +35,6 @@ public record SessionBundle(
         UUID playerId,
         Optional<PlayerState> accountState,
         List<PlayerCharacter> characters,
-        List<ItemInstance> items,
         List<CharacterResources> resources,
         List<CharacterProgress> progress,
         List<ClassProgress> classProgress,
@@ -50,7 +47,6 @@ public record SessionBundle(
         Objects.requireNonNull(playerId, "playerId");
         Objects.requireNonNull(accountState, "accountState");
         characters = List.copyOf(Objects.requireNonNull(characters, "characters"));
-        items = List.copyOf(Objects.requireNonNull(items, "items"));
         resources = List.copyOf(Objects.requireNonNull(resources, "resources"));
         progress = List.copyOf(Objects.requireNonNull(progress, "progress"));
         classProgress = List.copyOf(Objects.requireNonNull(classProgress, "classProgress"));
@@ -65,7 +61,6 @@ public record SessionBundle(
             UUID playerId,
             Optional<PlayerState> accountState,
             List<PlayerCharacter> characters,
-            List<ItemInstance> items,
             List<CharacterResources> resources,
             List<CharacterProgress> progress,
             List<ClassProgress> classProgress,
@@ -76,7 +71,6 @@ public record SessionBundle(
                 playerId,
                 accountState,
                 characters,
-                items,
                 resources,
                 progress,
                 classProgress,
@@ -96,7 +90,6 @@ public record SessionBundle(
             UUID playerId,
             Optional<PlayerState> accountState,
             List<PlayerCharacter> characters,
-            List<ItemInstance> items,
             List<CharacterResources> resources,
             List<CharacterProgress> progress,
             List<ClassProgress> classProgress,
@@ -106,7 +99,6 @@ public record SessionBundle(
                 playerId,
                 accountState,
                 characters,
-                items,
                 resources,
                 progress,
                 classProgress,
@@ -157,7 +149,6 @@ public record SessionBundle(
             UUID playerId,
             Optional<PlayerState> accountState,
             List<PlayerCharacter> characters,
-            List<ItemInstance> items,
             List<CharacterResources> resources,
             List<CharacterProgress> progress,
             List<ClassProgress> classProgress,
@@ -166,7 +157,6 @@ public record SessionBundle(
                 playerId,
                 accountState,
                 characters,
-                items,
                 resources,
                 progress,
                 classProgress,
@@ -179,11 +169,10 @@ public record SessionBundle(
             UUID playerId,
             Optional<PlayerState> accountState,
             List<PlayerCharacter> characters,
-            List<ItemInstance> items,
             List<CharacterResources> resources,
             List<CharacterProgress> progress,
             List<ClassProgress> classProgress) {
-        this(playerId, accountState, characters, items, resources, progress, classProgress, List.of());
+        this(playerId, accountState, characters, resources, progress, classProgress, List.of());
     }
 
     /** The stored contents of one character, or empty if it has never stored any. */
@@ -222,10 +211,9 @@ public record SessionBundle(
             UUID playerId,
             Optional<PlayerState> accountState,
             List<PlayerCharacter> characters,
-            List<ItemInstance> items,
             List<CharacterResources> resources,
             List<CharacterProgress> progress) {
-        this(playerId, accountState, characters, items, resources, progress, List.of());
+        this(playerId, accountState, characters, resources, progress, List.of());
     }
 
     /** A player connecting for the very first time: no record, no characters, no items. */
@@ -246,9 +234,15 @@ public record SessionBundle(
      * <p>Carried in this bundle rather than loaded separately because FR-019b needs a calculated
      * holder <em>before</em> the player is released, and this load runs in the pre-login event,
      * before a player object even exists. A second load afterwards would put someone into the world
-     * with the wrong health for at least a tick. The bundle already carries {@link ItemInstance},
-     * which belongs to B11, for exactly the same reason: it is the one load path, not B03's private
-     * property.
+     * with the wrong health for at least a tick.
+     *
+     * <p><b>Dieser Absatz nannte einmal {@code ItemInstance} als das Beispiel dafuer, dass der
+     * Bundle nicht B03s Privatbesitz ist.</b> Die Liste ist mit ADR-039 weggefallen: sie wurde bei
+     * jedem Sitzungsstart geladen, und niemand hat sie je gelesen. Ein Gegenstand lebt seit B11 im
+     * PersistentDataContainer innerhalb von {@code inventories} und braucht keine eigene Zeile
+     * (research.md R2, V11_1). Das Argument selbst gilt unveraendert - {@code resources},
+     * {@code progress}, {@code classProgress}, {@code abilities}, {@code balances} und
+     * {@code zoneStates} stehen alle aus diesem Grund hier.
      */
     public Optional<CharacterResources> resourcesOf(UUID characterId) {
         return resources.stream().filter(r -> r.characterId().equals(characterId)).findFirst();
