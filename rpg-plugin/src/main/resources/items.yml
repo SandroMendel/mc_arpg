@@ -15,6 +15,22 @@
 # wird. Das ist der Zweck der ganzen Bauweise (SC-001).
 
 # -------------------------------------------------------------------------------------------
+# Inventar.
+#
+# Nur eine Zahl, und sie gehoert hierher, weil ADR-018 das Fallenlassen abschaltet: ein volles
+# Inventar ist damit ein Zustand, aus dem der Spieler sich aktiv befreien muss - ueber Enderchest,
+# Haendler oder /trash. Die Warnung ist das Einzige, was ihm das sagt.
+#
+# Weglassen ist erlaubt. Fehlt der Abschnitt, gilt eine Viertelminute - dieselbe Zahl, die B07
+# vorher fest im Quelltext hatte.
+# -------------------------------------------------------------------------------------------
+inventory:
+  # Wie lange nach einer Warnung geschwiegen wird (FR-076). Wer auf einem Haufen Beute steht,
+  # loest das Aufsammel-Ereignis mehrmals je Sekunde aus; ohne diese Zahl waere die Warnung eine
+  # Wand aus Titeln, und Prinzip II verboete die Arbeit ohnehin.
+  full-warning-cooldown-ms: 15000
+
+# -------------------------------------------------------------------------------------------
 # Verschleiss.
 #
 # Ausruestung zerbricht NIE. B07 haelt sie unzerstoerbar, ausdruecklich mit der Begruendung, dass

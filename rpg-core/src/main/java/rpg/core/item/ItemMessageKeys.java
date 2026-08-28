@@ -161,6 +161,21 @@ public final class ItemMessageKeys {
     /** Amboss, Zauberpult und Schleifstein sind für gebundene Ausrüstung gesperrt (FR-056). */
     public static final MessageKey REPAIR_ROUTE_LOCKED = MessageKey.of("item.repair.route-locked");
 
+    // --- Der Mülleimer (FR-078) --------------------------------------------------------
+
+    /** Nachgefragt: derselbe Befehl noch einmal vernichtet. */
+    public static final MessageKey TRASH_CONFIRM = MessageKey.of("item.trash.confirm");
+
+    /** Vernichtet. */
+    public static final MessageKey TRASH_DONE = MessageKey.of("item.trash.done");
+
+    /** Die Hand ist leer. */
+    public static final MessageKey TRASH_NOTHING_HELD =
+            MessageKey.of("item.trash.nothing-held");
+
+    /** Klassenausrüstung bleibt am Charakter (FR-063, ADR-018). */
+    public static final MessageKey TRASH_BOUND = MessageKey.of("item.trash.bound");
+
     /**
      * Die Schlüssel, die nicht an einer Vorlage hängen.
      *
@@ -192,7 +207,11 @@ public final class ItemMessageKeys {
                     REPAIR_ROUTE_LOCKED,
                     COSMETIC_APPLIED,
                     COSMETIC_NOT_TOP_TIER,
-                    COSMETIC_ALREADY_WORN);
+                    COSMETIC_ALREADY_WORN,
+                    TRASH_CONFIRM,
+                    TRASH_DONE,
+                    TRASH_NOTHING_HELD,
+                    TRASH_BOUND);
 
     /**
      * Jeder Schlüssel, den dieser Block ausgeben kann — für die Auflösungsprüfung beim Start.

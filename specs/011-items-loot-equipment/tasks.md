@@ -292,13 +292,13 @@ existiert.
 
 **Independent Test**: Inventar auffüllen und die drei Wege beobachten.
 
-- [ ] T128 [US7] Enderchest-Route über B03s `CharacterInventory` öffnen — **keine zweite Lagerung** (FR-074, FR-079)
-- [ ] T129 [US7] Test `EnderChestIsPerCharacterTest` in `rpg-platform/src/test/java/rpg/platform/item/EnderChestIsPerCharacterTest.java` — nach einem Charakterwechsel sieht der Spieler die Enderchest des **neuen** Charakters
-- [ ] T130 [US7] `InventoryFullWarning` in `rpg-platform/src/main/java/rpg/platform/item/InventoryFullWarning.java` — Title plus Sound hinter der B13-Naht, mit Ruhezeit (FR-075 bis FR-077). Der vorhandene `InventoryFullNoticeListener` aus B07 wird **erweitert, nicht verdoppelt**
-- [ ] T131 [US7] Test `InventoryFullWarningTest` in `rpg-platform/src/test/java/rpg/platform/item/InventoryFullWarningTest.java` — **SC-015**: zwanzig aufeinanderfolgende Aufsammelversuche, gewarnt wird mit Ruhezeit, **nichts wird still verworfen**
-- [ ] T132 [US7] `TrashCommand` in `rpg-platform/src/main/java/rpg/platform/item/TrashCommand.java` — vernichtet den **gehaltenen** Gegenstand nach einer Bestätigung; ohne Bestätigung geschieht nichts (FR-078)
-- [ ] T133 [US7] Test `TrashRefusesBoundEquipmentTest` in `rpg-platform/src/test/java/rpg/platform/item/TrashRefusesBoundEquipmentTest.java` — Mülleimer und Enderchest weisen Klassenausrüstung ab, geprüft über `BoundEquipment` (FR-063)
-- [ ] T134 [P] [US7] Message-Schlüssel für Warnung, Bestätigung und Ablehnungen in `messages.yml`
+- [X] T128 [US7] Enderchest-Route über B03s `CharacterInventory` öffnen — **keine zweite Lagerung** (FR-074, FR-079)
+- [X] T129 [US7] Test `EnderChestIsPerCharacterTest` in `rpg-platform/src/test/java/rpg/platform/item/EnderChestIsPerCharacterTest.java` — nach einem Charakterwechsel sieht der Spieler die Enderchest des **neuen** Charakters
+- [X] T130 [US7] `InventoryFullWarning` in `rpg-platform/src/main/java/rpg/platform/item/InventoryFullWarning.java` — Title plus Sound hinter der B13-Naht, mit Ruhezeit (FR-075 bis FR-077). Der vorhandene `InventoryFullNoticeListener` aus B07 wird **erweitert, nicht verdoppelt**
+- [X] T131 [US7] Test `InventoryFullWarningTest` in `rpg-platform/src/test/java/rpg/platform/item/InventoryFullWarningTest.java` — **SC-015**: zwanzig aufeinanderfolgende Aufsammelversuche, gewarnt wird mit Ruhezeit, **nichts wird still verworfen**
+- [X] T132 [US7] `TrashCommand` in `rpg-platform/src/main/java/rpg/platform/item/TrashCommand.java` — vernichtet den **gehaltenen** Gegenstand nach einer Bestätigung; ohne Bestätigung geschieht nichts (FR-078)
+- [X] T133 [US7] Test `TrashRefusesBoundEquipmentTest` in `rpg-platform/src/test/java/rpg/platform/item/TrashRefusesBoundEquipmentTest.java` — Mülleimer und Enderchest weisen Klassenausrüstung ab, geprüft über `BoundEquipment` (FR-063)
+- [X] T134 [P] [US7] Message-Schlüssel für Warnung, Bestätigung und Ablehnungen in `messages.yml`
 
 **Checkpoint**: Alle sieben Geschichten stehen.
 

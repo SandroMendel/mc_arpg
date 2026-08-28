@@ -184,6 +184,12 @@ public class RpgPlugin extends JavaPlugin {
     /** Wer gerade ein Klon ist — B10s Liste, von B11 mitgelesen (FR-041a). */
     private rpg.platform.mob.CloneAggroListener cloneRegistry;
 
+    /** B07s Warnung bei vollem Inventar — mit B11s konfigurierbarer Ruhezeit (US7). */
+    private InventoryFullNoticeListener inventoryFullNotice;
+
+    /** B11s Mülleimer — der dritte Entsorgungsweg (US7). */
+    private rpg.platform.item.TrashCommand trashCommand;
+
     /** B11s Trimfarben — Datenbankseite und Sitzungsgrenzen (US6). */
     private rpg.persistence.item.CosmeticModule cosmeticModule;
 
@@ -1434,8 +1440,14 @@ public class RpgPlugin extends JavaPlugin {
         getServer()
                 .getPluginManager()
                 .registerEvents(
-                        new InventoryFullNoticeListener(
-                                new PaperClassNotice(getServer(), messages), Clock.systemUTC()),
+                        inventoryFullNotice =
+                                new InventoryFullNoticeListener(
+                                        new PaperClassNotice(getServer(), messages),
+                                        Clock.systemUTC(),
+                                        // FR-076: die Ruhezeit steht in items.yml. Als Funktion,
+                                        // damit ein Nachladen sie wirklich aendert - ein hier
+                                        // gezogener Wert bliebe bis zum Neustart der alte.
+                                        () -> itemModule.config().inventoryFullCooldown()),
                         this);
 
         getLogger()
@@ -1485,6 +1497,15 @@ public class RpgPlugin extends JavaPlugin {
                                         zoneCombatLogout.onSessionEnding(playerId, characterId));
                 zoneTracker.forgetHolder(playerId).ifPresent(zoneForget::accept);
                 zoneForgetPlayer.accept(playerId);
+                if (trashCommand != null) {
+                    // Eine offene Bestaetigung ueberlebt die Sitzung nicht. Sie tut es auch
+                    // sonst nicht - die Frist laeuft nach dreissig Sekunden ab -, aber der
+                    // Eintrag laege bis zum Neustart herum.
+                    trashCommand.forget(playerId);
+                }
+                if (inventoryFullNotice != null) {
+                    inventoryFullNotice.forget(playerId);
+                }
                 if (vendorListener != null) {
                     // Dieselbe Stelle und derselbe Grund: eine Karte je Spieler, die sonst bis zum
                     // Neustart waechst. Und ein eigener Quit-Zuhoerer waere ein zweiter Weg in den
@@ -2221,6 +2242,18 @@ public class RpgPlugin extends JavaPlugin {
                         messages,
                         getLogger());
         getServer().getPluginManager().registerEvents(vendorListener, this);
+
+        trashCommand =
+                new rpg.platform.item.TrashCommand(
+                        messages, Clock.systemUTC(), boundEquipment::isBound);
+        var trash = getCommand("trash");
+        if (trash == null) {
+            // plugin.yml und diese Stelle muessen sich einig sein. Es zu sagen ist besser als ein
+            // Befehl, den es still nicht gibt - dasselbe Muster wie bei /coins.
+            getLogger().severe("[item] /trash is not declared in plugin.yml - not registered");
+        } else {
+            trash.setExecutor(trashCommand);
+        }
 
         vendorNpcs = new rpg.platform.item.VendorNpc(getLogger());
         placeVendors();

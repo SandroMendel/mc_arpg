@@ -44,6 +44,10 @@ commands:
     description: 'Open the coin window, or change a balance.'
     usage: '/coins | /coins <player> | /coins set|add|remove <player> <class> <amount>'
     permission: rpg.currency.balance
+  trash:
+    description: "Destroy the item in your hand for good, after a confirmation."
+    usage: "/trash (again to confirm)"
+    permission: rpg.item.trash
   xp:
     description: 'Give experience, take it away, or set a level.'
     usage: '/xp give|take <player> <amount> | /xp set <player> <level> [xp]'
@@ -57,6 +61,12 @@ permissions:
   rpg.currency.admin:
     description: "Open another player's window, and change a balance."
     default: op
+  rpg.item.trash:
+    description: "Destroy an item you are holding. Class equipment is refused."
+    # Fuer alle: ADR-018 schaltet das Fallenlassen ab, also ist das der einzige Weg, etwas
+    # Unverkaeufliches loszuwerden. Es einzuschraenken hiesse, ein volles Inventar zur Sackgasse
+    # zu machen.
+    default: true
   rpg.progression.admin:
     description: "Change a character's experience or level. Every change is audited."
     default: op

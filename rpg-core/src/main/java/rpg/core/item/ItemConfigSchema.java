@@ -53,6 +53,9 @@ public final class ItemConfigSchema {
                 .required("templates", FieldType.MAP)
                 .required("loot", FieldType.MAP)
                 .required("vendors", FieldType.MAP)
+                // Optional mit leerer Vorgabe: eine items.yml ohne diesen Abschnitt ist gueltig
+                // und bekommt die Ruhezeit, die B07 vorher fest im Quelltext hatte (FR-076).
+                .optional("inventory", FieldType.MAP, java.util.Map.of())
                 .boundTo(ItemConfigSchema::bind)
                 .build();
     }
@@ -69,7 +72,14 @@ public final class ItemConfigSchema {
 
         verifyTemplatesExist(templates, loot, vendors);
 
-        return new ItemConfig(templates, wear, repair, loot, vendors);
+        // FR-076: die Ruhezeit der Warnung bei vollem Inventar. Optional - fehlt sie, gilt die
+        // Zahl, die B07 vorher fest im Quelltext hatte. Eine Pflichtangabe daraus zu machen
+        // hiesse, jede vorhandene items.yml beim Aufspielen abzuweisen.
+        java.time.Duration inventoryFullCooldown =
+                readInventoryFullCooldown(view.getMap("inventory"));
+
+        return new ItemConfig(
+                templates, wear, repair, loot, vendors, inventoryFullCooldown);
     }
 
     // ---------------------------------------------------------------------------------------
@@ -102,6 +112,14 @@ public final class ItemConfigSchema {
                 requireDouble(body, "death-factor-min", where),
                 warnAt,
                 Duration.ofMillis(requireLong(body, "warn-cooldown-ms", where)));
+    }
+
+    private static java.time.Duration readInventoryFullCooldown(Map<?, ?> body) {
+        if (body == null || body.get("full-warning-cooldown-ms") == null) {
+            return ItemConfig.DEFAULT_INVENTORY_FULL_COOLDOWN;
+        }
+        return java.time.Duration.ofMillis(
+                requireLong(body, "full-warning-cooldown-ms", FILE + ".inventory"));
     }
 
     // ---------------------------------------------------------------------------------------

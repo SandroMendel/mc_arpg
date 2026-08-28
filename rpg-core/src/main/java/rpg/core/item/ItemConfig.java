@@ -26,7 +26,8 @@ public record ItemConfig(
         WearCurve wear,
         RepairPricing repair,
         LootTables loot,
-        Map<String, VendorStock> vendors) {
+        Map<String, VendorStock> vendors,
+        java.time.Duration inventoryFullCooldown) {
 
     public ItemConfig {
         // LinkedHashMap statt Map.copyOf: die Fassade verspricht KONFIGURATIONSREIHENFOLGE
@@ -41,6 +42,38 @@ public record ItemConfig(
         Objects.requireNonNull(wear, "wear");
         Objects.requireNonNull(repair, "repair");
         Objects.requireNonNull(loot, "loot");
+        Objects.requireNonNull(inventoryFullCooldown, "inventoryFullCooldown");
+        if (inventoryFullCooldown.isNegative()) {
+            throw new IllegalArgumentException(
+                    "inventory-full-cooldown-ms must not be negative, but was "
+                            + inventoryFullCooldown);
+        }
+    }
+
+    /**
+     * Die Vorgabe für die Ruhezeit der Warnung bei vollem Inventar (FR-076).
+     *
+     * <p>Fünfzehn Sekunden — dieselbe Zahl, die B07 fest im Quelltext hatte, bevor sie
+     * konfigurierbar wurde. Lang genug, dass ein Haufen Beute <em>eine</em> Warnung erzeugt,
+     * kurz genug, dass sie noch eine Warnung ist.
+     */
+    public static final java.time.Duration DEFAULT_INVENTORY_FULL_COOLDOWN =
+            java.time.Duration.ofSeconds(15);
+
+    /**
+     * Die Gestalt vor US7 — mit der Vorgabe-Ruhezeit.
+     *
+     * <p>Dieselbe Bauart wie {@code SessionBundle}: ein neues Feld bekommt einen Konstruktor,
+     * der es füllt, statt jeden vorhandenen Aufrufer zu ändern. Ein Prüfstand, der eine Ruhezeit
+     * nennen müsste, um über Beutetabellen zu sprechen, prüfte danach weniger klar als vorher.
+     */
+    public ItemConfig(
+            Map<String, ItemTemplate> templates,
+            WearCurve wear,
+            RepairPricing repair,
+            LootTables loot,
+            Map<String, VendorStock> vendors) {
+        this(templates, wear, repair, loot, vendors, DEFAULT_INVENTORY_FULL_COOLDOWN);
     }
 
     /** Die Vorlage zu dieser Kennung. Leer bei einer unbekannten — niemals {@code null}. */

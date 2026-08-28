@@ -536,6 +536,14 @@ item:
 
   # Kosmetik (FR-067 bis FR-073). Der Text zu not-top-tier muss BEIDES sagen - dass es noch nicht
   # geht und dass die Farbe bleibt. "Geht nicht" allein liest sich wie ein verlorener Kauf.
+  # Der Mülleimer (FR-078). Vernichten ist der einzige unumkehrbare Vorgang, den ein Spieler hier
+  # auslösen kann - deshalb zwei Aufrufe, und der erste tut nichts.
+  trash:
+    confirm: '&eType /trash again to destroy that for good.'
+    done: '&7Gone.'
+    nothing-held: '&7You are not holding anything.'
+    bound: '&cYour class equipment stays with you.'
+
   cosmetic:
     applied: '&aYour trim has changed.'
     not-top-tier: '&eNot yet - this needs the top tier of both ladders. The colour is yours and it will keep.'
