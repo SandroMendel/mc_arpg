@@ -65,6 +65,24 @@ class VendorWindowClosesCleanlyTest {
     private final UUID character = UUID.randomUUID();
     private final RecordingCurrency currency = new RecordingCurrency();
 
+    /** Ein Zustandsspeicher ohne geladenen Charakter: jede Reparatur wird abgewiesen, ohne zu buchen. */
+    private final rpg.core.item.DefaultGearConditions conditions =
+            new rpg.core.item.DefaultGearConditions(
+                    rpg.core.item.WearCurve::defaults,
+                    new rpg.core.item.GearConditionRepository() {
+                        @Override
+                        public java.util.concurrent.CompletableFuture<Optional<rpg.core.item.GearCondition>> find(
+                                UUID characterId) {
+                            return java.util.concurrent.CompletableFuture.completedFuture(
+                                    Optional.empty());
+                        }
+
+                        @Override
+                        public void markDirty(UUID characterId) {}
+                    },
+                    new rpg.core.event.DefaultEventBus(QUIET),
+                    java.time.Clock.systemUTC());
+
     @BeforeEach
     void setUp() {
         QUIET.setLevel(Level.OFF);
@@ -83,6 +101,11 @@ class VendorWindowClosesCleanlyTest {
                                         EquipmentPurchase.Outcome.REFUSED,
                                         Optional.empty(),
                                         Optional.empty()),
+                        new rpg.core.item.GearRepair(
+                                VendorWindowClosesCleanlyTest::config,
+                                conditions,
+                                (characterId, slot) -> 1,
+                                currency),
                         tag -> false,
                         currency,
                         new ItemStackFactory(new ConfiguredItems(), messages()),

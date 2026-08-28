@@ -119,6 +119,9 @@ public final class SessionBundleLoader {
                 List<rpg.core.zone.ZoneCharacterState> zoneStates =
                         rpg.persistence.zone.JdbcZoneStateRepository.readForPlayer(
                                 connection, playerId);
+                List<rpg.core.item.GearCondition> gearConditions =
+                        rpg.persistence.item.JdbcGearConditionRepository.readForPlayer(
+                                connection, playerId);
                 connection.commit();
                 return new SessionBundle(
                         playerId,
@@ -130,7 +133,8 @@ public final class SessionBundleLoader {
                         inventories,
                         abilities,
                         balances,
-                        zoneStates);
+                        zoneStates,
+                        gearConditions);
             } catch (SQLException failure) {
                 connection.rollback();
                 throw failure;

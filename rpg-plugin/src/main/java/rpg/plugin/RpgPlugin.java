@@ -181,6 +181,12 @@ public class RpgPlugin extends JavaPlugin {
      */
     private rpg.core.item.ConsumableBuffs consumableBuffs;
 
+    /** Wer gerade ein Klon ist — B10s Liste, von B11 mitgelesen (FR-041a). */
+    private rpg.platform.mob.CloneAggroListener cloneRegistry;
+
+    /** B11s Verschleisszustand — Datenbankseite und Sitzungsgrenzen (US5). */
+    private rpg.persistence.item.GearConditionModule gearConditionModule;
+
     /** B11s Händler — der Zuhörer und die gesetzten NPCs (US4). */
     private rpg.platform.item.VendorListener vendorListener;
 
@@ -431,6 +437,18 @@ public class RpgPlugin extends JavaPlugin {
         progressionModule =
                 new ProgressionModule(
                         persistenceModule, sessionModule, getLogger(), Clock.systemUTC());
+        // B11s Verschleiss haengt hier ein, und zwar VOR B07 (Complexity Tracking, research.md R1).
+        // Als Funktion und nicht als Modul: die Antwort wird beim Aufruf aufgeloest, und die
+        // Startreihenfolge bleibt frei. Solange B11 nicht laeuft, ist es GearConditionFactor.NONE -
+        // und B07 verhaelt sich exakt wie vorher.
+        gearConditionModule =
+                new rpg.persistence.item.GearConditionModule(
+                        persistenceModule,
+                        sessionModule,
+                        () -> itemModule.wear(),
+                        eventBus,
+                        getLogger(),
+                        Clock.systemUTC());
         classesModule =
                 new ClassesModule(
                         persistenceModule,
@@ -438,7 +456,8 @@ public class RpgPlugin extends JavaPlugin {
                         statsModule,
                         progressionModule,
                         getLogger(),
-                        Clock.systemUTC());
+                        Clock.systemUTC(),
+                        this::gearFactorOf);
         inventoryModule =
                 new InventoryModule(
                         persistenceModule, sessionModule, getLogger(), Clock.systemUTC());
@@ -491,7 +510,8 @@ public class RpgPlugin extends JavaPlugin {
                 zonePersistenceModule,
                 zoneModule,
                 mobModule,
-                itemModule);
+                itemModule,
+                gearConditionModule);
     }
 
     /**
@@ -1983,6 +2003,9 @@ public class RpgPlugin extends JavaPlugin {
                         getServer(), mobModule::config, Clock.systemUTC());
         getServer().getPluginManager().registerEvents(cloneAggro, this);
         summonEffect.setAggressionRedirect(cloneAggro::registerClone);
+        // Und B11 fragt dieselbe Liste: ein Klon nutzt weder Waffe noch Ruestung seines
+        // Beschwoerers ab (FR-041a). Eine zweite Liste dafuer waere eine zweite Wahrheit.
+        this.cloneRegistry = cloneAggro;
 
         getLogger()
                 .info(
@@ -2060,11 +2083,58 @@ public class RpgPlugin extends JavaPlugin {
 
         wireConsumables(stats, itemFactory);
         wireVendors(itemFactory);
+        wireWear(stats);
 
         getLogger()
                 .info(
                         "[item] phase=START state=LOOT_ARMED - loot belongs to one character,"
                                 + " and in a party it rotates (FR-026b)");
+    }
+
+    /**
+     * Verschleiß: Ausrüstung wird schwächer statt kaputt, und der Tod kostet ein Vielfaches (US5).
+     *
+     * <p><b>Zwei Anknüpfungen, und die erste ist nicht die aus dem Aufgabenzettel.</b> Der laufende
+     * Verschleiß hängt an B05s {@code DamageInterceptor} und nicht an {@code DamageDealtEvent}: das
+     * aggregierte Ereignis trägt keine {@code DamageOrigin}, also ließe sich ein Autoattack nicht von
+     * einer Fähigkeit unterscheiden (FR-041), und es trägt den Schaden nach der Abwehr, wo FR-040a
+     * den davor verlangt. Der Tod dagegen hängt am Ereignis, weil er nichts davon braucht.
+     */
+    private void wireWear(StatEngine stats) {
+        rpg.core.item.DefaultGearConditions conditions = gearConditionModule.conditions();
+
+        rpg.core.combat.CombatPipeline pipeline =
+                registry.getService(rpg.core.combat.CombatPipeline.class);
+        pipeline.registerInterceptor(
+                new rpg.platform.item.WearInterceptor(
+                        conditions,
+                        stats::characterIdOf,
+                        holderId -> cloneRegistry != null && cloneRegistry.isClone(holderId)));
+
+        new rpg.platform.item.WearListener(conditions, getLogger()).subscribeTo(eventBus);
+
+        // Die Warnung an den Spieler. Die Entscheidung "jetzt sagen" steckt schon im Ereignis
+        // (FR-051) - sie hier ein zweites Mal zu treffen waere die zuverlaessigste Art, zwei
+        // Meldungen fuer einen Treffer zu erzeugen.
+        new rpg.platform.item.GearConditionDisplay(
+                        messages,
+                        this::onlinePlayerOfCharacter,
+                        // Welcher getragene Gegenstand zu welcher Leiter gehoert, sagt B07 - der
+                        // Vermerk hat ein Format, und es gehoert dort hin (FR-079).
+                        classesModule.boundEquipment()::expectedTag)
+                .subscribeTo(eventBus);
+
+        // FR-056: der bezahlte Weg beim Haendler ist die EINZIGE Instandsetzung. Ein offener Amboss
+        // waere der billigere, und niemand ginge je zum Haendler - die Coin-Senke aus ADR-017 haette
+        // dann kein Wasser.
+        getServer()
+                .getPluginManager()
+                .registerEvents(new rpg.platform.item.RepairRouteLockListener(messages), this);
+
+        getLogger()
+                .info(
+                        "[item] phase=START state=WEAR_ARMED - gear gets weaker, never broken"
+                                + " (FR-038), and a death costs a multiple of a fight (FR-043)");
     }
 
     /**
@@ -2107,6 +2177,17 @@ public class RpgPlugin extends JavaPlugin {
                         new rpg.platform.item.VendorMenu(itemFactory, messages),
                         transactions,
                         tierPurchase::buyNext,
+                        new rpg.core.item.GearRepair(
+                                itemModule::config,
+                                gearConditionModule.conditions(),
+                                // Welche Stufe erreicht ist, weiss B07 - eine zweite Antwort hier
+                                // waere eine zweite Wahrheit (FR-079).
+                                (characterId, slot) ->
+                                        classesModule
+                                                .progressOf(characterId)
+                                                .map(progress -> progress.tierOf(slot))
+                                                .orElse(rpg.core.classes.ClassProgress.INITIAL_TIER),
+                                currency),
                         boundEquipment::isBound,
                         currency,
                         itemFactory,
@@ -2254,6 +2335,21 @@ public class RpgPlugin extends JavaPlugin {
     private java.util.Optional<rpg.core.session.CharacterClass> classOfCharacter(
             java.util.UUID characterId) {
         return abilityModule.registry().classOf(characterId);
+    }
+
+    /**
+     * Der Verschleissfaktor einer Leiter — B07s Naht, aufgeloest beim Aufruf.
+     *
+     * <p>Vor dem Start des Moduls und fuer einen unbekannten Charakter ist es {@code 1.0}: volle
+     * Werte. Die Alternative — einen Faktor unter eins anzunehmen, solange nichts geladen ist —
+     * uebersetzte einen Ladefehler in eine stille Schwaechung, und niemand kaeme auf die Idee, dort
+     * zu suchen.
+     */
+    private double gearFactorOf(java.util.UUID characterId, rpg.core.classes.LadderSlot slot) {
+        if (gearConditionModule == null || gearConditionModule.conditions() == null) {
+            return 1.0;
+        }
+        return gearConditionModule.conditions().factorOf(characterId, slot);
     }
 
     /** Der Charakter, den dieser Spieler gerade spielt — B03 besitzt die Antwort. */

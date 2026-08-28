@@ -25,6 +25,7 @@ import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import rpg.core.classes.LadderSlot;
 import rpg.core.currency.Currency;
 import rpg.core.currency.EquipmentPurchase;
+import rpg.core.item.GearRepair;
 import rpg.core.item.ItemConfig;
 import rpg.core.item.ItemMessageKeys;
 import rpg.core.item.VendorTransaction;
@@ -78,6 +79,9 @@ public final class VendorListener implements Listener {
     private final VendorTransaction transactions;
     private final TierRoute tiers;
 
+    /** Die bezahlte Instandsetzung — die Regel liegt in {@code rpg-core}, wie ueberall hier. */
+    private final GearRepair repairs;
+
     /**
      * Ob dieser Vermerk eine Bindung ist — B07s {@code BoundEquipment::isBound}, als Naht.
      *
@@ -100,6 +104,7 @@ public final class VendorListener implements Listener {
             VendorMenu menu,
             VendorTransaction transactions,
             TierRoute tiers,
+            GearRepair repairs,
             Predicate<String> bound,
             Currency currency,
             ItemStackFactory factory,
@@ -110,6 +115,7 @@ public final class VendorListener implements Listener {
         this.menu = Objects.requireNonNull(menu, "menu");
         this.transactions = Objects.requireNonNull(transactions, "transactions");
         this.tiers = Objects.requireNonNull(tiers, "tiers");
+        this.repairs = Objects.requireNonNull(repairs, "repairs");
         this.bound = Objects.requireNonNull(bound, "bound");
         this.currency = Objects.requireNonNull(currency, "currency");
         this.factory = Objects.requireNonNull(factory, "factory");
@@ -172,9 +178,9 @@ public final class VendorListener implements Listener {
             advance(player, characterId, upgrade.get());
             return;
         }
-        if (VendorMenu.repairAt(slot).isPresent()) {
-            // Die Reparatur gehoert zu US5 und wird dort verdrahtet (FR-052 bis FR-054). Bis dahin
-            // ist der Knopf da und tut nichts - ein abgebrochener Klick, kein halber Vorgang.
+        Optional<LadderSlot> repair = VendorMenu.repairAt(slot);
+        if (repair.isPresent()) {
+            repair(player, characterId, repair.get());
             return;
         }
         menu.templateAt(config.get().vendorOf(zoneKey), slot)
@@ -233,6 +239,34 @@ public final class VendorListener implements Listener {
         // Erst nachdem gebucht wurde. Andersherum waere der Stapel weg, wenn die Buchung scheitert.
         stack.setAmount(0);
         tell(player, ItemMessageKeys.VENDOR_SOLD, Map.of("amount", String.valueOf(result.amount())));
+    }
+
+    /**
+     * Eine Leiter reparieren — die einzige Instandsetzung, die es gibt (FR-052).
+     *
+     * <p>Amboss, Zauberpult und Schleifstein sind für gebundene Ausrüstung gesperrt
+     * ({@code RepairRouteLockListener}, FR-056). Wäre einer davon offen, wäre er der billigere Weg,
+     * und die Coin-Senke aus ADR-017 hätte kein Wasser.
+     */
+    private void repair(Player player, UUID characterId, LadderSlot slot) {
+        GearRepair.Result result = repairs.repair(characterId, slot);
+        if (result.isSuccess()) {
+            tell(
+                    player,
+                    ItemMessageKeys.REPAIR_DONE,
+                    Map.of("price", String.valueOf(result.price())));
+            // Das Fenster zeigt Preise, und einer davon hat sich gerade geaendert.
+            openFor(player, open.get(player.getUniqueId()));
+            return;
+        }
+        tell(
+                player,
+                switch (result.outcome()) {
+                    case NOT_WORN -> ItemMessageKeys.REPAIR_NOT_WORN;
+                    case NOT_ENOUGH_COINS -> ItemMessageKeys.VENDOR_NOT_ENOUGH;
+                    case UNKNOWN_CHARACTER, DONE -> null;
+                },
+                Map.of("price", String.valueOf(result.price())));
     }
 
     /** Eine Stufe kaufen — durch B08bs Route, nicht durch eine eigene (FR-061, FR-062). */

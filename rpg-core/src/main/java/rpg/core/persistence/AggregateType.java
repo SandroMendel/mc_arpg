@@ -128,5 +128,22 @@ public enum AggregateType {
      *
      * <p>Registration 1 of 3 (ADR-015), as above.
      */
-    CHARACTER_ZONE_STATE
+    CHARACTER_ZONE_STATE,
+
+    /**
+     * Der Verschleisszustand der beiden Ausruestungsleitern eines Charakters (B11).
+     *
+     * <p><b>Der Typ, der sich am haeufigsten aendert - und deshalb am wenigsten oft geschrieben
+     * werden darf.</b> Er aendert sich bei jedem Treffer. Genau dafuer gibt es das Write-Behind:
+     * markiert wird im Kampfpfad, geschrieben wird in einem Stapel, und der Kampfpfad sieht nie eine
+     * Datenbank (Prinzip II). Aus demselben Grund liegt er nicht bei
+     * {@link #CHARACTER_CLASS_PROGRESS}: eine gemeinsame Zeile hiesse, den ganzen Fortschritt eines
+     * Charakters bei jedem Schlag als schmutzig zu markieren.
+     *
+     * <p><b>Fehlende Zeile heisst voll</b>, nicht kaputt. Die Alternative waere, einen Ladefehler in
+     * eine stille Schwaechung zu uebersetzen - und niemand kaeme auf die Idee, dort zu suchen.
+     *
+     * <p>Registration 1 of 3 (ADR-015), as above.
+     */
+    CHARACTER_GEAR_CONDITION
 }

@@ -82,6 +82,18 @@ public final class CloneAggroListener implements Listener {
         reclaimAlreadyTargeting(summonerId, creatureId);
     }
 
+    /**
+     * Ob diese Entität gerade ein Klon ist.
+     *
+     * <p>Öffentlich seit B11: der Verschleiß muss wissen, wer da eingesteckt hat, weil ein Klon
+     * weder Waffe noch Rüstung seines Beschwörers abnutzt (FR-041a). Die Antwort steht hier, weil
+     * hier ohnehin steht, welcher Klon zu wem gehört — eine zweite Liste dafür wäre eine zweite
+     * Wahrheit, und die beiden liefen beim nächsten Umbau auseinander.
+     */
+    public boolean isClone(UUID entityId) {
+        return entityId != null && activeClones.containsValue(entityId);
+    }
+
     private void reclaimAlreadyTargeting(UUID summonerId, UUID creatureId) {
         Entity clone = server.getEntity(creatureId);
         if (!(clone instanceof LivingEntity cloneLiving) || !clone.isValid()) {

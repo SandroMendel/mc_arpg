@@ -235,31 +235,31 @@ existiert.
 
 **Setzt Gruppe A aus Phase 3 voraus.**
 
-- [ ] T093 [P] [US5] `WearCurve` in `rpg-core/src/main/java/rpg/core/item/WearCurve.java` — Schwelle, Restanteil, drei Raten, Warnschwellen, alle konfigurierbar (FR-045, FR-047); die Formel aus [data-model.md](./data-model.md) §1
-- [ ] T094 [US5] Test `WearCurveTest` in `rpg-core/src/test/java/rpg/core/item/WearCurveTest.java` — **über die ganze Spanne, nicht nur an den Enden** (FR-047, SC-011): Zustand 50 → 1,0 · 25 → 0,60 · 10 → 0,36 · 0 → 0,20. Und **stetig**: zwei verschiedene Zustände ergeben nie denselben Faktor (FR-048)
-- [ ] T095 [US5] Test `GearNeverBreaksTest` in `rpg-core/src/test/java/rpg/core/item/GearNeverBreaksTest.java` — **kein Maß an Verschleiß zerstört etwas**; bei Zustand 0 bleiben genau 20 % Beitrag (FR-038, SC-011)
-- [ ] T096 [US5] `WearRules` in `rpg-core/src/main/java/rpg/core/item/WearRules.java` — welcher Schaden welchen Slot trifft (FR-040, FR-041, FR-042), nach der Tabelle in [data-model.md](./data-model.md) §6
-- [ ] T097 [US5] Test `WearRulesTest` in `rpg-core/src/test/java/rpg/core/item/WearRulesTest.java` — **SC-012**: erlittener Schaden trifft nur die Rüstung (FR-040), `MELEE`/`PROJECTILE` nur die Waffe (FR-041), `ABILITY` keines von beidem, `ADMIN` gar nichts (FR-042)
-- [ ] T098 [US5] Test `WearIsMeasuredBeforeMitigationTest` in `rpg-core/src/test/java/rpg/core/item/WearIsMeasuredBeforeMitigationTest.java` — **FR-040a, der Test gegen die Abwärtsspirale**: zwei Spieler mit unterschiedlich guter Rüstung verschleißen beim selben Treffer **gleich stark**. Am durchgekommenen Schaden gemessen täten sie das nicht
-- [ ] T099 [US5] Test `ASummonWearsNothingTest` in `rpg-core/src/test/java/rpg/core/item/ASummonWearsNothingTest.java` — ein Klon nutzt weder Waffe noch Rüstung seines Beschwörers ab (FR-041a)
-- [ ] T100 [US5] Test `DeathCostsMoreThanAFightTest` in `rpg-core/src/test/java/rpg/core/item/DeathCostsMoreThanAFightTest.java` — **SC-013**: der Todesbetrag übersteigt den Verschleiß eines ganzen gewöhnlichen Kampfes um ein Vielfaches (FR-043)
-- [ ] T101 [P] [US5] `GearCondition` und `GearConditionRepository` in `rpg-core/src/main/java/rpg/core/item/` — zwei Werte je Charakter, versioniert ([data-model.md](./data-model.md) §3)
-- [ ] T102 [P] [US5] Migration `V11_2__character_gear_condition.sql` — Muster von `V7_1__character_class_progress.sql`, `ON DELETE CASCADE`
-- [ ] T103 [US5] `JdbcGearConditionRepository` in `rpg-persistence/src/main/java/rpg/persistence/jdbc/` — Write-Behind wie überall; **kein Datenbankzugriff je Spielereignis** (Prinzip II)
-- [ ] T104 [US5] Test `JdbcGearConditionRepositoryTest` gegen echtes PostgreSQL (Testcontainers, Prinzip VII) — Schreiben, Lesen, Migration, `ON DELETE CASCADE` beim Löschen eines Charakters
-- [ ] T105 [US5] `GearConditions` als öffentliche Fassade in `rpg-core/src/main/java/rpg/core/item/GearConditions.java` — `conditionOf` und `factorOf` nach [contracts/item-api.md](./contracts/item-api.md) §1
-- [ ] T106 [US5] `GearConditions` als `GearConditionFactor` in `RpgPlugin` an `ClassStatContributor` übergeben — **hier wird die Naht aus Gruppe A geschlossen**
-- [ ] T107 [US5] Test `WearReachesTheStatValueTest` in `rpg-platform/src/test/java/rpg/platform/item/WearReachesTheStatValueTest.java` — verschlissene Rüstung senkt den Rüstungsbeitrag messbar; **Grundwerte der Klasse, Levelwachstum, Buffs und Zonenwirkungen bleiben unberührt**, und der andere Slot auch (FR-049)
-- [ ] T108 [US5] `WearListener` in `rpg-platform/src/main/java/rpg/platform/item/WearListener.java` — hört auf `DamageDealtEvent` und `CombatDeathEvent`; `playerVictim` ist der Auslöser des Todesverschleißes (B05 hat den Haken bereits gesetzt)
-- [ ] T109 [US5] Test `NoItemOrXpLostOnDeathTest` in `rpg-platform/src/test/java/rpg/platform/item/NoItemOrXpLostOnDeathTest.java` — **SC-010**: Inventar und Erfahrungsstand vor und nach dem Tod identisch (FR-046, ADR-017)
-- [ ] T110 [US5] `GearConditionDisplay` in `rpg-platform/src/main/java/rpg/platform/item/GearConditionDisplay.java` — bildet den Zustand auf den Haltbarkeitsbalken ab, **abgeleitet bei jedem Laden** wie Name und Lore; das Item bleibt unzerstörbar (FR-050)
-- [ ] T111 [US5] `GearConditionChangedEvent` und die Warnschwellen verdrahten — Meldung **höchstens einmal je Schwelle und Ruhezeit**, nicht bei jedem Treffer (FR-051)
-- [ ] T112 [US5] `RepairPricing` in `rpg-core/src/main/java/rpg/core/item/RepairPricing.java` — Preis steigt mit dem fehlenden Anteil (FR-053)
-- [ ] T113 [US5] Reparatur je Slot am NPC verdrahten — gebucht unter `BookingReason.REPAIR` (FR-052)
-- [ ] T114 [US5] Test `RepairTest` in `rpg-platform/src/test/java/rpg/platform/item/RepairTest.java` — nur der bezahlte Slot wird wiederhergestellt (SC-012); eine abgelehnte Reparatur ändert **weder Zustand noch Kontostand** (FR-054); eine Reparatur ohne Verschleiß wird abgelehnt
-- [ ] T115 [US5] Test `TierAdvanceDoesNotRepairTest` in `rpg-core/src/test/java/rpg/core/item/TierAdvanceDoesNotRepairTest.java` — ein Aufstieg setzt den Zustand **nicht** zurück, sonst wäre er der billigere Weg zur Instandsetzung (FR-055)
-- [ ] T116 [US5] `RepairRouteLockListener` in `rpg-platform/src/main/java/rpg/platform/item/RepairRouteLockListener.java` — Amboss, Zauberpult und Schleifstein für gebundene Ausrüstung sperren (FR-056, R10)
-- [ ] T117 [US5] Test `AnvilRouteIsLockedTest` in `rpg-platform/src/test/java/rpg/platform/item/AnvilRouteIsLockedTest.java` — alle drei Wege einzeln nachgewiesen; die Coin-Route bleibt die einzige Instandsetzung
+- [X] T093 [P] [US5] `WearCurve` in `rpg-core/src/main/java/rpg/core/item/WearCurve.java` — Schwelle, Restanteil, drei Raten, Warnschwellen, alle konfigurierbar (FR-045, FR-047); die Formel aus [data-model.md](./data-model.md) §1
+- [X] T094 [US5] Test `WearCurveTest` in `rpg-core/src/test/java/rpg/core/item/WearCurveTest.java` — **über die ganze Spanne, nicht nur an den Enden** (FR-047, SC-011): Zustand 50 → 1,0 · 25 → 0,60 · 10 → 0,36 · 0 → 0,20. Und **stetig**: zwei verschiedene Zustände ergeben nie denselben Faktor (FR-048)
+- [X] T095 [US5] Test `GearNeverBreaksTest` in `rpg-core/src/test/java/rpg/core/item/GearNeverBreaksTest.java` — **kein Maß an Verschleiß zerstört etwas**; bei Zustand 0 bleiben genau 20 % Beitrag (FR-038, SC-011)
+- [X] T096 [US5] `WearRules` in `rpg-core/src/main/java/rpg/core/item/WearRules.java` — welcher Schaden welchen Slot trifft (FR-040, FR-041, FR-042), nach der Tabelle in [data-model.md](./data-model.md) §6
+- [X] T097 [US5] Test `WearRulesTest` in `rpg-core/src/test/java/rpg/core/item/WearRulesTest.java` — **SC-012**: erlittener Schaden trifft nur die Rüstung (FR-040), `MELEE`/`PROJECTILE` nur die Waffe (FR-041), `ABILITY` keines von beidem, `ADMIN` gar nichts (FR-042)
+- [X] T098 [US5] Test `WearIsMeasuredBeforeMitigationTest` in `rpg-core/src/test/java/rpg/core/item/WearIsMeasuredBeforeMitigationTest.java` — **FR-040a, der Test gegen die Abwärtsspirale**: zwei Spieler mit unterschiedlich guter Rüstung verschleißen beim selben Treffer **gleich stark**. Am durchgekommenen Schaden gemessen täten sie das nicht
+- [X] T099 [US5] Test `ASummonWearsNothingTest` in `rpg-core/src/test/java/rpg/core/item/ASummonWearsNothingTest.java` — ein Klon nutzt weder Waffe noch Rüstung seines Beschwörers ab (FR-041a)
+- [X] T100 [US5] Test `DeathCostsMoreThanAFightTest` in `rpg-core/src/test/java/rpg/core/item/DeathCostsMoreThanAFightTest.java` — **SC-013**: der Todesbetrag übersteigt den Verschleiß eines ganzen gewöhnlichen Kampfes um ein Vielfaches (FR-043)
+- [X] T101 [P] [US5] `GearCondition` und `GearConditionRepository` in `rpg-core/src/main/java/rpg/core/item/` — zwei Werte je Charakter, versioniert ([data-model.md](./data-model.md) §3)
+- [X] T102 [P] [US5] Migration `V11_2__character_gear_condition.sql` — Muster von `V7_1__character_class_progress.sql`, `ON DELETE CASCADE`
+- [X] T103 [US5] `JdbcGearConditionRepository` in `rpg-persistence/src/main/java/rpg/persistence/jdbc/` — Write-Behind wie überall; **kein Datenbankzugriff je Spielereignis** (Prinzip II)
+- [X] T104 [US5] Test `JdbcGearConditionRepositoryTest` gegen echtes PostgreSQL (Testcontainers, Prinzip VII) — Schreiben, Lesen, Migration, `ON DELETE CASCADE` beim Löschen eines Charakters
+- [X] T105 [US5] `GearConditions` als öffentliche Fassade in `rpg-core/src/main/java/rpg/core/item/GearConditions.java` — `conditionOf` und `factorOf` nach [contracts/item-api.md](./contracts/item-api.md) §1
+- [X] T106 [US5] `GearConditions` als `GearConditionFactor` in `RpgPlugin` an `ClassStatContributor` übergeben — **hier wird die Naht aus Gruppe A geschlossen**
+- [X] T107 [US5] Test `WearReachesTheStatValueTest` in `rpg-platform/src/test/java/rpg/platform/item/WearReachesTheStatValueTest.java` — verschlissene Rüstung senkt den Rüstungsbeitrag messbar; **Grundwerte der Klasse, Levelwachstum, Buffs und Zonenwirkungen bleiben unberührt**, und der andere Slot auch (FR-049)
+- [X] T108 [US5] `WearListener` in `rpg-platform/src/main/java/rpg/platform/item/WearListener.java` — hört auf `DamageDealtEvent` und `CombatDeathEvent`; `playerVictim` ist der Auslöser des Todesverschleißes (B05 hat den Haken bereits gesetzt)
+- [X] T109 [US5] Test `NoItemOrXpLostOnDeathTest` in `rpg-platform/src/test/java/rpg/platform/item/NoItemOrXpLostOnDeathTest.java` — **SC-010**: Inventar und Erfahrungsstand vor und nach dem Tod identisch (FR-046, ADR-017)
+- [X] T110 [US5] `GearConditionDisplay` in `rpg-platform/src/main/java/rpg/platform/item/GearConditionDisplay.java` — bildet den Zustand auf den Haltbarkeitsbalken ab, **abgeleitet bei jedem Laden** wie Name und Lore; das Item bleibt unzerstörbar (FR-050)
+- [X] T111 [US5] `GearConditionChangedEvent` und die Warnschwellen verdrahten — Meldung **höchstens einmal je Schwelle und Ruhezeit**, nicht bei jedem Treffer (FR-051)
+- [X] T112 [US5] `RepairPricing` in `rpg-core/src/main/java/rpg/core/item/RepairPricing.java` — Preis steigt mit dem fehlenden Anteil (FR-053)
+- [X] T113 [US5] Reparatur je Slot am NPC verdrahten — gebucht unter `BookingReason.REPAIR` (FR-052)
+- [X] T114 [US5] Test `RepairTest` in `rpg-platform/src/test/java/rpg/platform/item/RepairTest.java` — nur der bezahlte Slot wird wiederhergestellt (SC-012); eine abgelehnte Reparatur ändert **weder Zustand noch Kontostand** (FR-054); eine Reparatur ohne Verschleiß wird abgelehnt
+- [X] T115 [US5] Test `TierAdvanceDoesNotRepairTest` in `rpg-core/src/test/java/rpg/core/item/TierAdvanceDoesNotRepairTest.java` — ein Aufstieg setzt den Zustand **nicht** zurück, sonst wäre er der billigere Weg zur Instandsetzung (FR-055)
+- [X] T116 [US5] `RepairRouteLockListener` in `rpg-platform/src/main/java/rpg/platform/item/RepairRouteLockListener.java` — Amboss, Zauberpult und Schleifstein für gebundene Ausrüstung sperren (FR-056, R10)
+- [X] T117 [US5] Test `AnvilRouteIsLockedTest` in `rpg-platform/src/test/java/rpg/platform/item/AnvilRouteIsLockedTest.java` — alle drei Wege einzeln nachgewiesen; die Coin-Route bleibt die einzige Instandsetzung
 
 **Checkpoint**: Der Tod hat eine Strafe, und Coins haben eine Senke.
 

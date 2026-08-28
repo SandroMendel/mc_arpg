@@ -9,6 +9,7 @@ import rpg.core.ability.AbilityState;
 import rpg.core.classes.ClassProgress;
 import rpg.core.currency.CharacterBalance;
 import rpg.core.inventory.CharacterInventory;
+import rpg.core.item.GearCondition;
 import rpg.core.persistence.PlayerState;
 import rpg.core.progression.CharacterProgress;
 import rpg.core.stats.CharacterResources;
@@ -41,7 +42,8 @@ public record SessionBundle(
         List<CharacterInventory> inventories,
         List<AbilityState> abilities,
         List<CharacterBalance> balances,
-        List<ZoneCharacterState> zoneStates) {
+        List<ZoneCharacterState> zoneStates,
+        List<GearCondition> gearConditions) {
 
     public SessionBundle {
         Objects.requireNonNull(playerId, "playerId");
@@ -54,6 +56,34 @@ public record SessionBundle(
         abilities = List.copyOf(Objects.requireNonNull(abilities, "abilities"));
         balances = List.copyOf(Objects.requireNonNull(balances, "balances"));
         zoneStates = List.copyOf(Objects.requireNonNull(zoneStates, "zoneStates"));
+        gearConditions =
+                List.copyOf(Objects.requireNonNull(gearConditions, "gearConditions"));
+    }
+
+    /** A bundle without gear condition - the shape before B11 existed. */
+    public SessionBundle(
+            UUID playerId,
+            Optional<PlayerState> accountState,
+            List<PlayerCharacter> characters,
+            List<CharacterResources> resources,
+            List<CharacterProgress> progress,
+            List<ClassProgress> classProgress,
+            List<CharacterInventory> inventories,
+            List<AbilityState> abilities,
+            List<CharacterBalance> balances,
+            List<ZoneCharacterState> zoneStates) {
+        this(
+                playerId,
+                accountState,
+                characters,
+                resources,
+                progress,
+                classProgress,
+                inventories,
+                abilities,
+                balances,
+                zoneStates,
+                List.of());
     }
 
     /** A bundle without zone state - the shape before B09 existed. */
@@ -77,6 +107,7 @@ public record SessionBundle(
                 inventories,
                 abilities,
                 balances,
+                List.of(),
                 List.of());
     }
 
@@ -173,6 +204,25 @@ public record SessionBundle(
             List<CharacterProgress> progress,
             List<ClassProgress> classProgress) {
         this(playerId, accountState, characters, resources, progress, classProgress, List.of());
+    }
+
+    /**
+     * Der Verschleisszustand einer Figur (B11), oder leer, wenn nie einer geschrieben wurde.
+     *
+     * <p><b>Leer heisst voll, nicht kaputt.</b> Ein Charakter ohne Zeile hat noch nie gekaempft,
+     * und beide Leitern stehen auf 100. Die Alternative - einen Vorgabewert unter 100 anzunehmen -
+     * uebersetzte einen Ladefehler in eine stille Schwaechung, und niemand kaeme auf die Idee, dort
+     * zu suchen.
+     *
+     * <p>Hier geladen und nicht spaeter geholt, aus demselben Grund wie B07s Stufen: der Zustand
+     * multipliziert den Stufenbeitrag. Ein Charakter, dessen Zustand einen Augenblick nach der
+     * Freigabe eintraefe, stuende kurz mit vollen Werten da und korrigierte sich dann selbst - und
+     * genau in diesem Augenblick kaempft er schon.
+     */
+    public Optional<GearCondition> gearConditionOf(UUID characterId) {
+        return gearConditions.stream()
+                .filter(condition -> condition.characterId().equals(characterId))
+                .findFirst();
     }
 
     /** The stored contents of one character, or empty if it has never stored any. */

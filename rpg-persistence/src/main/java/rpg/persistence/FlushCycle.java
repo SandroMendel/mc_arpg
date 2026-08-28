@@ -86,6 +86,11 @@ public final class FlushCycle implements WriteBehindCoordinator {
                     // (ADR-015). The other two are the AggregateType constant and the repository
                     // wired in ZonePersistenceModule.
                     AggregateType.CHARACTER_ZONE_STATE,
+                    // B11's gear condition references a character as well - registration 2 of 3
+                    // (ADR-015). The other two are the AggregateType constant and the repository
+                    // wired in GearConditionModule. It changes on every hit, which is precisely why
+                    // it belongs in a batch and not in the combat path (Constitution II).
+                    AggregateType.CHARACTER_GEAR_CONDITION,
                     AggregateType.STATISTICS,
                     AggregateType.AUDIT_LOG);
 

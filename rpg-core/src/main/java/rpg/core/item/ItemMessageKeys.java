@@ -124,6 +124,25 @@ public final class ItemMessageKeys {
     /** Kein Platz im Inventar — geprüft vor der Buchung (FR-064). */
     public static final MessageKey VENDOR_NO_ROOM = MessageKey.of("item.vendor.no-room");
 
+    // --- Verschleiss und Reparatur (FR-051 bis FR-056) --------------------------------
+
+    /** Repariert. Platzhalter: {@code price}. */
+    public static final MessageKey REPAIR_DONE = MessageKey.of("item.repair.done");
+
+    /** Da war nichts abgenutzt — eine Auskunft, keine Gratisreparatur (FR-054). */
+    public static final MessageKey REPAIR_NOT_WORN = MessageKey.of("item.repair.not-worn");
+
+    /**
+     * Die Ausrüstung ist verschlissen. Platzhalter: {@code condition}.
+     *
+     * <p>Höchstens einmal je Schwelle und Ruhezeit (FR-051). Eine Meldung bei jedem Treffer wäre
+     * eine, die niemand mehr liest — und dann fiele die eine, auf die es ankam, auch nicht mehr auf.
+     */
+    public static final MessageKey WEAR_WARNING = MessageKey.of("item.wear.warning");
+
+    /** Amboss, Zauberpult und Schleifstein sind für gebundene Ausrüstung gesperrt (FR-056). */
+    public static final MessageKey REPAIR_ROUTE_LOCKED = MessageKey.of("item.repair.route-locked");
+
     /**
      * Die Schlüssel, die nicht an einer Vorlage hängen.
      *
@@ -148,7 +167,11 @@ public final class ItemMessageKeys {
                     VENDOR_BOUND,
                     VENDOR_NOT_IN_STOCK,
                     VENDOR_NOT_ENOUGH,
-                    VENDOR_NO_ROOM);
+                    VENDOR_NO_ROOM,
+                    REPAIR_DONE,
+                    REPAIR_NOT_WORN,
+                    WEAR_WARNING,
+                    REPAIR_ROUTE_LOCKED);
 
     /**
      * Jeder Schlüssel, den dieser Block ausgeben kann — für die Auflösungsprüfung beim Start.

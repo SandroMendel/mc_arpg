@@ -523,6 +523,17 @@ item:
     not-enough: '&cYou do not have that many coins.'
     no-room: '&cThere is no room in your inventory.'
 
+  # Verschleiß und Reparatur (FR-051 bis FR-056). Die Warnung kommt höchstens einmal je Schwelle
+  # und Ruhezeit - eine Meldung bei jedem Treffer wäre eine, die niemand mehr liest, und dann fiele
+  # die eine, auf die es ankam, auch nicht mehr auf.
+  repair:
+    done: '&aRepaired for {price} coins.'
+    not-worn: '&7There is nothing to repair there.'
+    route-locked: '&cYour class equipment can only be repaired by the merchant.'
+
+  wear:
+    warning: '&eYour gear is worn ({condition}%). Have it repaired before it costs you a fight.'
+
   potion:
     minor-healing:
       name: 'Minor Healing Potion'
