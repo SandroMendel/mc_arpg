@@ -87,7 +87,8 @@ public final class StateVersionMigrator {
                 bundle.abilities(),
                 bundle.balances(),
                 bundle.zoneStates(),
-                bundle.gearConditions());
+                bundle.gearConditions(),
+                bundle.cosmetics());
     }
 
     /** Whether migrating changed anything - the caller then writes the new format back (FR-026). */

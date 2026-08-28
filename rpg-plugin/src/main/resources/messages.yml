@@ -534,6 +534,13 @@ item:
   wear:
     warning: '&eYour gear is worn ({condition}%). Have it repaired before it costs you a fight.'
 
+  # Kosmetik (FR-067 bis FR-073). Der Text zu not-top-tier muss BEIDES sagen - dass es noch nicht
+  # geht und dass die Farbe bleibt. "Geht nicht" allein liest sich wie ein verlorener Kauf.
+  cosmetic:
+    applied: '&aYour trim has changed.'
+    not-top-tier: '&eNot yet - this needs the top tier of both ladders. The colour is yours and it will keep.'
+    already-worn: '&7You are already wearing that one.'
+
   potion:
     minor-healing:
       name: 'Minor Healing Potion'

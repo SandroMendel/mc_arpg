@@ -145,5 +145,23 @@ public enum AggregateType {
      *
      * <p>Registration 1 of 3 (ADR-015), as above.
      */
-    CHARACTER_GEAR_CONDITION
+    CHARACTER_GEAR_CONDITION,
+
+    /**
+     * Die gekauften Trimfarben eines Charakters (B11).
+     *
+     * <p><b>Mehrere Zeilen je Charakter</b>, wie {@link #CHARACTER_ABILITIES}: wer drei Farben
+     * gekauft hat, besitzt drei. Der Stapel schreibt deshalb eine Menge und loescht, was nicht mehr
+     * dabei ist - nur zu schreiben, was da ist, liesse eine abgelegte Farbe fuer immer als getragen
+     * stehen.
+     *
+     * <p><b>Hoechstens eine getragen, und das erzwingt die Datenbank</b> (FR-071): ein partieller
+     * UNIQUE-Index in {@code V11_3}. Eine Regel, die nur in der Anwendung lebt, gilt genau so lange,
+     * wie jeder Schreiber durch die Anwendung geht - ein Betreiberbefehl oder ein Reparaturskript
+     * haelt sich nicht daran, und der Fehler faellt erst auf, wenn zwei Farben getragen werden und
+     * niemand sagen kann, welche gilt.
+     *
+     * <p>Registration 1 of 3 (ADR-015), as above.
+     */
+    CHARACTER_COSMETIC
 }

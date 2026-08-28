@@ -25,6 +25,7 @@ import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import rpg.core.classes.LadderSlot;
 import rpg.core.currency.Currency;
 import rpg.core.currency.EquipmentPurchase;
+import rpg.core.item.CosmeticApplication;
 import rpg.core.item.GearRepair;
 import rpg.core.item.ItemConfig;
 import rpg.core.item.ItemMessageKeys;
@@ -82,6 +83,9 @@ public final class VendorListener implements Listener {
     /** Die bezahlte Instandsetzung — die Regel liegt in {@code rpg-core}, wie ueberall hier. */
     private final GearRepair repairs;
 
+    /** Besitz und Anwendung der Trimfarben — die Regel liegt in {@code rpg-core} (US6). */
+    private final CosmeticApplication cosmetics;
+
     /**
      * Ob dieser Vermerk eine Bindung ist — B07s {@code BoundEquipment::isBound}, als Naht.
      *
@@ -105,6 +109,7 @@ public final class VendorListener implements Listener {
             VendorTransaction transactions,
             TierRoute tiers,
             GearRepair repairs,
+            CosmeticApplication cosmetics,
             Predicate<String> bound,
             Currency currency,
             ItemStackFactory factory,
@@ -116,6 +121,7 @@ public final class VendorListener implements Listener {
         this.transactions = Objects.requireNonNull(transactions, "transactions");
         this.tiers = Objects.requireNonNull(tiers, "tiers");
         this.repairs = Objects.requireNonNull(repairs, "repairs");
+        this.cosmetics = Objects.requireNonNull(cosmetics, "cosmetics");
         this.bound = Objects.requireNonNull(bound, "bound");
         this.currency = Objects.requireNonNull(currency, "currency");
         this.factory = Objects.requireNonNull(factory, "factory");
@@ -184,7 +190,17 @@ public final class VendorListener implements Listener {
             return;
         }
         menu.templateAt(config.get().vendorOf(zoneKey), slot)
-                .ifPresent(templateKey -> buy(player, characterId, zoneKey, templateKey));
+                .ifPresent(
+                        templateKey -> {
+                            // Eine Farbe, die dem Charakter schon gehoert, wird nicht ein
+                            // zweites Mal verkauft, sondern angezogen (FR-070).
+                            if (isCosmetic(templateKey)
+                                    && cosmetics.owns(characterId, templateKey)) {
+                                wear(player, characterId, templateKey);
+                                return;
+                            }
+                            buy(player, characterId, zoneKey, templateKey);
+                        });
     }
 
     /**
@@ -197,6 +213,18 @@ public final class VendorListener implements Listener {
             tell(player, refusalOf(result.outcome()), Map.of());
             return;
         }
+        if (isCosmetic(templateKey)) {
+            // Eine Trimfarbe ist kein Stapel im Inventar, sondern ein Besitzvermerk am
+            // Charakter (data-model.md §3). Ein Item daraus zu machen hiesse, sie verlierbar,
+            // handelbar und in einer Enderchest lagerbar zu machen - drei Eigenschaften, die
+            // niemand fuer sie bestellt hat.
+            cosmetics.grant(characterId, templateKey);
+            tell(
+                    player,
+                    ItemMessageKeys.VENDOR_BOUGHT,
+                    Map.of("amount", String.valueOf(result.amount())));
+            return;
+        }
         Optional<ItemStack> given = factory.create(templateKey, 1);
         if (given.isEmpty()) {
             // Kann nur passieren, wenn zwischen Pruefung und Uebergabe neu geladen wurde. Der
@@ -207,6 +235,32 @@ public final class VendorListener implements Listener {
         }
         player.getInventory().addItem(given.get());
         tell(player, ItemMessageKeys.VENDOR_BOUGHT, Map.of("amount", String.valueOf(result.amount())));
+    }
+
+    private boolean isCosmetic(String templateKey) {
+        return config.get()
+                .template(templateKey)
+                .filter(template -> template.category() == rpg.core.item.ItemCategory.COSMETIC)
+                .isPresent();
+    }
+
+    /**
+     * Eine besessene Farbe anziehen (FR-069 bis FR-071).
+     *
+     * <p>Kostet nichts: bezahlt wurde beim Kauf. Ein Wechsel zwischen zwei gekauften Farben ist
+     * frei — sonst waere die zweite Farbe eine Falle statt einer Auswahl.
+     */
+    private void wear(Player player, UUID characterId, String templateKey) {
+        CosmeticApplication.Outcome outcome = cosmetics.apply(characterId, templateKey);
+        tell(
+                player,
+                switch (outcome) {
+                    case DONE -> ItemMessageKeys.COSMETIC_APPLIED;
+                    case NOT_TOP_TIER -> ItemMessageKeys.COSMETIC_NOT_TOP_TIER;
+                    case ALREADY_APPLIED -> ItemMessageKeys.COSMETIC_ALREADY_WORN;
+                    case NOT_OWNED, UNKNOWN_TEMPLATE -> null;
+                },
+                Map.of());
     }
 
     /**

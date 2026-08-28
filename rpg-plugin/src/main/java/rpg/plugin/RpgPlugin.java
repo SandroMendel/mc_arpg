@@ -184,6 +184,9 @@ public class RpgPlugin extends JavaPlugin {
     /** Wer gerade ein Klon ist — B10s Liste, von B11 mitgelesen (FR-041a). */
     private rpg.platform.mob.CloneAggroListener cloneRegistry;
 
+    /** B11s Trimfarben — Datenbankseite und Sitzungsgrenzen (US6). */
+    private rpg.persistence.item.CosmeticModule cosmeticModule;
+
     /** B11s Verschleisszustand — Datenbankseite und Sitzungsgrenzen (US5). */
     private rpg.persistence.item.GearConditionModule gearConditionModule;
 
@@ -437,10 +440,25 @@ public class RpgPlugin extends JavaPlugin {
         progressionModule =
                 new ProgressionModule(
                         persistenceModule, sessionModule, getLogger(), Clock.systemUTC());
-        // B11s Verschleiss haengt hier ein, und zwar VOR B07 (Complexity Tracking, research.md R1).
-        // Als Funktion und nicht als Modul: die Antwort wird beim Aufruf aufgeloest, und die
-        // Startreihenfolge bleibt frei. Solange B11 nicht laeuft, ist es GearConditionFactor.NONE -
-        // und B07 verhaelt sich exakt wie vorher.
+        // B11 US6. Eigenes Modul neben dem Verschleiss, weil es ein eigenes Aggregat ist - ein
+        // Aggregat, ein Modul, ein Platz in der Schreibreihenfolge (ADR-015).
+        cosmeticModule =
+                new rpg.persistence.item.CosmeticModule(
+                        persistenceModule,
+                        sessionModule,
+                        // Ein Lambda und KEINE Methodenreferenz: itemModule wird weiter unten
+                        // gebaut, und itemModule::config wuerde hier sofort auf null binden.
+                        () -> itemModule.config(),
+                        // Ob die Hoechststufe erreicht ist, weiss B07 - eine zweite Antwort hier
+                        // waere eine zweite Wahrheit (FR-079).
+                        this::isAtTopTier,
+                        eventBus,
+                        getLogger(),
+                        Clock.systemUTC());
+        // B11s Verschleiss haengt VOR B07 ein (Complexity Tracking, research.md R1). Als Funktion
+        // und nicht als Modul: die Antwort wird beim Aufruf aufgeloest, und die Startreihenfolge
+        // bleibt frei. Solange B11 nicht laeuft, ist es GearConditionFactor.NONE - und B07
+        // verhaelt sich exakt wie vorher.
         gearConditionModule =
                 new rpg.persistence.item.GearConditionModule(
                         persistenceModule,
@@ -511,7 +529,8 @@ public class RpgPlugin extends JavaPlugin {
                 zoneModule,
                 mobModule,
                 itemModule,
-                gearConditionModule);
+                gearConditionModule,
+                cosmeticModule);
     }
 
     /**
@@ -1380,7 +1399,13 @@ public class RpgPlugin extends JavaPlugin {
                 });
         ClassEquipmentApplier equipment =
                 new ClassEquipmentApplier(
-                        classesModule.boundEquipment(), new BoundItemFactory(messages), getLogger());
+                        classesModule.boundEquipment(),
+                        new BoundItemFactory(messages),
+                        // B11s gekaufte Trimfarbe. Ob sie ueberhaupt getragen werden darf, ist
+                        // in CosmeticApplication entschieden - hier wird nur eingesetzt, was
+                        // dort freigegeben wurde (FR-069, FR-070).
+                        new rpg.platform.item.CosmeticOverride(cosmeticModule.cosmetics()),
+                        getLogger());
 
         characterEntry = (player, character) -> enterGameState(player, character, equipment);
 
@@ -2188,6 +2213,7 @@ public class RpgPlugin extends JavaPlugin {
                                                 .map(progress -> progress.tierOf(slot))
                                                 .orElse(rpg.core.classes.ClassProgress.INITIAL_TIER),
                                 currency),
+                        cosmeticModule.cosmetics(),
                         boundEquipment::isBound,
                         currency,
                         itemFactory,
@@ -2335,6 +2361,30 @@ public class RpgPlugin extends JavaPlugin {
     private java.util.Optional<rpg.core.session.CharacterClass> classOfCharacter(
             java.util.UUID characterId) {
         return abilityModule.registry().classOf(characterId);
+    }
+
+    /**
+     * Ob dieser Charakter in dieser Leiter die Hoechststufe traegt — B07s Antwort.
+     *
+     * <p>Falsch fuer einen Charakter ohne Klasse und fuer einen, der nicht geladen ist. Das ist die
+     * sichere Richtung: eine Kosmetik nicht anwenden zu koennen ist eine Auskunft, sie faelschlich
+     * anzuwenden waere ein ueberschriebener Stufentrim (B07/FR-016).
+     */
+    private boolean isAtTopTier(java.util.UUID characterId, rpg.core.classes.LadderSlot slot) {
+        return classesModule
+                .classOf(characterId)
+                .flatMap(
+                        characterClass ->
+                                classesModule
+                                        .progressOf(characterId)
+                                        .map(
+                                                progress ->
+                                                        classesModule
+                                                                .config()
+                                                                .definition(characterClass)
+                                                                .ladder(slot)
+                                                                .isTop(progress.tierOf(slot))))
+                .orElse(false);
     }
 
     /**

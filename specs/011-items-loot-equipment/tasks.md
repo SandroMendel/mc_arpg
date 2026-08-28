@@ -271,16 +271,16 @@ existiert.
 
 **Independent Test**: Trimfarbe kaufen und anwenden, ohne dass Beute oder Verbrauchbares existieren.
 
-- [ ] T118 [P] [US6] `CosmeticUnlock` und `CosmeticRepository` in `rpg-core/src/main/java/rpg/core/item/` — Besitz und Anwendung je **Charakter** ([data-model.md](./data-model.md) §3)
-- [ ] T119 [P] [US6] Migration `V11_3__character_cosmetic.sql` — mit **partiellem `UNIQUE`-Index** auf `(character_id) WHERE applied`: FR-071 wird eine Datenbankregel statt einer Absichtserklärung
-- [ ] T120 [US6] `JdbcCosmeticRepository` und Test gegen echtes PostgreSQL — der Teilindex weist eine zweite angewandte Farbe **auf Datenbankebene** zurück
-- [ ] T121 [US6] `CosmeticApplication` in `rpg-core/src/main/java/rpg/core/item/CosmeticApplication.java` — **erst auf der Höchststufe anwendbar** (FR-069)
-- [ ] T122 [US6] Test `CosmeticOnlyAtTopTierTest` in `rpg-core/src/test/java/rpg/core/item/CosmeticOnlyAtTopTierTest.java` — unterhalb abgelehnt, **der Besitz bleibt trotzdem**; Javadoc und Test nennen den Grund: sonst sähen Schurkenstufe 4 und 6 gleich aus (B07s FR-016, ADR-039)
-- [ ] T123 [US6] Anwendung auf das Aussehen verdrahten — überschreibt den Trim der Stufe, **nur** auf der Höchststufe; benutzt `TierAppearance`, führt **keine zweite Fassung** ein (FR-079)
-- [ ] T124 [US6] Test `CosmeticChangesNoValueTest` in `rpg-platform/src/test/java/rpg/platform/item/CosmeticChangesNoValueTest.java` — **SC-014**: nach dem Anwenden ist **kein einziger Wert** anders
-- [ ] T125 [US6] Test `CosmeticSurvivesReloginTest` und `CosmeticIsPerCharacterTest` — die Farbe übersteht einen Neustart und gilt **nicht** für einen anderen Charakter (FR-072, ADR-011)
-- [ ] T126 [US6] Test `UnknownCosmeticFallsBackTest` in `rpg-core/src/test/java/rpg/core/item/UnknownCosmeticFallsBackTest.java` — eine Farbe, die die Konfiguration nicht mehr kennt, fällt auf das Aussehen der Stufe zurück, **ohne den Besitzvermerk zu verlieren** (FR-073)
-- [ ] T127 [US6] Kosmetik in den NPC-Bestand aufnehmen und `CosmeticAppliedEvent` veröffentlichen
+- [X] T118 [P] [US6] `CosmeticUnlock` und `CosmeticRepository` in `rpg-core/src/main/java/rpg/core/item/` — Besitz und Anwendung je **Charakter** ([data-model.md](./data-model.md) §3)
+- [X] T119 [P] [US6] Migration `V11_3__character_cosmetic.sql` — mit **partiellem `UNIQUE`-Index** auf `(character_id) WHERE applied`: FR-071 wird eine Datenbankregel statt einer Absichtserklärung
+- [X] T120 [US6] `JdbcCosmeticRepository` und Test gegen echtes PostgreSQL — der Teilindex weist eine zweite angewandte Farbe **auf Datenbankebene** zurück
+- [X] T121 [US6] `CosmeticApplication` in `rpg-core/src/main/java/rpg/core/item/CosmeticApplication.java` — **erst auf der Höchststufe anwendbar** (FR-069)
+- [X] T122 [US6] Test `CosmeticOnlyAtTopTierTest` in `rpg-core/src/test/java/rpg/core/item/CosmeticOnlyAtTopTierTest.java` — unterhalb abgelehnt, **der Besitz bleibt trotzdem**; Javadoc und Test nennen den Grund: sonst sähen Schurkenstufe 4 und 6 gleich aus (B07s FR-016, ADR-039)
+- [X] T123 [US6] Anwendung auf das Aussehen verdrahten — überschreibt den Trim der Stufe, **nur** auf der Höchststufe; benutzt `TierAppearance`, führt **keine zweite Fassung** ein (FR-079)
+- [X] T124 [US6] Test `CosmeticChangesNoValueTest` in `rpg-platform/src/test/java/rpg/platform/item/CosmeticChangesNoValueTest.java` — **SC-014**: nach dem Anwenden ist **kein einziger Wert** anders
+- [X] T125 [US6] Test `CosmeticSurvivesReloginTest` und `CosmeticIsPerCharacterTest` — die Farbe übersteht einen Neustart und gilt **nicht** für einen anderen Charakter (FR-072, ADR-011)
+- [X] T126 [US6] Test `UnknownCosmeticFallsBackTest` in `rpg-core/src/test/java/rpg/core/item/UnknownCosmeticFallsBackTest.java` — eine Farbe, die die Konfiguration nicht mehr kennt, fällt auf das Aussehen der Stufe zurück, **ohne den Besitzvermerk zu verlieren** (FR-073)
+- [X] T127 [US6] Kosmetik in den NPC-Bestand aufnehmen und `CosmeticAppliedEvent` veröffentlichen
 
 **Checkpoint**: Stufe 60 ist nicht mehr das Ende.
 

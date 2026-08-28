@@ -91,6 +91,10 @@ public final class FlushCycle implements WriteBehindCoordinator {
                     // wired in GearConditionModule. It changes on every hit, which is precisely why
                     // it belongs in a batch and not in the combat path (Constitution II).
                     AggregateType.CHARACTER_GEAR_CONDITION,
+                    // B11s Trimfarben, ebenfalls an einem Charakter - registration 2 of 3
+                    // (ADR-015). Nach dem Verschleiss, weil beide zum selben Block gehoeren und
+                    // eine feste Reihenfolge sich leichter lesen laesst als eine zufaellige.
+                    AggregateType.CHARACTER_COSMETIC,
                     AggregateType.STATISTICS,
                     AggregateType.AUDIT_LOG);
 

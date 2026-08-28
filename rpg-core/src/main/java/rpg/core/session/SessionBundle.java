@@ -9,6 +9,7 @@ import rpg.core.ability.AbilityState;
 import rpg.core.classes.ClassProgress;
 import rpg.core.currency.CharacterBalance;
 import rpg.core.inventory.CharacterInventory;
+import rpg.core.item.CosmeticUnlock;
 import rpg.core.item.GearCondition;
 import rpg.core.persistence.PlayerState;
 import rpg.core.progression.CharacterProgress;
@@ -43,7 +44,8 @@ public record SessionBundle(
         List<AbilityState> abilities,
         List<CharacterBalance> balances,
         List<ZoneCharacterState> zoneStates,
-        List<GearCondition> gearConditions) {
+        List<GearCondition> gearConditions,
+        List<CosmeticUnlock> cosmetics) {
 
     public SessionBundle {
         Objects.requireNonNull(playerId, "playerId");
@@ -58,6 +60,35 @@ public record SessionBundle(
         zoneStates = List.copyOf(Objects.requireNonNull(zoneStates, "zoneStates"));
         gearConditions =
                 List.copyOf(Objects.requireNonNull(gearConditions, "gearConditions"));
+        cosmetics = List.copyOf(Objects.requireNonNull(cosmetics, "cosmetics"));
+    }
+
+    /** A bundle without cosmetics - the shape before US6 of B11 existed. */
+    public SessionBundle(
+            UUID playerId,
+            Optional<PlayerState> accountState,
+            List<PlayerCharacter> characters,
+            List<CharacterResources> resources,
+            List<CharacterProgress> progress,
+            List<ClassProgress> classProgress,
+            List<CharacterInventory> inventories,
+            List<AbilityState> abilities,
+            List<CharacterBalance> balances,
+            List<ZoneCharacterState> zoneStates,
+            List<GearCondition> gearConditions) {
+        this(
+                playerId,
+                accountState,
+                characters,
+                resources,
+                progress,
+                classProgress,
+                inventories,
+                abilities,
+                balances,
+                zoneStates,
+                gearConditions,
+                List.of());
     }
 
     /** A bundle without gear condition - the shape before B11 existed. */
@@ -83,6 +114,7 @@ public record SessionBundle(
                 abilities,
                 balances,
                 zoneStates,
+                List.of(),
                 List.of());
     }
 
@@ -204,6 +236,20 @@ public record SessionBundle(
             List<CharacterProgress> progress,
             List<ClassProgress> classProgress) {
         this(playerId, accountState, characters, resources, progress, classProgress, List.of());
+    }
+
+    /**
+     * Die gekauften Trimfarben einer Figur (B11/US6). Leer ist der Normalfall.
+     *
+     * <p>Hier geladen und nicht spaeter geholt, aus demselben Grund wie alles andere in diesem
+     * Buendel: die getragene Farbe bestimmt das Aussehen der Ausruestung, und die Ausruestung wird
+     * beim Eintritt angelegt. Eine Farbe, die einen Augenblick spaeter eintraefe, hiesse einen
+     * Spieler, der kurz in der Stufenfarbe dasteht und sich dann selbst korrigiert.
+     */
+    public List<CosmeticUnlock> cosmeticsOf(UUID characterId) {
+        return cosmetics.stream()
+                .filter(unlock -> unlock.characterId().equals(characterId))
+                .toList();
     }
 
     /**

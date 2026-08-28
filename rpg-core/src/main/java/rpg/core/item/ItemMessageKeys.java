@@ -140,6 +140,24 @@ public final class ItemMessageKeys {
      */
     public static final MessageKey WEAR_WARNING = MessageKey.of("item.wear.warning");
 
+    // --- Kosmetik (FR-067 bis FR-073) -------------------------------------------------
+
+    /** Die Farbe wird jetzt getragen. */
+    public static final MessageKey COSMETIC_APPLIED = MessageKey.of("item.cosmetic.applied");
+
+    /**
+     * Noch nicht auf der Höchststufe — <b>und der Besitz bleibt</b> (FR-069).
+     *
+     * <p>Der Text muss beides sagen. „Geht nicht" allein liest sich wie ein verlorener Kauf, und
+     * genau das ist es nicht: die Farbe wartet.
+     */
+    public static final MessageKey COSMETIC_NOT_TOP_TIER =
+            MessageKey.of("item.cosmetic.not-top-tier");
+
+    /** Sie wird bereits getragen. */
+    public static final MessageKey COSMETIC_ALREADY_WORN =
+            MessageKey.of("item.cosmetic.already-worn");
+
     /** Amboss, Zauberpult und Schleifstein sind für gebundene Ausrüstung gesperrt (FR-056). */
     public static final MessageKey REPAIR_ROUTE_LOCKED = MessageKey.of("item.repair.route-locked");
 
@@ -171,7 +189,10 @@ public final class ItemMessageKeys {
                     REPAIR_DONE,
                     REPAIR_NOT_WORN,
                     WEAR_WARNING,
-                    REPAIR_ROUTE_LOCKED);
+                    REPAIR_ROUTE_LOCKED,
+                    COSMETIC_APPLIED,
+                    COSMETIC_NOT_TOP_TIER,
+                    COSMETIC_ALREADY_WORN);
 
     /**
      * Jeder Schlüssel, den dieser Block ausgeben kann — für die Auflösungsprüfung beim Start.

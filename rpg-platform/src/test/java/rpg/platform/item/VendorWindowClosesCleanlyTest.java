@@ -106,6 +106,7 @@ class VendorWindowClosesCleanlyTest {
                                 conditions,
                                 (characterId, slot) -> 1,
                                 currency),
+                        cosmetics(),
                         tag -> false,
                         currency,
                         new ItemStackFactory(new ConfiguredItems(), messages()),
@@ -211,6 +212,27 @@ class VendorWindowClosesCleanlyTest {
                         slot,
                         org.bukkit.event.inventory.ClickType.LEFT,
                         org.bukkit.event.inventory.InventoryAction.PICKUP_ALL));
+    }
+
+    /** Ein Kosmetikspeicher ohne Besitz: jeder Klick faellt auf den Kauf zurueck. */
+    private rpg.core.item.CosmeticApplication cosmetics() {
+        rpg.core.item.CosmeticApplication application =
+                new rpg.core.item.CosmeticApplication(
+                        VendorWindowClosesCleanlyTest::config,
+                        new rpg.core.item.CosmeticRepository() {
+                            @Override
+                            public java.util.concurrent.CompletableFuture<List<rpg.core.item.CosmeticUnlock>> find(
+                                    UUID characterId) {
+                                return java.util.concurrent.CompletableFuture.completedFuture(List.of());
+                            }
+                            @Override
+                            public void markDirty(UUID characterId) {}
+                        },
+                        (characterId, slot) -> false,
+                        new rpg.core.event.DefaultEventBus(QUIET),
+                        java.time.Clock.systemUTC());
+        application.put(character, List.of());
+        return application;
     }
 
     private static MapMessages messages() {
