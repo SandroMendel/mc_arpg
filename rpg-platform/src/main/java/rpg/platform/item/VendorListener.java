@@ -20,8 +20,6 @@ import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-
 import rpg.core.classes.LadderSlot;
 import rpg.core.currency.Currency;
 import rpg.core.currency.EquipmentPurchase;
@@ -56,7 +54,17 @@ import rpg.core.message.Messages;
  */
 public final class VendorListener implements Listener {
 
-    private static final LegacyComponentSerializer LEGACY = LegacyComponentSerializer.legacySection();
+    /**
+     * Was der nächste Stufenaufstieg kostet und ab welchem Level er geht.
+     *
+     * <p>Dieselbe Naht-Überlegung wie bei {@link TierRoute}: B08bs {@code costOfNext} und B07s
+     * {@code requiredLevelFor} beantworten das, und das Fenster fragt sie, statt zu rechnen. Leer
+     * heißt „Höchststufe erreicht" — dann steht das im Knopf, statt dass ein Klick es herausfindet.
+     */
+    @FunctionalInterface
+    public interface TierOffer {
+        VendorMenu.UpgradeOffer of(UUID characterId, LadderSlot slot);
+    }
 
     /**
      * Der Weg zum Stufenaufstieg — B08bs {@link EquipmentPurchase#buyNext}, als Naht.
@@ -80,8 +88,13 @@ public final class VendorListener implements Listener {
     private final VendorTransaction transactions;
     private final TierRoute tiers;
 
+    private final TierOffer tierOffers;
+
     /** Die bezahlte Instandsetzung — die Regel liegt in {@code rpg-core}, wie ueberall hier. */
     private final GearRepair repairs;
+
+    /** Der Zustand, für die Beschreibung am Reparaturknopf — dieselbe Zahl, die B07 benutzt. */
+    private final rpg.core.item.GearConditions conditions;
 
     /** Besitz und Anwendung der Trimfarben — die Regel liegt in {@code rpg-core} (US6). */
     private final CosmeticApplication cosmetics;
@@ -108,7 +121,9 @@ public final class VendorListener implements Listener {
             VendorMenu menu,
             VendorTransaction transactions,
             TierRoute tiers,
+            TierOffer tierOffers,
             GearRepair repairs,
+            rpg.core.item.GearConditions conditions,
             CosmeticApplication cosmetics,
             Predicate<String> bound,
             Currency currency,
@@ -120,7 +135,9 @@ public final class VendorListener implements Listener {
         this.menu = Objects.requireNonNull(menu, "menu");
         this.transactions = Objects.requireNonNull(transactions, "transactions");
         this.tiers = Objects.requireNonNull(tiers, "tiers");
+        this.tierOffers = Objects.requireNonNull(tierOffers, "tierOffers");
         this.repairs = Objects.requireNonNull(repairs, "repairs");
+        this.conditions = Objects.requireNonNull(conditions, "conditions");
         this.cosmetics = Objects.requireNonNull(cosmetics, "cosmetics");
         this.bound = Objects.requireNonNull(bound, "bound");
         this.currency = Objects.requireNonNull(currency, "currency");
@@ -149,8 +166,30 @@ public final class VendorListener implements Listener {
             return;
         }
         long balance = currency.balanceOrZero(character.get());
-        player.openInventory(menu.build(config.get().vendorOf(zoneKey), balance));
+        player.openInventory(
+                menu.build(config.get().vendorOf(zoneKey), balance, offersFor(character.get())));
         open.put(player.getUniqueId(), zoneKey);
+    }
+
+    /**
+     * Was die Dienste diesen Charakter gerade kosten.
+     *
+     * <p>Gerechnet <b>hier</b> und nicht im Fenster: die Preise gehören den Regeln in
+     * {@code rpg-core}, und ein Fenster, das sie selbst bestimmt, wäre eine zweite Preisliste.
+     * Was das Fenster bekommt, sind fertige Zahlen.
+     */
+    private VendorMenu.Offers offersFor(UUID characterId) {
+        Map<LadderSlot, VendorMenu.RepairOffer> repairOffers = new java.util.EnumMap<>(LadderSlot.class);
+        Map<LadderSlot, VendorMenu.UpgradeOffer> upgrades = new java.util.EnumMap<>(LadderSlot.class);
+        for (LadderSlot slot : LadderSlot.values()) {
+            repairOffers.put(
+                    slot,
+                    new VendorMenu.RepairOffer(
+                            conditions.conditionOf(characterId, slot),
+                            repairs.priceOf(characterId, slot)));
+            upgrades.put(slot, tierOffers.of(characterId, slot));
+        }
+        return new VendorMenu.Offers(repairOffers, upgrades);
     }
 
     @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
@@ -378,9 +417,9 @@ public final class VendorListener implements Listener {
     }
 
     private void tell(Player player, MessageKey key, Map<String, String> placeholders) {
-        if (key == null || !messages.contains(key)) {
-            return;
+        net.kyori.adventure.text.Component text = ItemText.of(messages, key, placeholders);
+        if (text != null) {
+            player.sendMessage(text);
         }
-        player.sendMessage(LEGACY.deserialize(messages.get(key, placeholders)));
     }
 }

@@ -14,8 +14,6 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-
 import rpg.core.item.ItemMessageKeys;
 import rpg.core.message.MessageKey;
 import rpg.core.message.Messages;
@@ -43,8 +41,6 @@ import rpg.platform.classes.BoundItemTag;
  * kein Weg ist.
  */
 public final class TrashCommand implements CommandExecutor {
-
-    private static final LegacyComponentSerializer LEGACY = LegacyComponentSerializer.legacySection();
 
     public static final String PERMISSION = "rpg.item.trash";
 
@@ -150,9 +146,9 @@ public final class TrashCommand implements CommandExecutor {
     }
 
     private void tell(Player player, MessageKey key) {
-        if (!messages.contains(key)) {
-            return;
+        net.kyori.adventure.text.Component text = ItemText.of(messages, key, Map.of());
+        if (text != null) {
+            player.sendMessage(text);
         }
-        player.sendMessage(LEGACY.deserialize(messages.get(key, Map.of())));
     }
 }

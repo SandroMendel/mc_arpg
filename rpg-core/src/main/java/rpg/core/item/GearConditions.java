@@ -31,6 +31,17 @@ public interface GearConditions extends GearConditionFactor {
      */
     double factorOf(UUID characterId, LadderSlot slot);
 
+    /**
+     * Derselbe Faktor, aber für einen <em>gegebenen</em> Zustand statt für einen Charakter.
+     *
+     * <p>Für die Anzeige: „68 % Haltbarkeit" sagt einem Spieler nichts darüber, was es ihn kostet —
+     * „Werte bei 87 %" schon. Wer diese zweite Zahl selbst ausrechnete, hätte eine zweite
+     * Verschleißkurve, und die wäre nach dem ersten Balancing eine falsche Anzeige zu richtigen
+     * Werten. Das ist der unangenehmste Fehler dieser Art, weil ihn niemand dem Anzeigecode
+     * zuordnet.
+     */
+    double factorForCondition(double condition);
+
     @Override
     default double factorFor(UUID characterId, LadderSlot slot) {
         return factorOf(characterId, slot);

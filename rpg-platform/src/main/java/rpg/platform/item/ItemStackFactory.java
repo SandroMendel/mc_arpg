@@ -12,7 +12,6 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 
 import rpg.core.item.ItemMessageKeys;
 import rpg.core.item.ItemTemplate;
@@ -40,8 +39,6 @@ import rpg.core.message.Messages;
  * Betreiber statt für den Fehler.
  */
 public final class ItemStackFactory {
-
-    private static final LegacyComponentSerializer LEGACY = LegacyComponentSerializer.legacySection();
 
     private final Items items;
     private final Messages messages;
@@ -120,11 +117,15 @@ public final class ItemStackFactory {
         return ItemTag.templateOf(stack).flatMap(items::template);
     }
 
+    /**
+     * Der Text hinter einem Schlüssel — mit Farben und <b>ohne</b> Vanillas Kursivsatz.
+     *
+     * <p>Beides lief hier falsch: {@code legacySection()} las das {@code §}-Zeichen und ließ
+     * jedes {@code &c} wörtlich stehen, und Vanilla setzt jeden eigenen Item-Namen kursiv.
+     * Beides gehört an eine Stelle, und die heißt {@link ItemText}.
+     */
     private Component text(MessageKey key, String fallback) {
-        if (!messages.contains(key)) {
-            return Component.text(fallback);
-        }
-        return LEGACY.deserialize(messages.get(key, Map.of()));
+        return ItemText.onItem(ItemText.orElse(messages, key, fallback));
     }
 
     private static Material materialOf(ItemTemplate template) {

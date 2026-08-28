@@ -122,8 +122,19 @@ public final class ConsumableUseListener implements Listener {
 
     private void apply(Player player, ItemStack stack) {
         Optional<UUID> characterId = characterOf.apply(player.getUniqueId());
-        Optional<UUID> holderId = holderOf.apply(player.getUniqueId());
-        if (characterId.isEmpty() || holderId.isEmpty()) {
+        if (characterId.isEmpty()) {
+            return;
+        }
+        // Charakter -> Halter, und NICHT Spieler -> Halter. Hier stand die Spieler-ID, und der
+        // Trank tat daraufhin gar nichts: holderOf haelt einen Rueckwaertsindex ueber CHARAKTERE,
+        // fand nichts, und die Pruefung darunter brach still ab - keine Wirkung, keine Meldung,
+        // kein verbrauchter Trank.
+        //
+        // Es ist derselbe Fehler, den B08 schon einmal gemacht hat, und StatEngine.holderOf traegt
+        // seine Beschreibung im Javadoc: "no ability did anything and nobody healed". Zwei
+        // Bezeichner fuer dasselbe Wesen sind eine Gelegenheit, den falschen zu nehmen (ADR-011).
+        Optional<UUID> holderId = characterId.flatMap(holderOf);
+        if (holderId.isEmpty()) {
             return;
         }
 
@@ -176,7 +187,8 @@ public final class ConsumableUseListener implements Listener {
                                 java.util.Map.of(
                                         "seconds", String.valueOf(result.remaining().toSeconds())));
         player.sendMessage(
-                net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer.legacySection()
+                net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer
+                        .legacyAmpersand()
                         .deserialize(text));
     }
 

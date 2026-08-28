@@ -187,6 +187,9 @@ public class RpgPlugin extends JavaPlugin {
     /** B07s Warnung bei vollem Inventar — mit B11s konfigurierbarer Ruhezeit (US7). */
     private InventoryFullNoticeListener inventoryFullNotice;
 
+    /** B11s Anzeige des Verschleisses — Balken und Lore auf der getragenen Ausruestung (US5). */
+    private rpg.platform.item.GearConditionDisplay gearDisplay;
+
     /** B11s Mülleimer — der dritte Entsorgungsweg (US7). */
     private rpg.platform.item.TrashCommand trashCommand;
 
@@ -1470,7 +1473,16 @@ public class RpgPlugin extends JavaPlugin {
                 selection.openIfNeeded(player);
                 classesModule
                         .characterOf(player.getUniqueId())
-                        .ifPresent(characterId -> equipment.apply(player, characterId));
+                        .ifPresent(
+                                characterId -> {
+                                    equipment.apply(player, characterId);
+                                    // Die Ausruestung ist gerade frisch gebaut und weiss nichts
+                                    // von einem Zustand. Ohne diese Zeile saehe ein Spieler seine
+                                    // Ruestung bis zum ersten Treffer als unbeschaedigt - und das
+                                    // ist genau der Moment, in dem er entscheidet, ob er zum
+                                    // Haendler geht (FR-050).
+                                    refreshGearDisplay(player, characterId);
+                                });
                 // B09: place the character in their region. This is the sanctioned way in - B03 owns
                 // the session lifecycle and allows exactly one join handler (FR-007), so the zone
                 // block observes rather than listens. Without this a player would be in no zone
@@ -1724,6 +1736,8 @@ public class RpgPlugin extends JavaPlugin {
                         });
         // Class equipment last, so it always wins the slots it owns.
         equipment.apply(player, characterId);
+        // Und der Zustand darauf, aus demselben Grund wie oben.
+        refreshGearDisplay(player, characterId);
         // And the ability items on top of it, because they sit in the hotbar slots the weapon does not
         // own. Laid out from the reached level rather than patched from events (T124): a missed
         // level-up would otherwise leave a slot empty for the rest of the session, and nothing would
@@ -2162,13 +2176,15 @@ public class RpgPlugin extends JavaPlugin {
         // Die Warnung an den Spieler. Die Entscheidung "jetzt sagen" steckt schon im Ereignis
         // (FR-051) - sie hier ein zweites Mal zu treffen waere die zuverlaessigste Art, zwei
         // Meldungen fuer einen Treffer zu erzeugen.
-        new rpg.platform.item.GearConditionDisplay(
+gearDisplay =
+                new rpg.platform.item.GearConditionDisplay(
                         messages,
+                        conditions,
                         this::onlinePlayerOfCharacter,
                         // Welcher getragene Gegenstand zu welcher Leiter gehoert, sagt B07 - der
                         // Vermerk hat ein Format, und es gehoert dort hin (FR-079).
-                        classesModule.boundEquipment()::expectedTag)
-                .subscribeTo(eventBus);
+                        classesModule.boundEquipment()::expectedTag);
+        gearDisplay.subscribeTo(eventBus);
 
         // FR-056: der bezahlte Weg beim Haendler ist die EINZIGE Instandsetzung. Ein offener Amboss
         // waere der billigere, und niemand ginge je zum Haendler - die Coin-Senke aus ADR-017 haette
@@ -2223,6 +2239,9 @@ public class RpgPlugin extends JavaPlugin {
                         new rpg.platform.item.VendorMenu(itemFactory, messages),
                         transactions,
                         tierPurchase::buyNext,
+                        // Was der naechste Aufstieg kostet und ab welchem Level er geht - damit
+                        // der Knopf es SAGT, statt dass ein Klick es herausfindet.
+                        (characterId, slot) -> upgradeOfferFor(tierPurchase, characterId, slot),
                         new rpg.core.item.GearRepair(
                                 itemModule::config,
                                 gearConditionModule.conditions(),
@@ -2234,6 +2253,7 @@ public class RpgPlugin extends JavaPlugin {
                                                 .map(progress -> progress.tierOf(slot))
                                                 .orElse(rpg.core.classes.ClassProgress.INITIAL_TIER),
                                 currency),
+                        gearConditionModule.conditions(),
                         cosmeticModule.cosmetics(),
                         boundEquipment::isBound,
                         currency,
@@ -2394,6 +2414,66 @@ public class RpgPlugin extends JavaPlugin {
     private java.util.Optional<rpg.core.session.CharacterClass> classOfCharacter(
             java.util.UUID characterId) {
         return abilityModule.registry().classOf(characterId);
+    }
+
+    /**
+     * Zeichnet Haltbarkeitsbalken und Zustandszeile auf die getragene Ausrüstung.
+     *
+     * <p>Still, solange B11 nicht verdrahtet ist — dieselbe Richtung wie beim Verschleißfaktor:
+     * eine fehlende Anzeige ist unschön, eine Ausnahme im Eintrittspfad wäre ein Spieler, der
+     * nicht in die Welt kommt.
+     */
+    private void refreshGearDisplay(org.bukkit.entity.Player player, java.util.UUID characterId) {
+        if (gearDisplay == null) {
+            return;
+        }
+        try {
+            gearDisplay.refresh(player, characterId);
+        } catch (RuntimeException failure) {
+            getLogger()
+                    .warning(
+                            "[item] could not draw the gear condition of "
+                                    + characterId
+                                    + ": "
+                                    + failure);
+        }
+    }
+
+    /**
+     * Was der nächste Stufenaufstieg dieser Leiter kostet — für die Beschreibung am Knopf.
+     *
+     * <p>Leer heißt „Höchststufe": {@code costOfNext} antwortet dort leer, weil es keine nächste
+     * Stufe zu bepreisen gibt. Das ist kein Fehler, sondern die Auskunft, die der Knopf braucht.
+     */
+    private rpg.platform.item.VendorMenu.UpgradeOffer upgradeOfferFor(
+            rpg.core.currency.EquipmentPurchase tiers,
+            java.util.UUID characterId,
+            rpg.core.classes.LadderSlot slot) {
+        java.util.Optional<rpg.core.currency.CostSpec> cost = tiers.costOfNext(characterId, slot);
+        if (cost.isEmpty()) {
+            return rpg.platform.item.VendorMenu.UpgradeOffer.atTop();
+        }
+        int nextTier =
+                classesModule
+                                .progressOf(characterId)
+                                .map(progress -> progress.tierOf(slot))
+                                .orElse(rpg.core.classes.ClassProgress.INITIAL_TIER)
+                        + 1;
+        java.util.OptionalInt requiredLevel =
+                classesModule
+                        .classOf(characterId)
+                        .map(
+                                characterClass ->
+                                        java.util.OptionalInt.of(
+                                                classesModule
+                                                        .tierAdvance()
+                                                        .requiredLevelFor(
+                                                                characterClass, slot, nextTier)))
+                        .orElseGet(java.util.OptionalInt::empty);
+        return new rpg.platform.item.VendorMenu.UpgradeOffer(
+                java.util.OptionalLong.of(cost.get().coins()),
+                requiredLevel,
+                java.util.OptionalInt.of(nextTier));
     }
 
     /**

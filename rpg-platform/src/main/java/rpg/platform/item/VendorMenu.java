@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.OptionalLong;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -13,7 +15,6 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 
 import rpg.core.classes.LadderSlot;
 import rpg.core.item.ItemMessageKeys;
@@ -26,16 +27,17 @@ import rpg.core.message.Messages;
  * {@code ClassSelectionMenu} und {@code CurrencyMenu} (ADR-005).
  *
  * <p><b>Diese Klasse kennt keine Regeln.</b> Was ein Klick bewirkt, entscheidet
- * {@code VendorTransaction} in {@code rpg-core}; hier wird nur gezeichnet und gesagt, welcher Slot
- * welche Vorlage meint. Dieselbe Aufteilung wie bei {@code CurrencyMenu}, und aus demselben Grund:
- * eine Regel, die im Fenster steht, gilt nur, solange man durch das Fenster geht.
+ * {@code VendorTransaction}, {@code GearRepair} und {@code EquipmentPurchase} in {@code rpg-core};
+ * hier wird nur gezeichnet. Die Zahlen für die Beschreibungen kommen als {@link Offers} herein —
+ * fertig gerechnet, damit das Fenster nicht anfängt, Preise zu bestimmen.
  *
- * <p><b>Vorläufig, wie alles Sichtbare vor B13</b> (ADR-028). Wenn die Anzeige einen eigenen Block
- * bekommt, zieht das hier um; bis dahin sind es Vanilla-Materialien und Message-Schlüssel.
+ * <p><b>Jeder Knopf sagt, was er tut und was er kostet.</b> Ein Knopf, der nur seinen Namen trägt,
+ * verlangt vom Spieler, ihn auszuprobieren — und „ausprobieren" heißt bei einem Kauf: bezahlen. Das
+ * ist bei einem unumkehrbaren Vorgang keine zumutbare Art, etwas herauszufinden.
+ *
+ * <p><b>Vorläufig, wie alles Sichtbare vor B13</b> (ADR-028).
  */
 public final class VendorMenu {
-
-    private static final LegacyComponentSerializer LEGACY = LegacyComponentSerializer.legacySection();
 
     /** Drei Reihen: der Bestand oben, die Dienste unten. */
     private static final int SIZE = 27;
@@ -55,6 +57,43 @@ public final class VendorMenu {
 
     private static final int SLOT_UPGRADE_FIRST = 24;
 
+    /**
+     * Was eine Reparatur dieser Leiter gerade kostet.
+     *
+     * @param condition der Zustand in {@code [0, 100]}
+     * @param price der Preis; {@code 0} heißt „nichts abgenutzt" und wird als solches angezeigt
+     *     (FR-054) — nicht als Gratisreparatur
+     */
+    public record RepairOffer(double condition, long price) {}
+
+    /**
+     * Was der nächste Stufenaufstieg dieser Leiter kostet.
+     *
+     * @param price leer auf der Höchststufe — dann gibt es nichts zu kaufen
+     * @param requiredLevel das Level, ab dem er möglich ist
+     * @param nextTier die Stufe, die man bekäme
+     */
+    public record UpgradeOffer(OptionalLong price, OptionalInt requiredLevel, OptionalInt nextTier) {
+
+        /** Nichts mehr zu holen — der Spieler ist oben. */
+        public static UpgradeOffer atTop() {
+            return new UpgradeOffer(OptionalLong.empty(), OptionalInt.empty(), OptionalInt.empty());
+        }
+
+        public boolean isAtTop() {
+            return price.isEmpty();
+        }
+    }
+
+    /** Die Zahlen, die die Beschreibungen brauchen — fertig gerechnet vom Aufrufer. */
+    public record Offers(Map<LadderSlot, RepairOffer> repairs, Map<LadderSlot, UpgradeOffer> upgrades) {
+
+        /** Ohne Angaben: die Knöpfe stehen da, sagen aber nur, was sie tun. */
+        public static Offers unknown() {
+            return new Offers(Map.of(), Map.of());
+        }
+    }
+
     private final ItemStackFactory factory;
     private final Messages messages;
 
@@ -70,11 +109,15 @@ public final class VendorMenu {
      * {@code LinkedHashMap} und keine {@code Map.copyOf}. Ein Fenster, das nach jedem Neustart
      * anders aussieht, ist ein Fenster, in dem niemand etwas wiederfindet.
      */
-    public Inventory build(VendorStock stock, long balance) {
+    public Inventory build(VendorStock stock, long balance, Offers offers) {
         Objects.requireNonNull(stock, "stock");
+        Objects.requireNonNull(offers, "offers");
 
         Inventory inventory =
-                Bukkit.createInventory(null, SIZE, text(ItemMessageKeys.VENDOR_TITLE, "Vendor"));
+                Bukkit.createInventory(
+                        null,
+                        SIZE,
+                        ItemText.orElse(messages, ItemMessageKeys.VENDOR_TITLE, "Vendor"));
 
         int slot = 0;
         for (String templateKey : stock.templateKeys()) {
@@ -86,18 +129,30 @@ public final class VendorMenu {
                 continue;
             }
             ItemStack entry = shown.get();
-            stock.priceOf(templateKey)
-                    .ifPresent(price -> appendPrice(entry, price, balance));
+            stock.priceOf(templateKey).ifPresent(price -> appendPrice(entry, price, balance));
             inventory.setItem(slot++, entry);
         }
 
-        inventory.setItem(SLOT_SELL, service(Material.HOPPER, ItemMessageKeys.VENDOR_SELL));
+        inventory.setItem(
+                SLOT_SELL,
+                service(
+                        Material.HOPPER,
+                        ItemMessageKeys.VENDOR_SELL,
+                        ItemText.of(messages, ItemMessageKeys.VENDOR_SELL_LORE, Map.of())));
+
         for (LadderSlot ladder : LadderSlot.values()) {
             inventory.setItem(
-                    repairSlot(ladder), service(Material.ANVIL, ItemMessageKeys.vendorRepair(ladder)));
+                    repairSlot(ladder),
+                    service(
+                            Material.ANVIL,
+                            ItemMessageKeys.vendorRepair(ladder),
+                            repairLore(ladder, offers.repairs().get(ladder))));
             inventory.setItem(
                     upgradeSlot(ladder),
-                    service(Material.SMITHING_TABLE, ItemMessageKeys.vendorUpgrade(ladder)));
+                    service(
+                            Material.SMITHING_TABLE,
+                            ItemMessageKeys.vendorUpgrade(ladder),
+                            upgradeLore(ladder, offers.upgrades().get(ladder))));
         }
         return inventory;
     }
@@ -147,6 +202,46 @@ public final class VendorMenu {
         return slot < keys.size() ? Optional.of(keys.get(slot)) : Optional.empty();
     }
 
+    // --- Beschreibungen ----------------------------------------------------------------
+
+    private Component repairLore(LadderSlot ladder, RepairOffer offer) {
+        if (offer == null) {
+            return null;
+        }
+        String condition = String.valueOf((int) Math.floor(offer.condition()));
+        if (offer.price() <= 0L) {
+            // Null heisst "nichts abgenutzt" und nicht "umsonst" - das ist fuer den Spieler ein
+            // Unterschied, und FR-054 macht ihn auch im Ergebnis (die Reparatur wird abgelehnt).
+            return ItemText.of(
+                    messages,
+                    ItemMessageKeys.vendorRepairLoreIntact(ladder),
+                    Map.of("condition", condition));
+        }
+        return ItemText.of(
+                messages,
+                ItemMessageKeys.vendorRepairLore(ladder),
+                Map.of("condition", condition, "price", String.valueOf(offer.price())));
+    }
+
+    private Component upgradeLore(LadderSlot ladder, UpgradeOffer offer) {
+        if (offer == null) {
+            return null;
+        }
+        if (offer.isAtTop()) {
+            return ItemText.of(messages, ItemMessageKeys.vendorUpgradeLoreTop(ladder), Map.of());
+        }
+        return ItemText.of(
+                messages,
+                ItemMessageKeys.vendorUpgradeLore(ladder),
+                Map.of(
+                        "price",
+                        String.valueOf(offer.price().orElse(0L)),
+                        "level",
+                        String.valueOf(offer.requiredLevel().orElse(1)),
+                        "tier",
+                        String.valueOf(offer.nextTier().orElse(1))));
+    }
+
     /**
      * Hängt den Preis an die Lore — und sagt, ob er reicht.
      *
@@ -164,26 +259,24 @@ public final class VendorMenu {
         }
         MessageKey key =
                 balance >= price ? ItemMessageKeys.VENDOR_PRICE : ItemMessageKeys.VENDOR_PRICE_SHORT;
-        if (messages.contains(key)) {
-            lore.add(LEGACY.deserialize(messages.get(key, Map.of("price", String.valueOf(price)))));
+        Component line = ItemText.of(messages, key, Map.of("price", String.valueOf(price)));
+        if (line != null) {
+            lore.add(ItemText.onItem(line));
         }
         meta.lore(lore);
         entry.setItemMeta(meta);
     }
 
-    private ItemStack service(Material material, MessageKey nameKey) {
+    private ItemStack service(Material material, MessageKey nameKey, Component lore) {
         ItemStack stack = new ItemStack(material);
         ItemMeta meta = stack.getItemMeta();
         if (meta != null) {
-            meta.displayName(text(nameKey, material.name()));
+            meta.displayName(ItemText.onItem(ItemText.orElse(messages, nameKey, material.name())));
+            if (lore != null) {
+                meta.lore(List.of(ItemText.onItem(lore)));
+            }
             stack.setItemMeta(meta);
         }
         return stack;
-    }
-
-    private Component text(MessageKey key, String fallback) {
-        return messages.contains(key)
-                ? LEGACY.deserialize(messages.get(key, Map.of()))
-                : Component.text(fallback);
     }
 }

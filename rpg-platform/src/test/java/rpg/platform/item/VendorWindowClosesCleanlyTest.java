@@ -101,11 +101,14 @@ class VendorWindowClosesCleanlyTest {
                                         EquipmentPurchase.Outcome.REFUSED,
                                         Optional.empty(),
                                         Optional.empty()),
+                        // Ohne Angebot: der Knopf steht da und sagt nur, was er tut.
+                        (characterId, slot) -> rpg.platform.item.VendorMenu.UpgradeOffer.atTop(),
                         new rpg.core.item.GearRepair(
                                 VendorWindowClosesCleanlyTest::config,
                                 conditions,
                                 (characterId, slot) -> 1,
                                 currency),
+                        conditions,
                         cosmetics(),
                         tag -> false,
                         currency,

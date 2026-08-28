@@ -97,6 +97,49 @@ public final class ItemMessageKeys {
         return MessageKey.of("item.vendor.upgrade." + slot.configKey());
     }
 
+    // --- Was ein Dienst tut und was er kostet ------------------------------------------
+    //
+    // Ein Knopf, der nur seinen Namen traegt, verlangt vom Spieler, ihn auszuprobieren - und
+    // "ausprobieren" heisst bei einem Kauf: bezahlen. Jede Zeile hier beantwortet die zwei
+    // Fragen, die vor dem Klick stehen: was passiert, und was kostet es.
+
+    /** Was der Verkaufsplatz tut. */
+    public static final MessageKey VENDOR_SELL_LORE = MessageKey.of("item.vendor.sell.lore");
+
+    /**
+     * Was eine Reparatur kostet. Platzhalter: {@code condition}, {@code price}.
+     *
+     * <p>Der Zustand steht mit dabei, weil der Preis von ihm abhängt (FR-053) — ohne ihn wäre
+     * die Zahl unerklärlich und sähe nach Willkür aus.
+     */
+    public static MessageKey vendorRepairLore(LadderSlot slot) {
+        return MessageKey.of("item.vendor.repair." + slot.configKey() + ".lore");
+    }
+
+    /** Dieselbe Zeile, wenn nichts abgenutzt ist. Platzhalter: {@code condition}. */
+    public static MessageKey vendorRepairLoreIntact(LadderSlot slot) {
+        return MessageKey.of("item.vendor.repair." + slot.configKey() + ".lore-intact");
+    }
+
+    /** Was ein Aufstieg kostet. Platzhalter: {@code price}, {@code level}, {@code tier}. */
+    public static MessageKey vendorUpgradeLore(LadderSlot slot) {
+        return MessageKey.of("item.vendor.upgrade." + slot.configKey() + ".lore");
+    }
+
+    /** Dieselbe Zeile auf der Höchststufe — es gibt nichts mehr zu kaufen. */
+    public static MessageKey vendorUpgradeLoreTop(LadderSlot slot) {
+        return MessageKey.of("item.vendor.upgrade." + slot.configKey() + ".lore-top");
+    }
+
+    /**
+     * Der Zustand auf der getragenen Ausrüstung selbst. Platzhalter: {@code condition}.
+     *
+     * <p>Der Haltbarkeitsbalken zeigt <em>dass</em> etwas abgenutzt ist; diese Zeile zeigt, wie
+     * viel — und dass die Zahl etwas bedeutet, nämlich den Anteil der Werte, der noch ankommt.
+     */
+    public static final MessageKey GEAR_CONDITION_LORE =
+            MessageKey.of("item.gear.condition-lore");
+
     /** Der Preis an der Ware. Platzhalter: {@code price}. */
     public static final MessageKey VENDOR_PRICE = MessageKey.of("item.vendor.price");
 
@@ -211,7 +254,9 @@ public final class ItemMessageKeys {
                     TRASH_CONFIRM,
                     TRASH_DONE,
                     TRASH_NOTHING_HELD,
-                    TRASH_BOUND);
+                    TRASH_BOUND,
+                    VENDOR_SELL_LORE,
+                    GEAR_CONDITION_LORE);
 
     /**
      * Jeder Schlüssel, den dieser Block ausgeben kann — für die Auflösungsprüfung beim Start.
@@ -232,6 +277,10 @@ public final class ItemMessageKeys {
         for (LadderSlot slot : LadderSlot.values()) {
             keys.add(vendorRepair(slot));
             keys.add(vendorUpgrade(slot));
+            keys.add(vendorRepairLore(slot));
+            keys.add(vendorRepairLoreIntact(slot));
+            keys.add(vendorUpgradeLore(slot));
+            keys.add(vendorUpgradeLoreTop(slot));
         }
         return keys;
     }

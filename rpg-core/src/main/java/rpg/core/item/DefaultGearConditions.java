@@ -68,7 +68,12 @@ public final class DefaultGearConditions implements GearConditions {
 
     @Override
     public double factorOf(UUID characterId, LadderSlot slot) {
-        return curve.get().factorFor(conditionOf(characterId, slot));
+        return factorForCondition(conditionOf(characterId, slot));
+    }
+
+    @Override
+    public double factorForCondition(double condition) {
+        return curve.get().factorFor(condition);
     }
 
     /** Der ganze Stand eines Charakters — für das Schreiben und für die Anzeige. */

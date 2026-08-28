@@ -505,14 +505,31 @@ item:
   vendor:
     title: 'Merchant'
     sell: '&eSell'
+    # Ein Knopf, der nur seinen Namen trägt, verlangt vom Spieler, ihn auszuprobieren - und
+    # "ausprobieren" heißt bei einem Kauf: bezahlen. Jede lore-Zeile beantwortet die zwei Fragen,
+    # die vor dem Klick stehen: was passiert, und was kostet es.
+    sell.lore: '&7Click an item in your own inventory to sell it.'
+
     # Je Leiter einer. B07 kennt genau zwei, und sie verschleißen getrennt - ein gemeinsamer Knopf
     # müsste raten, welche gemeint ist.
     repair:
       armor-ladder: '&eRepair armour'
       weapon-ladder: '&eRepair weapon'
+      # {condition} steht mit dabei, weil der Preis davon abhängt (FR-053). Ohne ihn wäre die Zahl
+      # unerklärlich und sähe nach Willkür aus.
+      armor-ladder.lore: '&7Condition &f{condition}%&7. Restores it fully for &6{price} coins&7.'
+      weapon-ladder.lore: '&7Condition &f{condition}%&7. Restores it fully for &6{price} coins&7.'
+      armor-ladder.lore-intact: '&7Condition &f{condition}%&7 - nothing to repair.'
+      weapon-ladder.lore-intact: '&7Condition &f{condition}%&7 - nothing to repair.'
+
     upgrade:
       armor-ladder: '&eUpgrade armour'
       weapon-ladder: '&eUpgrade weapon'
+      armor-ladder.lore: '&7Tier &f{tier}&7 for &6{price} coins&7, from level &f{level}&7.'
+      weapon-ladder.lore: '&7Tier &f{tier}&7 for &6{price} coins&7, from level &f{level}&7.'
+      armor-ladder.lore-top: '&7Top tier reached. Nothing left to buy here.'
+      weapon-ladder.lore-top: '&7Top tier reached. Nothing left to buy here.'
+
     price: '&6{price} coins'
     price-short: '&c{price} coins'
     sold: '&aSold for {amount} coins.'
@@ -533,6 +550,12 @@ item:
 
   wear:
     warning: '&eYour gear is worn ({condition}%). Have it repaired before it costs you a fight.'
+
+  # Auf der getragenen Ausrüstung selbst. Der Haltbarkeitsbalken zeigt, DASS etwas abgenutzt ist -
+  # diese Zeile zeigt, wie viel, und dass die Zahl etwas bedeutet: den Anteil der Werte, der noch
+  # ankommt. Ausrüstung zerbricht nie (FR-038); bei 0 % bleiben 20 % Wirkung.
+  gear:
+    condition-lore: '&7Condition &f{condition}%&7 · stats at &f{factor}%'
 
   # Kosmetik (FR-067 bis FR-073). Der Text zu not-top-tier muss BEIDES sagen - dass es noch nicht
   # geht und dass die Farbe bleibt. "Geht nicht" allein liest sich wie ein verlorener Kauf.

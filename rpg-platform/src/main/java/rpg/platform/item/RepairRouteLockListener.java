@@ -13,8 +13,6 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.inventory.ItemStack;
 
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-
 import rpg.core.item.ItemMessageKeys;
 import rpg.core.message.Messages;
 import rpg.platform.classes.BoundItemTag;
@@ -38,8 +36,6 @@ import rpg.platform.classes.BoundItemTag;
  * gelesen (FR-079).
  */
 public final class RepairRouteLockListener implements Listener {
-
-    private static final LegacyComponentSerializer LEGACY = LegacyComponentSerializer.legacySection();
 
     /**
      * Die drei Wege aus FR-056.
@@ -75,10 +71,13 @@ public final class RepairRouteLockListener implements Listener {
     }
 
     private void tell(HumanEntity who) {
-        if (!(who instanceof Player player) || !messages.contains(ItemMessageKeys.REPAIR_ROUTE_LOCKED)) {
+        if (!(who instanceof Player player)) {
             return;
         }
-        player.sendMessage(
-                LEGACY.deserialize(messages.get(ItemMessageKeys.REPAIR_ROUTE_LOCKED, Map.of())));
+        net.kyori.adventure.text.Component text =
+                ItemText.of(messages, ItemMessageKeys.REPAIR_ROUTE_LOCKED, Map.of());
+        if (text != null) {
+            player.sendMessage(text);
+        }
     }
 }
