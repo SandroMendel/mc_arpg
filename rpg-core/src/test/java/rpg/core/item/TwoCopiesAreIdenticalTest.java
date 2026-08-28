@@ -73,7 +73,7 @@ class TwoCopiesAreIdenticalTest {
             if (name.equals("LootTable.java")) {
                 continue; // Die Stueckzahl. Die eine erlaubte Stelle.
             }
-            String code = Files.readString(source);
+            String code = SourceGuard.codeOnly(Files.readString(source));
             for (String call : forbidden) {
                 if (code.contains(call)) {
                     offenders.add(name + " calls " + call);

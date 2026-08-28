@@ -172,6 +172,14 @@ public class RpgPlugin extends JavaPlugin {
      * schlicht, dass B11 noch nicht verdrahtet ist.
      */
     private rpg.platform.drop.OwnedDropRegistry itemDropVisibility;
+
+    /**
+     * B11s zeitliche Trankwirkungen — gesetzt in {@link #wireConsumables}.
+     *
+     * <p>Feld, weil der Durchlauf, der sie ablaufen lässt, weiter oben sitzt: es ist <b>derselbe</b>,
+     * der B08s Buffs ablaufen lässt, und genau das ist die Zusage aus FR-034.
+     */
+    private rpg.core.item.ConsumableBuffs consumableBuffs;
     /** Der selbst neu eingeplante Durchlauf je bevoelkerter Zone (B10, US2/US3). */
     private rpg.platform.mob.HordeSweep mobSweep;
     private rpg.persistence.zone.ZonePersistenceModule zonePersistenceModule;
@@ -896,6 +904,12 @@ public class RpgPlugin extends JavaPlugin {
                 () -> {
                     intervals.sweep();
                     buffs.expire();
+                    // B11s Trankwirkungen laufen auf DEMSELBEN Durchlauf ab (FR-034). Ein eigener
+                    // waere eine zweite Taktung fuer dieselbe Frage - und hundert Traenke waeren
+                    // hundert Aufgaben.
+                    if (consumableBuffs != null) {
+                        consumableBuffs.expire();
+                    }
                     projectiles.sweep();
                     // Regeneration belongs here for the same reason the three above do: it is
                     // "something that happens later". It was originally settled only when somebody
@@ -2017,10 +2031,111 @@ public class RpgPlugin extends JavaPlugin {
         // das Schlechteste von beidem. Dieselbe Falle, die B08b fuer Coin-Haufen gefunden hat.
         itemDropVisibility = dropRegistry;
 
+        wireConsumables(stats, itemFactory);
+
         getLogger()
                 .info(
                         "[item] phase=START state=LOOT_ARMED - loot belongs to one character,"
                                 + " and in a party it rotates (FR-026b)");
+    }
+
+    /**
+     * Verbrauchbares: Tränke wirken, sind danach verbraucht, und ein zweiter direkt hinterher ist
+     * nicht der Weg (US3).
+     *
+     * <p><b>Der zeitliche Beitrag reitet auf B08s Durchlauf</b>, nicht auf einem eigenen — das ist
+     * es, was hundert Tränke davon abhält, hundert Aufgaben zu werden (FR-034, Prinzip II).
+     */
+    private void wireConsumables(StatEngine stats, rpg.platform.item.ItemStackFactory itemFactory) {
+        rpg.core.item.ConsumableCooldown cooldowns =
+                new rpg.core.item.ConsumableCooldown(Clock.systemUTC());
+
+        // Zwei Fragen an B04, nicht die ganze Engine - dieselbe Ueberlegung wie bei B08bs
+        // CharacterLookup.
+        consumableBuffs =
+                new rpg.core.item.ConsumableBuffs(
+                        new rpg.core.item.ConsumableBuffs.BuffSink() {
+                            @Override
+                            public void apply(
+                                    java.util.UUID holderId, rpg.core.stats.ModifierSet set) {
+                                stats.apply(holderId, set);
+                            }
+
+                            @Override
+                            public void remove(
+                                    java.util.UUID holderId, rpg.core.stats.SourceId source) {
+                                stats.remove(holderId, source);
+                            }
+                        },
+                        Clock.systemUTC());
+
+        rpg.platform.item.ConsumableUseListener.Resources resources =
+                new rpg.platform.item.ConsumableUseListener.Resources() {
+                    @Override
+                    public double currentHealth(java.util.UUID holderId) {
+                        return stats.resources(holderId).currentHealth();
+                    }
+
+                    @Override
+                    public double maxHealth(java.util.UUID holderId) {
+                        return stats.resources(holderId).maxHealth();
+                    }
+
+                    @Override
+                    public double currentMana(java.util.UUID holderId) {
+                        return stats.resources(holderId).currentMana();
+                    }
+
+                    @Override
+                    public double maxMana(java.util.UUID holderId) {
+                        return stats.resources(holderId).maxMana();
+                    }
+
+                    @Override
+                    public void changeHealth(java.util.UUID holderId, double delta) {
+                        stats.changeHealth(holderId, delta);
+                    }
+
+                    @Override
+                    public void changeMana(java.util.UUID holderId, double delta) {
+                        stats.changeMana(holderId, delta);
+                    }
+                };
+
+        java.util.function.Function<java.util.UUID, java.util.Optional<java.util.UUID>> holderOf =
+                stats::holderOf;
+
+        rpg.core.item.ConsumableUse rule =
+                new rpg.core.item.ConsumableUse(
+                        cooldowns,
+                        rpg.platform.item.ConsumableUseListener.wouldDoSomething(resources, holderOf));
+
+        getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new rpg.platform.item.ConsumableUseListener(
+                                itemModule,
+                                rule,
+                                consumableBuffs,
+                                resources,
+                                this::activeCharacterOf,
+                                holderOf,
+                                this::levelOfCharacter,
+                                this::classOfCharacter,
+                                messages,
+                                getLogger()),
+                        this);
+    }
+
+    /** Das Level eines Charakters — B06 besitzt die Antwort. */
+    private int levelOfCharacter(java.util.UUID characterId) {
+        return progressionModule.progression().levelOf(characterId).orElse(1);
+    }
+
+    /** Die Klasse eines Charakters — B07 besitzt die Antwort. */
+    private java.util.Optional<rpg.core.session.CharacterClass> classOfCharacter(
+            java.util.UUID characterId) {
+        return abilityModule.registry().classOf(characterId);
     }
 
     /** Der Charakter, den dieser Spieler gerade spielt — B03 besitzt die Antwort. */

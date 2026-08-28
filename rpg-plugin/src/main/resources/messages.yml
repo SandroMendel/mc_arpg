@@ -490,6 +490,15 @@ item:
     divine: { name: 'Divine' }
     special: { name: 'Special' }
 
+  # Die fünf Ablehnungen (FR-037). Jede hat ihre eigene Meldung: "geht nicht" ist keine Antwort,
+  # und ein Spieler, der den Grund nicht erfährt, hält den Trank für kaputt.
+  refused:
+    level: "&cDafür bist du noch nicht hoch genug."
+    class: "&cDas ist nichts für deine Klasse."
+    cooldown: "&cNoch {seconds} Sekunden."
+    no-effect: "&7Das würde gerade nichts bringen."
+    unknown: "&7Damit lässt sich nichts anfangen."
+
   potion:
     minor-healing:
       name: 'Minor Healing Potion'

@@ -756,8 +756,13 @@ class FullBootstrapTest {
                 .as("B05 refills at MONITOR, B09 sets the place at NORMAL - two, and the order matters")
                 .isEqualTo(2);
         assertThat(handlerCount(PlayerInteractEvent.getHandlerList()))
-                .as("B08's ability trigger and B09's crystal")
-                .isEqualTo(2);
+                .as(
+                        "B08s Faehigkeitsausloeser, B09s Kristall - und seit B11 der Trank."
+                                + " Drei Bloecke auf einem Ereignis, jeder auf seiner Prioritaet:"
+                                + " der Trank sitzt auf HIGH und bricht ab, sobald der Gegenstand"
+                                + " einen B11-Vermerk traegt, damit Vanilla ihn nicht auch noch"
+                                + " trinkt")
+                .isEqualTo(3);
     }
 
     @Test

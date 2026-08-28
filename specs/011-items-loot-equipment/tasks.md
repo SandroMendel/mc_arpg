@@ -189,14 +189,14 @@ der Weg.
 
 **Independent Test**: Trank per Befehl vergeben, trinken, Wirkung messen — ohne Beute, ohne NPC.
 
-- [ ] T072 [P] [US3] `ConsumableCooldown` in `rpg-core/src/main/java/rpg/core/item/ConsumableCooldown.java` — `(characterId, templateKey) → Zeitstempel`; **zwei Zeitstempel, keine laufende Aufgabe** (Prinzip II)
-- [ ] T073 [P] [US3] Test `ConsumableCooldownTest` in `rpg-core/src/test/java/rpg/core/item/ConsumableCooldownTest.java` — innerhalb der Abklingzeit abgelehnt, danach erlaubt; die Auswertung ist zeitstempelbasiert, nicht periodisch
-- [ ] T074 [US3] `ConsumableUse` in `rpg-core/src/main/java/rpg/core/item/ConsumableUse.java` — die Regel: Mindestlevel, Klassenbindung, Abklingzeit, Wirkungslosigkeit. **Jede Ablehnung nennt ihren Grund** (FR-035 bis FR-037)
-- [ ] T075 [US3] Test `ConsumableUseTest` in `rpg-core/src/test/java/rpg/core/item/ConsumableUseTest.java` — je ein Fall: zu niedriges Level, falsche Klasse, Abklingzeit, **volles Leben bei reinem Heiltrank**. In allen vier Fällen wird **nichts verbraucht** (FR-036)
-- [ ] T076 [US3] `ConsumableUseListener` in `rpg-platform/src/main/java/rpg/platform/item/ConsumableUseListener.java` — verbraucht genau ein Exemplar und wendet die Wirkung an (FR-033)
-- [ ] T077 [US3] Zeitliche Wirkung über `SourceKind.BUFF` an B04 übergeben — **B11 führt keine eigene Buff-Verwaltung und keine eigene Ablaufprüfung** (FR-034, R9)
-- [ ] T078 [US3] Test `ConsumableBuffUsesTheExistingSeamTest` in `rpg-platform/src/test/java/rpg/platform/item/ConsumableBuffUsesTheExistingSeamTest.java` — der Beitrag läuft über `SourceKind.BUFF` und läuft zeitstempelbasiert aus; **keine wiederkehrende Aufgabe entsteht** (SC-017)
-- [ ] T079 [P] [US3] Message-Schlüssel für die vier Ablehnungsgründe in `messages.yml`
+- [X] T072 [P] [US3] `ConsumableCooldown` in `rpg-core/src/main/java/rpg/core/item/ConsumableCooldown.java` — `(characterId, templateKey) → Zeitstempel`; **zwei Zeitstempel, keine laufende Aufgabe** (Prinzip II)
+- [X] T073 [P] [US3] Test `ConsumableCooldownTest` in `rpg-core/src/test/java/rpg/core/item/ConsumableCooldownTest.java` — innerhalb der Abklingzeit abgelehnt, danach erlaubt; die Auswertung ist zeitstempelbasiert, nicht periodisch
+- [X] T074 [US3] `ConsumableUse` in `rpg-core/src/main/java/rpg/core/item/ConsumableUse.java` — die Regel: Mindestlevel, Klassenbindung, Abklingzeit, Wirkungslosigkeit. **Jede Ablehnung nennt ihren Grund** (FR-035 bis FR-037)
+- [X] T075 [US3] Test `ConsumableUseTest` in `rpg-core/src/test/java/rpg/core/item/ConsumableUseTest.java` — je ein Fall: zu niedriges Level, falsche Klasse, Abklingzeit, **volles Leben bei reinem Heiltrank**. In allen vier Fällen wird **nichts verbraucht** (FR-036)
+- [X] T076 [US3] `ConsumableUseListener` in `rpg-platform/src/main/java/rpg/platform/item/ConsumableUseListener.java` — verbraucht genau ein Exemplar und wendet die Wirkung an (FR-033)
+- [X] T077 [US3] Zeitliche Wirkung über `SourceKind.BUFF` an B04 übergeben — **B11 führt keine eigene Buff-Verwaltung und keine eigene Ablaufprüfung** (FR-034, R9)
+- [X] T078 [US3] Test `ConsumableBuffUsesTheExistingSeamTest` in `rpg-platform/src/test/java/rpg/platform/item/ConsumableBuffUsesTheExistingSeamTest.java` — der Beitrag läuft über `SourceKind.BUFF` und läuft zeitstempelbasiert aus; **keine wiederkehrende Aufgabe entsteht** (SC-017)
+- [X] T079 [P] [US3] Message-Schlüssel für die vier Ablehnungsgründe in `messages.yml`
 
 **Checkpoint**: Verbrauchbares wirkt und ist begrenzt.
 

@@ -48,6 +48,27 @@ public final class ItemMessageKeys {
         return MessageKey.of("item.rarity." + rarity.configKey() + ".name");
     }
 
+    // --- Die fünf Ablehnungen (FR-037) ------------------------------------------------
+    //
+    // Jede hat ihre eigene Meldung, und das ist die Anforderung. „Geht nicht" ist keine Antwort:
+    // ein Spieler, der nicht erfaehrt, warum sein Trank nicht wirkt, probiert es weiter und haelt
+    // ihn dann fuer kaputt.
+
+    /** Das Level reicht nicht. */
+    public static final MessageKey REFUSED_LEVEL = MessageKey.of("item.refused.level");
+
+    /** Falsche Klasse. */
+    public static final MessageKey REFUSED_CLASS = MessageKey.of("item.refused.class");
+
+    /** Die Abklingzeit läuft noch. Platzhalter: {@code seconds}. */
+    public static final MessageKey REFUSED_COOLDOWN = MessageKey.of("item.refused.cooldown");
+
+    /** Es würde nichts bewirken — Heilung bei vollem Leben (FR-036). */
+    public static final MessageKey REFUSED_NO_EFFECT = MessageKey.of("item.refused.no-effect");
+
+    /** Die Vorlage ist unbekannt: ein Exemplar, dessen Vorlage verschwunden ist (FR-007). */
+    public static final MessageKey REFUSED_UNKNOWN = MessageKey.of("item.refused.unknown");
+
     /**
      * Jeder Schlüssel, den dieser Block ausgeben kann — für die Auflösungsprüfung beim Start.
      *

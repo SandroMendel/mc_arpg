@@ -89,7 +89,7 @@ class RarityHasNoEffectTest {
                 // aus der Konfiguration, eine macht einen Nachrichtenschluessel daraus.
                 continue;
             }
-            String code = Files.readString(source);
+            String code = SourceGuard.codeOnly(Files.readString(source));
             if (code.contains("Rarity.")) {
                 offenders.add(name + " reads the rarity");
             }
