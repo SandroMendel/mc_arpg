@@ -147,14 +147,31 @@ public final class EquipmentLadder {
         return index == tiers.size();
     }
 
-    /** Adds the values of the reached tier. Part of the single class contribution (FR-009). */
-    public void contributeTo(int reachedTier, BaseStatSink sink) {
+    /**
+     * Adds the values of the reached tier. Part of the single class contribution (FR-009).
+     *
+     * <p><b>Der Faktor ist B11s Verschleiß</b> (research.md R1). Er skaliert den Grundbeitrag, weil
+     * ein Modifikator an B04s Band still abgeschnitten würde — siehe {@link GearConditionFactor}.
+     * Ohne B11 ist er {@code 1.0}, und diese Methode rechnet dann bitgenau wie zuvor.
+     *
+     * <p><b>Als {@code double}, nicht als umhüllender Sink.</b> Die Multiplikation geschieht dort,
+     * wo der Wert ohnehin gelesen wird; ein Sink-Wrapper wäre eine Zuweisung je Aufruf im
+     * Neuberechnungspfad (Prinzip II).
+     *
+     * @param factor Faktor in {@code [0, 1]} auf jeden Wert dieser Stufe
+     */
+    public void contributeTo(int reachedTier, BaseStatSink sink, double factor) {
         EquipmentTier tier = tier(reachedTier);
         for (Attribute carried : slot.carried()) {
-            double value = tier.valueOf(carried);
+            double value = tier.valueOf(carried) * factor;
             if (value != 0.0) {
                 sink.addBase(carried, value);
             }
         }
+    }
+
+    /** Wie oben, ungeschmälert - der Weg, den jeder Aufrufer vor B11 genommen hat. */
+    public void contributeTo(int reachedTier, BaseStatSink sink) {
+        contributeTo(reachedTier, sink, 1.0);
     }
 }
