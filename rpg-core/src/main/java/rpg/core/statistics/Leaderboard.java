@@ -98,6 +98,36 @@ public record Leaderboard(
             int places,
             Map<UUID, String> names,
             Instant refreshedAt) {
+        return of(
+                board,
+                period,
+                periodKey,
+                values,
+                tieBreak,
+                places,
+                playerId -> names.get(playerId),
+                refreshedAt);
+    }
+
+    /**
+     * Dasselbe mit einer <b>Namensauflösung auf Abruf</b> (FR-040).
+     *
+     * <p>Aufgelöst wird nur für die Einträge, die tatsächlich angezeigt werden — bei zehn Plätzen
+     * also zehnmal, nicht einmal je Konto auf dem Server. Und es passiert hier, beim Füllen,
+     * außerhalb des Ticks: ein Namensnachschlag beim Öffnen wäre je Zeile eine Frage an den
+     * Server, während der Spieler wartet.
+     *
+     * @param names Konto → Anzeigename; {@code null} heißt „unbekannt", dann steht die Kennung da
+     */
+    public static Leaderboard of(
+            Aggregation board,
+            Period period,
+            String periodKey,
+            Map<UUID, Long> values,
+            Map<UUID, Long> tieBreak,
+            int places,
+            java.util.function.Function<UUID, String> names,
+            Instant refreshedAt) {
 
         List<Map.Entry<UUID, Long>> ordered = new ArrayList<>(values.entrySet());
         ordered.sort(
@@ -125,11 +155,14 @@ public record Leaderboard(
             }
             ranks.put(entry.getKey(), rank);
             if (top.size() < places) {
+                String name = names.apply(entry.getKey());
                 top.add(
                         new LeaderboardEntry(
                                 rank,
                                 entry.getKey(),
-                                names.getOrDefault(entry.getKey(), entry.getKey().toString()),
+                                // Ohne bekannten Namen die Kennung: eine leere Zeile saehe aus
+                                // wie ein Fehler, und ein Platzhalter waere eine Behauptung.
+                                name == null ? entry.getKey().toString() : name,
                                 entry.getValue()));
             }
         }

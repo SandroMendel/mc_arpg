@@ -673,22 +673,34 @@ statistics:
     as-of: '&8Updated {age} ago.'
 
   board:
+    # FR-007c: NICHT "creatures killed". Ein Kill zaehlt jedem Beteiligten
+    # (ADR-042), also uebersteigt die Summe aller Zaehler die Zahl gestorbener
+    # Kreaturen. Wer "killed" liest, rechnet nach und meldet die Rangliste als
+    # kaputt - zu Recht.
     mob-kills:
-      name: 'Mob Kills'
+      name: 'Kill Participation'
+      hint: 'Every fight you took a real part in counts - not only the last hit.'
     boss-kills:
-      name: 'Boss Kills'
+      name: 'Boss Kill Participation'
+      hint: 'Same rule for bosses: a real share of the damage, not the killing blow.'
     deaths:
       name: 'Deaths'
+      hint: 'How often you went down. What killed you stays private.'
     playtime-active:
       name: 'Time Played'
+      hint: 'Time spent actually playing. Standing still does not count.'
     damage-max:
       name: 'Biggest Hit'
+      hint: 'Your single hardest hit after the target defence.'
     playtime-online:
       name: 'Time Online'
+      hint: 'Only you can see this one.'
     level:
       name: 'Level'
+      hint: 'The highest level among your characters.'
     coins:
       name: 'Coins'
+      hint: 'Everything your characters carry, added up.'
 
   period:
     day: 'Today'

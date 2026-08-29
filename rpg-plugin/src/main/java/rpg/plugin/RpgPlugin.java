@@ -166,6 +166,9 @@ public class RpgPlugin extends JavaPlugin {
     private rpg.core.item.ItemModule itemModule;
     private rpg.core.statistics.StatisticsModule statisticsModule;
     private rpg.platform.statistics.PlaytimeAccrual playtimeAccrual;
+    private rpg.core.statistics.LeaderboardCache leaderboardCache;
+    private rpg.persistence.statistics.LeaderboardFill leaderboardFill;
+    private rpg.platform.statistics.StatisticsMenuListener statisticsMenus;
 
     /**
      * B11s Vermerk über liegende Beute — gesetzt in {@link #assembleItemLayer()}.
@@ -1585,6 +1588,11 @@ public class RpgPlugin extends JavaPlugin {
                     // darueber laege sonst bis zum Neustart des Servers herum.
                     abilityFeedback.forget(playerId);
                 }
+                if (statisticsMenus != null) {
+                    // Dieselbe Stelle und derselbe Grund wie beim Haendlerfenster: eine Karte je
+                    // Spieler, die sonst bis zum Neustart waechst.
+                    statisticsMenus.forget(playerId);
+                }
                 if (playtimeAccrual != null) {
                     // B12: der letzte Zeitabschnitt wird HIER geschlossen und nicht in einem
                     // eigenen PlayerQuitEvent-Handler. B11 hat fuer genau diesen zweiten
@@ -1961,7 +1969,78 @@ public class RpgPlugin extends JavaPlugin {
                         new rpg.platform.statistics.ActivityListener(activity, Clock.systemUTC()),
                         this);
 
+        wireLeaderboards();
+
         getLogger().info("[statistics] capture wired - kills, deaths, damage, two clocks");
+    }
+
+    /**
+     * Die Ranglisten: Speicherstand, Auffrischungstakt, Fenster und {@code /top}.
+     *
+     * <p><b>Ein Takt für alle Sichten und beide Quellen.</b> Zwei Takte hätten zwei Alter ergeben,
+     * und das Fenster müsste erklären, welches gemeint ist.
+     */
+    private void wireLeaderboards() {
+        leaderboardCache = rpg.core.statistics.LeaderboardCache.empty();
+        rpg.core.statistics.Leaderboards leaderboards =
+                rpg.core.statistics.Leaderboards.backedBy(leaderboardCache);
+
+        // Die DataSource bleibt in rpg-persistence: NoDirectDatabaseAccessTest haelt seit B02
+        // fest, dass java.sql nur dort vorkommt, und ein Pool, den sich das Plugin selbst holt,
+        // waere der erste Schritt daran vorbei. Nach aussen geht eine fertige Auffrischung.
+        leaderboardFill =
+                new rpg.persistence.statistics.StatisticsPersistenceModule(
+                                persistenceModule,
+                                leaderboardCache,
+                                // Welche Art ein Boss ist, weiss B10 - eine zweite Antwort hier
+                                // waere eine zweite Wahrheit (FR-009a).
+                                kindKey ->
+                                        mobModule
+                                                .kinds()
+                                                .find(kindKey)
+                                                .map(rpg.core.mob.MobKind::boss)
+                                                .orElse(false),
+                                () -> statisticsModule.config(),
+                                // Namensaufloesung beim FUELLEN, ausserhalb des Ticks (FR-040).
+                                playerId -> getServer().getOfflinePlayer(playerId).getName(),
+                                getLogger(),
+                                Clock.systemUTC())
+                        .fill();
+
+        statisticsMenus =
+                new rpg.platform.statistics.StatisticsMenuListener(
+                        new rpg.platform.statistics.LeaderboardMenu(leaderboards, messages),
+                        Clock.systemUTC());
+        getServer().getPluginManager().registerEvents(statisticsMenus, this);
+
+        rpg.plugin.command.TopCommand top = new rpg.plugin.command.TopCommand(statisticsMenus);
+        if (getCommand("top") != null) {
+            getCommand("top").setExecutor(top);
+            getCommand("top").setTabCompleter(top);
+        }
+
+        startLeaderboardRefresh(statisticsModule.config().leaderboards().refreshInterval());
+    }
+
+    /**
+     * Der Auffrischungstakt — nach dem Muster der vorhandenen Sweeps.
+     *
+     * <p>Asynchron: {@code REFRESH MATERIALIZED VIEW} rechnet, und der Tick hat damit nichts zu
+     * tun (FR-031). Der erste Durchlauf ist ebenfalls verzögert — bis dahin sagt jedes Fenster,
+     * dass der Stand noch aufgebaut wird (FR-035), statt eine Ersatzabfrage zu stellen.
+     */
+    private void startLeaderboardRefresh(Duration interval) {
+        scheduler.runAsyncDelayed(
+                interval,
+                () -> {
+                    if (leaderboardFill != null) {
+                        leaderboardFill.refreshNow();
+                    }
+                    if (isEnabled()) {
+                        startLeaderboardRefresh(
+                                statisticsModule.config().leaderboards().refreshInterval());
+                    }
+                });
     }
 
     private void startInventorySweep(Duration interval) {

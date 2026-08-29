@@ -162,6 +162,23 @@ public final class StatisticsMessageKeys {
         return MessageKey.of("statistics.board." + aggregation.key().replace('_', '-') + ".name");
     }
 
+    /**
+     * Die erklärende Zeile unter dem Namen einer Rangliste,
+     * {@code statistics.board.<key>.hint}.
+     *
+     * <p><b>Bei den Kill-Ranglisten ist sie keine Zierde, sondern FR-007c.</b> Weil ein Kill
+     * <em>jedem</em> Beteiligten zählt (ADR-042), übersteigt die Summe aller Zähler die Zahl
+     * tatsächlich gestorbener Kreaturen. Wer das nicht liest, rechnet nach, findet die Differenz
+     * und meldet die Rangliste als kaputt. Der Preis von ADR-042 ist angenommen — aber er muss
+     * auch dastehen.
+     *
+     * <p>Jede Rangliste bekommt eine, nicht nur die beiden: eine Zeile, die nur manchmal da ist,
+     * liest sich wie eine Entschuldigung.
+     */
+    public static MessageKey boardHint(Aggregation aggregation) {
+        return MessageKey.of("statistics.board." + aggregation.key().replace('_', '-') + ".hint");
+    }
+
     /** Der Anzeigename eines Zeitraums, {@code statistics.period.<name>}. */
     public static MessageKey periodName(Period period) {
         return MessageKey.of("statistics.period." + period.name().toLowerCase().replace('_', '-'));
@@ -207,6 +224,7 @@ public final class StatisticsMessageKeys {
 
         for (Aggregation aggregation : Aggregation.values()) {
             keys.add(boardName(aggregation));
+            keys.add(boardHint(aggregation));
         }
         for (Period period : Period.values()) {
             keys.add(periodName(period));

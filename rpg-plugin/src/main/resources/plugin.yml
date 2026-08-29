@@ -52,8 +52,17 @@ commands:
     description: 'Give experience, take it away, or set a level.'
     usage: '/xp give|take <player> <amount> | /xp set <player> <level> [xp]'
     permission: rpg.progression.admin
+  top:
+    description: 'Open a leaderboard.'
+    usage: '/top [board] [period]'
+    permission: rpg.statistics.top
 
 permissions:
+  rpg.statistics.top:
+    description: 'Open a leaderboard.'
+    # Fuer alle: eine Rangliste ist zum Ansehen da, und ein Recht, das erst vergeben werden muss,
+    # waere eine stumme Funktion auf jedem frisch aufgesetzten Server.
+    default: true
   rpg.currency.balance:
     description: 'Open your own coin window.'
     # For everyone: seeing your own balance is not an administrative act.

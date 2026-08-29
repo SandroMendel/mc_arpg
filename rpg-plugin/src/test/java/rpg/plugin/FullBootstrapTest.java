@@ -500,16 +500,17 @@ class FullBootstrapTest {
         assertThat(handlerCount(org.bukkit.event.inventory.InventoryClickEvent.getHandlerList()))
                 .as(
                         "the equipment lock, the class selection, the currency, waypoint and vendor"
-                                + " windows, the repair-route lock, and B12's activity timestamp")
-                .isEqualTo(7);
+                                + " windows, the repair-route lock, B12's activity timestamp, and"
+                                + " B12's menu guard")
+                .isEqualTo(8);
         assertThat(handlerCount(org.bukkit.event.player.PlayerDropItemEvent.getHandlerList()))
                 .as("dropping is off for every item, bound or not (ADR-018)")
                 .isEqualTo(1);
         assertThat(handlerCount(org.bukkit.event.inventory.InventoryCloseEvent.getHandlerList()))
                 .as(
-                        "the class selection reopens itself; the currency, waypoint and vendor windows"
-                                + " just forget their state")
-                .isEqualTo(4);
+                        "the class selection reopens itself; the currency, waypoint and vendor"
+                                + " windows and B12's leaderboard just forget their state")
+                .isEqualTo(5);
     }
 
     // --- character inventory (B07 groundwork for B11) ---------------------
@@ -569,6 +570,19 @@ class FullBootstrapTest {
         assertThat(plugin.getCommand("xp")).isNotNull();
         assertThat(plugin.getCommand("xp").getExecutor())
                 .isInstanceOf(rpg.plugin.command.XpCommand.class);
+    }
+
+    @Test
+    void theTopCommandIsRegistered() {
+        // Der dritte unter derselben befristeten Lizenz (ADR-028). Eine Rangliste ohne einen Weg,
+        // sie zu oeffnen, waere vorhanden und unbenutzbar - und die Berechtigung steht auf
+        // default: true, weil ein Recht, das erst vergeben werden muss, auf jedem frisch
+        // aufgesetzten Server eine stumme Funktion waere.
+        assertThat(plugin.getCommand("top")).isNotNull();
+        assertThat(plugin.getCommand("top").getExecutor())
+                .isInstanceOf(rpg.plugin.command.TopCommand.class);
+        assertThat(plugin.getCommand("top").getPermission())
+                .isEqualTo(rpg.plugin.command.TopCommand.PERMISSION);
     }
 
     @Test
