@@ -64,10 +64,10 @@ Umgehung (FR-037). Ein Admin-Weg ist ausdrücklich nicht Teil dieses Vertrags.
 public interface Leaderboards {
 
     /** Der aktuelle Stand aus dem Speicher. Löst NIEMALS eine Datenbankabfrage aus (FR-030). */
-    Optional<Leaderboard> board(Metric metric, Period period);
+    Optional<Leaderboard> board(Aggregation board, Period period, String periodKey);
 
     /** Der Rang eines Kontos, auch außerhalb der ersten N (FR-033). */
-    OptionalInt rankOf(Metric metric, Period period, UUID playerId);
+    OptionalInt rankOf(Aggregation board, Period period, UUID playerId);
 
     /** Wann zuletzt aufgefrischt wurde — jede Ansicht muss das Alter nennen (FR-032). */
     Optional<Instant> refreshedAt();

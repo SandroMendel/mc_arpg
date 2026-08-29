@@ -29,13 +29,20 @@ import java.util.Optional;
  *       Metrik zu erben wäre schlicht falsch.
  * </ul>
  *
- * <h2>Was hier fehlt, und warum</h2>
+ * <h2>Die beiden Zustandsranglisten stehen hier mit drin — und tragen nie eine Gewichtung</h2>
  *
- * <p>Für Level, XP und Coins gibt es <b>keine</b> Aggregation. Das ist der eigentliche Riegel aus
- * ADR-046: eine Gewichtung kann nur auf eine Aggregation gelegt werden, also können Zustandswerte
- * gar nicht erst in die Saisonwertung geraten — sie trügen den Fortschritt vergangener Saisons in
- * die laufende, und eine Saison hörte auf, ein Neuanfang zu sein. Die beiden Zustandsranglisten
- * (Level, Coins) entstehen an anderer Stelle, aus dem Fortschritts- und dem Kontobestand.
+ * <p>{@link #LEVEL} und {@link #COINS} kommen nicht aus der Statistiktabelle, sondern aus dem
+ * Fortschritts- und dem Kontobestand (ADR-041). Sie stehen trotzdem hier, weil FR-030 für
+ * <em>alle</em> Ranglisten gilt: das Öffnen kostet keine Abfrage, und dafür müssen sie in
+ * denselben Speicherstand. Eine Ausnahme davon hätte niemand im Fenster erkannt.
+ *
+ * <p><b>Der Riegel aus ADR-046 sitzt deshalb in {@link #scoreable()} und nicht in ihrer
+ * Abwesenheit.</b> Das war der erste Entwurf — Zustandswerte gar nicht erst als Aggregation zu
+ * führen —, und er war der elegantere: was es nicht gibt, kann man nicht gewichten. Er hielt der
+ * Anforderung nicht stand, dass auch diese beiden Listen ohne Abfrage zu öffnen sein müssen. Also
+ * steht die Regel jetzt ausdrücklich da, statt sich aus einer Lücke zu ergeben: eine Saison
+ * belohnt, was <em>in ihr</em> geleistet wurde, und Level und Coins tragen den Fortschritt
+ * vergangener Saisons in die laufende.
  */
 public enum Aggregation {
 
@@ -70,7 +77,23 @@ public enum Aggregation {
      * <p><b>Privat und damit nicht rankbar</b> (FR-036, ADR-043) — sie steht hier, weil das eigene
      * Profil sie zeigt, nicht weil es eine Rangliste dafür gäbe.
      */
-    PLAYTIME_ONLINE(MetricRegistry.PLAYTIME_ONLINE, BossScope.IRRELEVANT, MetricVisibility.PRIVATE);
+    PLAYTIME_ONLINE(MetricRegistry.PLAYTIME_ONLINE, BossScope.IRRELEVANT, MetricVisibility.PRIVATE),
+
+    /**
+     * Das Level eines Kontos — der höchste seiner Charaktere (FR-021).
+     *
+     * <p>Gleichstand entscheidet die XP <b>innerhalb</b> dieses Levels (FR-020). Gelesen aus
+     * {@code character_progress}, nie geschrieben (ADR-041).
+     */
+    LEVEL(MetricRegistry.LEVEL, BossScope.IRRELEVANT, MetricVisibility.PUBLIC),
+
+    /**
+     * Die Coins eines Kontos — die <b>Summe</b> über seine Charaktere (FR-022).
+     *
+     * <p>Nicht das Maximum: Geld ist teilbar und liegt verteilt. Gelesen aus
+     * {@code character_balance}, nie geschrieben.
+     */
+    COINS(MetricRegistry.COINS, BossScope.IRRELEVANT, MetricVisibility.PUBLIC);
 
     /** Ob eine Aggregation Boss-Arten ein-, aus- oder nicht unterscheidet. */
     public enum BossScope {
@@ -134,11 +157,23 @@ public enum Aggregation {
     /**
      * Ob auf diese Aggregation eine Gewichtung gelegt werden darf (ADR-046, FR-050c).
      *
-     * <p>Öffentlich muss sie sein — eine Platzierung, die sich aus Zahlen begründet, die niemand
-     * nachsehen kann, wird als Willkür gelesen.
+     * <p>Zwei Bedingungen, und beide haben ihren eigenen Grund:
+     *
+     * <ul>
+     *   <li><b>Öffentlich</b> — eine Platzierung, die sich aus Zahlen begründet, die niemand
+     *       nachsehen kann, wird als Willkür gelesen.
+     *   <li><b>Kein Zustandswert</b> — Level und Coins tragen den Fortschritt vergangener Saisons
+     *       in die laufende und setzten alte Konten dauerhaft nach oben. Eine Saison hörte damit
+     *       auf, ein Neuanfang zu sein.
+     * </ul>
      */
     public boolean scoreable() {
-        return visibility == MetricVisibility.PUBLIC;
+        return visibility == MetricVisibility.PUBLIC && source.kind() != MetricKind.STATE;
+    }
+
+    /** Ob diese Rangliste aus den Zustandsbeständen kommt statt aus der Statistiktabelle. */
+    public boolean isState() {
+        return source.kind() == MetricKind.STATE;
     }
 
     /** Die Aggregation zu einem Konfigurationsschlüssel. */

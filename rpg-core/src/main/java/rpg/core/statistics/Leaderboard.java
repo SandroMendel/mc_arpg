@@ -77,13 +77,38 @@ public record Leaderboard(
             int places,
             Map<UUID, String> names,
             Instant refreshedAt) {
+        return of(board, period, periodKey, values, Map.of(), places, names, refreshedAt);
+    }
+
+    /**
+     * Dasselbe mit einem <b>fachlichen</b> Gleichstandsentscheid.
+     *
+     * <p>Die Level-Rangliste braucht ihn: bei gleichem Level entscheidet die XP <em>innerhalb</em>
+     * dieses Levels (FR-020), nicht die Kontokennung. Angezeigt wird trotzdem der Level — der
+     * zweite Wert ordnet nur.
+     *
+     * @param tieBreak zweiter Wert je Konto, absteigend; fehlt einer, zählt er als null
+     */
+    public static Leaderboard of(
+            Aggregation board,
+            Period period,
+            String periodKey,
+            Map<UUID, Long> values,
+            Map<UUID, Long> tieBreak,
+            int places,
+            Map<UUID, String> names,
+            Instant refreshedAt) {
 
         List<Map.Entry<UUID, Long>> ordered = new ArrayList<>(values.entrySet());
         ordered.sort(
                 Map.Entry.<UUID, Long>comparingByValue()
                         .reversed()
-                        // Der Gleichstandsentscheid: stabil und nachvollziehbar. Ohne ihn ist die
-                        // Reihenfolge die einer HashMap, und die aendert sich mit jedem Neustart.
+                        .thenComparing(
+                                entry -> tieBreak.getOrDefault(entry.getKey(), 0L),
+                                Comparator.reverseOrder())
+                        // Der letzte Entscheid ist die Kennung: stabil und nachvollziehbar. Ohne
+                        // ihn waere die Reihenfolge die einer HashMap, und die aendert sich mit
+                        // jedem Neustart - zwei Spieler taeuschten Bewegung vor, wo keine war.
                         .thenComparing(entry -> entry.getKey().toString()));
 
         List<LeaderboardEntry> top = new ArrayList<>();

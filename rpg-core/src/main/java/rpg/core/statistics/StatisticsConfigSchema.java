@@ -161,9 +161,14 @@ public final class StatisticsConfigSchema {
                         FILE
                                 + ": score.weights."
                                 + key
-                                + " ist nicht oeffentlich - eine Platzierung darf sich nicht aus"
-                                + " Zahlen begruenden, die niemand nachsehen kann (FR-050c,"
-                                + " ADR-046)");
+                                + (aggregation.isState()
+                                        ? " ist ein Zustandswert - er truege den Fortschritt"
+                                                + " vergangener Saisons in die laufende, und eine"
+                                                + " Saison hoerte auf, ein Neuanfang zu sein"
+                                        : " ist nicht oeffentlich - eine Platzierung darf sich"
+                                                + " nicht aus Zahlen begruenden, die niemand"
+                                                + " nachsehen kann")
+                                + " (FR-050c, ADR-046)");
             }
             double weight = toNumber(entry.getValue(), "score.weights." + key).doubleValue();
             if (weight < 0) {

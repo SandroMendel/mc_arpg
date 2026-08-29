@@ -685,6 +685,10 @@ statistics:
       name: 'Biggest Hit'
     playtime-online:
       name: 'Time Online'
+    level:
+      name: 'Level'
+    coins:
+      name: 'Coins'
 
   period:
     day: 'Today'
