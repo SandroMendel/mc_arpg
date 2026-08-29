@@ -2458,3 +2458,45 @@ die Statistik an der falschen Stelle nachsieht.
 **nicht** rückwirkend in B11 — dort bleibt FR-041a unverändert. Wer die beiden Stellen
 nebeneinander liest, muss die Asymmetrie erklärt bekommen; dieser ADR ist die Erklärung, und die
 Spec verweist an beiden Enden darauf.
+
+---
+
+## ADR-048: B12 wohnt in eigenen Paketen — `statistics`, nicht `stats`
+
+**Status:** Angenommen · **Datum:** 2026-08-29 · **Blöcke:** B12, berührt B04
+
+**Kontext.** `plan.md` und `tasks.md` haben `rpg.core.stats`, `rpg.persistence.stats` und
+`rpg.platform.stats` als **neue** Pakete für B12 geführt (`plan.md`, Verzeichnisbaum: „# neu").
+Sie sind nicht neu. Alle drei gehören **B04**, der Attribut- und Stat-Engine: allein
+`rpg.core.stats` hält 29 Klassen und ein `package-info.java`, das das Paket ausdrücklich für
+sich beansprucht („What this block owns"). Der Irrtum ist bis in `quickstart.md` durchgeschlagen,
+wo `--tests "rpg.core.stats.*"` B04s Tests mitgelaufen wäre und als B12-Beleg gezählt hätte.
+
+**Entscheidung.** B12 zieht in eigene Pakete `rpg.core.statistics`,
+`rpg.persistence.statistics` und `rpg.platform.statistics`. Die Klassen dieses Blocks tragen
+durchgehend das Präfix `Statistics…` statt `Stats…`.
+
+**Begründung.** Zwei Namenspaare hätten sonst nebeneinander gestanden, und beide sind von der
+Sorte, die kein Test findet, weil jede Klasse für sich einwandfrei arbeitet — falsch ist nur,
+welche jemand greift:
+
+| B04 (vorhanden) | B12 (geplant) | |
+|---|---|---|
+| `StatConfig` | `StatsConfig` | ein Buchstabe, dasselbe Paket |
+| `StatsModule` | `StatsModule` | derselbe Name, zwei Module |
+
+Dieselbe Fehlerart hat dieses Projekt schon zweimal Zeit gekostet: die gemeinsame UUID für
+Halter und Charakter (1614 Tests lang unsichtbar) und B10s zweite `bossStates`-Map neben der
+des Moduls. Beide Male stimmte jede Hälfte für sich.
+
+Dazu kommt: T001 verlangt ein `package-info`, das **die Grenze des Blocks nennt**. In einem
+Paket, dessen Grenze bereits ein anderer Block gezogen hat, ist diese Aufgabe nicht erfüllbar —
+sie wäre ein zweites Namensschild an derselben Tür.
+
+**Verworfen.** *Einzug in B04s Pakete* — spart das Umschreiben der Aufgabenliste, verschiebt die
+Kosten aber auf jede spätere Lesung. *`rpg.core.leaderboard`* — trennt ebenfalls sauber, trifft
+aber nur US3 und US6; Erfassung (US1) und Profil (US2) sind der größere Teil des Blocks, und
+`statistics.yml` heißt ohnehin schon so.
+
+**Zeitpunkt.** Entschieden, bevor die erste Zeile B12-Code entstand. Betroffen waren nur
+Pfadangaben in den Planungsunterlagen (123 Stellen, davon 113 in `tasks.md`); kein Quelltext.

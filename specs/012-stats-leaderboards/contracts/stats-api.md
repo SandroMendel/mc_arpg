@@ -8,7 +8,7 @@ andere ist Interna (Prinzip III).
 
 ---
 
-## 1 · Zählen (`rpg.core.stats`)
+## 1 · Zählen (`rpg.core.statistics`)
 
 ```java
 public interface Statistics {
@@ -34,10 +34,10 @@ public interface Statistics {
 
 ---
 
-## 2 · Lesen (`rpg.core.stats`)
+## 2 · Lesen (`rpg.core.statistics`)
 
 ```java
-public interface StatsView {
+public interface StatisticsView {
 
     /** Ein Wert eines Kontos für eine Metrik in einem Zeitraum. */
     CompletableFuture<Long> value(UUID playerId, Metric metric, Period period);
@@ -58,7 +58,7 @@ Umgehung (FR-037). Ein Admin-Weg ist ausdrücklich nicht Teil dieses Vertrags.
 
 ---
 
-## 3 · Ranglisten (`rpg.core.stats`)
+## 3 · Ranglisten (`rpg.core.statistics`)
 
 ```java
 public interface Leaderboards {
@@ -84,7 +84,7 @@ public interface Leaderboards {
 
 ---
 
-## 4 · Saison (`rpg.core.stats`)
+## 4 · Saison (`rpg.core.statistics`)
 
 ```java
 public interface Seasons {

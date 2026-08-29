@@ -125,14 +125,14 @@ specs/012-stats-leaderboards/
 ### Source Code (repository root)
 
 ```text
-rpg-core/src/main/java/rpg/core/stats/         # neu — bukkit-frei
+rpg-core/src/main/java/rpg/core/statistics/         # neu — bukkit-frei
 ├── Metric.java                                # Schlüssel, Art, Sichtbarkeit, Dimension
 ├── MetricKind.java                            # SUM, MAX, STATE
 ├── MetricVisibility.java                      # PUBLIC, PRIVATE
 ├── MetricRegistry.java                        # das Verzeichnis, kein Literal im Code (FR-018)
 ├── MetricKeys.java                            # Bildung dimensionierter Schlüssel
-├── StatsConfig.java / StatsConfigSchema.java   # Fail-Fast beim Start (R9)
-├── StatsModule.java                           # Start und Nachladen, wie MobModule
+├── StatisticsConfig.java / StatisticsConfigSchema.java   # Fail-Fast beim Start (R9)
+├── StatisticsModule.java                           # Start und Nachladen, wie MobModule
 ├── KillCredit.java                            # die Beteiligungsschwelle (FR-007, R5)
 ├── Playtime.java                              # zwei Uhren, Abschnitte, Tagesgrenze
 ├── ActivityClock.java                         # Untätigkeit aus einem Zeitstempel
@@ -144,37 +144,37 @@ rpg-core/src/main/java/rpg/core/stats/         # neu — bukkit-frei
 ├── ScoreWeights.java                          # Gewichtung, einfrierbar
 ├── SeasonResult.java                          # eingefrorener Endstand
 ├── RewardClaim.java                           # Anspruch, genau einmal einlösbar
-└── StatsMessageKeys.java
+└── StatisticsMessageKeys.java
 
-rpg-persistence/src/main/java/rpg/persistence/stats/   # neu
+rpg-persistence/src/main/java/rpg/persistence/statistics/   # neu
 ├── StatisticsMaxWriter.java                   # der zweite Schreibweg (ADR-040)
 ├── JdbcLeaderboardSource.java                 # vier Sichten → Cache, eine Abfrage je Sicht
 ├── JdbcStateLeaderboardSource.java            # Level und Coins gelesen, nicht gespiegelt (ADR-041)
 ├── LeaderboardRefresh.java                    # REFRESH ... CONCURRENTLY, asynchron
 ├── JdbcSeasonResultRepository.java            # ohne Write-Behind (R2)
 ├── JdbcRewardClaimRepository.java             # erst markieren, dann gutschreiben
-└── StatsPersistenceModule.java
+└── StatisticsPersistenceModule.java
 
 rpg-persistence/src/main/resources/db/migration/
 ├── V12_1__statistic_leaderboard_views.sql     # vier Materialized Views + Unique-Indizes
 ├── V12_2__season_result.sql
 └── V12_3__season_reward_claim.sql
 
-rpg-platform/src/main/java/rpg/platform/stats/  # neu
+rpg-platform/src/main/java/rpg/platform/statistics/  # neu
 ├── KillStatListener.java                      # CombatDeathEvent → Kills, Bosskills, Tode
 ├── DamageStatListener.java                    # DamageDealtEvent → höchster Schaden (FR-016a)
 ├── ActivityListener.java                      # der fünfte Bewegungshandler (R7)
 ├── PlaytimeAccrual.java                       # reitet auf dem Inventar-Sweep (R6)
 ├── ZoneTimeListener.java                      # ZoneChangedEvent → Abschnitt wechseln
-├── StatsMenu.java                             # eigenes Profil, vier Zeiträume
+├── StatisticsMenu.java                             # eigenes Profil, vier Zeiträume
 ├── ProfileMenu.java                           # fremdes Profil, ohne die drei privaten Werte
 ├── LeaderboardMenu.java                       # Metrik und Zeitraum umschaltbar
-├── StatsMenuListener.java                     # ein Zuhörer für alle drei Fenster
+├── StatisticsMenuListener.java                     # ein Zuhörer für alle drei Fenster
 ├── SeasonRewardClaimListener.java             # Einlösen beim nächsten Spielen
 └── LeaderboardHologram.java                   # Muster VendorNpc (R8)
 
 rpg-plugin/src/main/java/rpg/plugin/command/
-├── StatsCommand.java                          # /stats [spieler]
+├── StatisticsCommand.java                          # /stats [spieler]
 └── TopCommand.java                            # /top
 
 rpg-plugin/src/main/resources/statistics.yml    # neu

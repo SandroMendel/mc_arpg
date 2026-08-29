@@ -11,7 +11,7 @@ Jeder Abschnitt nennt die Erfolgskriterien, die er abdeckt.
 ## 1 · Ohne Server (Prinzip VII)
 
 ```powershell
-./gradlew :rpg-core:test --tests "rpg.core.stats.*"
+./gradlew :rpg-core:test --tests "rpg.core.statistics.*"
 ```
 
 Deckt ab: **SC-001** (Rechenaufwand der Erfassung), **SC-013** (Mitternacht), **SC-015**
@@ -33,7 +33,7 @@ Die Regeln dieses Blocks sind reine Rechnung und brauchen keinen Server:
 ## 2 · Gegen echtes PostgreSQL (Testcontainers)
 
 ```powershell
-./gradlew :rpg-persistence:test --tests "rpg.persistence.stats.*"
+./gradlew :rpg-persistence:test --tests "rpg.persistence.statistics.*"
 ```
 
 Deckt ab: **SC-002** (ein Schreibvorgang statt tausend), **SC-004** (Neustart), **SC-007**
@@ -56,7 +56,7 @@ Was hier zu belegen ist und nirgends sonst belegt werden kann:
 ## 3 · Mit MockBukkit
 
 ```powershell
-./gradlew :rpg-platform:test --tests "rpg.platform.stats.*"
+./gradlew :rpg-platform:test --tests "rpg.platform.statistics.*"
 ```
 
 Deckt ab: **SC-006**/**SC-017** (die drei privaten Werte), **SC-011** (ein Fehler ändert kein
