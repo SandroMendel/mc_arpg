@@ -140,12 +140,12 @@ gegen das Erwartete prüfen.
 
 ### Die Erfassung (Plattform)
 
-- [ ] T045 [P] [US1] Test `KillStatListenerTest` in `rpg-platform/src/test/java/rpg/platform/statistics/KillStatListenerTest.java` — Kill mit bekannter Art, Kill ohne Spielerbeteiligung, Tod durch Kreatur, Tod durch Sturz, Tod durch Spieler; jeder landet unter dem richtigen Schlüssel (FR-006, FR-008, FR-010, FR-011)
-- [ ] T046 [US1] `KillStatListener` in `rpg-platform/src/main/java/rpg/platform/statistics/KillStatListener.java` — hört auf `CombatDeathEvent`; **löst die Mob-Art im Tick auf, solange die Entität existiert** (FR-012, R4). Ein asynchrones Nachschlagen ginge ins Leere
-- [ ] T047 [P] [US1] Test `UnresolvableKillerFallsBackTest` in `rpg-platform/src/test/java/rpg/platform/statistics/UnresolvableKillerFallsBackTest.java` — ein Verursacher ohne Vermerk landet unter dem Ersatzschlüssel, **nicht** unter einer fremden Art (FR-011, Edge Case)
-- [ ] T048 [P] [US1] Test `DamageStatListenerTest` in `rpg-platform/src/test/java/rpg/platform/statistics/DamageStatListenerTest.java` — der höchste Wert gewinnt; **1249,7 wird zu 1249, nicht zu 1250** (FR-016, Edge Case)
-- [ ] T049 [US1] `DamageStatListener` in `rpg-platform/src/main/java/rpg/platform/statistics/DamageStatListener.java` — hört auf `DamageDealtEvent`, meldet über `reportMax`
-- [ ] T050 [P] [US1] Test `ClonedDamageCountsForTheSummonerTest` in `rpg-platform/src/test/java/rpg/platform/statistics/ClonedDamageCountsForTheSummonerTest.java` — **FR-016a, ADR-047**: der Schaden eines beschworenen Klons steht beim Beschwörer. Der Test nennt im Javadoc die **bewusste Asymmetrie zu FR-041a aus B11** — mit Block davor, weil B12 selbst ein FR-041 hat und der Bezeichnerraum blockübergreifend nicht eindeutig ist —, damit der nächste Leser sie nicht für einen Fehler hält
+- [X] T045 [P] [US1] Test `KillStatListenerTest` in `rpg-platform/src/test/java/rpg/platform/statistics/KillStatListenerTest.java` — Kill mit bekannter Art, Kill ohne Spielerbeteiligung, Tod durch Kreatur, Tod durch Sturz, Tod durch Spieler; jeder landet unter dem richtigen Schlüssel (FR-006, FR-008, FR-010, FR-011)
+- [X] T046 [US1] `KillStatListener` in `rpg-platform/src/main/java/rpg/platform/statistics/KillStatListener.java` — hört auf `CombatDeathEvent`; **löst die Mob-Art im Tick auf, solange die Entität existiert** (FR-012, R4). Ein asynchrones Nachschlagen ginge ins Leere
+- [X] T047 [P] [US1] Test `UnresolvableKillerFallsBackTest` in `rpg-platform/src/test/java/rpg/platform/statistics/UnresolvableKillerFallsBackTest.java` — ein Verursacher ohne Vermerk landet unter dem Ersatzschlüssel, **nicht** unter einer fremden Art (FR-011, Edge Case)
+- [X] T048 [P] [US1] Test `DamageStatListenerTest` in `rpg-platform/src/test/java/rpg/platform/statistics/DamageStatListenerTest.java` — der höchste Wert gewinnt; **1249,7 wird zu 1249, nicht zu 1250** (FR-016, Edge Case)
+- [X] T049 [US1] `DamageStatListener` in `rpg-platform/src/main/java/rpg/platform/statistics/DamageStatListener.java` — hört auf `DamageDealtEvent`, meldet über `reportMax`
+- [X] T050 [P] [US1] Test `ClonedDamageCountsForTheSummonerTest` in `rpg-platform/src/test/java/rpg/platform/statistics/ClonedDamageCountsForTheSummonerTest.java` — **FR-016a, ADR-047**: der Schaden eines beschworenen Klons steht beim Beschwörer. Der Test nennt im Javadoc die **bewusste Asymmetrie zu FR-041a aus B11** — mit Block davor, weil B12 selbst ein FR-041 hat und der Bezeichnerraum blockübergreifend nicht eindeutig ist —, damit der nächste Leser sie nicht für einen Fehler hält
 - [ ] T051 [US1] `ActivityListener` in `rpg-platform/src/main/java/rpg/platform/statistics/ActivityListener.java` — **der fünfte Handler auf `PlayerMoveEvent`** (R7): `MONITOR`, eine Zuweisung in eine vorbelegte Map, keine Allokation, keine Bedingung. Javadoc übernimmt die Warnung aus `ZoneMovementListener`, warum hier alles frei sein muss
 - [ ] T052 [US1] `ActivityListener` um die übrigen Auslöser erweitern — Kampf, Interaktion, Menüs, Commands (FR-014c1). Bewegung allein reicht nicht, aber sie zählt
 - [ ] T053 [P] [US1] Test `ActivityTouchIsFreeTest` in `rpg-platform/src/test/java/rpg/platform/statistics/ActivityTouchIsFreeTest.java` — **FR-014c2**: das Erneuern des Zeitstempels löst keinen Schreibvorgang und keine Neuberechnung aus. Wiederholbare Messung ohne Volllast (SC-001, Prinzip VII)
@@ -157,7 +157,7 @@ gegen das Erwartete prüfen.
 
 ### Zusammenhalten
 
-- [ ] T059 [US1] `Statistics` als öffentliche Fassade in `rpg-core/src/main/java/rpg/core/statistics/Statistics.java` — Signaturen nach [contracts/stats-api.md](./contracts/stats-api.md) §1
+- [X] T059 [US1] `Statistics` als öffentliche Fassade in `rpg-core/src/main/java/rpg/core/statistics/Statistics.java` — Signaturen nach [contracts/stats-api.md](./contracts/stats-api.md) §1
 - [ ] T060 [P] [US1] Test `CaptureFailureDoesNotBreakTheGameTest` in `rpg-platform/src/test/java/rpg/platform/statistics/CaptureFailureDoesNotBreakTheGameTest.java` — **FR-004, SC-011**: ein Statistikdienst, der bei jedem Aufruf wirft, lässt Kills, Tode und Beute unverändert weiterlaufen
 - [ ] T061 [US1] Verdrahtung in `rpg-plugin/src/main/java/rpg/plugin/RpgPlugin.java`: `wireStatistics()` — Modul laden, Zuhörer registrieren, Fortschreibung an den Inventar-Sweep hängen
 - [ ] T062 [US1] `FullBootstrapTest` in `rpg-plugin/src/test/java/rpg/plugin/FullBootstrapTest.java` nachziehen — **`PlayerMoveEvent` trägt jetzt einen Handler mehr** (R7). Die Zahl steigt von vier auf fünf; genau dafür zählt dieser Test sie
