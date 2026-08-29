@@ -1,0 +1,124 @@
+package rpg.core.statistics;
+
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.UUID;
+
+/**
+ * Eine fertige Rangliste — die ersten N Einträge <b>plus die vollständige Rangzuordnung</b>
+ * ([data-model.md] §2.2).
+ *
+ * <h2>Warum beides und nicht nur die ersten N</h2>
+ *
+ * <p>FR-033 verlangt, dass ein Spieler seine eigene Platzierung sieht, auch wenn er nicht unter
+ * den ersten zehn steht. Ohne die vollständige Zuordnung wäre das eine Nachfrage an die Datenbank
+ * — beim Öffnen des Fensters, also genau dort, wo FR-030 keine Abfrage erlaubt. Die Zuordnung ist
+ * eine Map von Konto auf Platz und kostet je Konto ein paar Bytes; die Alternative kostet eine
+ * Abfrage je Öffnung.
+ *
+ * <h2>Gleichstand</h2>
+ *
+ * <p>Gleiche Werte tragen <b>denselben</b> Platz (FR-034). Der nächste Platz überspringt
+ * entsprechend: 1, 2, 2, 4. Und die Reihenfolge innerhalb eines Gleichstands ist <b>stabil</b> —
+ * nach Kontokennung, nicht nach Zufall. Sonst tauschten zwei Spieler bei jeder Auffrischung die
+ * Plätze, ohne dass sich etwas geändert hätte, und beide hielten es für einen Fehler.
+ */
+public record Leaderboard(
+        Aggregation board,
+        Period period,
+        String periodKey,
+        List<LeaderboardEntry> top,
+        Map<UUID, Integer> rankOf,
+        Instant refreshedAt) {
+
+    public Leaderboard {
+        Objects.requireNonNull(board, "board");
+        Objects.requireNonNull(period, "period");
+        Objects.requireNonNull(refreshedAt, "refreshedAt");
+        top = List.copyOf(Objects.requireNonNull(top, "top"));
+        rankOf = Map.copyOf(Objects.requireNonNull(rankOf, "rankOf"));
+    }
+
+    /** Der Platz eines Kontos, sofern es überhaupt einen Wert hat. */
+    public OptionalInt rankFor(UUID playerId) {
+        Integer rank = rankOf.get(playerId);
+        return rank == null ? OptionalInt.empty() : OptionalInt.of(rank);
+    }
+
+    /** Der Eintrag eines Kontos unter den ersten N, sofern es dort steht. */
+    public Optional<LeaderboardEntry> entryFor(UUID playerId) {
+        return top.stream().filter(entry -> entry.playerId().equals(playerId)).findFirst();
+    }
+
+    /** Ob überhaupt jemand auf dieser Liste steht. */
+    public boolean isEmpty() {
+        return top.isEmpty();
+    }
+
+    /**
+     * Baut eine Rangliste aus rohen Werten.
+     *
+     * @param values Konto → Wert, ungeordnet
+     * @param places wie viele Einträge {@link #top()} tragen soll
+     * @param names Anzeigename je Konto; fehlt einer, steht die Kennung da
+     */
+    public static Leaderboard of(
+            Aggregation board,
+            Period period,
+            String periodKey,
+            Map<UUID, Long> values,
+            int places,
+            Map<UUID, String> names,
+            Instant refreshedAt) {
+
+        List<Map.Entry<UUID, Long>> ordered = new ArrayList<>(values.entrySet());
+        ordered.sort(
+                Map.Entry.<UUID, Long>comparingByValue()
+                        .reversed()
+                        // Der Gleichstandsentscheid: stabil und nachvollziehbar. Ohne ihn ist die
+                        // Reihenfolge die einer HashMap, und die aendert sich mit jedem Neustart.
+                        .thenComparing(entry -> entry.getKey().toString()));
+
+        List<LeaderboardEntry> top = new ArrayList<>();
+        Map<UUID, Integer> ranks = new LinkedHashMap<>();
+
+        int rank = 0;
+        long previousValue = Long.MIN_VALUE;
+        for (int i = 0; i < ordered.size(); i++) {
+            Map.Entry<UUID, Long> entry = ordered.get(i);
+            if (entry.getValue() != previousValue) {
+                // 1, 2, 2, 4 - der naechste Platz ueberspringt die geteilten.
+                rank = i + 1;
+                previousValue = entry.getValue();
+            }
+            ranks.put(entry.getKey(), rank);
+            if (top.size() < places) {
+                top.add(
+                        new LeaderboardEntry(
+                                rank,
+                                entry.getKey(),
+                                names.getOrDefault(entry.getKey(), entry.getKey().toString()),
+                                entry.getValue()));
+            }
+        }
+        return new Leaderboard(board, period, periodKey, top, ranks, refreshedAt);
+    }
+
+    /** Eine Liste, die es noch nicht gibt — vor der ersten Auffrischung (FR-035). */
+    public static Leaderboard empty(
+            Aggregation board, Period period, String periodKey, Instant refreshedAt) {
+        return new Leaderboard(board, period, periodKey, List.of(), Map.of(), refreshedAt);
+    }
+
+    /** Nur damit der Vergleich in Tests lesbar bleibt. */
+    static Comparator<LeaderboardEntry> byRank() {
+        return Comparator.comparingInt(LeaderboardEntry::rank);
+    }
+}

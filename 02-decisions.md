@@ -2500,3 +2500,42 @@ aber nur US3 und US6; Erfassung (US1) und Profil (US2) sind der größere Teil d
 
 **Zeitpunkt.** Entschieden, bevor die erste Zeile B12-Code entstand. Betroffen waren nur
 Pfadangaben in den Planungsunterlagen (123 Stellen, davon 113 in `tasks.md`); kein Quelltext.
+
+---
+
+## ADR-049: Drei Materialized Views, nicht vier — der Saisonstand kann keine sein
+
+**Status:** Angenommen · **Datum:** 2026-08-30 · **Blöcke:** B12
+
+**Kontext.** research.md R1 und data-model.md §2.1 sehen **vier** Materialized Views vor, eine je
+Zeitraum: `mv_stat_alltime`, `mv_stat_season`, `mv_stat_week`, `mv_stat_day`. Für drei davon
+funktioniert das: Allzeit, ISO-Woche und Kalendertag lassen sich allein aus der gespeicherten
+Tagesangabe bilden.
+
+**Die vierte nicht.** Eine Saison ist ein konfigurierter Datumsbereich aus `statistics.yml`. Eine
+Materialized View kennt keine Parameter — sie müsste die Saisongrenzen in ihrer eigenen Definition
+tragen. Damit wäre jede neue Saison eine neue Migration, und der Kalender stünde an zwei Stellen.
+
+**Entscheidung.** `V12_1` legt **drei** Sichten an. Der Saisonstand entsteht aus einer
+**parametrisierten Abfrage** je Auffrischung, deren Grenzen der `SeasonCalendar` liefert — ebenfalls
+eine Abfrage, also unverändert die Zusage aus R1: *eine Abfrage je Sicht, unabhängig von der Zahl
+der Ranglisten*.
+
+**Begründung.** Die Alternative wäre eine Tabelle `rpg.season`, beim Start aus der Konfiguration
+gefüllt, mit der die vierte Sicht sich verbinden könnte. Sie hätte vier Sichten erhalten — und den
+Kalender verdoppelt. Liefe die Spiegelung einmal nicht (fehlgeschlagene Migration, abgebrochener
+Start, ein von Hand geändertes `statistics.yml` ohne Neustart), rechneten die Saisonranglisten
+still mit dem alten Kalender weiter. Es gäbe keinen Fehler, nur andere Zahlen — und niemand hätte
+einen Anlass nachzusehen. Dieselbe Überlegung, aus der dieser Block Zustandswerte nicht spiegelt
+(ADR-041) und keine zweite Ablage führt (FR-002).
+
+**Nebenwirkung, bewusst in Kauf genommen.** Die Saisonabfrage liest die Rohtabelle statt einer
+vorbereiteten Sicht und ist damit teurer als die anderen drei. Sie läuft im Auffrischungstakt und
+nicht beim Öffnen eines Fensters — der Preis fällt also dort an, wo Zeit ist, und nicht dort, wo
+ein Spieler wartet.
+
+**Was die Sichten NICHT tun.** Sie verdichten nicht je Metrikfamilie, sondern gruppieren nach dem
+vollständigen Schlüssel einschließlich Dimension. Die Zusammenfassung je Familie und die Trennung
+von Boss- und Mob-Kills passieren beim Füllen des Speicherstands: welche Art ein Boss ist, steht in
+`mobs.yml` und nicht in der Datenbank (FR-009a). Verdichteten die Sichten bereits, wäre außerdem
+die Aufschlüsselung fürs eigene Profil verloren, die FR-038 verlangt.
