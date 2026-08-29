@@ -2098,3 +2098,363 @@ nennt — die einzige Art, einen toten Zweig richtig zu halten.
 **Aufgefallen ist es nur, weil der Rückbau diese Zeile ohnehin anfassen musste.** Das ist das zweite
 Mal in diesem Projekt, dass eine Aufräumarbeit einen Fehler findet, den kein Test gesucht hätte —
 beim ersten Mal war es der Klassenlader (B08b/T132).
+
+---
+
+## ADR-040: Ein zweiter Schreibweg auf `player_statistic_daily` — Maximum neben Summe
+
+**Status:** Angenommen · **Datum:** 2026-08-29 · **Blöcke:** B12, erweitert B02
+
+**Kontext.** `/specify` für B12 hat „höchster Schaden" in den Umfang aufgenommen. Der gesamte
+Statistik-Schreibweg aus B02 hängt aber an einem einzigen Satz:
+`ON CONFLICT (player_id, metric, day) DO UPDATE SET value = value + excluded.value`. Genau weil
+die Aktualisierung **addiert**, kann ein Delta geschrieben werden, ohne den gespeicherten Wert
+vorher zu lesen — das ist B02s FR-007 und der Grund, warum tausend Kills einen Schreibvorgang
+kosten und nicht tausend. Ein Maximum ist kein Summand. Es lässt sich in diesem Weg nicht
+ausdrücken.
+
+**Entscheidung.** Die Tabelle bleibt, wie sie ist. Daneben entsteht ein **zweiter Schreibweg** auf
+derselben Tabelle, der statt der Summe das Maximum bildet (`GREATEST`). Welchen Weg eine Metrik
+nimmt, steht in ihrem Verzeichniseintrag als **Metrikart** (Summe, Maximum, Zustand) — nicht an
+der Aufrufstelle. Auch der neue Weg liest **nicht** vor dem Schreiben.
+
+**Begründung.** Die Eigenschaft, die B02 teuer erkauft hat, ist nicht „addieren", sondern „ohne
+Lesen schreiben". `GREATEST(gespeichert, neu)` erhält diese Eigenschaft vollständig — es ist
+dieselbe Art Aussage über den vorhandenen Wert, nur mit einem anderen Operator. Auch die
+Zwischenspeicherung im Arbeitsspeicher überträgt sich: statt Deltas zu addieren, wird das
+laufende Maximum gehalten und beim Flush einmal geschrieben.
+
+**Verworfen.**
+- **Vor dem Schreiben lesen**: verletzt B02s FR-007 und macht aus jedem Schadensereignis eine
+  Datenbankabfrage. Genau das, was das Fundament verhindern sollte.
+- **Eine eigene Tabelle für Maximum-Metriken**: eine zweite Haltung für dieselbe Sache, mit
+  eigenem Schlüssel, eigenem Index, eigener Aufbewahrungsregel und einer zweiten Stelle, die bei
+  der Anonymisierung umgezeigt werden muss. Der Nutzen wäre allein begriffliche Sauberkeit.
+- **Auf die Metrik verzichten**: war die Alternative in der Klärungsfrage; der Auftraggeber hat
+  sich ausdrücklich für den vollen Umfang entschieden.
+
+**Auswirkung.** B12 ist der erste Block der dritten Schicht, der ein Fundament aus B02
+**erweitert** statt es nur zu benutzen. Die Erweiterung ist additiv: bestehende Metriken ändern
+ihr Verhalten nicht, und ein Aufrufer, der `increment` benutzt, merkt nichts davon. Der
+Anonymisierungspfad (`REPOINT_STATISTICS`) bleibt unverändert gültig, weil die Zeilen dieselben
+bleiben.
+
+---
+
+## ADR-041: Zustandswerte werden gelesen, nicht in die Statistik gespiegelt
+
+**Status:** Angenommen · **Datum:** 2026-08-29 · **Blöcke:** B12, berührt B06 und B08b
+
+**Kontext.** Die für B12 bestätigte Metrikliste enthält **Level, XP und Coins**. Die
+Statistiktabelle aus B02 hält aber Tageswerte, die über Zeiträume summiert werden. Die Summe der
+Tageslevel eines Spielers ist bedeutungslos, und ein täglich fortgeschriebener Coin-Stand wäre
+eine zweite Fassung eines Wertes, der bereits in `rpg.character_balance` steht.
+
+**Entscheidung.** Level, XP und Coins werden **nicht** in die Tagestabelle geschrieben. Ihre
+Ranglisten lesen `rpg.character_progress` und `rpg.character_balance` — dort, wo die Wahrheit
+ohnehin liegt. Sie erscheinen ausschließlich als **aktueller Stand** und bekommen keine Tages-,
+Wochen- oder Saisonform. Da beide Tabellen am Charakter hängen, Ranglisten aber Konten
+vergleichen, wird verdichtet: **Level** ist der höchste Charakter eines Kontos (bei Gleichstand
+entscheidet die XP innerhalb des Levels), **Coins** die Summe aller Kontostände.
+
+**Begründung.** Prinzip IV verlangt eine Wahrheit je Wert; ADR-039 hat mit dem Rückbau von
+`item_instance` gerade erst gezeigt, was ein zweiter Speicherort ohne Schreiber anrichtet. Ein
+gespiegelter Coin-Stand wäre schlimmer als das: er hätte einen Schreiber und würde trotzdem
+abweichen, sobald ein Flush ausfällt.
+
+**Verworfen.**
+- **Tägliche Momentaufnahme des Standes**: hätte einen Verlauf ermöglicht („Coins über die Zeit"),
+  aber jede Zeitraumsumme wäre eine sinnlose Zahl, und niemand hätte den Unterschied in der
+  Anzeige gesehen.
+- **Zustandswerte ganz aus B12 heraushalten**: hätte die vom Auftraggeber bestätigte Metrikliste
+  beschnitten.
+
+**Auswirkung.** Eine Rangliste in B12 hat **zwei mögliche Quellen** — die Statistiktabelle für
+Zähler und Maxima, die Fachtabellen für Zustände. Der Preis ist benannt: die Zusage „das Öffnen
+löst keine Datenbankabfrage aus" muss für beide Quellen über denselben Zwischenspeicher gehalten
+werden, nicht nur für die eine.
+
+---
+
+## ADR-042: Ein Kill zählt für jeden Beteiligten — in der Party für jeden in Reichweite
+
+**Status:** Angenommen · **Datum:** 2026-08-29 · **Blöcke:** B12, berührt B05, B06 und B11
+
+**Kontext.** Außerhalb einer Party ist die Frage beantwortet: B05 stellt
+`CombatDeathEvent.lootRecipient()` bereit, den größten Beitragenden, und B11 vergibt danach die
+Beute — *„XP is split by share because XP divides, loot goes to the largest contributor because a
+sword does not."* B12 übernimmt das für den Kill, damit es nicht zwei Antworten auf „wessen Kill
+war das" gibt. **Innerhalb** einer Party trägt diese Regel nicht: B06 behandelt eine Party als
+**einen** Beitragenden und verteilt Erfahrung und Coins an alle Mitglieder in Reichweite,
+ausdrücklich damit gemeinsames Spielen nicht schlechter ist als allein zu spielen. Nach der
+Beute-Regel allein hätte in einer festen Gruppe dauerhaft derselbe Spieler jeden Kill gezählt
+bekommen. Das ist dieselbe Kollision, die bei B11 erst durch die Party-Frage sichtbar wurde
+(ADR-039, Abschnitt 2) — nur an einer anderen Metrik.
+
+**Entscheidung.** Innerhalb einer Party wird der Kill **jedem Mitglied in Reichweite** gezählt,
+unabhängig von seinem Schadensanteil. Maßgeblich ist die Zusammensetzung zum Zeitpunkt des Todes,
+und die Reichweitenprüfung ist **dieselbe**, die B06 für Erfahrung und Coins benutzt. ~~Außerhalb
+einer Party bleibt es beim größten Beitragenden.~~ — **dieser Halbsatz ist noch am selben Tag
+ersetzt worden; siehe den Nachtrag am Ende dieses ADR.** Die Beute rotiert weiterhin je
+Gegenstand (B11); der Kill rotiert nicht.
+
+**Begründung.** Eine Statistik ist kein knappes Gut. Beute rotiert, weil ein Schwert sich nicht
+teilen lässt — eine Zahl lässt sich teilen, ohne kleiner zu werden. Damit gilt für sie B06s
+Zusage und nicht B11s Ausnahme.
+
+**Der Preis ist benannt und angenommen:** die Summe aller Kill-Zähler ist **größer** als die Zahl
+der getöteten Kreaturen. Die Metrik bedeutet damit **Beteiligung an einem Kill**, nicht
+„eigenhändig erledigt". Jede Anzeige muss sie so benennen — sonst zählt der Server etwas anderes,
+als der Spieler liest, und die Rangliste wird als kaputt gemeldet, obwohl sie tut, was hier
+entschieden wurde.
+
+**Verworfen.**
+- **Nur der größte eigene Anteil**: exakte Summe, aber in einer festen Gruppe sammelt dauerhaft
+  derselbe Spieler. Genau die Falle, die B11 bei der Beute mit der Rotation umgangen hat.
+- **Reihum wie die Beute**: Summe bliebe exakt, aber die eigene Kill-Zahl würde zur Lotterie und
+  spiegelte nicht mehr, woran man beteiligt war.
+- **Anteilig zählen (0,5 Kills)**: die Summe stimmte, aber gebrochene Kills sind keine Zahl, die
+  ein Spieler in einer Rangliste lesen will.
+
+**Auswirkung.** B12 liest die Party aus B06 und benutzt deren Reichweitenprüfung. Eine zweite,
+eigene Reichweite für dasselbe Ereignis ist damit ausgeschlossen — sie wäre der wahrscheinlichste
+stille Widerspruch zwischen „ich habe XP bekommen" und „mein Kill wurde nicht gezählt".
+
+### Nachtrag vom 2026-08-29: auch außerhalb einer Party zählt der Kill für jeden Beteiligten
+
+Der oben durchgestrichene Halbsatz hat den Fall **ohne** Party bei der alten Regel belassen — dem
+größten Beitragenden. Die dritte Klärungsrunde desselben Tages hat ihn ersetzt, und der Anlass
+war der **Regionsboss**.
+
+**Der Widerspruch, den erst die Boss-Frage sichtbar gemacht hat:** B05 verteilt Erfahrung nach
+Anteil an **alle** Beitragenden, nicht nur an den größten — dafür gibt es den `ShareCalculator`.
+Legen zehn Spieler ohne Party einen Boss, bekommen alle zehn Erfahrung und Coins, aber nach der
+alten Regel hätte genau **einer** einen Bosskill in seiner Statistik stehen gehabt. Neun Spieler
+hätten denselben Kampf bestritten und wären in der Bosskill-Rangliste unsichtbar geblieben.
+Genau dieselbe Art Lücke wie in ADR-039, Abschnitt 2 — zwei Blöcke, die für sich stimmen, und
+eine Frage, die keiner von beiden gestellt bekommt.
+
+**Ersetzte Entscheidung.** Ein Kill zählt für **jeden** Spieler, dessen Schadensanteil an der
+getöteten Kreatur eine konfigurierte **Schwelle** erreicht (Vorgabe 5 %). Das gilt für jede Art,
+Bosse eingeschlossen — der Boss war der Anlass für die Schwelle, nicht ihre Ausnahme. Die
+Partyregel oben bleibt unverändert bestehen und ist jetzt die **Erweiterung** der Schwelle: ein
+Mitglied in Reichweite zählt auch bei einem Anteil von null.
+
+**Begründung.** Der Anteil, gegen den die Schwelle prüft, existiert bereits — B05 führt ihn
+ohnehin, um Erfahrung zu verteilen. Es entsteht keine zweite Rechnung und keine zweite Wahrheit
+darüber, wer wie viel beigetragen hat. Und die Schwelle beantwortet nebenbei eine Frage, die
+sonst offen geblieben wäre: **Kill-Klau gibt es nicht mehr**, weil es nichts zu klauen gibt.
+
+**Verworfen (in der Runde, die diesen Nachtrag ausgelöst hat).**
+- **Eine Sonderregel nur für Bosse**: hätte den Widerspruch an der Stelle geheilt, an der er
+  auffiel, und ihn bei gewöhnlichen Mobs stehen lassen. Zwei Regeln, wo eine reicht.
+- **Beim größten Beitragenden bleiben**: exakteste Zählung, aber neun von zehn Bossteilnehmern
+  hätten nach dem Kampf nichts vorzuweisen gehabt.
+
+**Warum ein Nachtrag und keine stille Korrektur.** Die alte Fassung stand einen halben Tag lang
+und ist nirgends implementiert. Sie hier durchzustreichen statt sie zu löschen, hält fest, dass
+die Kill-Frage **zweimal** neu beantwortet werden musste, bevor sie stimmte — beim ersten Mal für
+die Party, beim zweiten für den Boss. Wer den nächsten Block schreibt, sollte sehen, dass diese
+Art Frage selten beim ersten Anlauf vollständig ist.
+
+---
+
+## ADR-043: Zwei Uhren für die Spielzeit, und drei Werte, die nur dem Spieler gehören
+
+**Status:** Angenommen · **Datum:** 2026-08-29 · **Blöcke:** B12, berührt B09
+
+**Kontext.** Spielzeit ist eine öffentliche Rangliste. Eine Rangliste über reine Onlinezeit
+gewinnt, wer den Client nachts laufen lässt — sie misst dann Anwesenheit, nicht Spiel. Zugleich
+wollte der Auftraggeber die Zeit **je Region** aufgeschlüsselt sehen und die untätige Zeit nicht
+verlieren, sondern nur nicht öffentlich zeigen.
+
+**Entscheidung.** Es gibt **zwei Uhren**: die **aktive Zeit**, die nach einer konfigurierten Dauer
+ohne Aktivität anhält (Vorgabe fünf Minuten), und die **gesamte Onlinezeit**, die durchläuft.
+Öffentlich gerankt wird ausschließlich die aktive Zeit. Die aktive Zeit wird zusätzlich **je Zone**
+aufgeschlüsselt; die Summe über alle Zonen ist die aktive Gesamtzeit — es ist dieselbe Uhr, nur
+anders aufgeteilt.
+
+Damit hat dieser Block **drei private Werte** statt einem: die Tode nach Verursacher, die gesamte
+Onlinezeit und die Aufteilung nach Zonen. Ein fremdes Profil zeigt die Gesamtzahl der Tode und die
+aktive Spielzeit — und keinen der drei.
+
+**Begründung.** Die Trennung kostet nichts, was der Spieler verliert: die untätige Zeit ist
+erfasst und für ihn sichtbar, sie taucht nur nicht im Vergleich mit anderen auf. Und sie schützt
+die einzige Metrik dieses Blocks, die sich ohne Spielen steigern lässt.
+
+**Beide Uhren laufen ohne eine einzige neue wiederkehrende Aufgabe.** Die Untätigkeit ergibt sich
+aus einem Zeitstempel der letzten Aktivität, der Zonenwechsel aus dem vorhandenen Ereignis in B09.
+Das ist keine Feinheit, sondern Prinzip II: eine Aufgabe je Spieler wäre bei 150 Spielern genau
+die Art wiederkehrender Last, die das Tick-Budget frisst.
+
+**Verworfen.**
+- **Nur Onlinezeit zählen**: einfachste Erfassung, aber die öffentliche Rangliste misst dann den
+  Stromverbrauch des Spielers.
+- **Zwei vollständig getrennte Metriken je Zone** (aktiv und online je Zone): doppelt so viele
+  Zeilen und zwei Sichtbarkeitsregeln auf derselben Dimension, ohne dass jemand die zweite Zahl
+  gebraucht hätte.
+- **Zonenaufteilung öffentlich**: vom Auftraggeber ausdrücklich abgelehnt. Wo jemand seine Zeit
+  verbringt, ist eine Auskunft über ihn, keine über sein Können.
+
+**Auswirkung.** FR-037 („kein privater Wert in einer fremden Ansicht") ist die Anforderung dieses
+Blocks mit der größten Wahrscheinlichkeit, beim Bauen still verloren zu gehen — es gibt vier
+Ausgabewege (eigenes Fenster, fremdes Profil, Rangliste, Hologramm) und drei Werte, die auf keinem
+davon außer dem ersten erscheinen dürfen. Sie wird über alle vier geprüft.
+
+---
+
+## ADR-044: Die Aufschlüsselung wird in Zeilen bezahlt, nicht durch Verdichten
+
+**Status:** Angenommen · **Datum:** 2026-08-29 · **Blöcke:** B12, berührt B02
+
+**Kontext.** Kills und Tode werden je Mob-Art aufgeschlüsselt, die Spielzeit je Zone. Aus einem
+Metrikschlüssel wird damit eine Familie von Schlüsseln, und die Zahl der Tageszeilen
+vervielfacht sich. B02s Baseline nennt eine Größenordnung von rund 73 000 Zeilen im Jahr bei 200
+Spielern — diese Schätzung ging von einer Handvoll undimensionierter Metriken aus. Mit den
+Dimensionen liegt die Größenordnung grob bei ein bis vier Millionen Zeilen im Jahr.
+
+**Entscheidung.** Das wird unverändert hingenommen. Es wird **nicht** verdichtet, nicht rotiert
+und nichts gelöscht.
+
+**Begründung.** Zeilen entstehen nur für Arten und Zonen, die ein Spieler tatsächlich berührt hat
+— die Obergrenze ist nicht das Produkt aus allen Arten und allen Spielern, sondern das, was
+wirklich gespielt wurde. Wenige Millionen schmale Zeilen mit den beiden vorhandenen Indizes sind
+für PostgreSQL klein, und die Aggregation läuft ohnehin über Materialized Views und nicht bei
+jeder Anzeige.
+
+**Der eigentliche Grund gegen das Verdichten ist aber kein Größenargument.** B02 sagt zu, dass
+Statistik-Rohdaten unbegrenzt aufbewahrt und **niemals** bereinigt werden. Ältere Tage zu einer
+Zeile je Art und Saison zusammenzufassen, hieße Rohdaten zu verändern — genau das, was diese
+Zusage ausschließt. Eine Zusage, die beim ersten Wachstum aufgegeben wird, war keine.
+
+**Verworfen.**
+- **Ältere Tage je Art verdichten**: bricht B02s Aufbewahrungszusage, und die Tagesauflösung wäre
+  rückwirkend nicht wiederherstellbar.
+- **Nur eine konfigurierte Liste „relevanter" Arten aufschlüsseln, Rest als „Sonstige"**: spart am
+  meisten und erzeugt eine Pflegeaufgabe, die niemand pflegen wird. Jede neue Mob-Art landete
+  stillschweigend im Sammeltopf.
+
+**Auswirkung.** Die Größenordnung ist bewusst gewählt und in der Spec als Annahme festgehalten,
+damit ein späterer Blick in die Tabelle nicht wie ein Fehler aussieht. Sollte sie sich als falsch
+erweisen, ist die Antwort ein zusätzlicher Index oder eine Partitionierung nach Tag — nicht das
+Löschen von Rohdaten.
+
+---
+
+## ADR-045: Eine Saisonbelohnung ist ein Anspruch, und er verfällt nicht
+
+**Status:** Angenommen · **Datum:** 2026-08-29 · **Blöcke:** B12, berührt B08b und B11
+
+**Kontext.** Saisons schließen mit einer Belohnung ab. Zum Zeitpunkt des Abschlusses ist der
+Empfänger in aller Regel nicht online — eine Saison endet an einem Datum, nicht dann, wenn alle
+Beteiligten zusehen.
+
+**Entscheidung.** Der Abschluss friert den Endstand ein und legt einen **Anspruch** an, statt
+etwas auszuschütten. Der Anspruch gehört dem **Konto** und wird von dem Charakter eingelöst, mit
+dem der Spieler ihn abholt: Coins landen auf dessen Kontostand, Items in dessen Inventar. Er ist
+**genau einmal** einlösbar, auch bei einem Absturz zwischen Gutschrift und Vermerk, und er
+**verfällt nicht**.
+
+**Begründung.** Eine Gutschrift an einen offline Spieler müsste in einen Bestand schreiben, dessen
+Cache-Autorität gerade niemand hält — Prinzip IV sagt, dass der Speicher-Cache autoritativ ist,
+solange ein Spieler online ist, und über den umgekehrten Fall schweigt es aus gutem Grund. Ein
+Anspruch verschiebt die Gutschrift auf einen Moment, in dem der Empfänger geladen ist und der
+normale Weg gilt.
+
+**Kein Verfall**, weil eine Frist einem Rückkehrer eine Belohnung nimmt, von der er nie erfahren
+hat. Ein Anspruch ist eine Zeile; sie kostet nichts, und keine Uhr muss getestet, erklärt oder
+später korrigiert werden.
+
+**Verworfen.**
+- **Beim Abschluss direkt gutschreiben**: hätte einen Schreibweg an der Sitzung vorbei gebraucht
+  und für jeden belohnten Spieler einen geladenen Zustand, den es nicht gibt.
+- **Verfall nach einer Saison oder einem Jahr**: begrenzt einen Bestand, der ohnehin klein ist,
+  und bestraft genau den Spieler, den die Belohnung zurückholen sollte.
+
+**Auswirkung.** Der eingefrorene Endstand und der Anspruch sind zwei neue, dauerhafte Bestände.
+Sie entstehen selten — viermal im Jahr, nicht tausendmal am Tag — und sind damit der erste Fall in
+diesem Projekt, für den der Write-Behind-Weg möglicherweise das falsche Werkzeug ist; die
+Entscheidung darüber gehört in `/speckit-plan`, nicht hierher. Dass der Endstand eingefroren wird,
+ist dagegen hier entschieden: eine Platzierung, die sich nach der Vergabe noch ändern kann, ist
+keine.
+
+---
+
+## ADR-046: Die Saison kürt einen Spieler, nicht zwei Dutzend Ranglisten — eine gewichtete Gesamtwertung
+
+**Status:** Angenommen · **Datum:** 2026-08-29 · **Blöcke:** B12
+
+**Kontext.** B12 stellt für jede öffentliche Zählermetrik in jedem der vier Zeiträume eine
+Rangliste bereit, dazu zwei Zustandsranglisten — zweiundzwanzig Listen (fünf Metriken in vier
+Zeiträumen, plus Level und Coins). ADR-045 hat entschieden, dass eine Saison mit einer Belohnung
+abschließt, aber nicht, **welche** dieser Listen belohnt wird.
+Alle zweiundzwanzig zu belohnen hätte bedeutet, dass ein Spieler, der am letzten Saisontag zufällig
+die Tagesrangliste anführt, dieselbe Auszeichnung bekommt wie einer mit drei Monaten Arbeit.
+
+**Entscheidung.** Es gibt eine **Gesamtwertung**: eine Punktzahl je Konto über den
+Saisonzeitraum, gebildet als Summe gewichteter Metrikwerte — je Metrik ein konfigurierbarer
+Punktwert je Einheit. Nur sie wird belohnt. Die übrigen Ranglisten bleiben bestehen und sind Ehre
+ohne Preis.
+
+In die Punktzahl gehen **ausschließlich öffentliche Zählermetriken des Saisonzeitraums** ein.
+**Zustandswerte sind ausgeschlossen** — Level, XP und Coins tragen den Fortschritt vergangener
+Saisons in die laufende und würden alte Konten dauerhaft nach oben setzen, womit eine Saison
+aufhörte, ein Neuanfang zu sein. **Private Werte sind ebenfalls ausgeschlossen**, weil eine
+öffentliche Platzierung sonst aus Zahlen begründet wäre, die niemand nachsehen kann.
+
+**Begründung.** Eine Summe gewichteter Werte ist die einzige Form, die ein Spieler im Fenster
+nachrechnen kann. Deshalb ist auch gefordert, dass die Aufschlüsselung sichtbar ist: Wert,
+Gewicht, Punkte, je beitragender Metrik. Eine Wertung, deren Zustandekommen man nicht sieht, wird
+als Willkür gelesen — und bei einer Belohnung wird sie das lauter als anderswo.
+
+**Der Endstand friert die Gewichtung mit ein.** Sonst ließe sich die Platzierung einer
+abgeschlossenen Saison durch eine spätere Balancing-Änderung rückwirkend umsortieren, nachdem die
+Belohnungen bereits vergeben sind.
+
+**Verworfen.**
+- **Alle zweiundzwanzig Ranglisten belohnen**: mehr Gewinner, aber ein Tagesstand am Stichtag ist
+  Zufall, keine Leistung. Und es hätte über zweihundert Ansprüche je Saison erzeugt.
+- **Nur die sechs Saisonwertungen je Metrik belohnen**: näher an der Leistung, aber es hätte
+  sechs Spezialisten gekürt und keinen Spieler der Saison. Die Botschaft wäre unschärfer.
+- **Eine normalisierte Punktzahl** (jede Metrik auf 0–100 skaliert): statistisch sauberer, aber
+  niemand kann sie nachrechnen, und ein einzelner Ausreißer verschiebt die Skala aller anderen.
+
+**Auswirkung.** Die Gesamtwertung ist die dreiundzwanzigste Rangliste und die einzige mit einer
+Belohnung. Sie erzeugt eine neue Pflicht in der Konfigurationsprüfung: eine Gewichtung, die keine
+bekannte Metrik nennt, ergäbe eine Rangliste aus Nullen und muss den Start scheitern lassen. Das
+Balancing der Gewichte selbst gehört dem Betreiber — der Start prüft auf Gültigkeit, nicht auf
+Geschmack.
+
+---
+
+## ADR-047: Der Klon leistet für den Spieler, kostet ihn aber nichts
+
+**Status:** Angenommen · **Datum:** 2026-08-29 · **Blöcke:** B12, berührt B08 und B11
+
+**Kontext.** B08 kennt beschworene Klone (`SummonEffect`). B11 hat für sie entschieden, dass sie
+**keinen** Verschleiß verursachen (FR-041a): der Schaden, den ein Klon austeilt, nutzt die Waffe
+des beschwörenden Spielers nicht ab. B12 muss dieselbe Kreatur ein zweites Mal einordnen — zählt
+ihr Schaden für den **höchsten Schaden** des Spielers?
+
+**Entscheidung.** Ja. Schaden eines Klons wird dem beschwörenden Spieler zugerechnet.
+
+**Das ist bewusst nicht dieselbe Antwort wie in B11, und die Asymmetrie hat einen Grund.** Ein
+Klon trägt **keine eigene Ausrüstung**, die sich abnutzen könnte — der Verschleiß hätte an
+fremdem Gerät angesetzt, nämlich am Werkzeug des Spielers, das der Klon gar nicht führt. Sein
+Schaden dagegen entsteht unmittelbar aus einer Fähigkeit, die der Spieler gewirkt und bezahlt
+hat. Was der Klon **kostet**, kostet ihn; was er **leistet**, leistet der Spieler.
+
+**Begründung.** Eine Beschwörung ist für die betroffenen Klassen kein Nebenweg, sondern der
+Hauptweg, Schaden auszuteilen. Würde ihr Schaden nicht zählen, wäre die Schadensrangliste für
+diese Klassen strukturell verschlossen — und zwar nicht, weil sie schwächer wären, sondern weil
+die Statistik an der falschen Stelle nachsieht.
+
+**Verworfen.**
+- **Konsequent wie B11 behandeln** (Klonschaden zählt nicht): wäre die widerspruchsfreiere
+  Regel auf dem Papier gewesen. Sie hätte aber eine ganze Spielweise aus einer öffentlichen
+  Rangliste ausgeschlossen, ohne dass ein Spieler den Grund je erkennen könnte.
+
+**Auswirkung.** Die Zuordnung „Schaden eines Klons gehört dem Beschwörer" gilt in B12 und
+**nicht** rückwirkend in B11 — dort bleibt FR-041a unverändert. Wer die beiden Stellen
+nebeneinander liest, muss die Asymmetrie erklärt bekommen; dieser ADR ist die Erklärung, und die
+Spec verweist an beiden Enden darauf.
