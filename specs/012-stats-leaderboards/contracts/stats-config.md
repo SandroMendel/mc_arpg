@@ -20,11 +20,11 @@ statistics:
     kill-credit-share: 0.05
 
     # Nach dieser Dauer ohne Aktivität steht die aktive Uhr (FR-014b).
-    idle-after: 5m
+    idle-after-seconds: 300
 
   # --- Ranglisten -----------------------------------------------------------
   leaderboards:
-    refresh-interval: 5m     # FR-032
+    refresh-interval-seconds: 300   # FR-032
     places: 10               # FR-033
 
   # --- Saisons --------------------------------------------------------------
@@ -88,14 +88,30 @@ statistics:
 | Schlüssel | Regel | Bei Verstoß |
 |---|---|---|
 | `capture.kill-credit-share` | `0 < x < 1` | Abbruch (FR-007d) |
-| `capture.idle-after` | positive Dauer | Abbruch |
-| `leaderboards.refresh-interval` | positive Dauer | Abbruch |
+| `capture.idle-after-seconds` | positive Dauer | Abbruch |
+| `leaderboards.refresh-interval-seconds` | positive Dauer | Abbruch |
 | `leaderboards.places` | `> 0` | Abbruch |
 | `seasons` | lückenlos, überschneidungsfrei, `from <= to`, Schlüssel eindeutig | Abbruch (FR-049) |
-| `score.weights` | mindestens ein Eintrag, jede Metrik bekannt, jede öffentlich, keine Zustandsmetrik, Gewicht `>= 0` | Abbruch (FR-050c, FR-050d) |
+| `score.weights` | mindestens ein Eintrag, jede **Aggregation** bekannt, jede öffentlich, Gewicht `>= 0` | Abbruch (FR-050c, FR-050d) |
 | `rewards` | Platz `> 0`, Vorlagen-ID bei B11 bekannt | Abbruch |
 | `hologram` | Abschnitt optional; wenn vorhanden, muss `board` eine bekannte Rangliste sein | Abbruch bei unbekannter Rangliste, Warnung bei nicht ladbarer Stelle (FR-064) |
 | Message-Schlüssel | jeder benötigte vorhanden | Abbruch (FR-047) |
+
+**Die Gewichtung adressiert Aggregationen, keine Metriken.** `mob_kills`, `boss_kills`,
+`playtime_active`, `damage_max` und `deaths` sind Ranglisten, nicht Speicherschlüssel: `boss_kills`
+hat nach FR-009 bewusst keinen eigenen Zähler, und `deaths` wie `playtime_active` haben keine
+Gesamtzeile, sondern entstehen durch Summieren über ihre Familie (FR-013). Die Sichtbarkeit wird
+deshalb **an der Aggregation** geprüft und nicht an der zugrundeliegenden Metrik: privat ist die
+*Aufschlüsselung* (`deaths.<verursacher>`, `playtime_active.<zone>`), öffentlich ist die *Summe*
+(FR-037, FR-038a, ADR-043). Zustandswerte sind ausgeschlossen, weil es für sie gar keine
+Aggregation gibt — das ist der Riegel aus ADR-046, und er braucht keine eigene Regel in dieser
+Tabelle.
+
+**Dauern stehen als Zahl mit Einheit im Schlüssel** (`idle-after-seconds: 300`), nicht als
+Kurzform (`idle-after: 5m`). Der erste Entwurf hatte die Kurzform; jede andere Konfiguration
+dieses Projekts benutzt die erste Form (`cooldown-ms`, `cleanup-after-seconds`,
+`respawn-minutes`). Ein zweiter Dauernbegriff für eine einzige Datei wäre eine Ausnahme, die jeder
+Leser einmal nachschlagen muss.
 
 **Drei dieser Prüfungen sind Regeln, keine Zahlenwahl** — sie sichern eine Zusage, die sonst durch
 eine spätere Balancing-Änderung still verloren ginge: die Saisonlückenlosigkeit, die
