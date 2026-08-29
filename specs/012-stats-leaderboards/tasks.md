@@ -182,15 +182,15 @@ die Datenbank zu fragen.
 öffnen, die Reihenfolge prüfen — dann fünfzig Öffnungen auslösen und die Datenbankabfragen dabei
 mitzählen.
 
-- [ ] T066 [US3] Migration `V12_1__statistic_leaderboard_views.sql` in `rpg-persistence/src/main/resources/db/migration/` — **vier** Materialized Views, die Metrik als Spalte, je ein eindeutiger Index für `REFRESH ... CONCURRENTLY` (R1, [data-model.md](./data-model.md) §2.1)
+- [X] T066 [US3] Migration `V12_1__statistic_leaderboard_views.sql` in `rpg-persistence/src/main/resources/db/migration/` — **vier** Materialized Views, die Metrik als Spalte, je ein eindeutiger Index für `REFRESH ... CONCURRENTLY` (R1, [data-model.md](./data-model.md) §2.1)
 - [ ] T067 [P] [US3] Test `LeaderboardViewsMatchRawDataTest` in `rpg-persistence/src/test/java/rpg/persistence/statistics/LeaderboardViewsMatchRawDataTest.java` — **der eigentliche Beweis, dass die Sichtdefinition stimmt**: nach dem Refresh liefert jede Sicht denselben Stand wie eine direkte Aggregation über die Rohdaten
 - [ ] T068 [P] [US3] Test `FamilyAggregationTest` in `rpg-persistence/src/test/java/rpg/persistence/statistics/FamilyAggregationTest.java` — **FR-013**: „alle Kills" ist die Summe über `mob_kills.*`, „Bosskills" die Summe über die Arten mit Boss-Kennzeichen. Kein zusätzlicher Schreibvorgang, kein zweiter Zähler
 - [ ] T069 [US3] `LeaderboardRefresh` in `rpg-persistence/src/main/java/rpg/persistence/statistics/LeaderboardRefresh.java` — `REFRESH MATERIALIZED VIEW CONCURRENTLY`, asynchron, **blockiert den Tick nicht** (FR-031)
 - [ ] T070 [US3] `JdbcLeaderboardSource` in `rpg-persistence/src/main/java/rpg/persistence/statistics/JdbcLeaderboardSource.java` — füllt den Speicherstand aus **einer Abfrage je Sicht**, unabhängig von der Zahl der Ranglisten (R1)
 - [ ] T071 [US3] Anonymisierte Konten beim **Füllen** ausschließen, nicht beim Anzeigen — eine Ansicht, die filtern müsste, ist eine Ansicht, die es vergessen kann (FR-039, [data-model.md](./data-model.md) §2.2)
 - [ ] T072 [P] [US3] Test `AnonymisedAccountIsNotRankedTest` in `rpg-persistence/src/test/java/rpg/persistence/statistics/AnonymisedAccountIsNotRankedTest.java` — **SC-007**: die Zahlen bleiben gezählt (`REPOINT_STATISTICS`), das Konto erscheint in keiner Rangliste
-- [ ] T073 [P] [US3] Test `LeaderboardCacheTest` in `rpg-core/src/test/java/rpg/core/statistics/LeaderboardCacheTest.java` — Gleichstand trägt denselben Rang und **stabile** Reihenfolge über wiederholte Aufrufe (FR-034)
-- [ ] T074 [US3] `Leaderboard`, `LeaderboardEntry` und `LeaderboardCache` in `rpg-core/src/main/java/rpg/core/statistics/` — Rang, Konto, Anzeigename, Wert, Auffrischungszeitpunkt ([data-model.md](./data-model.md) §2.2)
+- [X] T073 [P] [US3] Test `LeaderboardCacheTest` in `rpg-core/src/test/java/rpg/core/statistics/LeaderboardCacheTest.java` — Gleichstand trägt denselben Rang und **stabile** Reihenfolge über wiederholte Aufrufe (FR-034)
+- [X] T074 [US3] `Leaderboard`, `LeaderboardEntry` und `LeaderboardCache` in `rpg-core/src/main/java/rpg/core/statistics/` — Rang, Konto, Anzeigename, Wert, Auffrischungszeitpunkt ([data-model.md](./data-model.md) §2.2)
 - [ ] T075 [US3] `Leaderboards`-Fassade in `rpg-core/src/main/java/rpg/core/statistics/Leaderboards.java` — Signaturen nach [contracts/stats-api.md](./contracts/stats-api.md) §3; `board` ist **synchron und tickfrei**
 
 #### Die beiden Zustandsranglisten (ADR-041)
