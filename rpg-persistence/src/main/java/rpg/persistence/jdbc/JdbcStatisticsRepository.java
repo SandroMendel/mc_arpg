@@ -57,8 +57,32 @@ public final class JdbcStatisticsRepository implements StatisticsRepository, Bat
             "SELECT COALESCE(SUM(value), 0) FROM rpg.player_statistic_daily"
                     + " WHERE player_id = ? AND metric = ?";
 
+    /**
+     * The second write path (B12, ADR-040): the stored value becomes the larger of the two.
+     *
+     * <p>Same table, same row, same "never read first" - only the operator differs. Which one
+     * applies is decided by the metric's kind in B12's registry, never by the call site.
+     */
+    private static final String UPSERT_MAX =
+            "INSERT INTO rpg.player_statistic_daily (player_id, metric, day, value)"
+                    + " VALUES (?, ?, ?, ?)"
+                    + " ON CONFLICT (player_id, metric, day)"
+                    + " DO UPDATE SET value ="
+                    + " GREATEST(rpg.player_statistic_daily.value, excluded.value)";
+
     /** Deltas not yet written, keyed by player, metric and day. */
     private final Map<Key, AtomicLong> pending = new ConcurrentHashMap<>();
+
+    /**
+     * Running maxima not yet written.
+     *
+     * <p>A second map rather than a flag on the first: an entry here means something different -
+     * it is not added to the stored value but compared against it, and a failed write has to be
+     * given back with {@code max} instead of {@code +}. One map carrying two meanings would make
+     * the distinction a property of the caller again, which is exactly what ADR-040 moved away
+     * from.
+     */
+    private final Map<Key, AtomicLong> pendingMaxima = new ConcurrentHashMap<>();
 
     private final DataSource readPool;
     private final Scheduler scheduler;
@@ -85,6 +109,19 @@ public final class JdbcStatisticsRepository implements StatisticsRepository, Bat
         }
         Key key = new Key(playerId, metric, LocalDate.now(clock.withZone(ZoneOffset.UTC)));
         pending.computeIfAbsent(key, ignored -> new AtomicLong()).addAndGet(delta);
+        coordinator.markDirty(AggregateType.STATISTICS, key.asAggregateId());
+    }
+
+    @Override
+    public void reportMax(UUID playerId, String metric, long value) {
+        Objects.requireNonNull(playerId, "playerId");
+        Objects.requireNonNull(metric, "metric");
+        Key key = new Key(playerId, metric, LocalDate.now(clock.withZone(ZoneOffset.UTC)));
+        // accumulateAndGet with max, not addAndGet: between two flushes the pending entry is the
+        // largest hit so far, not their sum. A thousand hits still cost one row write.
+        pendingMaxima
+                .computeIfAbsent(key, ignored -> new AtomicLong(Long.MIN_VALUE))
+                .accumulateAndGet(value, Math::max);
         coordinator.markDirty(AggregateType.STATISTICS, key.asAggregateId());
     }
 
@@ -118,39 +155,54 @@ public final class JdbcStatisticsRepository implements StatisticsRepository, Bat
         List<Key> takenKeys = new ArrayList<>();
         List<Long> takenValues = new ArrayList<>();
 
+        List<Key> takenMaxKeys = new ArrayList<>();
+        List<Long> takenMaxValues = new ArrayList<>();
+
         try (Connection connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
-            try (PreparedStatement statement = connection.prepareStatement(UPSERT)) {
+            try (PreparedStatement sums = connection.prepareStatement(UPSERT);
+                    PreparedStatement maxima = connection.prepareStatement(UPSERT_MAX)) {
                 for (DirtyMark mark : marks) {
                     Key key = Key.parse(mark.aggregateId());
-                    AtomicLong counter = pending.get(key);
-                    if (counter == null) {
-                        persisted.add(mark);
-                        continue;
-                    }
-                    // Take the delta out now. If the write fails it is added back, so a concurrent
-                    // increment during the write is preserved either way.
-                    long delta = counter.getAndSet(0L);
-                    if (delta == 0) {
-                        persisted.add(mark);
-                        continue;
-                    }
-                    takenKeys.add(key);
-                    takenValues.add(delta);
 
-                    statement.setObject(1, key.playerId());
-                    statement.setString(2, key.metric());
-                    statement.setDate(3, Date.valueOf(key.day()));
-                    statement.setLong(4, delta);
-                    statement.addBatch();
+                    // A key belongs to exactly one of the two maps - the metric's kind decides,
+                    // and it never changes. Both are consulted anyway: relying on that invariant
+                    // here would turn a registry mistake into a silently dropped count.
+                    AtomicLong counter = pending.get(key);
+                    if (counter != null) {
+                        // Take the delta out now. If the write fails it is added back, so a
+                        // concurrent increment during the write is preserved either way.
+                        long delta = counter.getAndSet(0L);
+                        if (delta != 0) {
+                            takenKeys.add(key);
+                            takenValues.add(delta);
+                            bind(sums, key, delta);
+                            sums.addBatch();
+                        }
+                    }
+
+                    AtomicLong highest = pendingMaxima.get(key);
+                    if (highest != null) {
+                        long value = highest.getAndSet(Long.MIN_VALUE);
+                        if (value != Long.MIN_VALUE) {
+                            takenMaxKeys.add(key);
+                            takenMaxValues.add(value);
+                            bind(maxima, key, value);
+                            maxima.addBatch();
+                        }
+                    }
+
                     persisted.add(mark);
                 }
-                statement.executeBatch();
+                sums.executeBatch();
+                maxima.executeBatch();
                 connection.commit();
                 takenKeys.forEach(pending::remove);
+                takenMaxKeys.forEach(pendingMaxima::remove);
             } catch (SQLException failure) {
                 connection.rollback();
                 giveBack(takenKeys, takenValues);
+                giveBackMaxima(takenMaxKeys, takenMaxValues);
                 throw failure;
             }
         } catch (SQLException failure) {
@@ -164,6 +216,27 @@ public final class JdbcStatisticsRepository implements StatisticsRepository, Bat
         for (int i = 0; i < keys.size(); i++) {
             pending.computeIfAbsent(keys.get(i), ignored -> new AtomicLong()).addAndGet(values.get(i));
         }
+    }
+
+    /**
+     * The same for maxima - but given back with {@code max}, not {@code +}.
+     *
+     * <p>Adding them would turn a retried write into a sum of hits, and the "biggest hit" would
+     * grow every time the database hiccuped.
+     */
+    private void giveBackMaxima(List<Key> keys, List<Long> values) {
+        for (int i = 0; i < keys.size(); i++) {
+            pendingMaxima
+                    .computeIfAbsent(keys.get(i), ignored -> new AtomicLong(Long.MIN_VALUE))
+                    .accumulateAndGet(values.get(i), Math::max);
+        }
+    }
+
+    private static void bind(PreparedStatement statement, Key key, long value) throws SQLException {
+        statement.setObject(1, key.playerId());
+        statement.setString(2, key.metric());
+        statement.setDate(3, Date.valueOf(key.day()));
+        statement.setLong(4, value);
     }
 
     private CompletableFuture<Long> queryAsync(String sql, StatementBinder binder) {
