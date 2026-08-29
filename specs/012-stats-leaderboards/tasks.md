@@ -66,15 +66,15 @@ Registrierung aus ADR-015 ist für die Statistik längst erledigt.
 
 ### Das Verzeichnis
 
-- [ ] T006 [P] `MetricKind` in `rpg-core/src/main/java/rpg/core/statistics/MetricKind.java` — `SUM`, `MAX`, `STATE`; Javadoc sagt, **warum die Art am Verzeichnis hängt und nicht an der Aufrufstelle** (ADR-040, FR-018)
-- [ ] T007 [P] `MetricVisibility` in `rpg-core/src/main/java/rpg/core/statistics/MetricVisibility.java` — `PUBLIC`, `PRIVATE`; Javadoc nennt die **drei** privaten Werte namentlich (FR-036, ADR-043)
-- [ ] T008 [P] `Metric` in `rpg-core/src/main/java/rpg/core/statistics/Metric.java` — Schlüssel, Art, Sichtbarkeit, Dimensioniertheit ([data-model.md](./data-model.md) §1.2)
-- [ ] T009 `MetricKeys` in `rpg-core/src/main/java/rpg/core/statistics/MetricKeys.java` — Bildung und Zerlegung dimensionierter Schlüssel (`mob_kills.<kindKey>`, `playtime_active.<zoneKey>`)
-- [ ] T010 `MetricRegistry` in `rpg-core/src/main/java/rpg/core/statistics/MetricRegistry.java` — die eine Stelle, an der eine Metrik existiert (FR-018)
-- [ ] T011 [P] Test `NoMetricLiteralsTest` in `rpg-core/src/test/java/rpg/core/statistics/NoMetricLiteralsTest.java` — **der Wächter für FR-018**: kein Metrikschlüssel kommt als Zeichenkettenliteral außerhalb des Verzeichnisses vor. Liest den Quelltext, nach dem Muster von `ConfigOnlyMobTest`; benutzt `SourceGuard`, damit ein Kommentar keinen Fehlalarm auslöst
-- [ ] T012 [P] Test `MetricKindIsEnforcedTest` in `rpg-core/src/test/java/rpg/core/statistics/MetricKindIsEnforcedTest.java` — `count` auf einer MAX-Metrik und `reportMax` auf einer SUM-Metrik werden **abgewiesen**, nicht umgedeutet ([contracts/stats-api.md](./contracts/stats-api.md) §1)
-- [ ] T012a [P] Test `NoSecondStoreForTheSameNumbersTest` in `rpg-core/src/test/java/rpg/core/statistics/NoSecondStoreForTheSameNumbersTest.java` — **der Wächter für FR-002**, den B11 für seine gleichlautende Zusage (FR-079) auch gebaut hat: kein Typ dieses Blocks hält eine eigene dauerhafte Ablage für Werte, die bereits in `player_statistic_daily` stehen. Quelltextprüfung mit `SourceGuard`. Ohne ihn steht die Regel nur in zwei `package-info` — und die liest niemand beim Hinzufügen einer Klasse
-- [ ] T012b [P] Test `StateValuesAreNotMirroredTest` in `rpg-core/src/test/java/rpg/core/statistics/StateValuesAreNotMirroredTest.java` — **FR-019, ADR-041**: kein Pfad dieses Blocks schreibt Level, XP oder Coins in die Tagestabelle. Die Zusage „gelesen, nicht gespiegelt" ist sonst eine Absichtserklärung ohne Riegel
+- [X] T006 [P] `MetricKind` in `rpg-core/src/main/java/rpg/core/statistics/MetricKind.java` — `SUM`, `MAX`, `STATE`; Javadoc sagt, **warum die Art am Verzeichnis hängt und nicht an der Aufrufstelle** (ADR-040, FR-018)
+- [X] T007 [P] `MetricVisibility` in `rpg-core/src/main/java/rpg/core/statistics/MetricVisibility.java` — `PUBLIC`, `PRIVATE`; Javadoc nennt die **drei** privaten Werte namentlich (FR-036, ADR-043)
+- [X] T008 [P] `Metric` in `rpg-core/src/main/java/rpg/core/statistics/Metric.java` — Schlüssel, Art, Sichtbarkeit, Dimensioniertheit ([data-model.md](./data-model.md) §1.2)
+- [X] T009 `MetricKeys` in `rpg-core/src/main/java/rpg/core/statistics/MetricKeys.java` — Bildung und Zerlegung dimensionierter Schlüssel (`mob_kills.<kindKey>`, `playtime_active.<zoneKey>`)
+- [X] T010 `MetricRegistry` in `rpg-core/src/main/java/rpg/core/statistics/MetricRegistry.java` — die eine Stelle, an der eine Metrik existiert (FR-018)
+- [X] T011 [P] Test `NoMetricLiteralsTest` in `rpg-core/src/test/java/rpg/core/statistics/NoMetricLiteralsTest.java` — **der Wächter für FR-018**: kein Metrikschlüssel kommt als Zeichenkettenliteral außerhalb des Verzeichnisses vor. Liest den Quelltext, nach dem Muster von `ConfigOnlyMobTest`; benutzt `SourceGuard`, damit ein Kommentar keinen Fehlalarm auslöst
+- [X] T012 [P] Test `MetricKindIsEnforcedTest` in `rpg-core/src/test/java/rpg/core/statistics/MetricKindIsEnforcedTest.java` — `count` auf einer MAX-Metrik und `reportMax` auf einer SUM-Metrik werden **abgewiesen**, nicht umgedeutet ([contracts/stats-api.md](./contracts/stats-api.md) §1)
+- [X] T012a [P] Test `NoSecondStoreForTheSameNumbersTest` in `rpg-core/src/test/java/rpg/core/statistics/NoSecondStoreForTheSameNumbersTest.java` — **der Wächter für FR-002**, den B11 für seine gleichlautende Zusage (FR-079) auch gebaut hat: kein Typ dieses Blocks hält eine eigene dauerhafte Ablage für Werte, die bereits in `player_statistic_daily` stehen. Quelltextprüfung mit `SourceGuard`. Ohne ihn steht die Regel nur in zwei `package-info` — und die liest niemand beim Hinzufügen einer Klasse
+- [X] T012b [P] Test `StateValuesAreNotMirroredTest` in `rpg-core/src/test/java/rpg/core/statistics/StateValuesAreNotMirroredTest.java` — **FR-019, ADR-041**: kein Pfad dieses Blocks schreibt Level, XP oder Coins in die Tagestabelle. Die Zusage „gelesen, nicht gespiegelt" ist sonst eine Absichtserklärung ohne Riegel
 
 ### Zeiträume und Saisonkalender
 
