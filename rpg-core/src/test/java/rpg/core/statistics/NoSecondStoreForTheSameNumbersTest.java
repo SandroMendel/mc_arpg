@@ -60,22 +60,55 @@ class NoSecondStoreForTheSameNumbersTest {
                 .allMatch(ALLOWED_NEW_TABLES::contains, "eine der beiden Saisontabellen");
     }
 
+    /**
+     * Was ein zweiter Schreibweg auf die Tagestabelle wäre — <b>Lesen ist keiner.</b>
+     *
+     * <p>Diese Unterscheidung ist beim Bau von Phase 4 entstanden, und zwar dadurch, dass die
+     * erste Fassung dieses Tests <em>jede</em> Erwähnung der Tabelle verboten hat. Angeschlagen
+     * hat sie beim Saisonstand, der die Rohtabelle liest, weil eine Materialized View keine
+     * Parameter kennt (ADR-049).
+     *
+     * <p><b>Das war ein Fehlalarm, und die Schärfung ist keine Ausnahme.</b> FR-002 verbietet
+     * einen zweiten <em>Bestand</em> — eine zweite Stelle, an der dieselben Zahlen leben und
+     * auseinanderdriften können. Ein {@code SELECT} legt nichts an; ein {@code INSERT},
+     * {@code UPDATE} oder {@code DELETE} außerhalb von B02s Repository legte einen zweiten
+     * Schreibweg an, und der ist genau das Verbotene.
+     */
+    private static final List<String> WRITE_VERBS =
+            List.of("insert into", "update", "delete from", "truncate");
+
     @Test
-    @DisplayName("FR-002 - der Block schreibt die Tagestabelle nicht selbst")
+    @DisplayName("FR-002 - der Block SCHREIBT die Tagestabelle nicht selbst (lesen darf er)")
     void theBlockDoesNotWriteTheDailyTableItself() throws IOException {
         List<String> violations = new ArrayList<>();
         for (Path source : SourceGuard.statisticsSources()) {
             String code = SourceGuard.codeOnly(Files.readString(source)).toLowerCase(Locale.ROOT);
-            if (code.contains("player_statistic_daily")) {
-                violations.add(source.getFileName().toString());
+            for (String verb : WRITE_VERBS) {
+                if (mentionsTableAfter(code, verb)) {
+                    violations.add(source.getFileName() + ": " + verb + " ... player_statistic_daily");
+                }
             }
         }
 
         assertThat(violations)
                 .as(
-                        "die Tagestabelle gehoert B02 - B12 geht ueber StatisticsRepository, statt"
-                                + " sie ein zweites Mal anzufassen")
+                        "der Schreibweg auf die Tagestabelle gehoert B02 - B12 geht ueber"
+                                + " StatisticsRepository. Lesen ist erlaubt und beim Saisonstand"
+                                + " noetig (ADR-049)")
                 .isEmpty();
+    }
+
+    /** Ob nach einem Schreibverb im selben Statement die Tagestabelle genannt wird. */
+    private static boolean mentionsTableAfter(String code, String verb) {
+        int at = code.indexOf(verb);
+        while (at >= 0) {
+            int end = Math.min(code.length(), at + verb.length() + 120);
+            if (code.substring(at, end).contains("player_statistic_daily")) {
+                return true;
+            }
+            at = code.indexOf(verb, at + 1);
+        }
+        return false;
     }
 
     @Test
