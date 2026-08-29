@@ -233,10 +233,10 @@ Werte**, die sonst niemand sieht.
 **Independent Test**: Mit einem Spieler Werte erzeugen, das eigene Fenster öffnen, die vier
 Zeiträume durchschalten und gegen die gespeicherten Werte prüfen.
 
-- [ ] T086 [P] [US2] Test `StatisticsViewReturnsAllPeriodsTest` in `rpg-core/src/test/java/rpg/core/statistics/StatisticsViewReturnsAllPeriodsTest.java` — jeder Zeitraum hat seine eigene Summe, und der Allzeit-Wert ist mindestens so groß wie jeder andere
-- [ ] T087 [US2] `StatisticsView`-Fassade in `rpg-core/src/main/java/rpg/core/statistics/StatisticsView.java` — Signaturen nach [contracts/stats-api.md](./contracts/stats-api.md) §2
-- [ ] T088 [US2] `breakdown` gibt private Werte **nur für den Betrachter selbst** heraus — der Aufrufer muss belegen, dass er das Konto ist; es gibt **keine** Umgehung für B13 oder B14 (FR-037)
-- [ ] T089 [P] [US2] Test `BreakdownRefusesForeignAccountsTest` in `rpg-core/src/test/java/rpg/core/statistics/BreakdownRefusesForeignAccountsTest.java` — die Fassade selbst weigert sich, nicht erst das Fenster. Ein Schloss an der Anzeige ist kein Schloss
+- [X] T086 [P] [US2] Test `StatisticsViewReturnsAllPeriodsTest` in `rpg-core/src/test/java/rpg/core/statistics/StatisticsViewReturnsAllPeriodsTest.java` — jeder Zeitraum hat seine eigene Summe, und der Allzeit-Wert ist mindestens so groß wie jeder andere
+- [X] T087 [US2] `StatisticsView`-Fassade in `rpg-core/src/main/java/rpg/core/statistics/StatisticsView.java` — Signaturen nach [contracts/stats-api.md](./contracts/stats-api.md) §2
+- [X] T088 [US2] `breakdown` gibt private Werte **nur für den Betrachter selbst** heraus — der Aufrufer muss belegen, dass er das Konto ist; es gibt **keine** Umgehung für B13 oder B14 (FR-037)
+- [X] T089 [P] [US2] Test `BreakdownRefusesForeignAccountsTest` in `rpg-core/src/test/java/rpg/core/statistics/BreakdownRefusesForeignAccountsTest.java` — die Fassade selbst weigert sich, nicht erst das Fenster. Ein Schloss an der Anzeige ist kein Schloss
 - [ ] T090 [US2] `StatisticsMenu` in `rpg-platform/src/main/java/rpg/platform/statistics/StatisticsMenu.java` — eigenes Profil, vier Zeiträume, eigene Platzierung je öffentlicher Metrik (FR-041, FR-042)
 - [ ] T091 [US2] Die drei privaten Werte im eigenen Fenster zeigen: Tode je Verursacher, gesamte Onlinezeit, Zeit je Zone (FR-038)
 - [ ] T092 [P] [US2] Test `EmptyDayShowsZerosTest` in `rpg-platform/src/test/java/rpg/platform/statistics/EmptyDayShowsZerosTest.java` — ein Spieler, der heute nichts getan hat, sieht Nullen und keine Fehlermeldung

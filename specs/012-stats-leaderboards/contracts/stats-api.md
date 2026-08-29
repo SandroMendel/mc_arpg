@@ -43,7 +43,7 @@ public interface StatisticsView {
     CompletableFuture<Long> value(UUID playerId, Metric metric, Period period);
 
     /** Die Aufschlüsselung einer dimensionierten Metrik — nur für den Betrachter selbst. */
-    CompletableFuture<Map<String, Long>> breakdown(UUID playerId, Metric family, Period period);
+    CompletableFuture<Map<String, Long>> breakdown(UUID viewer, UUID account, Metric family, Period period);
 }
 ```
 
