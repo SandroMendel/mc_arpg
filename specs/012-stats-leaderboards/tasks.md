@@ -50,11 +50,11 @@ Registrierung aus ADR-015 ist für die Statistik längst erledigt.
 
 **Purpose**: die Blockgrenzen benennen, bevor etwas darin entsteht
 
-- [ ] T001 [P] Paket `rpg-core/src/main/java/rpg/core/statistics/` mit `package-info.java` anlegen — Kopfkommentar nennt die Grenze: Verzeichnis, Zeiträume, Schwelle, Zeitrechnung und Punktformel gehören hierher, **Paper nirgends**, und **kein SQL** (das liegt in `rpg-persistence`)
-- [ ] T002 [P] Paket `rpg-persistence/src/main/java/rpg/persistence/statistics/` mit `package-info.java` anlegen — nennt die beiden Regeln aus `NoDirectDatabaseAccessTest`: `java.sql` nur hier, und **niemals ein `DELETE` gegen `player_statistic_daily`** (ADR-044, B02 FR-017)
-- [ ] T003 [P] Paket `rpg-platform/src/main/java/rpg/platform/statistics/` mit `package-info.java` anlegen — hier und nur hier wird Paper angefasst; nennt die vier Nähte von außen (B05-Ereignisse, B09-Zonenwechsel, B04 `holderOf`, B06-Party)
-- [ ] T004 [P] Testpakete unter `rpg-core/src/test/java/rpg/core/statistics/`, `rpg-persistence/src/test/java/rpg/persistence/statistics/` und `rpg-platform/src/test/java/rpg/platform/statistics/` anlegen
-- [ ] T005 [P] Testhilfe `StatisticsFixtures` in `rpg-core/src/test/java/rpg/core/statistics/StatisticsFixtures.java` — **Halter- und Charakterkennung sind hier grundsätzlich verschieden.** Eine gemeinsame UUID für beides hat in diesem Projekt schon einmal eine systematische Verwechslung für 1614 Tests unsichtbar gemacht; die Fixture erzeugt sie deshalb getrennt und dokumentiert im Javadoc, warum
+- [X] T001 [P] Paket `rpg-core/src/main/java/rpg/core/statistics/` mit `package-info.java` anlegen — Kopfkommentar nennt die Grenze: Verzeichnis, Zeiträume, Schwelle, Zeitrechnung und Punktformel gehören hierher, **Paper nirgends**, und **kein SQL** (das liegt in `rpg-persistence`)
+- [X] T002 [P] Paket `rpg-persistence/src/main/java/rpg/persistence/statistics/` mit `package-info.java` anlegen — nennt die beiden Regeln aus `NoDirectDatabaseAccessTest`: `java.sql` nur hier, und **niemals ein `DELETE` gegen `player_statistic_daily`** (ADR-044, B02 FR-017)
+- [X] T003 [P] Paket `rpg-platform/src/main/java/rpg/platform/statistics/` mit `package-info.java` anlegen — hier und nur hier wird Paper angefasst; nennt die vier Nähte von außen (B05-Ereignisse, B09-Zonenwechsel, B04 `holderOf`, B06-Party)
+- [X] T004 [P] Testpakete unter `rpg-core/src/test/java/rpg/core/statistics/`, `rpg-persistence/src/test/java/rpg/persistence/statistics/` und `rpg-platform/src/test/java/rpg/platform/statistics/` anlegen
+- [X] T005 [P] Testhilfe `StatisticsFixtures` in `rpg-core/src/test/java/rpg/core/statistics/StatisticsFixtures.java` — **Halter- und Charakterkennung sind hier grundsätzlich verschieden.** Eine gemeinsame UUID für beides hat in diesem Projekt schon einmal eine systematische Verwechslung für 1614 Tests unsichtbar gemacht; die Fixture erzeugt sie deshalb getrennt und dokumentiert im Javadoc, warum
 
 ---
 
