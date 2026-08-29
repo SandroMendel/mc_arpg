@@ -1,6 +1,8 @@
 package rpg.platform.item;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -15,11 +17,15 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PotionSplashEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.projectiles.ProjectileSource;
 
 import rpg.core.item.ConsumableBuffs;
 import rpg.core.item.ConsumableEffect;
 import rpg.core.item.ItemTemplate;
+import rpg.core.item.ItemMessageKeys;
 import rpg.core.item.Items;
+import rpg.core.message.MessageKey;
+import rpg.core.message.Messages;
 
 /**
  * Ein geworfener Trank schlägt auf — und wirkt auf <b>jeden, den er trifft</b>.
@@ -47,6 +53,7 @@ public final class PotionSplashListener implements Listener {
     private final ConsumableBuffs buffs;
     private final ConsumableUseListener.Resources resources;
     private final Function<UUID, Optional<UUID>> characterOf;
+    private final Messages messages;
     private final Logger logger;
 
     /**
@@ -59,11 +66,13 @@ public final class PotionSplashListener implements Listener {
             ConsumableBuffs buffs,
             ConsumableUseListener.Resources resources,
             Function<UUID, Optional<UUID>> characterOf,
+            Messages messages,
             Logger logger) {
         this.items = Objects.requireNonNull(items, "items");
         this.buffs = Objects.requireNonNull(buffs, "buffs");
         this.resources = Objects.requireNonNull(resources, "resources");
         this.characterOf = Objects.requireNonNull(characterOf, "characterOf");
+        this.messages = Objects.requireNonNull(messages, "messages");
         this.logger = Objects.requireNonNull(logger, "logger");
     }
 
@@ -94,8 +103,9 @@ public final class PotionSplashListener implements Listener {
         neutralise(event, hit);
         try {
             ConsumableEffect effect = template.get().effect();
+            Player thrower = throwerOf(event);
             for (LivingEntity affected : hit) {
-                applyTo(affected, templateKey.get(), effect);
+                applyTo(affected, templateKey.get(), effect, thrower);
             }
         } catch (RuntimeException failure) {
             // Ein Fehler an einem Getroffenen darf die anderen nicht mitnehmen und den Server
@@ -123,7 +133,8 @@ public final class PotionSplashListener implements Listener {
      * <p><b>Nur Spieler</b> — siehe Klassenkommentar. Und volle Wirkung, nicht nach Entfernung
      * abgestuft: in der Lore steht eine Zahl, und sie soll stimmen.
      */
-    private void applyTo(LivingEntity hit, String templateKey, ConsumableEffect effect) {
+    private void applyTo(
+            LivingEntity hit, String templateKey, ConsumableEffect effect, Player thrower) {
         if (!(hit instanceof Player player)) {
             return;
         }
@@ -137,5 +148,83 @@ public final class PotionSplashListener implements Listener {
         if (effect.hasBuff()) {
             buffs.apply(holderId, templateKey, effect);
         }
+        tell(player, effect, thrower);
+    }
+
+    /**
+     * Sagt dem Getroffenen, was er bekommen hat — und von wem.
+     *
+     * <p><b>Ohne diese Meldung merkt er nur, dass sich eine Zahl geändert hat.</b> Ein Wurftrank
+     * wirkt auf Leute, die ihn nicht geworfen haben; woher die Heilung kam und wie viel es war,
+     * steht sonst nirgends.
+     *
+     * <p><b>Beim eigenen Wurf ohne Namen.</b> Wer selbst geworfen hat, weiß, von wem der Trank
+     * kam — der Name wäre die Antwort auf eine Frage, die niemand gestellt hat. Was bleibt, ist
+     * die Wirkung, und die ist auch beim eigenen Wurf nicht selbstverständlich: die Zahl steht
+     * zwar in der Lore, aber ein Trank, den man wirft, heilt einen anderen Betrag, wenn er kurz
+     * vorher balanciert wurde.
+     */
+    private void tell(Player hit, ConsumableEffect effect, Player thrower) {
+        boolean own = thrower != null && thrower.getUniqueId().equals(hit.getUniqueId());
+        String name = thrower == null ? "" : thrower.getName();
+
+        effect.healAmount()
+                .ifPresent(
+                        amount ->
+                                send(
+                                        hit,
+                                        own ? ItemMessageKeys.SPLASH_SELF_HEALED : ItemMessageKeys.SPLASH_HEALED,
+                                        values(name, Map.of("amount", EffectLore.number(amount)))));
+        effect.manaAmount()
+                .ifPresent(
+                        amount ->
+                                send(
+                                        hit,
+                                        own ? ItemMessageKeys.SPLASH_SELF_MANA : ItemMessageKeys.SPLASH_MANA,
+                                        values(name, Map.of("amount", EffectLore.number(amount)))));
+
+        // Je Attribut eine Zeile, wie in der Lore. Ein Trank mit zwei Beitraegen waere in einer
+        // Zeile eine Aufzaehlung, die im Chat vorbeirauscht.
+        String seconds = effect.buffDuration().map(d -> String.valueOf(d.toSeconds())).orElse("0");
+        effect.buff()
+                .forEach(
+                        (attribute, amount) ->
+                                send(
+                                        hit,
+                                        own ? ItemMessageKeys.SPLASH_SELF_BUFF : ItemMessageKeys.SPLASH_BUFF,
+                                        values(
+                                                name,
+                                                Map.of(
+                                                        "attribute",
+                                                        EffectLore.attributeName(messages, attribute),
+                                                        "amount",
+                                                        EffectLore.number(amount),
+                                                        "seconds",
+                                                        seconds))));
+    }
+
+    /** Die Platzhalter plus den Werfernamen — der bei einem eigenen Wurf schlicht ungenutzt bleibt. */
+    private static Map<String, String> values(String thrower, Map<String, String> own) {
+        Map<String, String> all = new LinkedHashMap<>(own);
+        all.put("player", thrower);
+        return all;
+    }
+
+    private void send(Player player, MessageKey key, Map<String, String> placeholders) {
+        net.kyori.adventure.text.Component text = ItemText.of(messages, key, placeholders);
+        if (text != null) {
+            player.sendMessage(text);
+        }
+    }
+
+    /**
+     * Wer geworfen hat — oder {@code null}.
+     *
+     * <p>Ein Wurfgeschoss muss keinen Spieler als Quelle haben: ein Spender wirft auch. Dann gibt
+     * es keinen Namen zu nennen, und die Meldung fällt auf die namenlose Fassung zurück.
+     */
+    private static Player throwerOf(PotionSplashEvent event) {
+        ProjectileSource source = event.getPotion().getShooter();
+        return source instanceof Player player ? player : null;
     }
 }

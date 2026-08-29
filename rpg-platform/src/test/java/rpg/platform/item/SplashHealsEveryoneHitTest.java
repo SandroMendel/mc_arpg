@@ -78,6 +78,7 @@ class SplashHealsEveryoneHitTest {
                                 withCharacter.contains(holderId)
                                         ? Optional.of(UUID.randomUUID())
                                         : Optional.empty(),
+                        messages(),
                         QUIET);
     }
 
@@ -163,6 +164,42 @@ class SplashHealsEveryoneHitTest {
         assertThat(resources.healed).isEmpty();
     }
 
+    @Test
+    @DisplayName("ein FREMDER Trank nennt den Werfer und den Betrag")
+    void aforeignPotionNamesTheThrowerAndTheAmount() {
+        PlayerMock thrower = playerWithCharacter();
+        PlayerMock hit = playerWithCharacter();
+
+        listener.onSplash(thrownBy(thrower, ourPotion(), hit));
+
+        assertThat(hit.nextMessage())
+                .as("ohne die Meldung merkt der Getroffene nur, dass sich eine Zahl geaendert hat")
+                .isEqualTo("healed 140 by " + thrower.getName());
+    }
+
+    @Test
+    @DisplayName("der EIGENE Wurf nennt nur die Wirkung - der Name waere ueberfluessig")
+    void anownThrowNamesOnlyTheEffect() {
+        PlayerMock thrower = playerWithCharacter();
+
+        listener.onSplash(thrownBy(thrower, ourPotion(), thrower));
+
+        assertThat(thrower.nextMessage())
+                .as("wer selbst geworfen hat, weiss, von wem der Trank kam")
+                .isEqualTo("healed 140");
+    }
+
+    @Test
+    @DisplayName("wer NICHT getroffen wurde, bekommt auch keine Meldung")
+    void whoeverWasNotHitGetsNoMessage() {
+        PlayerMock thrower = playerWithCharacter();
+        PlayerMock bystander = playerWithCharacter();
+
+        listener.onSplash(thrownBy(thrower, ourPotion(), thrower));
+
+        assertThat(bystander.nextMessage()).isNull();
+    }
+
     // --- Hilfsmittel ---------------------------------------------------------------
 
     private PlayerMock playerWithCharacter() {
@@ -172,20 +209,39 @@ class SplashHealsEveryoneHitTest {
     }
 
     private PotionSplashEvent splash(LivingEntity... hit) {
+        return splashOf(ourPotion(), hit);
+    }
+
+    private static ItemStack ourPotion() {
         ItemStack potion = new ItemStack(Material.SPLASH_POTION);
         ItemTag.mark(potion, POTION, ItemSchemaMigration.CURRENT);
-        return splashOf(potion, hit);
+        return potion;
     }
 
     private PotionSplashEvent splashOf(ItemStack potion, LivingEntity... hit) {
+        return thrownBy(null, potion, hit);
+    }
+
+    private PotionSplashEvent thrownBy(
+            PlayerMock thrower, ItemStack potion, LivingEntity... hit) {
         ThrownPotion thrown =
                 world.spawn(new Location(world, 0, 64, 0), ThrownPotion.class);
         thrown.setItem(potion);
+        if (thrower != null) {
+            thrown.setShooter(thrower);
+        }
         Map<LivingEntity, Double> affected = new LinkedHashMap<>();
         for (LivingEntity entity : hit) {
             affected.put(entity, 1.0);
         }
         return new PotionSplashEvent(thrown, affected);
+    }
+
+    private static rpg.core.message.MapMessages messages() {
+        Map<String, String> texts = new LinkedHashMap<>();
+        texts.put("item.splash.healed", "healed {amount} by {player}");
+        texts.put("item.splash.self-healed", "healed {amount}");
+        return new rpg.core.message.MapMessages(texts);
     }
 
     private static ItemConfig config() {

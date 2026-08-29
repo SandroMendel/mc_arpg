@@ -65,6 +65,36 @@ public final class ItemMessageKeys {
     /** Die Abklingzeit. Platzhalter: {@code seconds}. */
     public static final MessageKey EFFECT_COOLDOWN = MessageKey.of("item.effect.cooldown");
 
+    // --- Wenn ein FREMDER Trank einen trifft ------------------------------------------
+    //
+    // Ein Wurftrank wirkt auf Leute, die ihn nicht geworfen haben. Ohne eine Meldung merkt der
+    // Getroffene nur, dass sich eine Zahl geaendert hat - und weiss weder, woher, noch wie viel.
+    // Beides zusammen macht aus einem Zufall eine Handlung, fuer die man sich bedanken kann.
+    //
+    // Nur bei einem FREMDEN Trank: wer selbst wirft, weiss ohnehin, was er getan hat, und eine
+    // Meldung dafuer waere die haeufigste und ueberfluessigste von allen.
+
+    /** Geheilt worden. Platzhalter: {@code amount}, {@code player}. */
+    public static final MessageKey SPLASH_HEALED = MessageKey.of("item.splash.healed");
+
+    /** Mana bekommen. Platzhalter: {@code amount}, {@code player}. */
+    public static final MessageKey SPLASH_MANA = MessageKey.of("item.splash.mana");
+
+    /** Einen Beitrag bekommen. Platzhalter: {@code attribute}, {@code amount}, {@code seconds}, {@code player}. */
+    public static final MessageKey SPLASH_BUFF = MessageKey.of("item.splash.buff");
+
+    // Und dieselben drei ohne Namen, fuer den eigenen Wurf. Wer selbst geworfen hat, weiss, von
+    // wem der Trank kam - die Frage lautet dann nur noch, was er gebracht hat.
+
+    /** Selbst geworfen, selbst getroffen: geheilt. Platzhalter: {@code amount}. */
+    public static final MessageKey SPLASH_SELF_HEALED = MessageKey.of("item.splash.self-healed");
+
+    /** Selbst geworfen: Mana. Platzhalter: {@code amount}. */
+    public static final MessageKey SPLASH_SELF_MANA = MessageKey.of("item.splash.self-mana");
+
+    /** Selbst geworfen: ein Beitrag. Platzhalter: {@code attribute}, {@code amount}, {@code seconds}. */
+    public static final MessageKey SPLASH_SELF_BUFF = MessageKey.of("item.splash.self-buff");
+
     /**
      * Der sichtbare Name eines Attributs, {@code item.attribute.<key>}.
      *
@@ -298,6 +328,12 @@ public final class ItemMessageKeys {
                     EFFECT_BUFF,
                     EFFECT_SPLASH,
                     EFFECT_COOLDOWN,
+                    SPLASH_HEALED,
+                    SPLASH_MANA,
+                    SPLASH_BUFF,
+                    SPLASH_SELF_HEALED,
+                    SPLASH_SELF_MANA,
+                    SPLASH_SELF_BUFF,
                     GEAR_CONDITION_LORE);
 
     /**

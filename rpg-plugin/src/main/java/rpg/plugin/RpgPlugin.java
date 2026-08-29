@@ -2440,6 +2440,7 @@ gearDisplay =
                                 consumableBuffs,
                                 resources,
                                 stats::characterIdOf,
+                                messages,
                                 getLogger()),
                         this);
     }

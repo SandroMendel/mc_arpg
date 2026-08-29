@@ -501,6 +501,18 @@ item:
     splash: '&dThrown - affects everyone it hits'
     cooldown: '&8Cooldown {seconds}s'
 
+  # Wenn ein FREMDER Trank einen trifft. Ohne diese Meldung merkt der Getroffene nur, dass sich
+  # eine Zahl geändert hat - und weiß weder, woher, noch wie viel. Wer selbst wirft, bekommt
+  # nichts: er weiß, was er getan hat.
+  splash:
+    healed: '&aYou have been healed for &f{amount} HP &aby &f{player}&a.'
+    mana: '&b{player} &brestored &f{amount} mana &bfor you.'
+    buff: '&b{player} gave you &f{attribute} +{amount}&b for &f{seconds}s&b.'
+    # Der eigene Wurf: der Name waere die Antwort auf eine Frage, die niemand stellt.
+    self-healed: '&aHealed for &f{amount} HP&a.'
+    self-mana: '&bRestored &f{amount} mana&b.'
+    self-buff: '&b{attribute} &f+{amount}&b for &f{seconds}s&b.'
+
   # Die Attributnamen für die Lore eines Buff-Tranks. In B04 ist ein Attribut ein Rechenwert mit
   # einem Konfigurationsschlüssel, und der ist kein Spielertext.
   attribute:

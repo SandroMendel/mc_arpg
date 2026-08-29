@@ -110,7 +110,7 @@ final class EffectLore {
      * ist als Notlösung lesbar genug, und ein fehlender Text soll eine Zeile nicht verschwinden
      * lassen — sie ist die einzige Stelle, an der ein Spieler erfährt, was der Trank ihm gibt.
      */
-    private static String attributeName(Messages messages, Attribute attribute) {
+    static String attributeName(Messages messages, Attribute attribute) {
         MessageKey key = ItemMessageKeys.attributeName(attribute);
         return messages.contains(key) ? messages.get(key, Map.of()) : attribute.key();
     }
@@ -122,7 +122,7 @@ final class EffectLore {
      * Stelle, weil {@code attack-speed: 0.15} sonst als {@code 0} dastünde und wie ein Fehler
      * aussähe.
      */
-    private static String number(double value) {
+    static String number(double value) {
         return value == Math.rint(value)
                 ? String.valueOf((long) value)
                 : String.valueOf(Math.round(value * 100.0) / 100.0);
