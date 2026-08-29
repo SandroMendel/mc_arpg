@@ -324,6 +324,13 @@ public final class StatisticsConfigSchema {
         if (value instanceof LocalDate date) {
             return date;
         }
+        // SnakeYAML erkennt 2026-07-01 selbst als Datum und liefert java.util.Date - nicht die
+        // Zeichenkette, die hier zu erwarten waere. Ohne diesen Zweig scheiterte ausgerechnet die
+        // AUSGELIEFERTE Datei, waehrend jeder Schematest mit seinem selbstgebauten Dokument
+        // durchliefe.
+        if (value instanceof java.util.Date legacy) {
+            return legacy.toInstant().atZone(java.time.ZoneOffset.UTC).toLocalDate();
+        }
         try {
             return LocalDate.parse(String.valueOf(value));
         } catch (DateTimeParseException malformed) {

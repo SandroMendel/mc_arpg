@@ -426,6 +426,11 @@ public class RpgPlugin extends JavaPlugin {
         // MobModule.start prueft sie selbst (verifyNamesExist). Hier steht nur der feste
         // Schluessel NAMEPLATE, damit auch er in der allgemeinen Liste steht.
         declared.addAll(rpg.core.mob.MobMessageKeys.all(List.of()));
+        // B12 braucht die Ausnahme von B09 und B10 NICHT: seine Schluessel haengen an zwei
+        // Verzeichnissen im Code (Aggregation, Period) und nicht an einer Konfigurationsdatei.
+        // Sie stehen also schon vor dem ersten Lesen einer YAML fest und koennen hier vollstaendig
+        // geprueft werden.
+        declared.addAll(rpg.core.statistics.StatisticsMessageKeys.all());
         MessageKeyValidator.verifyAllPresent(loaded, declared);
 
         getLogger().info("[messages] " + declared.size() + " declared key(s) resolved");

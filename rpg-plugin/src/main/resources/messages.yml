@@ -642,3 +642,76 @@ item:
     verdant:
       name: 'Verdant Trim'
       lore: 'The rarest of the three, and the hardest to explain.'
+
+# ==============================================================================
+# B12 - Statistiken & Ranglisten
+# ==============================================================================
+# Englisch wie alle Spielertexte (Prinzip VIII). Jeder Schluessel hier wird beim
+# Start gegen StatisticsMessageKeys.all() geprueft - fehlt einer, startet der
+# Server nicht, statt einem Spieler den rohen Schluessel ins Fenster zu schreiben.
+
+statistics:
+
+  profile:
+    title: '&6Your Record'
+    title-other: "&6{player}'s Record"
+    line: '&7{label}&8: &f{value}'
+    # Steht im FREMDEN Profil an der Stelle, an der die Aufschluesselung fehlt -
+    # damit die Luecke als Absicht lesbar ist und nicht als fehlender Wert.
+    private-omitted: '&8Some details are only visible to the player themselves.'
+
+  unknown-player: '&cNo record for &f{player}&c.'
+
+  leaderboard:
+    title: '&6{board} &8- &7{period}'
+    entry: '&8#{rank} &f{player} &8- &7{value}'
+    entry-self: '&8#{rank} &e{player} &8- &7{value}'
+    your-rank: '&7Your place&8: &f#{rank} &8({value})'
+    unranked: '&7You are not on this board yet.'
+    empty: '&7Nobody is on this board yet.'
+    not-ready: '&7The board is still being built. Try again shortly.'
+    as-of: '&8Updated {age} ago.'
+
+  board:
+    mob-kills:
+      name: 'Mob Kills'
+    boss-kills:
+      name: 'Boss Kills'
+    deaths:
+      name: 'Deaths'
+    playtime-active:
+      name: 'Time Played'
+    damage-max:
+      name: 'Biggest Hit'
+    playtime-online:
+      name: 'Time Online'
+
+  period:
+    day: 'Today'
+    week: 'This Week'
+    season: 'This Season'
+    all-time: 'All Time'
+
+  season:
+    current: '&6Season {season} &8- &7{days} days left'
+    none: '&7No season is running right now.'
+    final: '&6Season {season} &8- &7final standings'
+    score:
+      title: '&6Season Score &8- &7{season}'
+      # ADR-046 verlangt diese Zeile ausdruecklich: eine Wertung, deren
+      # Zustandekommen man nicht sieht, wird als Willkuer gelesen.
+      line: '&7{label}&8: &f{value} &8x &7{weight} &8= &e{points}'
+      total: '&6Total&8: &e{points} &8(&7#{rank}&8)'
+
+  reward:
+    available: '&6You placed #{rank} in season {season}. Your reward is waiting.'
+    claimed: '&aClaimed your reward for season {season}&a: &f{reward}'
+    already-claimed: '&7You have already claimed that reward.'
+    none: '&7You have no rewards waiting.'
+    # Der Anspruch verfaellt NICHT - der Text sagt das, weil sonst jeder
+    # Betroffene annimmt, seine Belohnung sei weg.
+    inventory-full: '&cYour inventory is full. The reward stays yours - make room and try again.'
+
+  hologram:
+    header: '&6{board} &8- &7{period}'
+    line: '&8#{rank} &f{player} &8- &7{value}'
