@@ -94,6 +94,32 @@ public final class CloneAggroListener implements Listener {
         return entityId != null && activeClones.containsValue(entityId);
     }
 
+    /**
+     * Wem dieser Klon gehört — leer für alles, was keiner ist.
+     *
+     * <p><b>Öffentlich seit B12</b>, und aus demselben Grund wie {@link #isClone}: der Schaden
+     * eines Klons zählt für seinen Beschwörer (ADR-047), und wer das wissen will, muss von der
+     * Kreatur auf den Spieler kommen. Die Zuordnung steht hier; eine zweite Karte in B12 wäre eine
+     * zweite Wahrheit über dieselbe Kreatur.
+     *
+     * <p><b>Dass hier gesucht statt nachgeschlagen wird, ist Absicht.</b> Ein zweiter Index wäre
+     * schneller und müsste an jeder der drei Stellen mitgepflegt werden, an denen ein Klon
+     * verschwindet — {@code activeClones} ist praktisch immer leer, weil ein Klon nur wenige
+     * Sekunden lebt und ihn nur zwei Klassen überhaupt beschwören. Eine Schleife über null bis
+     * zwei Einträge kostet weniger als die Gelegenheit, einen der drei Aufräumwege zu vergessen.
+     */
+    public java.util.Optional<UUID> summonerOf(UUID entityId) {
+        if (entityId == null || activeClones.isEmpty()) {
+            return java.util.Optional.empty();
+        }
+        for (Map.Entry<UUID, UUID> entry : activeClones.entrySet()) {
+            if (entry.getValue().equals(entityId)) {
+                return java.util.Optional.of(entry.getKey());
+            }
+        }
+        return java.util.Optional.empty();
+    }
+
     private void reclaimAlreadyTargeting(UUID summonerId, UUID creatureId) {
         Entity clone = server.getEntity(creatureId);
         if (!(clone instanceof LivingEntity cloneLiving) || !clone.isValid()) {

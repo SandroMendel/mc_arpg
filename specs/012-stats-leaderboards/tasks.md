@@ -153,17 +153,17 @@ gegen das Erwartete prüfen.
 - [X] T055 [P] [US1] Test `ZoneChangeWhileIdleTest` in `rpg-platform/src/test/java/rpg/platform/statistics/ZoneChangeWhileIdleTest.java` — der Abschnitt wechselt, aber **keine** der beiden Zonen bekommt aktive Zeit (Edge Case)
 - [X] T056 [US1] `PlaytimeAccrual` in `rpg-platform/src/main/java/rpg/platform/statistics/PlaytimeAccrual.java` — schreibt beide Uhren und die Zonenaufteilung fort. **Reitet auf dem vorhandenen Inventar-Sweep mit** (R6, FR-015) und legt keine eigene Aufgabe an
 - [X] T057 [P] [US1] Test `PlaytimeRidesTheExistingSweepTest` in `rpg-platform/src/test/java/rpg/platform/statistics/PlaytimeRidesTheExistingSweepTest.java` — **architektonische Zusicherung**: der Quelltext dieses Blocks plant **keine** wiederkehrende Aufgabe je Spieler ein (Prinzip II). Liest den Quelltext, wie `NoGlobalSchedulerAccessTest` es für den Scheduler tut
-- [ ] T058 [US1] Letzten Abschnitt beim Sitzungsende schließen — angebunden an den vorhandenen `onSessionEnded`-Rückruf, **nicht** an einen eigenen `PlayerQuitEvent`-Handler. B11 hat für genau diesen zweiten Ausstiegspfad eine architektonische Zusicherung eingeführt (T076 dort)
+- [X] T058 [US1] Letzten Abschnitt beim Sitzungsende schließen — angebunden an den vorhandenen `onSessionEnded`-Rückruf, **nicht** an einen eigenen `PlayerQuitEvent`-Handler. B11 hat für genau diesen zweiten Ausstiegspfad eine architektonische Zusicherung eingeführt (T076 dort)
 
 ### Zusammenhalten
 
 - [X] T059 [US1] `Statistics` als öffentliche Fassade in `rpg-core/src/main/java/rpg/core/statistics/Statistics.java` — Signaturen nach [contracts/stats-api.md](./contracts/stats-api.md) §1
-- [ ] T060 [P] [US1] Test `CaptureFailureDoesNotBreakTheGameTest` in `rpg-platform/src/test/java/rpg/platform/statistics/CaptureFailureDoesNotBreakTheGameTest.java` — **FR-004, SC-011**: ein Statistikdienst, der bei jedem Aufruf wirft, lässt Kills, Tode und Beute unverändert weiterlaufen
-- [ ] T061 [US1] Verdrahtung in `rpg-plugin/src/main/java/rpg/plugin/RpgPlugin.java`: `wireStatistics()` — Modul laden, Zuhörer registrieren, Fortschreibung an den Inventar-Sweep hängen
-- [ ] T062 [US1] `FullBootstrapTest` in `rpg-plugin/src/test/java/rpg/plugin/FullBootstrapTest.java` nachziehen — **`PlayerMoveEvent` trägt jetzt einen Handler mehr** (R7). Die Zahl steigt von vier auf fünf; genau dafür zählt dieser Test sie
-- [ ] T063 [P] [US1] Test `StatisticsSurviveRestartTest` in `rpg-persistence/src/test/java/rpg/persistence/statistics/StatisticsSurviveRestartTest.java` — **SC-004**: gegen Testcontainers, Werte vor und nach einem simulierten Neustart identisch
-- [ ] T064 [P] [US1] Test `ThreeCharactersOneCountTest` in `rpg-core/src/test/java/rpg/core/statistics/ThreeCharactersOneCountTest.java` — **FR-005**: ein Spieler mit drei Charakteren hat **eine** Kill-Zahl
-- [ ] T065 [US1] Übersprungene Tests des Laufs durchsehen — **MockBukkit meldet Nicht-Implementiertes als „skipped", nicht als Fehler.** Ein grüner Lauf mit Übersprungenem ist kein grüner Lauf; jeder Skip wird benannt und entweder umgangen oder als bewusst hingenommen dokumentiert
+- [X] T060 [P] [US1] Test `CaptureFailureDoesNotBreakTheGameTest` in `rpg-platform/src/test/java/rpg/platform/statistics/CaptureFailureDoesNotBreakTheGameTest.java` — **FR-004, SC-011**: ein Statistikdienst, der bei jedem Aufruf wirft, lässt Kills, Tode und Beute unverändert weiterlaufen
+- [X] T061 [US1] Verdrahtung in `rpg-plugin/src/main/java/rpg/plugin/RpgPlugin.java`: `wireStatistics()` — Modul laden, Zuhörer registrieren, Fortschreibung an den Inventar-Sweep hängen
+- [X] T062 [US1] `FullBootstrapTest` in `rpg-plugin/src/test/java/rpg/plugin/FullBootstrapTest.java` nachziehen — **`PlayerMoveEvent` trägt jetzt einen Handler mehr** (R7). Die Zahl steigt von vier auf fünf; genau dafür zählt dieser Test sie
+- [X] T063 [P] [US1] Test `StatisticsSurviveRestartTest` in `rpg-persistence/src/test/java/rpg/persistence/statistics/StatisticsSurviveRestartTest.java` — **SC-004**: gegen Testcontainers, Werte vor und nach einem simulierten Neustart identisch
+- [X] T064 [P] [US1] Test `ThreeCharactersOneCountTest` in `rpg-core/src/test/java/rpg/core/statistics/ThreeCharactersOneCountTest.java` — **FR-005**: ein Spieler mit drei Charakteren hat **eine** Kill-Zahl
+- [X] T065 [US1] Übersprungene Tests des Laufs durchsehen — **MockBukkit meldet Nicht-Implementiertes als „skipped", nicht als Fehler.** Ein grüner Lauf mit Übersprungenem ist kein grüner Lauf; jeder Skip wird benannt und entweder umgangen oder als bewusst hingenommen dokumentiert
 
 **Checkpoint**: Die Werte sammeln sich. Ab hier ist jeder Spieltag gezählt, auch wenn noch niemand
 etwas davon sieht — **das ist der MVP**, und er ist der einzige Teil, dessen Fehlen sich später

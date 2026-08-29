@@ -133,11 +133,16 @@ class FullBootstrapTest {
         // "nobody is mid-leap", which is true of every player almost all of the time. It exists
         // because a leap's impact happens where the warrior comes down, and no timer can say when
         // that is - a jump over a cliff takes as long as the cliff is deep (FR-045d).
+        // Der siebte ist B12s Aktivitaetszeitstempel (R7), und er ist der billigste von allen:
+        // MONITOR, eine Zuweisung in eine vorbelegte Map, keine Bedingung davor und keine
+        // Allokation. Genau deshalb ist er vertretbar - und genau deshalb zaehlt dieser Test mit,
+        // damit der achte es begruenden muss.
         assertThat(handlerCount(PlayerMoveEvent.getHandlerList()))
                 .as(
                         "B03's safe-state hold, B07's no-character hold, B08's double jump, its cast"
-                                + " interruption and its landing watcher, B09's movement guard")
-                .isEqualTo(6);
+                                + " interruption and its landing watcher, B09's movement guard, and"
+                                + " B12's activity timestamp")
+                .isEqualTo(7);
     }
 
     @Test
@@ -495,8 +500,8 @@ class FullBootstrapTest {
         assertThat(handlerCount(org.bukkit.event.inventory.InventoryClickEvent.getHandlerList()))
                 .as(
                         "the equipment lock, the class selection, the currency, waypoint and vendor"
-                                + " windows, and the repair-route lock")
-                .isEqualTo(6);
+                                + " windows, the repair-route lock, and B12's activity timestamp")
+                .isEqualTo(7);
         assertThat(handlerCount(org.bukkit.event.player.PlayerDropItemEvent.getHandlerList()))
                 .as("dropping is off for every item, bound or not (ADR-018)")
                 .isEqualTo(1);
@@ -806,12 +811,13 @@ class FullBootstrapTest {
                 .isEqualTo(2);
         assertThat(handlerCount(PlayerInteractEvent.getHandlerList()))
                 .as(
-                        "B08s Faehigkeitsausloeser, B09s Kristall - und seit B11 der Trank."
-                                + " Drei Bloecke auf einem Ereignis, jeder auf seiner Prioritaet:"
-                                + " der Trank sitzt auf HIGH und bricht ab, sobald der Gegenstand"
-                                + " einen B11-Vermerk traegt, damit Vanilla ihn nicht auch noch"
-                                + " trinkt")
-                .isEqualTo(3);
+                        "B08s Faehigkeitsausloeser, B09s Kristall, seit B11 der Trank - und seit"
+                                + " B12 der Aktivitaetszeitstempel. Vier Bloecke auf einem"
+                                + " Ereignis, jeder auf seiner Prioritaet: der Trank sitzt auf"
+                                + " HIGH und bricht ab, sobald der Gegenstand einen B11-Vermerk"
+                                + " traegt, damit Vanilla ihn nicht auch noch trinkt; B12 sitzt"
+                                + " auf MONITOR und entscheidet nichts")
+                .isEqualTo(4);
     }
 
     @Test

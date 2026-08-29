@@ -129,7 +129,8 @@ public class RpgPlugin extends JavaPlugin {
                     "currency.yml",
                     "zones.yml",
                     "mobs.yml",
-                    "items.yml");
+                    "items.yml",
+                    "statistics.yml");
 
     private final BootstrapState bootstrapState = new BootstrapState();
 
@@ -163,6 +164,8 @@ public class RpgPlugin extends JavaPlugin {
     private ZoneModule zoneModule;
     private rpg.core.mob.MobModule mobModule;
     private rpg.core.item.ItemModule itemModule;
+    private rpg.core.statistics.StatisticsModule statisticsModule;
+    private rpg.platform.statistics.PlaytimeAccrual playtimeAccrual;
 
     /**
      * B11s Vermerk über liegende Beute — gesetzt in {@link #assembleItemLayer()}.
@@ -306,6 +309,8 @@ public class RpgPlugin extends JavaPlugin {
         // B11 nach B10, und das ist keine Formalie: die Beutetabellen nennen Arten und Regionen,
         // und ohne sie waere die Zuordnung ins Leere gelaufen.
         assembleItemLayer();
+        // B12 zuletzt: es beobachtet alle vorigen Bloecke und wird von keinem gebraucht.
+        wireStatistics();
 
         // Same cadence as B02's autosave, and for the same reason: a crash should cost one interval,
         // not a whole session's loot. The quit path captures on its own; this is only for the case
@@ -529,6 +534,13 @@ public class RpgPlugin extends JavaPlugin {
                         messages,
                         () -> zoneModule.zones(),
                         () -> mobModule.kindKeys());
+        // B12. Nach B11, weil die Belohnungen einer Saison Vorlagen-IDs nennen und die
+        // Startpruefung sonst gegen eine leere Liste liefe - dieselbe Ueberlegung, aus der B11
+        // nach B09 und B10 kommt. Eine Vorlage mit Tippfehler waere ein Anspruch, der erst am
+        // Saisonende ins Leere greift, beim Spieler, der drei Monate dafuer gespielt hat.
+        statisticsModule =
+                new rpg.core.statistics.StatisticsModule(
+                        getLogger(), () -> itemModule.config().templates().keySet());
         return List.of(
                 persistenceModule,
                 sessionModule,
@@ -544,7 +556,8 @@ public class RpgPlugin extends JavaPlugin {
                 mobModule,
                 itemModule,
                 gearConditionModule,
-                cosmeticModule);
+                cosmeticModule,
+                statisticsModule);
     }
 
     /**
@@ -1519,6 +1532,13 @@ public class RpgPlugin extends JavaPlugin {
                 // block observes rather than listens. Without this a player would be in no zone
                 // until their first step, because the movement guard is built to do nothing while
                 // somebody stands still.
+                if (playtimeAccrual != null) {
+                    // VOR placeInZone: das Platzieren veroeffentlicht ein ZoneChangedEvent, und
+                    // das schliesst den ersten Abschnitt und oeffnet ihn mit der richtigen Zone
+                    // neu. Andersherum begaenne die Zeitrechnung erst NACH dem Wechsel, und die
+                    // Sekunden davor gehoerten niemandem.
+                    playtimeAccrual.begin(player.getUniqueId(), null);
+                }
                 placeInZone(player);
             }
 
@@ -1564,6 +1584,15 @@ public class RpgPlugin extends JavaPlugin {
                     // Und wer mitten im Block geht: die Haltung endet mit ihm, aber der Vermerk
                     // darueber laege sonst bis zum Neustart des Servers herum.
                     abilityFeedback.forget(playerId);
+                }
+                if (playtimeAccrual != null) {
+                    // B12: der letzte Zeitabschnitt wird HIER geschlossen und nicht in einem
+                    // eigenen PlayerQuitEvent-Handler. B11 hat fuer genau diesen zweiten
+                    // Ausstiegspfad eine architektonische Zusicherung eingefuehrt - zwei Tueren
+                    // heissen, dass eine von beiden irgendwann vergessen wird. Und der
+                    // Aktivitaetszeitstempel faellt gleich mit, sonst wuechse seine Karte die
+                    // ganze Serverlaufzeit lang.
+                    playtimeAccrual.end(playerId);
                 }
                 // Before B03 starts the unload: the player is still here, so their inventory can still
                 // be read - and this is the last moment that is true. The observer runs on the quit
@@ -1865,6 +1894,76 @@ public class RpgPlugin extends JavaPlugin {
      * deliberately so (ADR-007). Each capture hops onto the owning player's tick; the waiting happens
      * off it.
      */
+    /**
+     * Verdrahtet B12 — die Erfassung, mehr nicht.
+     *
+     * <p>Vier Nähte von außen, und keine davon ist neu: B05s Kampfereignisse, B09s Zonenwechsel,
+     * B04s {@code holderOf} und B06s Party. Dieser Block hört zu; er greift nirgends ein.
+     *
+     * <p><b>Keine eigene wiederkehrende Aufgabe</b> (Prinzip II, R6): die Fortschreibung der
+     * Spielzeit hängt sich an {@link #startInventorySweep}, der ohnehin im Autosave-Takt über
+     * genau die richtige Spielerliste läuft. {@code PlaytimeRidesTheExistingSweepTest} hält das
+     * mechanisch fest.
+     */
+    private void wireStatistics() {
+        rpg.core.persistence.StatisticsRepository repository =
+                registry.getService(rpg.core.persistence.StatisticsRepository.class);
+        rpg.core.statistics.Statistics statistics =
+                new rpg.core.statistics.RecordedStatistics(repository, getLogger());
+
+        rpg.core.statistics.AccountLookup accounts =
+                rpg.core.statistics.AccountLookup.backedBy(registry.getService(StatEngine.class));
+        rpg.core.statistics.ActivityClock activity = new rpg.core.statistics.ActivityClock();
+
+        playtimeAccrual =
+                new rpg.platform.statistics.PlaytimeAccrual(
+                        statistics,
+                        new rpg.core.statistics.Playtime(),
+                        activity,
+                        () -> statisticsModule.config().capture().idleAfter(),
+                        Clock.systemUTC());
+
+        // Dieselbe Party, dieselbe Reichweitenpruefung, dieselbe Zahl wie bei Erfahrung und Coins
+        // (FR-007b). Eine eigene Reichweite in statistics.yml waere ein zweiter Begriff von
+        // "dabei gewesen" - und niemand hielte ihn fuer eine Einstellung.
+        rpg.platform.statistics.PaperPartyInRange partyInRange =
+                new rpg.platform.statistics.PaperPartyInRange(
+                        getServer(),
+                        registry.getService(PartyRegistry.class),
+                        new rpg.platform.progression.PaperProximityCheck(getServer()),
+                        () -> progressionModule.config().partyRange(),
+                        () -> progressionModule.config().partyMaxSize());
+
+        new rpg.platform.statistics.KillStatListener(
+                        statistics,
+                        mobModule.kinds(),
+                        accounts,
+                        partyInRange,
+                        () -> statisticsModule.config().capture().killCreditShare())
+                .subscribeTo(eventBus);
+
+        // Der Klon leistet fuer den Spieler (ADR-047). B08s Beschwoerung fuehrt die Zuordnung
+        // bereits; eine zweite hier waere eine zweite Wahrheit ueber dieselbe Kreatur.
+        new rpg.platform.statistics.DamageStatListener(
+                        statistics,
+                        entityId ->
+                                cloneRegistry == null
+                                        ? java.util.Optional.empty()
+                                        : cloneRegistry.summonerOf(entityId))
+                .subscribeTo(eventBus);
+
+        new rpg.platform.statistics.ZoneTimeListener(playtimeAccrual, accounts)
+                .subscribeTo(eventBus);
+
+        getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new rpg.platform.statistics.ActivityListener(activity, Clock.systemUTC()),
+                        this);
+
+        getLogger().info("[statistics] capture wired - kills, deaths, damage, two clocks");
+    }
+
     private void startInventorySweep(Duration interval) {
         scheduler.runAsyncDelayed(
                 interval,
@@ -1879,6 +1978,13 @@ public class RpgPlugin extends JavaPlugin {
                                     org.bukkit.entity.Player player = getServer().getPlayer(playerId);
                                     if (player != null) {
                                         captureInventory(player);
+                                        if (playtimeAccrual != null) {
+                                            // B12 reitet hier mit und legt KEINE eigene Aufgabe an
+                                            // (R6, Prinzip II). Derselbe Takt, dieselbe Liste -
+                                            // und ein Absturz kostet ein Autosave-Intervall, wie
+                                            // Prinzip IV es ohnehin zusagt.
+                                            playtimeAccrual.accrue(playerId);
+                                        }
                                     }
                                 });
                     }
