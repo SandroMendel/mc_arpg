@@ -11,8 +11,6 @@ import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import rpg.platform.drop.OwnedDropPlatform;
-
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -28,6 +26,7 @@ import org.mockbukkit.mockbukkit.ServerMock;
 
 import rpg.core.currency.BookingReason;
 import rpg.core.currency.CurrencyConfig;
+import rpg.platform.drop.OwnedDropPlatform;
 
 /**
  * T063 - die Deckelung raeumt ab und schreibt dabei gut (US2 Szenario 7a, FR-030a bis FR-030d).

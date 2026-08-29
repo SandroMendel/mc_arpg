@@ -7,8 +7,6 @@ import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import rpg.platform.drop.OwnedDropPlatform;
-
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Server;
@@ -24,6 +22,7 @@ import net.kyori.adventure.text.Component;
 import rpg.core.currency.CoinDropPlan;
 import rpg.core.currency.CurrencyConfig;
 import rpg.core.progression.WorldPoint;
+import rpg.platform.drop.OwnedDropPlatform;
 
 /**
  * Puts a coin pile into the world, merges it with a neighbour, and clears the oldest away.

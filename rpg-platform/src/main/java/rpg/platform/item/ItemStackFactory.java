@@ -12,7 +12,6 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import net.kyori.adventure.text.Component;
-
 import rpg.core.item.ItemMessageKeys;
 import rpg.core.item.ItemTemplate;
 import rpg.core.item.Items;

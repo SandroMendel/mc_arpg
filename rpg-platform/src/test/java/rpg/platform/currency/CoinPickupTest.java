@@ -12,8 +12,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import rpg.platform.drop.OwnedDropPlatform;
-
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -39,6 +37,7 @@ import rpg.core.session.CharacterClass;
 import rpg.core.session.PlayerCharacter;
 import rpg.core.session.PlayerSession;
 import rpg.core.session.SessionRegistry;
+import rpg.platform.drop.OwnedDropPlatform;
 
 /**
  * T060, T061 - das Aufheben bucht, und wer keinen Anspruch hat, hebt nicht auf.

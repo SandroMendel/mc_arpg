@@ -21,8 +21,8 @@ import org.bukkit.projectiles.ProjectileSource;
 
 import rpg.core.item.ConsumableBuffs;
 import rpg.core.item.ConsumableEffect;
-import rpg.core.item.ItemTemplate;
 import rpg.core.item.ItemMessageKeys;
+import rpg.core.item.ItemTemplate;
 import rpg.core.item.Items;
 import rpg.core.message.MessageKey;
 import rpg.core.message.Messages;

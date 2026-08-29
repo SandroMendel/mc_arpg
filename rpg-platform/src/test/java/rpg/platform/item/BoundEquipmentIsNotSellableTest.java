@@ -23,7 +23,6 @@ import org.junit.jupiter.api.Test;
 import org.mockbukkit.mockbukkit.MockBukkit;
 
 import rpg.core.classes.BoundEquipment;
-import rpg.core.session.CharacterClass;
 import rpg.core.classes.LadderSlot;
 import rpg.core.currency.BookingReason;
 import rpg.core.currency.BookingResult;
@@ -37,6 +36,7 @@ import rpg.core.item.Rarity;
 import rpg.core.item.RepairPricing;
 import rpg.core.item.VendorTransaction;
 import rpg.core.item.WearCurve;
+import rpg.core.session.CharacterClass;
 import rpg.platform.classes.BoundItemFactory;
 import rpg.platform.classes.BoundItemTag;
 

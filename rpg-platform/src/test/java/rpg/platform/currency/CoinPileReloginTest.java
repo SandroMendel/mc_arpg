@@ -11,8 +11,6 @@ import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import rpg.platform.drop.OwnedDropPlatform;
-
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -29,6 +27,7 @@ import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
 
 import rpg.core.currency.CurrencyConfig;
+import rpg.platform.drop.OwnedDropPlatform;
 
 /**
  * Ein Haufen bleibt nach dem Wiedereinloggen sichtbar (FR-027a).

@@ -5,7 +5,6 @@ import java.util.Map;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-
 import rpg.core.message.MessageKey;
 import rpg.core.message.Messages;
 

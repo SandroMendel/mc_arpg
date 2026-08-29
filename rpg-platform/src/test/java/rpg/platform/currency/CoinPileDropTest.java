@@ -14,8 +14,6 @@ import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import rpg.platform.drop.OwnedDropPlatform;
-
 import org.bukkit.World;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
@@ -30,6 +28,7 @@ import org.mockbukkit.mockbukkit.entity.PlayerMock;
 import rpg.core.currency.CoinDropPlan;
 import rpg.core.currency.CurrencyConfig;
 import rpg.core.progression.WorldPoint;
+import rpg.platform.drop.OwnedDropPlatform;
 
 /**
  * T059, T063b - was aus einem Plan in der Welt wird.

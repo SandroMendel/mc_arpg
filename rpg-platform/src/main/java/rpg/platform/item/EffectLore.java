@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Map;
 
 import net.kyori.adventure.text.Component;
-
 import rpg.core.item.ConsumableEffect;
 import rpg.core.item.ItemMessageKeys;
 import rpg.core.item.ItemTemplate;

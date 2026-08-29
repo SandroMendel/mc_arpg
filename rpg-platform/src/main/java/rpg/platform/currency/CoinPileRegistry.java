@@ -10,13 +10,12 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 
-import rpg.platform.drop.OwnedDropPlatform;
-
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 
 import rpg.core.currency.BookingReason;
 import rpg.core.currency.CurrencyConfig;
+import rpg.platform.drop.OwnedDropPlatform;
 
 /**
  * Knows which piles are lying in the world, so the cap can be enforced (FR-030).

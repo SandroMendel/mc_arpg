@@ -14,7 +14,6 @@ import org.bukkit.inventory.meta.Damageable;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import net.kyori.adventure.text.Component;
-
 import rpg.core.classes.LadderSlot;
 import rpg.core.event.EventBus;
 import rpg.core.item.GearConditionChangedEvent;
