@@ -78,10 +78,10 @@ Registrierung aus ADR-015 ist für die Statistik längst erledigt.
 
 ### Zeiträume und Saisonkalender
 
-- [ ] T013 [P] `Period` in `rpg-core/src/main/java/rpg/core/statistics/Period.java` — `DAY`, `WEEK`, `SEASON`, `ALL_TIME`; **alles in UTC**, weil die gespeicherte Tagesangabe es bereits ist (FR-026)
-- [ ] T014 [P] Test `PeriodBoundariesTest` in `rpg-core/src/test/java/rpg/core/statistics/PeriodBoundariesTest.java` — die Woche beginnt montags (ISO), der Tag um 00:00 UTC; ein Tag gehört **genau einer** Saison (FR-027)
-- [ ] T015 `SeasonCalendar` in `rpg-core/src/main/java/rpg/core/statistics/SeasonCalendar.java` — die konfigurierten Saisons, lückenlos und überschneidungsfrei (FR-048, FR-049)
-- [ ] T016 Test `SeasonCalendarTest` in `rpg-core/src/test/java/rpg/core/statistics/SeasonCalendarTest.java` — eine Lücke, eine Überschneidung und ein `from > to` werden **je einzeln** zurückgewiesen, und die Meldung nennt die beiden beteiligten Saisonschlüssel
+- [X] T013 [P] `Period` in `rpg-core/src/main/java/rpg/core/statistics/Period.java` — `DAY`, `WEEK`, `SEASON`, `ALL_TIME`; **alles in UTC**, weil die gespeicherte Tagesangabe es bereits ist (FR-026)
+- [X] T014 [P] Test `PeriodBoundariesTest` in `rpg-core/src/test/java/rpg/core/statistics/PeriodBoundariesTest.java` — die Woche beginnt montags (ISO), der Tag um 00:00 UTC; ein Tag gehört **genau einer** Saison (FR-027)
+- [X] T015 `SeasonCalendar` in `rpg-core/src/main/java/rpg/core/statistics/SeasonCalendar.java` — die konfigurierten Saisons, lückenlos und überschneidungsfrei (FR-048, FR-049)
+- [X] T016 Test `SeasonCalendarTest` in `rpg-core/src/test/java/rpg/core/statistics/SeasonCalendarTest.java` — eine Lücke, eine Überschneidung und ein `from > to` werden **je einzeln** zurückgewiesen, und die Meldung nennt die beiden beteiligten Saisonschlüssel
 
 ### Konfiguration
 
