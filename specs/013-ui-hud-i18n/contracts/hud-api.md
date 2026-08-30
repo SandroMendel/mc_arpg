@@ -44,15 +44,36 @@ wo sie ist, und wird nicht hinter `HudRenderer` gezogen (FR-024).
 ## §2 · `ItemRenderer`
 
 ```
-ItemStack render(ItemId item, RenderContext context);
+Optional<ItemStack> render(String templateKey, ItemRenderContext context);
+
+record ItemRenderContext(LadderSlot slot, double condition, int amount) {}
 ```
 
 Die zweite Naht aus Constitution III.4, für die Darstellung von Gegenständen — Anzeigename, Lore,
 Zustandsbalken. Sie liegt hier, weil ein Resource Pack genau an dieser Stelle etwas anderes tun
 würde.
 
+**Die Naht spricht B11s Vokabular** (FR-021). Ein früherer Entwurf stand hier als
+`render(ItemId, RenderContext)` — beide Typen gibt es nirgends, weder im Modell noch im Baum. Sie
+sind ersetzt durch das, was B11 tatsächlich führt:
+
+| Früher | Jetzt | Woher |
+|---|---|---|
+| `ItemId` | `String templateKey` | `ItemStackFactory.create(String templateKey, int amount)` nimmt genau diesen |
+| `RenderContext` | `ItemRenderContext` | `LadderSlot` und der `double` aus `GearCondition.of(slot)`, dazu die Stückzahl |
+
+Eine eigene Kennung für denselben Gegenstand wäre eine zweite Identität und damit eine zweite
+Wahrheit. `Optional`, weil `ItemStackFactory.create` bei unbekanntem Schlüssel leer zurückgibt und
+diese Naht das nicht in eine Ausnahme umdeuten soll.
+
 **Zusage:** Was ein Gegenstand *ist*, entscheidet B11. Diese Naht entscheidet nur, wie er aussieht.
 Sie liest `Items` und `GearConditions` und schreibt in keines von beiden.
+
+**Zusage:** Die Umsetzung **baut nichts zweit** (FR-021a). `PaperItemRenderer` reicht an
+`ItemStackFactory.create` und `GearConditionDisplay.paint` durch — beide stehen in
+`rpg-platform/src/main/java/rpg/platform/item/` und tun genau das schon. Ein eigener Lore-Aufbau
+neben B11s wäre zwei Renderer für denselben Gegenstand, und die driften auseinander, sobald einer
+von beiden angefasst wird.
 
 ### Warum beide Nähte in `rpg-platform` liegen
 

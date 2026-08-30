@@ -23,6 +23,7 @@ Vier Anzeigen sind über die letzten Blöcke entstanden, jede für sich sinnvoll
 abgestimmt:
 
 - **`StatusActionBar`** (B05/B06) schreibt HP, Mana, Verteidigung und Fortschritt in die Actionbar.
+  *(Den Fortschritt gibt sie in diesem Block ab — siehe FR-002a. Hier steht, was **heute** ist.)*
   Sie ist ausdrücklich *nicht* `HudRenderer` genannt — ihr Javadoc sagt, der Name bleibe B13
   reserviert, weil ein größerer Name B13 gezwungen hätte, zwei Abstraktionen zu versöhnen statt
   eine zu erweitern. Sie zeichnet ereignisgesteuert und dazu einmal je Sekunde, weil Minecraft die
@@ -99,6 +100,39 @@ erzeugen erfundene Annahmen. Alle sechs sind beantwortet und im Blockdokument fe
   Fenster** — `/coins` bleibt stehen, bis B14 die Kommandos einsammelt. Eine Eingabegeste ist
   Präsentation, ein Kommando mit Rechtebaum und Tab-Completion ist es nicht.
 
+### Session 2026-08-30 — die Nachprüfung durch `/speckit-analyze`
+
+Die Querprüfung gegen `tasks.md` und die Constitution hat zehn Punkte gefunden. Die zehn Antworten:
+
+- Q: FR-002 gibt der Actionbar den Fortschritt, FR-005 der Sidebar Level und Erfahrung — dieselben
+  Zahlen. Wer behält sie? → A: **Die Sidebar.** Die Actionbar verliert den Fortschritt
+  (FR-002a); `StatusActionBar.progressText` entfällt beim Umzug hinter `HudRenderer`. Das ist der
+  Punkt des Blocks: die Actionbar hört auf, alles zu tragen.
+- Q: Und die Vanilla-Erfahrungsleiste, die dieselben Zahlen ein drittes Mal zeigt? → A: Sie ist die
+  **eine benannte Ausnahme** von FR-001 (FR-001a). Eine zweite ist ausgeschlossen (FR-001b) — zwei
+  Ausnahmen, und die Zusage bedeutet nichts mehr.
+- Q: FR-024 nimmt `AbilityHotbar` von Constitution III.4 aus — reicht ein Satz in den Assumptions?
+  → A: **Nein.** Die Governance verlangt für jede Abweichung einen ADR; ein Satz in den Assumptions
+  ist die stille Neuinterpretation, die sie ausschließt (FR-024a).
+- Q: FR-009 verlangt „unmittelbar", aber nur die Bossbar hatte Anlassquellen. → A: Die Sidebar
+  bekommt die Ereignispfade, die es gibt: `ProgressChangedEvent`, `LevelUpEvent`, `ZoneChangedEvent`.
+- Q: Und die Coins? → A: **B08b meldet keine Buchung als Ereignis** — es gibt in
+  `rpg.core.currency` keinen Ereignistyp. Die Coin-Zeile bleibt am Sammeltakt und steht bis zu eine
+  Sekunde später (FR-009a). Nachgerüstet wird nichts: ein Ereignis in einem fremden Block ist genau
+  der Eingriff, den dieser Block an drei anderen Stellen ablehnt.
+- Q: Was passiert mit der Bossbar beim Abmelden? → A: Sie wird entfernt (FR-004c). Der Edge Case
+  nannte drei Dinge; abgedeckt waren zwei.
+- Q: `ItemId` und `RenderContext` stehen in der Signatur, aber nirgends im Code. → A: Sie entfallen.
+  Die Naht spricht **B11s Vokabular**: `templateKey` wie `ItemStackFactory.create` ihn nimmt, und
+  der Zustand als `double` aus `GearCondition.of` (FR-021). Die Umsetzung benutzt B11s Bauteile,
+  statt Lore und Zustandsbalken zweitzubauen (FR-021a).
+- Q: Erreicht eine nachgeladene Konfiguration den laufenden Takt? → A: Sie muss (FR-013c). Werte
+  werden je Durchlauf gelesen, nicht beim Start eingefroren.
+- Q: Wer sichert die vier „nicht anfassen"-Zusagen? → A: Ein Wächter (FR-071a). Jede andere Zusage
+  dieses Blocks hat einen Test; diese vier hatten nur den Augenschein.
+- Q: Und die Flächenzuordnung selbst? → A: Auch maschinell (FR-001c) — ein Test zählt je Wert die
+  Flächen.
+
 ### Korrektur am selben Tag
 
 Die Frage nach den GUIs war ursprünglich mit „für Statistiken gibt es heute nur das Hologramm"
@@ -134,10 +168,19 @@ auf keiner zweiten.
    Bossbar den Zonennamen und blendet nach der konfigurierten Dauer wieder aus.
 3. **Given** ein Charakter in der Sidebar-Ansicht, **When** sich Level, XP, Coins oder Zone ändern,
    **Then** ändert sich genau die betroffene Zeile und keine andere.
+3a. **Given** ein Charakter mit offener Sidebar, **When** er aufsteigt oder eine Zone betritt,
+   **Then** steht die neue Zeile **sofort** und nicht erst beim nächsten Sammeltakt (FR-009).
+3b. **Given** derselbe Charakter, **When** er Coins verdient, **Then** darf die Zeile bis zum
+   nächsten Sammeltakt brauchen — B08b meldet keine Buchung (FR-009a). Das ist die einzige Zeile,
+   für die das gilt.
+3c. **Given** ein Charakter mit Fortschritt, **When** er auf die Actionbar sieht, **Then** steht
+   dort **kein** Level und keine Erfahrung mehr — die trägt die Sidebar (FR-002a).
 4. **Given** zwei gleichzeitige Anlässe für die Bossbar — Zonenwechsel und Bosskampf —, **When**
    beide anstehen, **Then** gewinnt der Bosskampf, und der Zonenname wird nicht dazwischengeschoben.
 5. **Given** ein Spieler ohne gewählten Charakter, **When** er sich anmeldet, **Then** zeigt keine der
    drei Flächen Werte, die es für ihn noch nicht gibt.
+6. **Given** ein Spieler mit stehender Bossbar, **When** er sich abmeldet und wieder anmeldet,
+   **Then** steht keine alte Leiste mehr (FR-004c).
 
 ---
 
@@ -272,7 +315,12 @@ der neuen Sprache, und ein fehlender Schlüssel bricht den Start ab.
   Übersicht offen ist. Der Inhalt gehörte dann einem Charakter, den er nicht mehr spielt — das
   Fenster wird geschlossen (FR-055).
 - **Abmeldung mitten in einer Anzeige.** Cooldown läuft, Schadenszahl schwebt, Bossbar steht. Nichts
-  davon darf den Spieler überleben oder beim nächsten Anmelden falsch wieder auftauchen.
+  davon darf den Spieler überleben oder beim nächsten Anmelden falsch wieder auftauchen. Die drei
+  sind ausdrücklich **drei** Fälle und nicht einer: der Cooldown muss die Abmeldung überstehen und
+  mit der Restzeit zurückkommen (FR-033), die Schadenszahl muss von selbst verfallen (FR-044), und
+  die Bossbar muss beim Abmelden **weggeräumt** werden (FR-004c) — eine Bossbar, die an einem
+  Spielerobjekt hängt, das der Server nicht mehr führt, ist genau die Sorte Rest, die B10s
+  Aufräumen und B12s Hologramm je einmal getroffen hat.
 - **Serverneustart mit Display-Entities in der Welt.** Schadenszahlen sind Entities. Ein harter
   Abbruch darf keine übrig lassen, die niemand mehr aufräumt — dieselbe Klasse Fehler, die B10s
   Aufräumen und B12s Hologramm bereits einmal getroffen hat.
@@ -294,9 +342,25 @@ der neuen Sprache, und ein fehlender Schlüssel bricht den Start ab.
 ### Die drei Flächen
 
 - **FR-001**: Das System MUSS die Spieleranzeige auf genau drei Vanilla-Flächen verteilen:
-  Actionbar, Bossbar und Scoreboard. Jeder Wert gehört genau einer Fläche.
-- **FR-002**: Das System MUSS die **Actionbar** für die laufenden Werte benutzen: Leben, Mana,
-  Verteidigung und Fortschritt.
+  Actionbar, Bossbar und Scoreboard. Jeder Wert gehört genau einer dieser drei Flächen.
+- **FR-001a**: Es gibt **genau eine benannte Ausnahme**: die Vanilla-Erfahrungsleiste (FR-006). Sie
+  zeigt Level und Erfahrung ein zweites Mal, obwohl die Sidebar sie trägt. Das ist zugelassen, weil
+  sie keine Zuordnungsentscheidung dieses Blocks ist, sondern eine Vanilla-Fläche, die B06 bereits
+  bespielt und die ein Spieler ohnehin am unteren Bildrand sieht — sie abzuschalten wäre ein
+  Eingriff in einen fremden Block ohne Gewinn. Die Herzleiste (FR-007) ist keine Ausnahme, sondern
+  eine andere Größe: sie zeigt Leben als Prozentwert, nicht als Zahl der Actionbar.
+- **FR-001b**: Eine **zweite** Ausnahme ist ausgeschlossen. Zwei Ausnahmen und die Zusage aus FR-001
+  bedeutet nichts mehr — dann prüft der Wächter aus FR-001c nur noch, was übrig blieb.
+- **FR-001c**: Das System MUSS diese Zuordnung **maschinell** prüfen: ein Test geht jeden
+  anzeigbaren Wert durch und zählt die Flächen, auf denen er landet. Zwei sind ein Fehler, außer bei
+  der einen Ausnahme aus FR-001a.
+- **FR-002**: Das System MUSS die **Actionbar** für die laufenden Werte benutzen: Leben, Mana und
+  Verteidigung.
+- **FR-002a**: Die Actionbar zeigt **keinen Fortschritt mehr**. `StatusActionBar.progressText`
+  rendert heute Level, Erfahrung und Schwelle — genau die Zeilen, die FR-005 der Sidebar gibt. Beim
+  Umzug hinter `HudRenderer` entfällt dieser Teil. Das ist der eine Wert, den B13 der Actionbar
+  ausdrücklich **wegnimmt**, und der Grund, aus dem dieser Block überhaupt drei Flächen ordnet: die
+  Actionbar hört auf, alles zu tragen.
 - **FR-003**: Das System MUSS die **Bossbar** für das Situative benutzen: Zonenname beim Betreten,
   Bosskampf und kanalisierte Fähigkeit.
 - **FR-004**: Das System MUSS bei mehreren gleichzeitigen Anlässen für die Bossbar die Rangfolge
@@ -308,10 +372,14 @@ der neuen Sprache, und ein fehlender Schlüssel bricht den Start ab.
   ist.
 - **FR-004b**: Es gibt **genau eine** Bossbar je Spieler. Mehrere stapeln sich am oberen Bildrand
   und machen die Fläche unlesbar.
+- **FR-004c**: Das System MUSS die Bossbar eines Spielers beim **Abmelden entfernen**. Beim nächsten
+  Anmelden steht keine alte Leiste — weder ein Zonenname von gestern noch ein Bosskampf, der längst
+  entschieden ist.
 - **FR-005**: Das System MUSS das **Scoreboard** als Sidebar mit Level, Erfahrung, Coins und Zone
   benutzen.
 - **FR-006**: Das System MUSS die Vanilla-Erfahrungsleiste weiterhin als Anzeige von Level und
-  Erfahrung des aktiven Charakters führen und DARF sie nicht als eigenen Wert behandeln.
+  Erfahrung des aktiven Charakters führen und DARF sie nicht als eigenen Wert behandeln. Sie ist die
+  **eine benannte Ausnahme** von FR-001 (siehe FR-001a); `ExperienceBar` bleibt unverändert.
 - **FR-007**: Das System MUSS die Herzleiste in jeder Lage als korrekten Prozentwert des eigenen
   Lebens zeigen (ADR-003).
 - **FR-008**: Das System DARF einem Spieler ohne gewählten Charakter keine Werte zeigen, die es für
@@ -319,7 +387,17 @@ der neuen Sprache, und ein fehlender Schlüssel bricht den Start ab.
 
 ### Aktualisierung
 
-- **FR-009**: Das System MUSS eine Anzeige bei jeder Wertänderung unmittelbar neu zeichnen.
+- **FR-009**: Das System MUSS eine Anzeige bei jeder Wertänderung unmittelbar neu zeichnen, sofern
+  der führende Block die Änderung als Ereignis meldet. Für die Sidebar sind das
+  `ProgressChangedEvent` und `LevelUpEvent` (B06, Level und Erfahrung) sowie `ZoneChangedEvent`
+  (B09, Zone).
+- **FR-009a**: **Der Coin-Stand ist die eine Ausnahme.** B08b meldet eine Buchung nicht als
+  Ereignis — es gibt in `rpg.core.currency` keinen Ereignistyp, nur `CoinLedger` und
+  `BookingResult`. Die Coin-Zeile folgt deshalb dem Sammeltakt aus FR-010 und steht bis zu eine
+  Sekunde später. Das System DARF dafür **kein** Ereignis in B08b nachrüsten: B13 übernimmt die
+  Anzeige, nicht die Entscheidung (FR-074), und ein Ereignis in einem fremden Block wäre genau der
+  Eingriff, den FR-024 und FR-070 bis FR-071 an anderer Stelle untersagen. Wenn die Verzögerung
+  später stört, gehört das Ereignis in B08b und nicht hierher.
 - **FR-010**: Das System MUSS zusätzlich **einen** Sammeltakt je Sekunde führen, der alle Spieler in
   **einem** Durchlauf bedient.
 - **FR-011**: Das System MUSS die Actionbar in diesem Takt erneut senden, weil Minecraft sie sonst
@@ -332,6 +410,10 @@ der neuen Sprache, und ein fehlender Schlüssel bricht den Start ab.
 - **FR-013b**: Das System DARF **keinen dauerhaften Zustand je Spieler oder Charakter** führen. Es
   gibt keine persönliche Anzeigeeinstellung, also auch kein Schema in B02 — ein Block, der nur
   zeichnet, speichert nichts.
+- **FR-013c**: Eine nachgeladene Konfiguration MUSS den laufenden Sammeltakt **erreichen**: Takt,
+  Abschaltungen und Lebensdauern werden bei jedem Durchlauf gelesen und nicht beim Start
+  eingefroren. Ein Takt, der seine Werte einmal festhält, meldet nach dem Nachladen Erfolg und
+  arbeitet weiter mit den alten — der Betreiber sieht dann eine Änderung, die nicht stattfindet.
 
 ### Texte und Sprachen
 
@@ -354,12 +436,25 @@ der neuen Sprache, und ein fehlender Schlüssel bricht den Start ab.
 - **FR-020**: Das System MUSS die Ausgabe hinter einer Schnittstelle `HudRenderer` führen, sodass
   ein pack-fähiger Renderer später eingesetzt werden kann, ohne Spiellogik anzufassen (ADR-005).
 - **FR-021**: Das System MUSS die Darstellung von Gegenständen hinter einer Schnittstelle
-  `ItemRenderer` führen.
+  `ItemRenderer` führen. Sie spricht **B11s Vokabular**: ein Gegenstand wird über seinen
+  `templateKey` benannt, wie `ItemStackFactory.create` ihn nimmt, und sein Zustand über den
+  `double`, den `GearCondition.of(LadderSlot)` liefert. B13 erfindet dafür **keine** eigene
+  Kennung — eine zweite Identität für denselben Gegenstand wäre eine zweite Wahrheit.
+- **FR-021a**: Die Umsetzung dieser Naht MUSS B11s vorhandene Bauteile benutzen —
+  `ItemStackFactory` für den Gegenstand, `GearConditionDisplay.paint` für den Zustandsbalken — und
+  DARF Anzeigename, Lore und Zustandsbalken **nicht zweitbauen**. Zwei Renderer für denselben
+  Gegenstand driften auseinander, und der Fehler zeigt sich zuerst dem Spieler.
 - **FR-022**: Ein Wechsel des `HudRenderer` DARF keine Änderung an B04, B05 oder B08 erfordern.
 - **FR-023**: Das System MUSS `StatusActionBar` in diese Ordnung überführen, ohne dass ein
   vorhandener Wert dabei verschwindet.
 - **FR-024**: Das System DARF `AbilityHotbar` aus B08 **nicht** umbauen und **nicht** hinter
   `HudRenderer` ziehen.
+- **FR-024a**: FR-024 ist eine **Abweichung von Constitution III.4** („Rendering und Eingabe liegen
+  hinter Schnittstellen") und MUSS deshalb als ADR in `02-decisions.md` festgehalten werden — mit
+  Begründung, Alternative und Auswirkung, wie die Governance es verlangt. Die Entscheidung selbst
+  ist tragfähig; ungeschrieben wäre sie eine stille Neuinterpretation, und genau die schließt die
+  Constitution aus. Der ADR nennt auch, was der Preis ist: ein pack-fähiger Client müsste die
+  Skill-Leiste später nachziehen.
 
 ### Cooldowns
 
@@ -425,6 +520,11 @@ der neuen Sprache, und ein fehlender Schlüssel bricht den Start ab.
 
 - **FR-070**: Das System DARF `ClassSelectionMenu` aus B07 nicht umbauen.
 - **FR-071**: Das System DARF `StatisticsMenu` und `LeaderboardMenu` aus B12 nicht umbauen.
+- **FR-071a**: Die Zusagen aus FR-024, FR-070 und FR-071 MÜSSEN **maschinell** gesichert sein — ein
+  Wächter, der `rpg/platform/ui/` danach durchsucht, ob `AbilityHotbar`, `ClassSelectionMenu`,
+  `StatisticsMenu` oder `LeaderboardMenu` dort auftauchen. B13 sichert jede andere Zusage per Test;
+  ausgerechnet die vier „nicht anfassen" nur dem Augenschein zu überlassen, hieße, sie beim ersten
+  gut gemeinten Umbau zu verlieren.
 - **FR-072**: Das System DARF keinen Skilltree bauen.
 - **FR-073**: Das System DARF kein Resource Pack voraussetzen (ADR-005).
 - **FR-074**: Das System DARF keine eigene Spiellogik einführen. Was gezeichnet wird, entscheiden die

@@ -167,6 +167,7 @@ rpg-platform/src/main/java/rpg/platform/ui/          # neu — Paper erlaubt
 ├── ItemRenderer.java                        # dito, fuer Gegenstaende
 ├── PaperHudRenderer.java                    # die Vanilla-Umsetzung
 ├── HudTick.java                             # DER eine Sammeltakt (R1)
+├── HudRefresh.java                          # EIN Eingang "zeichne jetzt neu" (FR-009)
 ├── PaperBossBar.java                        # eine Bossbar je Spieler (FR-004b)
 ├── PaperSidebar.java                        # das Scoreboard
 ├── AbilityCooldownOverlay.java              # das Vanilla-Overlay (R5, R6)

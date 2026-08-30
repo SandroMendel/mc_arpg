@@ -122,7 +122,15 @@ dass es *ankommt*, sieht nur ein Bildschirm.
 Schritte (allein machbar, sofern nicht anders vermerkt):
 
 1. Anmelden — Actionbar, Sidebar und XP-Leiste stehen da, die Bossbar nicht.
+1a. **Hinsehen, wo nichts steht**: die Actionbar trägt Leben, Mana und Verteidigung — **kein Level
+    und keine Erfahrung** (FR-002a). Die stehen auf der Sidebar. Die XP-Leiste am unteren Rand
+    zeigt sie ein zweites Mal; das ist die eine zugelassene Ausnahme (FR-001a). **Mehr als diese
+    eine Doppelung darf nirgends zu sehen sein.**
 2. Schaden nehmen — Actionbar ändert sich sofort, Herzleiste zeigt den richtigen Prozentwert.
+2a. Aufsteigen und eine Zone betreten — die Sidebar-Zeilen ändern sich **sofort**, nicht erst
+    sichtbar verzögert (FR-009). Danach Coins verdienen: diese Zeile **darf** bis zu eine Sekunde
+    brauchen (FR-009a). Das ist kein Fehler, sondern die Grenze, die B08b setzt — wer sie für einen
+    Bug hält, liest T056d.
 3. Eine Zone betreten — die Bossbar nennt den Zonennamen und **verschwindet** nach der
    konfigurierten Dauer.
 4. Eine Fähigkeit mit Kanalisierung auslösen — der Balken läuft, und er **verdrängt** einen
@@ -132,6 +140,8 @@ Schritte (allein machbar, sofern nicht anders vermerkt):
 7. Zonenwechsel **während** eines Bosskampfs — der Zonenname kommt nicht, auch nicht später.
 8. Eine Fähigkeit auslösen — das graue Overlay läuft über **ihrem** Slot und über keinem zweiten.
 9. Ab- und wieder anmelden, während ein Cooldown läuft — die Restzeit stimmt.
+9a. Dasselbe mit **stehender Bossbar**: abmelden, während der Zonenname oder ein Bosskampf oben
+    steht, und wieder anmelden — es steht **keine alte Leiste** da (FR-004c).
 10. Eine Kreatur schlagen — die Zahl steht am Trefferort und verschwindet wieder.
 11. `/char` — die Übersicht zeigt **jedes** Attribut, die Ausrüstung und ihren Zustand.
 12. Charakter wechseln, während `/char` offen ist — das Fenster **schließt**.
@@ -139,6 +149,9 @@ Schritte (allein machbar, sofern nicht anders vermerkt):
 14. `/coins` — dasselbe Fenster wie vorher.
 15. `sidebar.enabled: false` setzen, neu starten — keine Sidebar, und im Log keine Spur davon, dass
     trotzdem gerechnet wird.
+15a. Dasselbe **ohne Neustart**: `sidebar.enabled: false` setzen und nachladen — die Sidebar
+    verschwindet beim nächsten Takt (FR-013c). Bleibt sie stehen, hat der Takt seine Konfiguration
+    beim Start eingefroren, und das Nachladen hat Erfolg gemeldet, ohne etwas zu ändern.
 16. Eine zweite Sprachdatei anlegen, `language` umstellen, neu starten — **jeder** Text ist die
     neue Sprache, einschließlich der Zonen- und Artnamen aus B09 und B10.
 17. Aus derselben Datei einen Schlüssel entfernen, neu starten — der Start bricht ab und nennt ihn.

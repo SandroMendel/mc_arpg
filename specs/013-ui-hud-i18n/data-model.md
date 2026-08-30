@@ -26,7 +26,7 @@ Der geprüfte Inhalt von `ui.yml`. Schema und Regeln in
 | `actionBar` | `SurfaceSetting` | — |
 | `bossBar` | `SurfaceSetting` | — |
 | `sidebar` | `SurfaceSetting` | — |
-| `zoneNoticeDuration` | `Duration` | positiv; wie lange der Zonenname steht |
+| `zoneNoticeDuration` | `Duration` | positiv; wie lange der Zonenname steht. **Gelesen aus `hud.boss-bar.zone-notice-seconds`** (Ganzzahl Sekunden) und dort in eine `Duration` umgerechnet — das Modell führt eine Dauer, die Datei eine Zahl mit Einheit im Namen. `UiConfigSchema` ist die einzige Stelle, die beides kennt |
 | `damageNumbers` | `DamageNumberSetting` | — |
 
 ### `SurfaceSetting`
@@ -68,7 +68,7 @@ einmal meldet (R8).
 
 | Wert | Rolle | Was darauf steht |
 |---|---|---|
-| `ACTION_BAR` | die laufenden Werte | Leben, Mana, Verteidigung, Fortschritt |
+| `ACTION_BAR` | die laufenden Werte | Leben, Mana, Verteidigung |
 | `BOSS_BAR` | das Situative | Zonenname, Bosskampf, Kanalisierung |
 | `SIDEBAR` | die Übersicht | Level, XP, Coins, Zone |
 
@@ -76,6 +76,15 @@ einmal meldet (R8).
 Konfiguration: sie zur Wahl zu stellen hieße, jedem Betreiber die Frage zu überlassen, die dieser
 Block gerade beantwortet hat — und zwei Flächen, die denselben Wert tragen, sind kein Layout,
 sondern eine doppelte Wahrheit auf dem Bildschirm.
+
+> **Die Actionbar hat den Fortschritt verloren** (FR-002a). `StatusActionBar.progressText` rendert
+> heute `level`, `xp` und `xpNext` — genau die zwei Sidebar-Zeilen. Beim Umzug hinter `HudRenderer`
+> entfällt dieser Teil. Wer die alte Zeile sucht: sie steht jetzt links, nicht mehr unten.
+>
+> **Eine benannte Ausnahme, und nur eine** (FR-001a): die Vanilla-Erfahrungsleiste zeigt Level und
+> Erfahrung ein zweites Mal. Sie ist keine Zuordnungsentscheidung dieses Blocks, sondern eine
+> Fläche, die B06 bespielt — `ExperienceBar` bleibt unverändert. Eine **zweite** Ausnahme ist
+> ausgeschlossen (FR-001b), sonst prüft der Wächter aus FR-001c nur noch, was übrig blieb.
 
 ### `BossBarOccasion` (Aufzählung, **geordnet**)
 
@@ -114,12 +123,23 @@ Methode existiert und antwortet für eine Kreatur genauso wie für einen Spieler
 Welche Zeile welchen Wert trägt. Jede Zeile ist ein Message-Schlüssel mit Platzhaltern, nie ein
 Text (Prinzip V).
 
-| Zeile | Wert | Gelesen bei |
-|---|---|---|
-| Level | `ProgressView.level` | B06 |
-| Erfahrung | `ProgressView.xpInLevel` / `xpForNextLevel` | B06 |
-| Coins | `Currency` | B08b |
-| Zone | `ZoneChangedEvent.to`, sonst „Wildnis" | B09 |
+| Zeile | Wert | Gelesen bei | Neu gezeichnet durch |
+|---|---|---|---|
+| Level | `ProgressView.level` | B06 | `LevelUpEvent`, `ProgressChangedEvent` |
+| Erfahrung | `ProgressView.xpInLevel` / `xpForNextLevel` | B06 | `ProgressChangedEvent` |
+| Coins | `Currency` | B08b | **nur den Sammeltakt** (FR-009a) |
+| Zone | `ZoneChangedEvent.to`, sonst „Wildnis" | B09 | `ZoneChangedEvent` |
+
+> **Drei von vier Zeilen haben ein Ereignis, die vierte nicht.** In `rpg.core.currency` gibt es
+> keinen Ereignistyp — nur `CoinLedger`, `LedgerEntry` und `BookingResult`. Die Coin-Zeile folgt
+> deshalb dem Takt und steht bis zu eine Sekunde später (FR-009a). **Nachgerüstet wird nichts:** ein
+> Ereignis in B08b wäre der Eingriff in einen fremden Block, den dieser Block bei `AbilityHotbar`,
+> `ClassSelectionMenu` und B12s Fenstern ausdrücklich ablehnt. Wenn die Sekunde später stört, gehört
+> das Ereignis in B08b — als eigene Aufgabe, mit eigenem Namen.
+>
+> `StatusActionBar` hört auf `ProgressChangedEvent` und `LevelUpEvent` bereits (Zeilen 95 und 98).
+> Diese zwei Abonnements **wandern** nach `HudRefresh` — sie werden nicht ein zweites Mal daneben
+> angelegt.
 
 > `ProgressView.atMaxLevel()` ist ein eigenes Feld und keine abgeleitete Regel — am Maximum ist die
 > Schwelle 0, und `4120/0` sähe aus wie ein Fehler. `StatusActionBar` nutzt das bereits so; die
