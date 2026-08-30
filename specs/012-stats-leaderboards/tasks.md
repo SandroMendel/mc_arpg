@@ -298,10 +298,10 @@ den Endstand prüfen, den Anspruch einlösen und ein zweites Einlösen versuchen
 
 ### Abschluss und Einlösen
 
-- [ ] T115 [US5] `SeasonClosing` in `rpg-core/src/main/java/rpg/core/statistics/SeasonClosing.java` — friert den Endstand ein und legt Ansprüche an (FR-050, FR-052)
-- [ ] T116 [P] [US5] Test `ClosingIsIdempotentTest` in `rpg-core/src/test/java/rpg/core/statistics/ClosingIsIdempotentTest.java` — **FR-058, SC-009**: war der Server über das Saisonende hinweg aus, wird der Abschluss beim Start nachgeholt — **genau einmal**. Vorhandene Zeilen in `season_result` sind der Beleg
-- [ ] T117 [P] [US5] Test `EmptySeasonClosesCleanlyTest` in `rpg-core/src/test/java/rpg/core/statistics/EmptySeasonClosesCleanlyTest.java` — eine Saison ohne Teilnehmer erzeugt keinen Anspruch, und die nächste Saison startet trotzdem (Edge Case)
-- [ ] T118 [US5] `Seasons`-Fassade in `rpg-core/src/main/java/rpg/core/statistics/Seasons.java` — Signaturen nach [contracts/stats-api.md](./contracts/stats-api.md) §4, `ClaimOutcome` mit vier Ausgängen
+- [X] T115 [US5] `SeasonClosing` in `rpg-core/src/main/java/rpg/core/statistics/SeasonClosing.java` — friert den Endstand ein und legt Ansprüche an (FR-050, FR-052)
+- [X] T116 [P] [US5] Test `ClosingIsIdempotentTest` in `rpg-core/src/test/java/rpg/core/statistics/ClosingIsIdempotentTest.java` — **FR-058, SC-009**: war der Server über das Saisonende hinweg aus, wird der Abschluss beim Start nachgeholt — **genau einmal**. Vorhandene Zeilen in `season_result` sind der Beleg
+- [X] T117 [P] [US5] Test `EmptySeasonClosesCleanlyTest` in `rpg-core/src/test/java/rpg/core/statistics/EmptySeasonClosesCleanlyTest.java` — eine Saison ohne Teilnehmer erzeugt keinen Anspruch, und die nächste Saison startet trotzdem (Edge Case)
+- [X] T118 [US5] `Seasons`-Fassade in `rpg-core/src/main/java/rpg/core/statistics/Seasons.java` — Signaturen nach [contracts/stats-api.md](./contracts/stats-api.md) §4, `ClaimOutcome` mit vier Ausgängen
 - [ ] T119 [US5] `SeasonRewardClaimListener` in `rpg-platform/src/main/java/rpg/platform/statistics/SeasonRewardClaimListener.java` — offene Ansprüche beim nächsten Spielen anbieten (FR-052)
 - [ ] T120 [US5] Einlösen durch einen Charakter: Coins über B08b, Items über den Weg aus B11 (FR-054)
 - [ ] T121 [P] [US5] Test `FullInventoryKeepsTheClaimTest` in `rpg-platform/src/test/java/rpg/platform/statistics/FullInventoryKeepsTheClaimTest.java` — **FR-055**: kein Platz → Ablehnung mit Begründung, Anspruch bleibt offen, **und wird gar nicht erst markiert**
