@@ -16,6 +16,7 @@ import org.bukkit.event.inventory.InventoryCloseEvent;
 
 import rpg.core.statistics.Aggregation;
 import rpg.core.statistics.Period;
+import rpg.core.statistics.ProfileSnapshot;
 
 /**
  * <b>Ein</b> Zuhörer für alle Fenster dieses Blocks (FR-045).
@@ -40,7 +41,11 @@ import rpg.core.statistics.Period;
  */
 public final class StatisticsMenuListener implements Listener {
 
-    /** Was ein Spieler gerade offen hat. */
+    /**
+     * Was ein Spieler gerade offen hat.
+     *
+     * @param board die gezeigte Rangliste, oder {@code null} bei einem Profilfenster
+     */
     public record OpenView(Aggregation board, Period period) {}
 
     private final LeaderboardMenu menu;
@@ -62,6 +67,20 @@ public final class StatisticsMenuListener implements Listener {
     /** Was dieser Spieler gerade offen hat — für Tests und für das Umschalten. */
     public Optional<OpenView> openView(UUID playerId) {
         return Optional.ofNullable(open.get(playerId));
+    }
+
+    /**
+     * Öffnet ein Profilfenster.
+     *
+     * <p>Der Schnappschuss ist <b>fertig geladen</b>, wenn diese Methode gerufen wird — sie läuft
+     * im Tick und fragt nichts mehr nach.
+     */
+    public void openProfile(
+            Player player, StatisticsMenu menu, ProfileSnapshot profile, String ownerName) {
+        // Derselbe Bestand wie beim Ranglistenfenster: der Klick-Riegel unten fragt nur, OB ein
+        // Fenster dieses Blocks offen ist, nicht welches. Drei Fenster, ein Riegel (FR-045).
+        open.put(player.getUniqueId(), new OpenView(null, profile.period()));
+        player.openInventory(menu.build(profile, ownerName));
     }
 
     /**

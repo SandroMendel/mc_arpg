@@ -586,6 +586,17 @@ class FullBootstrapTest {
     }
 
     @Test
+    void theStatisticsCommandIsRegistered() {
+        // Der vierte unter derselben befristeten Lizenz. Die eigenen Zahlen anzusehen ist kein
+        // administrativer Akt - deshalb ebenfalls default: true.
+        assertThat(plugin.getCommand("stats")).isNotNull();
+        assertThat(plugin.getCommand("stats").getExecutor())
+                .isInstanceOf(rpg.plugin.command.StatisticsCommand.class);
+        assertThat(plugin.getCommand("stats").getPermission())
+                .isEqualTo(rpg.plugin.command.StatisticsCommand.PERMISSION);
+    }
+
+    @Test
     void thePickupAndWindowListenersAreRegistered() {
         // Two handlers on InventoryClickEvent belong to the currency window and the class selection;
         // what matters here is that the currency one is among them at all.

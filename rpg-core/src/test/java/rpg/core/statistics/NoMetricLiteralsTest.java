@@ -74,7 +74,13 @@ class NoMetricLiteralsTest {
             }
             String code = SourceGuard.codeOnly(Files.readString(source));
             for (String key : storedKeys) {
-                if (code.contains('"' + key)) {
+                // Ein gespeicherter Schluessel ist ENTWEDER der Familienname allein ODER er
+                // traegt eine Dimension hinter einem Punkt. Auf blosses Praefix zu pruefen war
+                // zu grob: "deathsByCause" als Parametername in einer Null-Pruefung schlug an,
+                // und das ist kein Metrikschluessel. Ein Waechter, der Richtiges anmeckert, wird
+                // irgendwann mit einer Ausnahmeliste versehen - und ab da prueft er weniger,
+                // als sein Name sagt.
+                if (code.contains('"' + key + '"') || code.contains('"' + key + '.')) {
                     violations.add(source.getFileName() + ": \"" + key + "\"");
                 }
             }

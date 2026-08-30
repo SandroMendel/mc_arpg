@@ -65,4 +65,17 @@ public final class StatisticsPersistenceModule {
     public LeaderboardFill fill() {
         return fill;
     }
+
+    /**
+     * Die rohe Leseseite fürs eigene Profil.
+     *
+     * <p>Als eigene Fabrikmethode und nicht über den Konstruktor oben: das Profil braucht keine
+     * Ranglisten, keine Auffrischung und keine Konfiguration — nur den Pool. Sie hier
+     * herauszureichen ist der einzige Weg, der die {@code DataSource} im Modul lässt.
+     */
+    public static rpg.core.statistics.RawStatisticsView rawView(
+            PersistenceModule persistence, rpg.core.scheduler.Scheduler scheduler) {
+        Objects.requireNonNull(persistence, "persistence");
+        return new JdbcStatisticsView(persistence.pools().loginPool(), scheduler);
+    }
 }

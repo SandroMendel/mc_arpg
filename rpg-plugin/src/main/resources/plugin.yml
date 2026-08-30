@@ -56,8 +56,16 @@ commands:
     description: 'Open a leaderboard.'
     usage: '/top [board] [period]'
     permission: rpg.statistics.top
+  stats:
+    description: 'Open your own record.'
+    usage: '/stats [period]'
+    permission: rpg.statistics.own
 
 permissions:
+  rpg.statistics.own:
+    description: 'Open your own record.'
+    # Fuer alle: die eigenen Zahlen anzusehen ist kein administrativer Akt.
+    default: true
   rpg.statistics.top:
     description: 'Open a leaderboard.'
     # Fuer alle: eine Rangliste ist zum Ansehen da, und ein Recht, das erst vergeben werden muss,

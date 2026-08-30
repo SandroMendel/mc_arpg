@@ -2019,7 +2019,58 @@ public class RpgPlugin extends JavaPlugin {
             getCommand("top").setTabCompleter(top);
         }
 
+        wireOwnProfile(leaderboards);
+
         startLeaderboardRefresh(statisticsModule.config().leaderboards().refreshInterval());
+    }
+
+    /**
+     * Das eigene Profil: Lesefassade, Lader, Fenster und {@code /stats}.
+     *
+     * <p><b>Kein Cache</b> — anders als bei den Ranglisten. Das Profil fragt nach <em>einem</em>
+     * Konto, und der Fragende ist der, dessen Zahlen es sind; ein Speicherstand zeigte ausgerechnet
+     * ihm veraltete Werte, direkt nachdem er etwas getan hat.
+     */
+    private void wireOwnProfile(rpg.core.statistics.Leaderboards leaderboards) {
+        rpg.core.statistics.StatisticsView statisticsView =
+                new rpg.core.statistics.StatisticsView(
+                        // Die DataSource bleibt hinter der Modulgrenze; hier kommt eine fertige
+                        // rohe Sicht heraus (NoDirectDatabaseAccessTest).
+                        rpg.persistence.statistics.StatisticsPersistenceModule.rawView(
+                                persistenceModule, scheduler),
+                        () -> statisticsModule.config().seasons(),
+                        Clock.systemUTC());
+
+        rpg.platform.statistics.ProfileLoader loader =
+                new rpg.platform.statistics.ProfileLoader(
+                        statisticsView,
+                        leaderboards,
+                        kindKey ->
+                                mobModule
+                                        .kinds()
+                                        .find(kindKey)
+                                        .map(rpg.core.mob.MobKind::boss)
+                                        .orElse(false));
+
+        rpg.platform.statistics.StatisticsMenu profileMenu =
+                new rpg.platform.statistics.StatisticsMenu(messages);
+
+        rpg.plugin.command.StatisticsCommand stats =
+                new rpg.plugin.command.StatisticsCommand(
+                        loader,
+                        (player, profile) ->
+                                // Das Laden lief asynchron; ein Inventar darf nur auf dem Tick
+                                // geoeffnet werden - und zwar auf dem des Spielers.
+                                scheduler.runSyncOnEntity(
+                                        new rpg.core.scheduler.EntityRef(player.getUniqueId()),
+                                        () ->
+                                                statisticsMenus.openProfile(
+                                                        player, profileMenu, profile, player.getName())));
+
+        if (getCommand("stats") != null) {
+            getCommand("stats").setExecutor(stats);
+            getCommand("stats").setTabCompleter(stats);
+        }
     }
 
     /**
