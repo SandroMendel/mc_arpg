@@ -86,34 +86,24 @@ public final class StatusActionBar {
         eventBus.subscribe(ResourceChangedEvent.class, event -> show(event.holderId()));
         // Defence and maximum health only move on a recalculation - a tier advance, a level, a buff.
         eventBus.subscribe(StatsRecalculatedEvent.class, event -> show(event.holderId()));
-        // Und die Erfahrung. Ueber den Spieler, den beide Ereignisse mitfuehren: die Zeile wird je
-        // Halter gezeichnet, und der Umweg ueber den Charakter waere eine Rueckwaertskarte, die
-        // dieses Modul sonst nirgends braucht.
+        // ProgressChangedEvent und LevelUpEvent standen hier bis B13 und sind UMGEZOGEN, nicht
+        // entfallen (T050b): sie haengen jetzt an rpg.platform.ui.HudRefresh und zeichnen dort den
+        // GANZEN HUD des Spielers, nicht mehr nur seine Actionbar. Der Grund ist FR-002a - Level
+        // und Erfahrung stehen auf der Sidebar, und ein Aufstieg muss dort ankommen.
         //
-        // B06 buendelt die Gewinne eines Fensters bereits zu einem Ereignis (FR-023a) - bei tausend
-        // Gewinnen je Sekunde ist das genau der Grund, warum hier kein Ereignis je Treffer ankommt.
-        eventBus.subscribe(ProgressChangedEvent.class, event -> show(event.playerId()));
-        // Der Stufenaufstieg getrennt davon: er aendert die Stufe auf der Zeile auch dann, wenn er
-        // von einem Betreiber kommt und gar kein Gewinn dahinterstand.
-        eventBus.subscribe(LevelUpEvent.class, event -> show(event.playerId()));
+        // VERSCHOBEN und nicht kopiert: zwei Abonnements auf dasselbe Ereignis hiessen zweimal
+        // zeichnen, und welcher Aufruf zuletzt kommt, haengt an der Registrierungsreihenfolge.
     }
 
-    /**
-     * Starts the refresh that keeps the line on screen.
-     *
-     * <p>Re-schedules itself rather than using a repeating task, because the scheduler has none by
-     * design (ADR-007). It stops on its own when the plugin is disabled: the scheduler then returns a
-     * cancelled handle and never runs the body that would schedule the next pass.
-     */
-    public void startRefresh(Supplier<List<UUID>> players) {
-        Objects.requireNonNull(players, "players");
-        scheduler.runAsyncDelayed(
-                REFRESH,
-                () -> {
-                    players.get().forEach(this::show);
-                    startRefresh(players);
-                });
-    }
+    // startRefresh(Supplier<List<UUID>>) stand hier bis B13 und ist ENTFALLEN (T049).
+    //
+    // Der Takt ist umgezogen, die Zeichnung ist geblieben: rpg.platform.ui.HudTick ist die
+    // ERWEITERUNG genau dieses Takts und kein zweiter daneben (R1, FR-010). Er war schon eine
+    // Sekunde lang, aus genau dem Grund, den FR-011 nennt, und plante sich schon nach ADR-007
+    // selbst neu ein - B13 hat ihm nur die zwei anderen Flaechen dazugegeben.
+    //
+    // Es bleibt bei EINEM Takt. Wer hier einen zweiten wiederherstellt, hat zwei Durchlaeufe je
+    // Sekunde, und welcher zuletzt sendet, haengt an der Registrierungsreihenfolge.
 
     /**
      * Draws the line for one holder, if it is a player with values.
@@ -172,7 +162,14 @@ public final class StatusActionBar {
         // bleibt nach dem Vertrag von Messages als {progress} stehen - sichtbar, und genau das ist
         // dort gewollt. Auf einer Zeile, die jede Sekunde neu gesendet wird, waere es kein Hinweis
         // mehr, sondern eine Ruine, die ein Betreiber ohne Klasse dauerhaft vor sich haette.
-        values.put("progress", current.hasProgress() ? progressText(current.progress()) : "");
+        // KEIN Fortschritt mehr (FR-002a). Bis B13 stand hier progressText(...) und damit Level,
+        // Erfahrung und Schwelle - genau die zwei Zeilen, die die Sidebar traegt. Dieselben Zahlen
+        // auf zwei Flaechen sind kein Layout, sondern eine doppelte Wahrheit auf dem Bildschirm.
+        //
+        // Der Platzhalter wird auch nicht mehr leer gesetzt: er ist aus den Actionbar-Texten in
+        // messages.yml verschwunden, und ein Wert ohne Platzhalter waere nur noch Ballast.
+        // ProgressView.atMaxLevel() ist dabei nicht verlorengegangen, sondern nach SidebarLines
+        // gewandert - dieselbe Unterscheidung, eine Flaeche weiter.
         // Drei Zeilen, nicht eine mit Luecken. Welche gilt, folgt aus dem Traeger und nicht aus einem
         // Schalter, den jemand zu setzen vergessen kann.
         MessageKey key;
@@ -186,32 +183,16 @@ public final class StatusActionBar {
         return Component.text(messages.get(key, values)).color(colourFor(percent));
     }
 
-    /**
-     * Stufe und Erfahrung als der Teil, der in die Spielerzeile eingesetzt wird.
-     *
-     * <p>Ein eigener Text statt vier weiterer Vollzeilen: Mana, Zaehler und Hoechststufe sind drei
-     * voneinander unabhaengige Ja/Nein, und als Vollzeilen waeren das acht Schluessel, die ein
-     * Betreiber alle gleich zu formatieren haette. Layout und Wortlaut stehen trotzdem
-     * ausschliesslich in {@code messages.yml} (Prinzip V); hier wird nur ausgewaehlt, welcher der
-     * beiden Texte gilt - dieselbe Auswahl, die die Zeile selbst schon dreifach trifft.
-     *
-     * <p>Am Maximum ist die Schwelle der naechsten Stufe 0, und {@code 4120/0} saehe aus wie ein
-     * Fehler. {@link ProgressView#atMaxLevel()} beantwortet das als eigenes Feld und nicht als
-     * abgeleitete Regel, damit nicht jeder Empfaenger sie leicht anders erfindet.
-     */
-    private String progressText(ProgressView progress) {
-        Map<String, String> values = new java.util.HashMap<>();
-        values.put("level", Integer.toString(progress.level()));
-        values.put("xp", Long.toString(progress.xpInLevel()));
-        MessageKey key;
-        if (progress.atMaxLevel()) {
-            key = CombatMessageKeys.STATUS_PROGRESS_MAX;
-        } else {
-            values.put("xpNext", Long.toString(progress.xpForNextLevel()));
-            key = CombatMessageKeys.STATUS_PROGRESS;
-        }
-        return messages.get(key, values);
-    }
+    // progressText(ProgressView) stand hier bis B13 und ist ENTFALLEN (FR-002a, T050a).
+    //
+    // Es rendert Level, Erfahrung und Schwelle - genau die zwei Zeilen, die seit B13 die Sidebar
+    // traegt. Die Unterscheidung "am Hoechstlevel keine Schwelle" ist dabei nicht verlorengegangen,
+    // sondern nach rpg.core.ui.SidebarLines gewandert: ProgressView.atMaxLevel() beantwortet sie
+    // dort weiterhin als eigenes Feld und nicht als abgeleitete Regel.
+    //
+    // Die Schluessel CombatMessageKeys.STATUS_PROGRESS und STATUS_PROGRESS_MAX bleiben stehen. Sie
+    // gehoeren B05/B06, nicht B13, und ein Block raeumt keine fremden Schluessel weg - das waere
+    // genau der Uebergriff, den FR-024 und FR-070/FR-071 an anderer Stelle untersagen.
 
     /**
      * Colour by how much is left - the part a player reads before the numbers.

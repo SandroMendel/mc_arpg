@@ -179,43 +179,45 @@ class StatusActionBarTest {
         assertThat(scheduler.entityTasks).isZero();
     }
 
+    // theRefreshDrawsForEveryone() und theRefreshReschedulesItself() standen hier bis B13.
+    //
+    // Sie pruefen den Takt, und der ist UMGEZOGEN: rpg.platform.ui.HudTick ist die Erweiterung
+    // genau dieses Takts und kein zweiter daneben (R1). Ihre Nachfolger stehen in HudTickTest als
+    // "T036: ueber mehrere Durchlaeufe bleibt es bei EINER eingeplanten Aufgabe" und "T037: der
+    // Takt bewaffnet sich am Ende jedes Durchlaufs neu" - und sie pruefen dort MEHR als vorher,
+    // naemlich auch, dass es bei einer Einplanung bleibt.
+    //
+    // Sie hier stehenzulassen haette bedeutet, den alten Takt am Leben zu halten, damit sein Test
+    // gruen bleibt. Das ist die Sorte Test, die eine Umsetzung festnagelt statt eine Zusage.
+
     @Test
-    @DisplayName("die Auffrischung zeichnet für jeden Spielenden, nicht nur im Kampf")
-    void theRefreshDrawsForEveryone() {
-        // Eine Actionbar blendet nach etwa zwei Sekunden aus. Eine dauerhafte Anzeige heißt deshalb:
-        // erneut senden - für jeden, nicht nur für den, der gerade kämpft.
+    @DisplayName("die Zeile zeichnet fuer jeden Spielenden, nicht nur im Kampf")
+    void thelineDrawsForEveryone() {
+        // Was von den zwei Takttests hierher gehoert: dass show(...) fuer jeden zeichnet und nicht
+        // nur fuer den, der gerade kaempft. Das ist eine Aussage ueber die Zeile und nicht ueber
+        // ihren Anlass - und die bleibt bei B05/B06.
         PlayerMock first = server.addPlayer();
         PlayerMock second = server.addPlayer();
         statuses.give(first.getUniqueId(), 100.0, 200.0, 5.0);
         statuses.give(second.getUniqueId(), 60.0, 200.0, 5.0);
 
-        bar.startRefresh(() -> List.of(first.getUniqueId(), second.getUniqueId()));
-        scheduler.runDelayedOnce();
+        bar.show(first.getUniqueId());
+        bar.show(second.getUniqueId());
 
         assertThat(actionBarOf(first)).contains("100/200");
         assertThat(actionBarOf(second)).contains("60/200");
     }
 
     @Test
-    @DisplayName("die Auffrischung plant sich selbst neu, sonst läuft sie genau einmal")
-    void theRefreshReschedulesItself() {
-        PlayerMock player = server.addPlayer();
-        statuses.give(player.getUniqueId(), 100.0, 200.0, 5.0);
-        bar.startRefresh(() -> List.of(player.getUniqueId()));
-
-        scheduler.runDelayedOnce();
-        player.nextActionBar();
-        scheduler.runDelayedOnce();
-
-        assertThat(actionBarOf(player)).as("der zweite Durchgang zeichnet wieder").isNotNull();
-    }
-
-    @Test
-    @DisplayName("Stufe und Erfahrung stehen auf derselben Zeile - nicht als Kugel am Boden")
-    void progressIsOnTheSameLine() {
-        // KEINE Erfahrungskugel: Coins liegen am Boden, weil man sie aufheben muss. Erfahrung
-        // bekommt man ohnehin, und eine zweite Sorte Bodenobjekte je Kill kostet Entitaeten und
-        // verdeckt die Coins.
+    @DisplayName("T047a: der Fortschritt steht NICHT mehr auf der Actionbar")
+    void progressIsNoLongerOnTheLine() {
+        // Die Umkehrung des Tests, der bis B13 hier stand. FR-002 gab der Actionbar den
+        // Fortschritt, FR-005 der Sidebar Level und Erfahrung - dieselben Zahlen. Die Sidebar
+        // behaelt sie (FR-002a), und das ist der eine Wert, den dieser Block einer Flaeche
+        // WEGNIMMT statt hinzuzufuegen.
+        //
+        // Dieser Test ist die Gegenprobe zu den drei verbleibenden Werten: er allein unterscheidet
+        // "entfernt" von "vergessen".
         PlayerMock player = server.addPlayer();
         statuses.giveWithProgress(
                 player.getUniqueId(),
@@ -229,12 +231,18 @@ class StatusActionBarTest {
         bar.show(player.getUniqueId());
 
         assertThat(actionBarOf(player))
-                .isEqualTo("620/2000 HP (31%) 75/300 MP DEF 148 LV 12 XP 340/1200");
+                .isEqualTo("620/2000 HP (31%) 75/300 MP DEF 148")
+                .doesNotContain("LV")
+                .doesNotContain("XP")
+                .doesNotContain("{progress}");
     }
 
     @Test
-    @DisplayName("auf der Hoechststufe steht kein 340/0 - das saehe aus wie ein Fehler")
-    void atTheMaximumTheThresholdIsNotPrinted() {
+    @DisplayName("T047: Leben, Mana und Verteidigung stehen nach dem Umzug unveraendert da")
+    void theThreeRemainingValuesSurvivedTheMove() {
+        // Die andere Haelfte der Zusage aus FR-023: beim Umzug hinter HudRenderer darf kein Wert
+        // VERSEHENTLICH verschwinden. Zusammen mit dem Test darueber ist die Zeile vollstaendig
+        // beschrieben - drei Werte da, einer bewusst weg.
         PlayerMock player = server.addPlayer();
         statuses.giveWithProgress(
                 player.getUniqueId(),
@@ -248,16 +256,25 @@ class StatusActionBarTest {
         bar.show(player.getUniqueId());
 
         assertThat(actionBarOf(player))
-                .as("FR-051 will einen fertigen Charakter als fertig gemeldet sehen")
-                .isEqualTo("620/2000 HP (31%) 75/300 MP DEF 148 LV 60 XP 4120 MAX")
-                .doesNotContain("/0");
+                .contains("620/2000")
+                .contains("31%")
+                .contains("75/300")
+                .contains("148");
     }
 
+    // atTheMaximumTheThresholdIsNotPrinted() stand hier bis B13.
+    //
+    // Der Fall gilt weiter, aber eine Flaeche weiter: "am Hoechstlevel steht kein 4120/0" ist jetzt
+    // eine Aussage ueber die Sidebar. Sein Nachfolger heisst in SidebarLinesTest "am Hoechstlevel
+    // traegt die Erfahrungszeile ihren eigenen Schluessel". ProgressView.atMaxLevel() beantwortet
+    // die Frage dort weiterhin als eigenes Feld und nicht als abgeleitete Regel.
+
     @Test
-    @DisplayName("Zaehler UND Fortschritt stehen nebeneinander, ohne einen vierten Zeilentext")
-    void meterAndProgressShareTheLine() {
-        // Der Grund, warum der Fortschritt ein eingesetzter Teil ist und keine eigene Vollzeile:
-        // sonst braeuchte diese Kombination einen achten Schluessel in messages.yml.
+    @DisplayName("der Zaehler bleibt auf der Zeile - er ist ein Kampfwert und kein Fortschritt")
+    void themeterStaysOnTheLine() {
+        // Der Berserker-Zaehler wandert NICHT mit: er gehoert zu den laufenden Kampfwerten, die
+        // FR-002 der Actionbar zuweist, und nicht zum Fortschritt. Der Test steht hier, damit der
+        // Umzug des Fortschritts ihn nicht versehentlich mitnimmt.
         PlayerMock player = server.addPlayer();
         statuses.giveWithMeterAndProgress(
                 player.getUniqueId(),
@@ -272,7 +289,8 @@ class StatusActionBarTest {
         bar.show(player.getUniqueId());
 
         assertThat(actionBarOf(player))
-                .isEqualTo("620/2000 HP (31%) 75/300 MP DEF 148 RAGE 47 LV 12 XP 340/1200");
+                .isEqualTo("620/2000 HP (31%) 75/300 MP DEF 148 RAGE 47")
+                .doesNotContain("LV");
     }
 
     @Test
@@ -309,12 +327,22 @@ class StatusActionBarTest {
                 new ProgressChangedEvent(
                         UUID.randomUUID(), player.getUniqueId(), 25L, 12, 340L, 1200L));
 
-        assertThat(actionBarOf(player)).contains("LV 12 XP 340/1200");
+        // SEIT B13 zeichnet die Actionbar auf dieses Ereignis NICHT mehr (T050b). Das Abonnement
+        // ist nach rpg.platform.ui.HudRefresh umgezogen, weil Level und Erfahrung auf der Sidebar
+        // stehen (FR-002a) - ein Aufstieg muss DORT ankommen, nicht hier.
+        //
+        // VERSCHOBEN und nicht kopiert: zwei Abonnements auf dasselbe Ereignis hiessen zweimal
+        // zeichnen, und welcher Aufruf zuletzt kommt, haengt an der Registrierungsreihenfolge.
+        // Sein Nachfolger heisst in HudRefreshEventsTest "ein Erfahrungsgewinn zeichnet die
+        // Sidebar sofort neu".
+        assertThat(player.nextActionBar())
+                .as("kein Fortschrittsereignis mehr auf dieser Flaeche")
+                .isNull();
     }
 
     @Test
-    @DisplayName("ein Stufenaufstieg zeichnet ebenfalls neu - auch der eines Betreibers")
-    void aLevelUpRedrawsItToo() {
+    @DisplayName("ein Stufenaufstieg zeichnet die Actionbar NICHT mehr - er gehoert der Sidebar")
+    void alevelUpNoLongerRedrawsTheActionBar() {
         PlayerMock player = server.addPlayer();
         statuses.giveWithProgress(
                 player.getUniqueId(),
@@ -329,7 +357,24 @@ class StatusActionBarTest {
 
         eventBus.publish(new LevelUpEvent(UUID.randomUUID(), player.getUniqueId(), 12, 13, true));
 
-        assertThat(actionBarOf(player)).contains("LV 13");
+        assertThat(player.nextActionBar()).isNull();
+    }
+
+    @Test
+    @DisplayName("die beiden Kampfereignisse zeichnen weiterhin - sie sind nicht mitgewandert")
+    void thetwoCombatEventsStillRedraw() {
+        // Die Gegenprobe zu den zwei Tests darueber: ResourceChangedEvent und
+        // StatsRecalculatedEvent gehoeren zu Leben, Mana und Verteidigung und bleiben hier. Ohne
+        // diesen Test koennte der Umzug alle vier Abonnements mitgenommen haben, und drei davon
+        // waeren still verloren.
+        PlayerMock player = server.addPlayer();
+        statuses.give(player.getUniqueId(), 500.0, 1000.0, 40.0, 200.0, 20.0);
+        EventBus eventBus = new DefaultEventBus(QUIET);
+        bar.subscribeTo(eventBus);
+
+        eventBus.publish(healthChange(player.getUniqueId()));
+
+        assertThat(actionBarOf(player)).contains("500/1000");
     }
 
     // --- fixtures ---

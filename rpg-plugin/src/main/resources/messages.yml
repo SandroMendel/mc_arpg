@@ -77,17 +77,24 @@ combat:
     # second while in combat, because Minecraft fades an action bar after about two seconds.
     # A player: health, mana, defence. The colour of the whole line follows health alone - it is the
     # number that decides whether to run.
-    action-bar: '{health}/{max} HP ({percent}%)   {mana}/{maxMana} MP   DEF {defense}   {progress}'
+    # SEIT B13 OHNE {progress}: Level und Erfahrung stehen auf der Sidebar (FR-002a). Dieselben
+    # Zahlen auf zwei Flaechen waeren kein Layout, sondern eine doppelte Wahrheit auf dem
+    # Bildschirm. Wer die alte Zeile sucht: sie ist umgezogen, nicht verschwunden.
+    action-bar: '{health}/{max} HP ({percent}%)   {mana}/{maxMana} MP   DEF {defense}'
     # A mob has no mana. Its own text rather than a placeholder that stays empty: 0/0 would take
     # space from three numbers that mean something.
     action-bar-no-mana: '{health}/{max} HP ({percent}%)   DEF {defense}'
     # Ein Spieler mit Zaehler - heute nur der Berserker. Eigener Text statt eines Platzhalters,
     # der bei Magier und Rogue leer bliebe: drei Zahlen, die etwas sagen, sollen ihren Platz
     # nicht an eine vierte verlieren, die nichts sagt.
-    action-bar-with-meter: '{health}/{max} HP ({percent}%)   {mana}/{maxMana} MP   DEF {defense}   RAGE {meter}   {progress}'
-    # Stufe und Erfahrung. Ein eigener Text, der oben als {progress} eingesetzt wird - Mana,
-    # Zaehler und Hoechststufe sind drei unabhaengige Ja/Nein, und als Vollzeilen waeren das acht
-    # Texte, die alle gleich zu formatieren waeren. Bei einem Mob bleibt {progress} leer.
+    action-bar-with-meter: '{health}/{max} HP ({percent}%)   {mana}/{maxMana} MP   DEF {defense}   RAGE {meter}'
+    # Stufe und Erfahrung.
+    #
+    # SEIT B13 UNBENUTZT auf der Actionbar - die Sidebar traegt beides (ui.sidebar.level und
+    # ui.sidebar.xp). Die zwei Schluessel bleiben trotzdem stehen: sie gehoeren B05/B06, und ein
+    # Block raeumt keine fremden Schluessel weg. Wer sie loescht, faellt bei der Startpruefung auf,
+    # weil CombatMessageKeys sie weiterhin anmeldet.
+    #
     # KEINE Erfahrungskugel am Boden: Coins liegen dort, weil man sie aufheben muss - Erfahrung
     # bekommt man ohnehin, und eine zweite Sorte Bodenobjekte je Kill kostet Entitaeten und
     # verdeckt die Coins.

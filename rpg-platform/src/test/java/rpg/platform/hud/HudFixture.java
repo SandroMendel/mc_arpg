@@ -171,22 +171,23 @@ final class HudFixture {
         for (MessageKey key : CombatMessageKeys.all()) {
             texts.put(key.value(), key.value());
         }
+        // SEIT B13 OHNE {progress}: Level und Erfahrung stehen auf der Sidebar (FR-002a). Die
+        // Vorlagen folgen der ausgelieferten messages.yml, die den Platzhalter ebenfalls verloren
+        // hat - eine Fixtur, die ihn behielte, pruefte eine Zeile, die es nicht mehr gibt.
         texts.put(
                 CombatMessageKeys.STATUS_ACTION_BAR.value(),
-                "{health}/{max} HP ({percent}%) {mana}/{maxMana} MP DEF {defense}{progress}");
+                "{health}/{max} HP ({percent}%) {mana}/{maxMana} MP DEF {defense}");
         texts.put(
                 CombatMessageKeys.STATUS_ACTION_BAR_NO_MANA.value(),
                 "{health}/{max} HP ({percent}%) DEF {defense}");
         texts.put(
                 CombatMessageKeys.STATUS_ACTION_BAR_WITH_METER.value(),
-                "{health}/{max} HP ({percent}%) {mana}/{maxMana} MP DEF {defense} RAGE"
-                        + " {meter}{progress}");
-        // Mit fuehrendem Leerzeichen IM Fortschrittstext statt in der Zeile: die ausgelieferte
-        // messages.yml trennt mit Leerzeichen vor dem Platzhalter, und ein Spieler ohne Charakter
-        // haette dann eine Zeile mit Leerzeichen am Ende. Hier haengt das Trennzeichen am Teil, der
-        // wegfaellt, damit die Tests ohne Fortschritt exakt bleiben.
-        texts.put(CombatMessageKeys.STATUS_PROGRESS.value(), " LV {level} XP {xp}/{xpNext}");
-        texts.put(CombatMessageKeys.STATUS_PROGRESS_MAX.value(), " LV {level} XP {xp} MAX");
+                "{health}/{max} HP ({percent}%) {mana}/{maxMana} MP DEF {defense} RAGE {meter}");
+        // Die zwei Fortschrittstexte bleiben in der Fixtur, obwohl die Actionbar sie nicht mehr
+        // einsetzt: sie gehoeren CombatMessageKeys und damit B05/B06, und ein Block raeumt keine
+        // fremden Schluessel weg. CombatMessageKeys.all() meldet sie weiterhin an.
+        texts.put(CombatMessageKeys.STATUS_PROGRESS.value(), "LV {level} XP {xp}/{xpNext}");
+        texts.put(CombatMessageKeys.STATUS_PROGRESS_MAX.value(), "LV {level} XP {xp} MAX");
         return new MapMessages(texts);
     }
 }
