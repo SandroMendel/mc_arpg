@@ -143,7 +143,7 @@ auf keiner zweiten.
 
 ### User Story 2 - Meine Charakterübersicht, an einer Stelle (Priority: P2)
 
-Ein Spieler will wissen, was sein Charakter eigentlich ist: die acht Attribute mit ihren aktuellen
+Ein Spieler will wissen, was sein Charakter eigentlich ist: jedes Attribut, das B04 führt, mit seinem aktuellen
 Werten, was er trägt, in welchem Zustand die Ausrüstung ist, welche Klasse, welches Level, wie viele
 Coins. Heute steht das über mehrere Blöcke verteilt und teils nirgends.
 
@@ -158,7 +158,7 @@ Werte sich mitbewegt haben.
 0. **Given** ein angemeldeter Charakter, **When** er `/char` ohne Argument eingibt, **Then** öffnet
    sich die Übersicht seines **aktiven** Charakters.
 1. **Given** ein Charakter mit angelegter Ausrüstung, **When** er die Übersicht öffnet, **Then** zeigt
-   sie alle acht Attribute mit den Werten, die B04 führt.
+   sie jedes Attribut aus `Attribute` mit dem Wert, den B04 führt — heute zehn.
 2. **Given** ein Ausrüstungsstück mit abgenutztem Zustand, **When** die Übersicht offen ist, **Then**
    ist der Zustand ablesbar, wie B11 ihn führt.
 3. **Given** eine offene Übersicht, **When** sich ein angezeigter Wert ändert, **Then** wird der
@@ -386,7 +386,7 @@ der neuen Sprache, und ein fehlender Schlüssel bricht den Start ab.
 
 ### Charakterübersicht
 
-- **FR-050**: Das System MUSS ein Fenster bereitstellen, das die acht Attribute des **aktiven**
+- **FR-050**: Das System MUSS ein Fenster bereitstellen, das **jedes** Attribut aus `Attribute` für den **aktiven**
   Charakters mit ihren aktuellen Werten zeigt.
 - **FR-051**: Das System MUSS darin die angelegte Ausrüstung und deren Zustand zeigen, wie B11 ihn
   führt.
