@@ -2595,3 +2595,55 @@ die `IN (...)`-Liste der Sichten mit den Maximum-Metriken des Verzeichnisses in 
 Wer eine Maximum-Metrik einträgt und die Sicht vergisst, bekommt einen roten Test — und nicht eine
 Rangliste, die still summiert. Eine summierte Höchstschadenzahl sähe nämlich wie eine plausible
 Zahl aus.
+
+---
+
+## ADR-050: Eine getaggte Kreatur ohne Registry-Eintrag wird entfernt, nicht adoptiert
+
+**Status:** Angenommen · **Datum:** 2026-08-30 · **Blöcke:** B10, B12, B11
+
+**Kontext.** `HordeRegistry` ist eine `LinkedHashMap` im Speicher und wird beim Start nicht
+wiederhergestellt. Die Kreaturen selbst überleben einen Neustart aber sehr wohl: sie stehen mit
+ihrem `MobKindTag` im `PersistentDataContainer` in der Weltdatei. Nach jedem Neustart lebt damit
+eine Population, die in keinem Bestand geführt wird.
+
+**Gefunden auf dem Testserver (2026-08-30)**, beim Versuch, B12s T147 abzuhaken: ein Kill gab
+Erfahrung, erzeugte aber keine `mob_kills`-Zeile. Der Grund waren zwei Wege zu derselben Frage —
+B06 liest das Tag an der Entität (`ProgressionDeathListener` → `MobKindTag.kindKeyOf`), B12 fragt
+die Registry (`KillStatListener` → `MobKinds.ofEntity`). Der eine überlebt den Neustart, der andere
+nicht.
+
+**Die Folgen reichen weiter als die eine fehlende Zeile.** Die Registry ist nicht nur ein
+Nachschlagewerk, sie **ist das Budget**. Steht die Population nicht darin, hält B10 den Platz für
+frei und spawnt darüber hinaus. Ihr eigenes Javadoc formuliert die Zusage, die dabei bricht: *„ein
+Budget, das man umgehen kann, ist keines."* Ebenso hängen B11s Beute (`could not drop loot for a
+death`) und B12s Todesursache an derselben Abfrage.
+
+**Entscheidung.** Beim Laden eines Chunks wird eine Kreatur mit unserem Tag, die **nicht** in der
+Registry steht, **entfernt**. Sie respawnt aus dem Budget wie jede andere. Damit gilt wieder, was
+das Startlog ohnehin behauptet — `the budget is now the only source of living creatures` —, und
+zwar auch nach einem Neustart, wo dieser Satz bisher schlicht unwahr war.
+
+**Begründung.** Die naheliegende Alternative wäre, die Kreatur zu **adoptieren**: sie beim Laden in
+die Registry aufzunehmen statt sie zu entfernen. Das klingt sparsamer und ist es nicht. Ein `Entry`
+braucht `zoneKey` — und zwar die **Ursprungs**zone, nicht die aktuelle, das ist FR-017 — sowie
+`spawnedAt`. Beides ist nach einem Neustart nicht rekonstruierbar: die Ursprungszone müsste
+zusätzlich ins Tag, der Zeitstempel wäre erfunden. Man bezahlt zwei neue Angaben und eine
+Halbwahrheit dafür, dass Kreaturen einen Neustart überleben — was keinen Spielwert hat, weil sie
+ohnehin nach Distanz und Zeit despawnen.
+
+**Nicht entschieden wurde, dass B12 das Tag lesen soll.** Das war der dritte Weg und er repariert
+eine Frage von dreien: B11 fragte weiter ins Leere, das Budget bliebe umgehbar, und wir hätten
+dauerhaft zwei Auflösungswege — genau die zweite Wahrheit, vor der `MobKinds` im eigenen Javadoc
+warnt. Jeder weitere Block baute sich dann seinen eigenen Rückfall.
+
+**Was trotzdem zu tun bleibt.** Vanilla-Wesen gibt es weiterhin, und für sie ist „nicht in der
+Registry" der Normalfall, kein Fehler. B12 muss den Fall also weiterhin abdecken — aber sichtbar:
+ein Tod durch ein nicht auflösbares Wesen gehört unter `deaths.environment`, nicht unter
+`deaths.player` (siehe B12 T150), und ein Kill an einem Vanilla-Tier zählt bewusst gar nicht
+(FR-006). Der Unterschied zwischen „gehört nicht dazu" und „wurde vergessen" muss im Code stehen.
+
+**Offen, bewusst festgehalten:** dass das Budget tatsächlich umgangen wird, ist ein **begründeter
+Verdacht und keine Messung**. Die Registry wurde zur Laufzeit nicht gegen die lebende Population
+gehalten. Vor der Umsetzung ist das die eine Zahl, die zu erheben ist — sie entscheidet, ob dies
+eine Aufräumarbeit ist oder ein Fehler mit Spielwirkung.
