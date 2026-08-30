@@ -40,6 +40,17 @@ libraries:
 # to be able to correct a balance now, and an interface with no way to call it is present and
 # unusable. B14 replaces the shell and leaves the interface standing (FR-046).
 commands:
+  # B13. VORLAEUFIG wie /coins, /stats und /top: Rechtebaum, Tab-Completion und die
+  # einheitliche Kommandostruktur bleiben B14 (FR-058). Dieser Block legt genau EINEN
+  # Eintrag an - den, den sein eigenes Fenster braucht - und sammelt keine fremden ein.
+  #
+  # Kein Argument: die Uebersicht zeigt den AKTIVEN Charakter, und eine Summe ueber
+  # mehrere bildet sie nicht (FR-053). Ein Argument waere die Einladung, genau das zu
+  # erwarten.
+  char:
+    description: 'Open your character sheet.'
+    usage: '/char'
+    permission: rpg.ui.character
   coins:
     description: 'Open the coin window, or change a balance.'
     usage: '/coins | /coins <player> | /coins set|add|remove <player> <class> <amount>'
@@ -70,6 +81,11 @@ permissions:
     description: 'Open a leaderboard.'
     # Fuer alle: eine Rangliste ist zum Ansehen da, und ein Recht, das erst vergeben werden muss,
     # waere eine stumme Funktion auf jedem frisch aufgesetzten Server.
+    default: true
+  rpg.ui.character:
+    description: 'Open your own character sheet.'
+    # Fuer jeden: die eigenen Werte anzusehen ist nichts, wofuer ein Betreiber erst
+    # etwas freischalten sollte - dieselbe Ueberlegung wie bei rpg.currency.balance.
     default: true
   rpg.currency.balance:
     description: 'Open your own coin window.'

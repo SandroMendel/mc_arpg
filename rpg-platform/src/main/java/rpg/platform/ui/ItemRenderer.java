@@ -5,6 +5,8 @@ import java.util.Optional;
 import org.bukkit.inventory.ItemStack;
 
 import rpg.core.classes.LadderSlot;
+import rpg.core.item.ItemCategory;
+import rpg.core.item.WearCurve;
 
 /**
  * Die zweite Naht aus Constitution III.4: <b>wie ein Gegenstand aussieht</b>.
@@ -53,6 +55,31 @@ public interface ItemRenderer {
     Optional<ItemStack> render(String templateKey, ItemRenderContext context);
 
     /**
+     * Baut die Anzeige eines <b>getragenen Ausrüstungsstücks</b>.
+     *
+     * <h2>Warum das eine zweite Methode braucht</h2>
+     *
+     * <p>Getragene Ausrüstung hat <b>keine {@code items.yml}-Vorlage</b>. {@link ItemCategory} kennt
+     * genau zwei Werte — {@code CONSUMABLE} und {@code COSMETIC} —, und in der ausgelieferten Datei
+     * stehen sieben Tränke und drei Trims. Was ein Charakter <em>trägt</em>, führt <b>B07</b> als
+     * gebundene Ausrüstung ({@code BoundEquipment}, {@code TierAppearance}); B11 führt nur den
+     * <b>Zustand</b> dazu.
+     *
+     * <p>{@link #render(String, ItemRenderContext)} greift für sie deshalb ins Leere. Die Naht
+     * behält beide Methoden, weil es zwei verschiedene Dinge sind — und eine Methode, die für die
+     * Hälfte ihrer Aufrufer leer zurückgibt, wäre eine, deren leeres Ergebnis niemand mehr liest.
+     *
+     * <p>Ein erster Entwurf hatte nur die Vorlagenform. Das ist beim Bauen aufgefallen, nicht beim
+     * Planen — die Spec nahm an, die Ausrüstung sei B11s, und der Code sagt etwas anderes.
+     *
+     * @param slot welcher Platz — entscheidet, welcher Zustand gilt
+     * @param material das Vanilla-Material aus B07s {@code TierAppearance}
+     * @param condition der Zustand aus B11, in {@code [0, WearCurve.FULL]} — also Prozent
+     * @return leer, wenn das Material kein Vanilla-Material ist
+     */
+    Optional<ItemStack> renderGear(LadderSlot slot, String material, double condition);
+
+    /**
      * Was die Anzeige über den reinen Gegenstand hinaus braucht.
      *
      * @param slot in welchem Ausrüstungsplatz er steckt — entscheidet, welcher Zustand gilt
@@ -62,9 +89,18 @@ public interface ItemRenderer {
     record ItemRenderContext(LadderSlot slot, double condition, int amount) {
 
         public ItemRenderContext {
-            if (condition < 0.0 || condition > 1.0 || Double.isNaN(condition)) {
+            // [0, WearCurve.FULL] und NICHT [0,1]: B11 fuehrt den Zustand auf einer PROZENTSKALA -
+            // WearCurve.FULL ist 100.0, nicht 1.0. Ein erster Entwurf dieser Naht nahm [0,1] an;
+            // das haette jeden getragenen Gegenstand als "kaputt" gerendert, weil 40 dort
+            // ausserhalb des Bereichs liegt. Aufgefallen ist es erst beim Test gegen B11s echte
+            // Bauteile - gegen ein Double waere die falsche Skala nie herausgekommen.
+            if (condition < 0.0 || condition > WearCurve.FULL || Double.isNaN(condition)) {
                 throw new IllegalArgumentException(
-                        "condition ist " + condition + " - erlaubt ist [0,1]");
+                        "condition ist "
+                                + condition
+                                + " - erlaubt ist [0,"
+                                + WearCurve.FULL
+                                + "] (B11 fuehrt Prozent, nicht Anteil)");
             }
             if (amount <= 0) {
                 throw new IllegalArgumentException(
@@ -74,7 +110,7 @@ public interface ItemRenderer {
 
         /** Ein Stück in vollem Zustand — der Normalfall in der Charakterübersicht. */
         public static ItemRenderContext pristine(LadderSlot slot) {
-            return new ItemRenderContext(slot, 1.0, 1);
+            return new ItemRenderContext(slot, WearCurve.FULL, 1);
         }
     }
 }

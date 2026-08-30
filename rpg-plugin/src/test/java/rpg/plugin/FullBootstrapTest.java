@@ -500,17 +500,25 @@ class FullBootstrapTest {
         assertThat(handlerCount(org.bukkit.event.inventory.InventoryClickEvent.getHandlerList()))
                 .as(
                         "the equipment lock, the class selection, the currency, waypoint and vendor"
-                                + " windows, the repair-route lock, B12's activity timestamp, and"
-                                + " B12's menu guard")
-                .isEqualTo(8);
+                                + " windows, the repair-route lock, B12's activity timestamp,"
+                                + " B12's menu guard, and B13's character sheet")
+                // NEUN seit B13. Die Uebersicht ist zum Lesen da (FR-050): ohne ihren Waechter
+                // koennte ein Spieler die Attribute herausnehmen und behalten - ein Fenster ist in
+                // Vanilla ein Inventar, und ein Inventar gibt her, was man anklickt.
+                .isEqualTo(9);
         assertThat(handlerCount(org.bukkit.event.player.PlayerDropItemEvent.getHandlerList()))
                 .as("dropping is off for every item, bound or not (ADR-018)")
                 .isEqualTo(1);
         assertThat(handlerCount(org.bukkit.event.inventory.InventoryCloseEvent.getHandlerList()))
                 .as(
                         "the class selection reopens itself; the currency, waypoint and vendor"
-                                + " windows and B12's leaderboard just forget their state")
-                .isEqualTo(5);
+                                + " windows, B12's leaderboard and B13's character sheet just"
+                                + " forget their state")
+                // SECHS seit B13. Die Uebersicht merkt sich nur, WER sie offen hat - der
+                // zwischengespeicherte Inhalt geht erst beim Sitzungsende weg, ueber den
+                // SessionObserver und NICHT ueber PlayerQuitEvent: B03 besitzt den Lebenszyklus
+                // und laesst dort genau einen Handler zu (FR-007).
+                .isEqualTo(6);
     }
 
     // --- character inventory (B07 groundwork for B11) ---------------------

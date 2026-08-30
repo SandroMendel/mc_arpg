@@ -167,6 +167,20 @@ public class RpgPlugin extends JavaPlugin {
     private rpg.core.item.ItemModule itemModule;
     private rpg.core.statistics.StatisticsModule statisticsModule;
     private rpg.core.ui.UiModule uiModule;
+
+    /**
+     * Was B13 je Spieler hält und beim Sitzungsende loswerden muss (FR-004c).
+     *
+     * <p>Als Liste von Aufräumern statt als vier Felder: sie entstehen an zwei verschiedenen
+     * Stellen der Verdrahtung (der HUD in der Kampfschicht, das Fenster nach der Item-Schicht), und
+     * eine Liste lässt beide dieselbe Zusage erfüllen, ohne dass {@code onSessionEnded} von der
+     * Reihenfolge wüsste.
+     *
+     * <p><b>Kein {@code PlayerQuitEvent}-Handler in B13</b>: B03 besitzt den Lebenszyklus und lässt
+     * genau einen zu (FR-007). Der vorgesehene Weg hinein ist der {@code SessionObserver}.
+     */
+    private final List<java.util.function.Consumer<java.util.UUID>> uiForgetters =
+            new java.util.ArrayList<>();
     private rpg.platform.statistics.PlaytimeAccrual playtimeAccrual;
     private rpg.core.statistics.LeaderboardCache leaderboardCache;
     private rpg.persistence.statistics.LeaderboardFill leaderboardFill;
@@ -331,6 +345,10 @@ public class RpgPlugin extends JavaPlugin {
         assembleItemLayer();
         // B12 zuletzt: es beobachtet alle vorigen Bloecke und wird von keinem gebraucht.
         wireStatistics();
+        // B13s Fenster nach B11: die Charakteruebersicht liest Ausruestung und Zustand, und beides
+        // entsteht erst in der Item-Schicht. Der HUD-Takt haengt dagegen schon in der Kampfschicht -
+        // er braucht nur, was B04, B05 und B06 fuehren.
+        wireCharacterSheet();
 
         // Same cadence as B02's autosave, and for the same reason: a crash should cost one interval,
         // not a whole session's loot. The quit path captures on its own; this is only for the case
@@ -1077,6 +1095,126 @@ public class RpgPlugin extends JavaPlugin {
                         refresh,
                         getLogger());
         tick.start();
+
+        // Was der HUD je Spieler haelt, geht mit der Sitzung (FR-004c). Vier Dinge, und jedes
+        // einzeln vergessen zu koennen ist der Punkt: eine entfernte Bossbar, deren Eintrag stehen
+        // bleibt, ist ein Leck, das erst nach Stunden auffaellt.
+        uiForgetters.add(refresh::forget);
+        uiForgetters.add(renderer::forget);
+        uiForgetters.add(zoneNotice::forget);
+        uiForgetters.add(bossFight::forget);
+        // wireCharacterSheet steht NICHT hier, obwohl es zu B13 gehoert: es braucht gearDisplay und
+        // itemModule, und beide entstehen erst in der Item-Schicht. Hier gerufen waere es ein
+        // NullPointerException beim Start - und zwar erst nach der Haelfte der Verdrahtung, also an
+        // der unuebersichtlichsten Stelle. Es laeuft nach assembleItemLayer().
+    }
+
+    /**
+     * B13 US2: die Charakterübersicht — das einzige wirklich <em>fehlende</em> Fenster.
+     *
+     * <p>Vier Blöcke haben Daten, die nirgendwo zusammen zu sehen sind: B04 die Attribute, B07 die
+     * Klasse, B08b die Coins, B11 die Ausrüstung und ihren Zustand. Hier werden sie zusammengeführt
+     * — <b>gelesen, nicht gespiegelt</b> (FR-074).
+     */
+    private void wireCharacterSheet() {
+        java.util.function.Function<java.util.UUID, java.util.Optional<java.util.UUID>>
+                characterOfPlayer =
+                        playerId ->
+                                sessionModule.registry().all().stream()
+                                        .filter(s -> s.playerId().equals(playerId))
+                                        .findFirst()
+                                        .flatMap(rpg.core.session.PlayerSession::activeCharacter)
+                                        .map(rpg.core.session.PlayerCharacter::characterId);
+        rpg.core.ui.CharacterSheets sheets =
+                new rpg.core.ui.CharacterSheets(
+                        characterId ->
+                                statsModule
+                                        .engine()
+                                        .holderOf(characterId)
+                                        .map(holderId -> statsModule.engine().snapshot(holderId)),
+                        new rpg.core.ui.CharacterSheets.EquipmentSource() {
+
+                            @Override
+                            public java.util.Map<rpg.core.classes.LadderSlot, String> equipmentOf(
+                                    java.util.UUID characterId) {
+                                // B07 fuehrt, WAS ein Charakter traegt - als gebundene Ausruestung
+                                // mit einem Aussehen je Platz. NICHT B11: dessen items.yml kennt
+                                // nur Traenke und Trims, keine Ruestung (ItemCategory hat genau
+                                // CONSUMABLE und COSMETIC).
+                                //
+                                // Was hier herauskommt, ist deshalb ein MATERIALNAME und keine
+                                // Vorlagenkennung - und das Fenster rendert ihn ueber renderGear.
+                                return classesModule
+                                        .boundEquipment()
+                                        .expectedFor(characterId)
+                                        .map(
+                                                expected -> {
+                                                    java.util.Map<
+                                                                    rpg.core.classes.LadderSlot,
+                                                                    String>
+                                                            worn =
+                                                                    new java.util.EnumMap<>(
+                                                                            rpg.core.classes
+                                                                                    .LadderSlot
+                                                                                    .class);
+                                                    expected.forEach(
+                                                            (slot, appearance) ->
+                                                                    worn.put(
+                                                                            slot,
+                                                                            appearance.material()));
+                                                    return worn;
+                                                })
+                                        .orElseGet(java.util.Map::of);
+                            }
+
+                            @Override
+                            public double conditionOf(
+                                    java.util.UUID characterId, rpg.core.classes.LadderSlot slot) {
+                                // WearCurve.FULL und nicht 1.0: B11 fuehrt den Zustand als PROZENT.
+                                return itemModule == null
+                                        ? rpg.core.item.WearCurve.FULL
+                                        : gearConditionModule
+                                                .conditions()
+                                                .conditionOf(characterId, slot);
+                            }
+                        },
+                        characterId -> abilityModule.registry().classOf(characterId),
+                        characterId ->
+                                progressionModule
+                                        .progression()
+                                        .progressOf(characterId)
+                                        .map(rpg.core.progression.ProgressView::level)
+                                        .orElse(1),
+                        characterId -> currencyModule.currency().balanceOrZero(characterId));
+
+        rpg.platform.ui.MenuFrame frame = new rpg.platform.ui.MenuFrame(messages);
+        // Eine eigene Factory und kein geteiltes Feld: sie ist zustandslos (Vorlagen plus Texte),
+        // und ein Feld quer durch die Verdrahtung zu reichen waere mehr Kopplung fuer denselben
+        // Gegenstand. B11s Verhalten kommt trotzdem unveraendert heraus - das ist der Punkt von
+        // FR-021a.
+        rpg.platform.ui.PaperItemRenderer itemRenderer =
+                new rpg.platform.ui.PaperItemRenderer(
+                        new rpg.platform.item.ItemStackFactory(itemModule, messages), gearDisplay);
+        rpg.platform.ui.CharacterSheetMenu sheetMenu =
+                new rpg.platform.ui.CharacterSheetMenu(frame, itemRenderer);
+        rpg.platform.ui.CharacterSheetListener sheetListener =
+                new rpg.platform.ui.CharacterSheetListener(sheetMenu);
+        getServer().getPluginManager().registerEvents(sheetListener, this);
+
+        rpg.plugin.command.CharacterSheetCommand sheetCommand =
+                new rpg.plugin.command.CharacterSheetCommand(
+                        characterOfPlayer, sheets, sheetMenu, sheetListener, messages);
+        var charCommand = getCommand("char");
+        if (charCommand == null) {
+            // plugin.yml und diese Stelle muessen sich einig sein; sind sie es nicht, ist es besser
+            // das zu sagen als ein Kommando zu haben, das still nicht existiert.
+            getLogger().severe("[ui] /char is not declared in plugin.yml - not registered");
+            return;
+        }
+        charCommand.setExecutor(sheetCommand);
+        charCommand.setTabCompleter(sheetCommand);
+
+        uiForgetters.add(sheetListener::sessionEnded);
     }
 
     /**
@@ -1734,6 +1872,14 @@ public class RpgPlugin extends JavaPlugin {
 
             @Override
             public void onSessionEnded(java.util.UUID playerId) {
+                // B13 zuerst, und ueber den Observer statt ueber PlayerQuitEvent: B03 besitzt den
+                // Lebenszyklus und laesst dort genau einen Handler zu (FR-007). Was der HUD und die
+                // Uebersicht je Spieler halten - Bossbar, Scoreboard, Zonenhinweis, Bosskampf und
+                // das zwischengespeicherte Fenster -, geht hier weg (FR-004c). Beim naechsten
+                // Anmelden steht dann keine alte Leiste.
+                for (java.util.function.Consumer<java.util.UUID> forget : uiForgetters) {
+                    forget.accept(playerId);
+                }
                 selection.onSessionEnded(playerId);
                 // Und die Merkliste des Betreiber-Zugangs. Sie waechst sonst die ganze
                 // Serverlaufzeit lang, und ein Wiedereinstieg soll ohnehin frisch entscheiden.
