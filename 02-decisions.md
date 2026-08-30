@@ -2676,3 +2676,80 @@ ein Tod durch ein nicht auflösbares Wesen gehört unter `deaths.environment`, n
 Verdacht und keine Messung**. Die Registry wurde zur Laufzeit nicht gegen die lebende Population
 gehalten. Vor der Umsetzung ist das die eine Zahl, die zu erheben ist — sie entscheidet, ob dies
 eine Aufräumarbeit ist oder ein Fehler mit Spielwirkung.
+
+---
+
+## ADR-051: Ein Kommando `/char` in B13, befristet — nach dem Muster von ADR-028
+
+**Status:** Angenommen · **Datum:** 2026-08-30 · **Blöcke:** B13, später B14
+
+**Kontext.** B13 baut die Charakterübersicht — das einzige wirklich fehlende Fenster des Blocks.
+Vier Blöcke (B04, B07, B08b, B11) führen Daten, die nirgendwo zusammen zu sehen sind. Das Fenster
+allein nützt niemandem: **ein Fenster ohne Aufrufweg ist für den Spieler nicht vorhanden.**
+
+Die einheitliche Kommandostruktur mit Rechtebaum und Tab-Completion gehört **B14**. Der ist mehrere
+Blöcke entfernt.
+
+**Entscheidung.** B13 legt **genau einen** Kommandoeintrag an: `/char`, ohne Argument, öffnet die
+Übersicht des **aktiven** Charakters. Recht `rpg.ui.character`, `default: true` — die eigenen Werte
+anzusehen ist nichts, wofür ein Betreiber erst etwas freischalten müsste.
+
+Das Kommando ist **vorläufig** und geht mit `/coins`, `/stats` und `/top` an B14.
+
+**Kein Argument.** Es gibt nichts zu wählen: die Übersicht zeigt den aktiven Charakter, und eine
+Summe über mehrere bildet sie nicht (FR-053). Ein Argument wäre die Einladung, genau das zu
+erwarten.
+
+**Alternative: eine Eingabegeste statt eines Kommandos.** Verworfen. Sie wäre unsichtbar — ein
+Spieler, dem niemand sagt, dass er die Offhand tauschen soll, findet das Fenster nie. Und der
+Offhand-Tausch wird von `EquipmentLockListener` bereits angefasst.
+
+**Auswirkung.** B14 erbt vier vorläufige Kommandos statt drei. Der Preis ist bekannt und angenommen:
+ADR-028 hat ihn für `/coins` bereits benannt, und B12 hat ihn für `/stats` und `/top` zweimal
+bezahlt. Die Alternative wäre ein Fenster gewesen, das bis B14 niemand öffnen kann.
+
+**B13 sammelt dabei keine fremden Kommandos ein.** `/coins` bleibt, wo es ist (FR-061a) — obwohl
+sein Fenster in diesem Block umgezogen ist. Eine Eingabegeste ist Präsentation, ein Kommando mit
+Rechtebaum ist es nicht.
+
+---
+
+## ADR-052: `AbilityHotbar` bleibt vor der Schnittstelle — eine benannte Ausnahme von Constitution III.4
+
+**Status:** Angenommen · **Datum:** 2026-08-30 · **Blöcke:** B13, B08
+
+**Kontext.** Constitution III.4 verlangt: „Rendering und Eingabe liegen hinter Schnittstellen
+(`HudRenderer`, `ItemRenderer` u. ä.), damit ein späterer Resource-Pack-Client ohne Umbau ergänzt
+werden kann."
+
+B08s `AbilityHotbar` legt die Skill-Leiste: Slot 0 die gebundene Waffe, ab Slot 1 je Fähigkeit ein
+Item. Das **ist** Rendering. Sie steht nicht hinter `HudRenderer`, und FR-024 sagt ausdrücklich, dass
+B13 sie nicht dorthin zieht.
+
+**Das ist eine Abweichung, und sie war bis zu diesem ADR unaufgeschrieben.** Die Spec hatte sie unter
+*Assumptions* mit dem Satz erklärt, die Vorgabe gelte „für das, was B13 baut, nicht rückwirkend für
+alles, was schon zeichnet". Das ist genau die **stille Neuinterpretation**, die die Governance
+ausschließt: „Ein Vorschlag, der gegen sie verstößt, wird abgelehnt oder verlangt eine ausdrückliche,
+begründete Ausnahme." Aufgefallen bei der Querprüfung durch `/speckit-analyze` am 2026-08-30.
+
+**Entscheidung.** Die Ausnahme wird **gewährt und hier festgehalten**. `AbilityHotbar` bleibt
+unverändert in `rpg.platform.ability`.
+
+**Begründung.** Sie läuft, sie ist getestet, sie ist auf echtem Paper abgenommen. Ein Umbau an
+fremdem funktionierendem Code wäre der teuerste Weg zu keinem sichtbaren Unterschied — dieselbe
+Begründung, mit der `ClassSelectionMenu` (FR-070) und B12s Fenster (FR-071) unangetastet bleiben.
+
+**Alternative: sie hinter `HudRenderer` ziehen.** Verworfen. `HudRenderer` schreibt Text auf drei
+Flächen; die Hotbar legt Gegenstände in Slots. Beides unter eine Schnittstelle zu zwingen hieße,
+entweder die Schnittstelle so weit zu machen, dass sie nichts mehr zusagt, oder eine zweite daneben
+zu stellen — und dann wäre die Zusage „eine Naht" schon gebrochen.
+
+**Auswirkung, und sie ist echt.** SC-004 sagt: „Ein Wechsel des `HudRenderer` erfordert keine
+Änderung an B04, B05 oder B08." Das gilt **ohne die Hotbar**. Ein pack-fähiger Client müsste sie
+später nachziehen — ein eigener Schritt, den dieser ADR sichtbar macht, statt ihn erst dann
+auffallen zu lassen.
+
+**Bewacht von** `UntouchedBlocksStayUntouchedTest`: `AbilityHotbar`, `ClassSelectionMenu`,
+`StatisticsMenu` und `LeaderboardMenu` tauchen in `rpg/platform/ui/` nirgends auf. B13 sichert jede
+andere Zusage per Test; ausgerechnet die vier „nicht anfassen" nur dem Augenschein zu überlassen
+hieße, sie beim ersten gut gemeinten Umbau zu verlieren.

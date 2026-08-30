@@ -209,5 +209,19 @@ bleiben, wo sie sind, und bekommen keinen gemeinsamen Rahmen aufgezwungen (R10).
 | **Zwei Fenster ziehen um** | ADR-028 und ADR-032 nennen sie ausdrücklich befristet und B13 als Ziel. | Sie stehen zu lassen hieße, zwei ADRs offen zu lassen, obwohl der Block da ist, auf den sie warten. Das ist die Sorte Schuld, die niemand einfordert. |
 | **Schadensanzeigen schreiben Entities in die Welt** | FR-040; B05 bündelt seit Monaten ausdrücklich für diesen Zweck. | Eine Textzeile statt einer Zahl am Trefferort verfehlt den Punkt: die Zahl soll **dort** stehen, wo getroffen wurde. Das Risiko liegt nicht in der Technik, sondern in der Lebensdauer — deshalb nicht persistent (R7). |
 
-**Nicht** in dieser Tabelle, weil ausdrücklich nicht getan: `AbilityHotbar`, `ClassSelectionMenu`
-und B12s Fenster bleiben unberührt.
+| **`AbilityHotbar` bleibt vor der Schnittstelle** | Sie läuft, ist getestet und auf echtem Paper abgenommen (FR-024). | `HudRenderer` schreibt Text auf drei Flächen; die Hotbar legt Gegenstände in Slots. Beides unter eine Schnittstelle zu zwingen hieße, sie so weit zu machen, dass sie nichts mehr zusagt — oder eine zweite danebenzustellen, womit die Zusage „eine Naht" schon gebrochen wäre. |
+
+**Der letzte Eintrag stand hier zuerst nicht.** Die Tabelle führte `AbilityHotbar` unter „nicht
+getan" und damit außerhalb — die Spec erklärte die Ausnahme unter *Assumptions* damit, die
+Constitution gelte „nicht rückwirkend". Das ist die stille Neuinterpretation, die die Governance
+ausschließt.
+
+**Nicht zu handeln ist hier selbst die Abweichung**: Constitution III.4 verlangt, dass Rendering
+hinter Schnittstellen liegt, und die Hotbar rendert. Die Ausnahme ist tragfähig, aber sie braucht
+einen ADR — **ADR-052**, geschrieben am 2026-08-30, nachdem `/speckit-analyze` sie gefunden hatte.
+Sein Preis steht dort ausdrücklich: SC-004 gilt **ohne** die Hotbar, und ein pack-fähiger Client
+müsste sie später nachziehen.
+
+**Nicht** in dieser Tabelle, weil wirklich nicht getan: `ClassSelectionMenu` und B12s Fenster
+bleiben unberührt (FR-070, FR-071). Beide sind **nicht befristet** — anders als `AbilityHotbar` ist
+dort keine Constitution-Regel im Spiel, sondern nur die Frage, ob man an laufendem Code arbeitet.

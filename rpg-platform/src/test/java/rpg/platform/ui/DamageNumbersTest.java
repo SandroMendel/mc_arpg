@@ -124,14 +124,32 @@ class DamageNumbersTest {
     // --- T106: nur der Verursacher -------------------------------------------
 
     @Test
-    @DisplayName("T106: die Entity ist standardmaessig UNSICHTBAR")
-    void itisInvisibleByDefault() {
+    @DisplayName("T106: die Sichtbarkeitsregel steht im Code - MockBukkit kann sie nicht zurueckgeben")
+    void thevisibilityRuleIsInThePlace() throws java.io.IOException {
         // FR-042. Ohne das saehe jeder im Umkreis fremde Zahlen, und bei einem Bosskampf waere der
         // Bildschirm voll.
-        numbers.show(number(120.0, 1, false));
-        scheduler.runLocationTasks();
+        //
+        // DIESER TEST HIESS ZUERST "die Entity ist standardmaessig UNSICHTBAR" und las
+        // display.isVisibleByDefault() zurueck. MOCKBUKKIT MELDET DAS ALS "SKIPPED", NICHT ALS
+        // FEHLER (UnimplementedOperationException) - der Test stand gruen in der Zusammenfassung
+        // und bewies nichts. Genau davor warnt die Projektnotiz zu MockBukkit-Skips, und genau so
+        // waere die Zusage unbemerkt verlorengegangen.
+        //
+        // Was hier stattdessen geprueft wird: dass die zwei Aufrufe UEBERHAUPT DA SIND. Das ist
+        // weniger, als es aussieht - aber es ist ehrlich, und es faellt auf, wenn jemand sie
+        // entfernt. Der VERHALTENSBEWEIS gehoert auf den Server: quickstart §5, Schritt 19, mit
+        // zwei Spielern.
+        String source =
+                java.nio.file.Files.readString(
+                        java.nio.file.Path.of(
+                                "src/main/java/rpg/platform/ui/DamageNumbers.java"));
 
-        assertThat(displays().get(0).isVisibleByDefault()).isFalse();
+        assertThat(source)
+                .as("fuer alle unsichtbar")
+                .contains("setVisibleByDefault(false)");
+        assertThat(source)
+                .as("und genau einer bekommt sie gezeigt")
+                .contains("viewer.showEntity(plugin, display)");
     }
 
     @Test

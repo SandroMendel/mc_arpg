@@ -40,6 +40,17 @@ import rpg.core.stats.StatsRecalculatedEvent;
  *
  * <p>Like the action bar, this is named for what it is rather than {@code HudRenderer}: Constitution
  * III reserves that name for B13, which will own the layout of all of it.
+ *
+ * <h2>B13 ist da — und hat diese Klasse NICHT angefasst</h2>
+ *
+ * <p>Anders als {@code StatusActionBar}, die hinter {@code HudRenderer} gezogen wurde: ein
+ * Namensschild ist <b>keine der drei Flächen</b> (FR-001). Es steht über einer Kreatur, nicht auf
+ * dem Bildschirm des Spielers, und geht deshalb weder durch den HUD-Takt noch durch die Naht.
+ *
+ * <p>Dasselbe gilt für {@code PaperVanillaAttributeBridge} (die Herzleiste, ADR-003) und
+ * {@code ExperienceBar} (die Vanilla-XP-Leiste, FR-006). Alle drei bespielen Vanilla-Flächen, die
+ * B13 nicht ordnet — und die XP-Leiste ist zusätzlich die eine benannte Ausnahme von FR-001
+ * (FR-001a): sie zeigt Level und Erfahrung ein zweites Mal, obwohl die Sidebar sie trägt.
  */
 public final class MobNameplate {
 

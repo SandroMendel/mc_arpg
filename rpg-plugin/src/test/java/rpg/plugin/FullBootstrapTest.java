@@ -562,6 +562,60 @@ class FullBootstrapTest {
                 .isPresent();
     }
 
+    // --- B13: UI, HUD und Texte -------------------------------------------
+
+    @Test
+    void theUiModuleIsWiredAndItsConfigurationLoaded() {
+        // Modultests reichen nicht: das Modul muss verdrahtet sein und der Server damit starten.
+        // Genau hier faellt auf, wenn ui.yml nicht ausgeliefert wird oder die Startpruefung aus
+        // FR-032 gegen eine leere Faehigkeitsliste laeuft.
+        // Ueber die Startreihenfolge und nicht ueber einen Dienst: B13 REGISTRIERT KEINEN. Es
+        // zeichnet nur, und ein Block, den niemand aufruft, braucht keine Schnittstelle in der
+        // Registry - er ist der letzte der Kette (Blocksteckbrief: "Benoetigt von: -").
+        assertThat(plugin.registry().resolveStartOrder())
+                .as("UiModule ist verdrahtet und hat gestartet")
+                .contains("ui");
+    }
+
+    @Test
+    void theUiModuleStartsAfterTheAbilities() {
+        // Seine EINZIGE Abhaengigkeit, und sie ist verdient: die Startpruefung aus FR-032 liest
+        // B08s Verzeichnis. Ohne diese Reihenfolge liefe sie gegen eine leere Liste und pruefte
+        // still nichts - dieselbe Falle, die StatisticsModule bei den Belohnungsvorlagen abfaengt.
+        java.util.List<String> order = plugin.registry().resolveStartOrder();
+
+        assertThat(order.indexOf("ui")).isGreaterThan(order.indexOf("abilities"));
+    }
+
+    @Test
+    void theCharCommandIsRegistered() {
+        // Der vierte unter derselben befristeten Lizenz (ADR-051, nach dem Muster von ADR-028).
+        // Ein Fenster ohne Aufrufweg ist fuer den Spieler nicht vorhanden - und wenn plugin.yml und
+        // die Verdrahtung sich uneinig sind, existiert das Kommando still nicht.
+        assertThat(plugin.getCommand("char")).isNotNull();
+        assertThat(plugin.getCommand("char").getExecutor())
+                .isInstanceOf(rpg.plugin.command.CharacterSheetCommand.class);
+    }
+
+    @Test
+    void thehudTickIsTheOnlyOneAndTheActionBarNoLongerRunsItsOwn() throws Exception {
+        // R1: B13 ERWEITERT den Takt aus StatusActionBar.startRefresh und legt keinen zweiten an.
+        // startRefresh ist deshalb ENTFALLEN - waere es noch da, liefen zwei Durchlaeufe je
+        // Sekunde, und welcher zuletzt sendet, haenge an der Registrierungsreihenfolge.
+        assertThat(rpg.platform.hud.StatusActionBar.class.getDeclaredMethods())
+                .as("startRefresh ist zu HudTick geworden")
+                .noneMatch(method -> method.getName().equals("startRefresh"));
+    }
+
+    @Test
+    void theuiBlockRegisteredNoSchema() {
+        // SC-011 im laufenden Bootstrap: B13 legt keine Tabelle an. UiPersistsNothingTest prueft
+        // die Quellen, dieser Test den echten Start - beides ist noetig, und nur das zweite faende
+        // eine Migration, die jemand ausserhalb des B13-Pakets abgelegt hat.
+        assertThat(PostgresContainer.tableExists("ui_settings")).isFalse();
+        assertThat(PostgresContainer.tableExists("player_hud")).isFalse();
+    }
+
     @Test
     void theCoinsCommandIsRegistered() {
         // The one place B08b reaches outside its layer (ADR-028). If plugin.yml and the wiring ever
