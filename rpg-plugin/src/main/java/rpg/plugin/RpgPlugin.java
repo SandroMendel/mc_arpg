@@ -172,6 +172,17 @@ public class RpgPlugin extends JavaPlugin {
     /** B12s Saisonabschluss — beim Start nachgeholt und im Auffrischungstakt mitgeführt (FR-058). */
     private rpg.persistence.statistics.SeasonClosingJob seasonClosing;
 
+    /** B12s Anzeige im Hub, sofern eine konfiguriert und ihre Welt geladen ist (FR-064). */
+    private rpg.platform.statistics.LeaderboardHologram leaderboardHologram;
+
+    /**
+     * Wo die Anzeige steht — gebraucht, um sie auf ihrem <b>eigenen</b> Tick neu zu beschriften.
+     *
+     * <p>Der Auffrischungstakt läuft asynchron; eine Entität von dort aus anzufassen ist der
+     * Fehler, der auf Folia gar nicht und auf Paper nur meistens auffällt.
+     */
+    private rpg.core.scheduler.WorldPosition hologramAt;
+
     private rpg.platform.statistics.StatisticsMenuListener statisticsMenus;
 
     /**
@@ -362,6 +373,11 @@ public class RpgPlugin extends JavaPlugin {
         }
         if (vendorNpcs != null) {
             vendorNpcs.clear();
+        }
+        // Vergessen, nicht entfernen: die Anzeige ist persistent und soll es bleiben. Aufgeraeumt
+        // wird beim naechsten Setzen (FR-061) - ein Absturz hat kein Herunterfahren.
+        if (leaderboardHologram != null) {
+            leaderboardHologram.clear();
         }
         // Bounded by 10s per module inside ModuleBootstrap (FR-012, SC-007): a module that hangs is
         // abandoned on a daemon thread instead of blocking the server's shutdown indefinitely.
@@ -2032,7 +2048,67 @@ public class RpgPlugin extends JavaPlugin {
         // ein Spieler, der in derselben Sekunde hereinkommt, hat damit nichts zu tun.
         scheduler.runAsync(this::closeDueSeasons);
 
+        // Die Welten sind zu diesem Zeitpunkt geladen - dieselbe Stelle im Start, an der auch die
+        // Haendler gesetzt werden. Frueher gaebe es keine Welt, spaeter stuende die Anzeige erst
+        // da, wenn die ersten Spieler schon durch den Hub gelaufen sind.
+        placeLeaderboardHologram(leaderboards);
+
         startLeaderboardRefresh(statisticsModule.config().leaderboards().refreshInterval());
+    }
+
+    /**
+     * Setzt die Anzeige im Hub, sofern eine konfiguriert ist (FR-060 bis FR-064).
+     *
+     * <p><b>Keine Anzeige ist ein gültiger Zustand</b>, und eine unerreichbare Welt ebenfalls: der
+     * Server startet in beiden Fällen. Ein Tippfehler in {@code statistics.yml} darf niemanden vom
+     * Spielen abhalten — die Anzeige ist Zierde, nicht Spielmechanik.
+     */
+    private void placeLeaderboardHologram(rpg.core.statistics.Leaderboards leaderboards) {
+        java.util.Optional<rpg.core.statistics.StatisticsConfig.Hologram> settings =
+                statisticsModule.config().hologram();
+        if (settings.isEmpty()) {
+            getLogger()
+                    .info("[statistics] phase=START state=HOLOGRAM_SKIPPED - none configured");
+            return;
+        }
+
+        rpg.platform.statistics.LeaderboardHologram hologram =
+                new rpg.platform.statistics.LeaderboardHologram(leaderboards, messages, getLogger());
+        if (hologram.place(settings.get(), Clock.systemUTC().instant()).isEmpty()) {
+            // Die Warnung steht schon im Log, samt dem Namen der Welt. Hier bleibt nur, sie nicht
+            // in den Auffrischungstakt zu haengen (FR-064).
+            return;
+        }
+
+        org.bukkit.World world = getServer().getWorld(settings.get().world());
+        leaderboardHologram = hologram;
+        hologramAt =
+                new rpg.core.scheduler.WorldPosition(
+                        world.getUID(), settings.get().x(), settings.get().y(), settings.get().z());
+
+        getLogger()
+                .info(
+                        "[statistics] phase=START state=HOLOGRAM_PLACED board="
+                                + settings.get().board().key()
+                                + " period="
+                                + settings.get().period()
+                                + " - reading the same cache as the windows, counted against no mob"
+                                + " budget (FR-060, FR-062)");
+    }
+
+    /**
+     * Beschriftet die Anzeige neu — im Auffrischungstakt, aber auf <b>ihrem</b> Tick.
+     *
+     * <p>Der Takt läuft asynchron; eine Entität von dort aus anzufassen ist der Fehler, der auf
+     * Folia gar nicht und auf Paper nur meistens auffällt. Der Sprung geht über die Position und
+     * nicht über die Entität: {@code runSyncOnEntity} aus einem Hintergrundfaden scheitert still.
+     */
+    private void refreshLeaderboardHologram() {
+        if (leaderboardHologram == null || hologramAt == null) {
+            return;
+        }
+        scheduler.runSyncAtLocation(
+                hologramAt, () -> leaderboardHologram.refresh(Clock.systemUTC().instant()));
     }
 
     /**
@@ -2150,6 +2226,9 @@ public class RpgPlugin extends JavaPlugin {
                     // durchlaeuft, wuerde sonst nie abschliessen. Eine eigene Aufgabe waere ein
                     // zweiter Takt fuer dieselbe Sache (R6, Prinzip II).
                     closeDueSeasons();
+                    // Und die Anzeige im Hub bekommt denselben Stand wie die Fenster - im selben
+                    // Takt, damit niemand erklaeren muss, welches der beiden Alter gemeint ist.
+                    refreshLeaderboardHologram();
                     if (isEnabled()) {
                         startLeaderboardRefresh(
                                 statisticsModule.config().leaderboards().refreshInterval());

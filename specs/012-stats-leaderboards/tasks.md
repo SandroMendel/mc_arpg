@@ -322,15 +322,15 @@ das Mob-Budget nicht existiert.
 **Independent Test**: Server starten, Anzeige prüfen, zweimal neu starten, zählen — und prüfen, dass
 das Mob-Budget sie nicht mitzählt.
 
-- [ ] T126 [US6] `LeaderboardHologram` in `rpg-platform/src/main/java/rpg/platform/statistics/LeaderboardHologram.java` — **Muster `VendorNpc`** (R8): vor dem Setzen im Umkreis entfernen, dann setzen (FR-061)
-- [ ] T127 [US6] Härtung **einzeln je Einstellung** in `apply("name", () -> ...)` — ein Testdouble, das eine Methode nicht kennt, darf nicht den ganzen Vorgang scheitern lassen. Genau daran ist B11 einmal aufgelaufen
-- [ ] T128 [US6] Anzeige **nicht** in `HordeRegistry` eintragen — mehr braucht es für FR-062 nicht (R8)
-- [ ] T129 [P] [US6] Test `HologramDoesNotCountAgainstTheMobBudgetTest` in `rpg-platform/src/test/java/rpg/platform/statistics/HologramDoesNotCountAgainstTheMobBudgetTest.java` — nach dem Muster von `VendorDoesNotCountAgainstTheMobBudgetTest`
-- [ ] T130 [P] [US6] Test `RestartsDoNotDuplicateTest` in `rpg-platform/src/test/java/rpg/platform/statistics/RestartsDoNotDuplicateTest.java` — **SC-010**: drei Starts hintereinander, genau eine Anzeige
-- [ ] T131 [US6] Unverwundbar, unbeweglich, kein Aggro-Ziel, kein Distanz-Despawn (FR-063)
-- [ ] T132 [US6] Inhalt aus dem Cache, **keine eigene Abfrage** (FR-060); Aktualisierung im Auffrischungstakt
-- [ ] T133 [P] [US6] Test `MissingWorldDisablesHologramTest` in `rpg-platform/src/test/java/rpg/platform/statistics/MissingWorldDisablesHologramTest.java` — **FR-064**: nicht ladbare Stelle → Warnung, keine Anzeige, **Server startet** (Edge Case)
-- [ ] T134 [US6] Verdrahtung in `RpgPlugin`: Platzierung nach dem Laden der Welten, versetzt zum Safe-Core-Respawn wie bei den Händlern
+- [X] T126 [US6] `LeaderboardHologram` in `rpg-platform/src/main/java/rpg/platform/statistics/LeaderboardHologram.java` — **Muster `VendorNpc`** (R8): vor dem Setzen im Umkreis entfernen, dann setzen (FR-061)
+- [X] T127 [US6] Härtung **einzeln je Einstellung** in `apply("name", () -> ...)` — ein Testdouble, das eine Methode nicht kennt, darf nicht den ganzen Vorgang scheitern lassen. Genau daran ist B11 einmal aufgelaufen
+- [X] T128 [US6] Anzeige **nicht** in `HordeRegistry` eintragen — mehr braucht es für FR-062 nicht (R8)
+- [X] T129 [P] [US6] Test `HologramDoesNotCountAgainstTheMobBudgetTest` in `rpg-platform/src/test/java/rpg/platform/statistics/HologramDoesNotCountAgainstTheMobBudgetTest.java` — nach dem Muster von `VendorDoesNotCountAgainstTheMobBudgetTest`
+- [X] T130 [P] [US6] Test `RestartsDoNotDuplicateTest` in `rpg-platform/src/test/java/rpg/platform/statistics/RestartsDoNotDuplicateTest.java` — **SC-010**: drei Starts hintereinander, genau eine Anzeige
+- [X] T131 [US6] Unverwundbar, unbeweglich, kein Aggro-Ziel, kein Distanz-Despawn (FR-063)
+- [X] T132 [US6] Inhalt aus dem Cache, **keine eigene Abfrage** (FR-060); Aktualisierung im Auffrischungstakt — Test `HologramReadsTheCacheTest`, und der Sprung auf den Tick geht über `runSyncAtLocation`, nicht über die Entität
+- [X] T133 [P] [US6] Test `MissingWorldDisablesHologramTest` in `rpg-platform/src/test/java/rpg/platform/statistics/MissingWorldDisablesHologramTest.java` — **FR-064**: nicht ladbare Stelle → Warnung, keine Anzeige, **Server startet** (Edge Case)
+- [X] T134 [US6] Verdrahtung in `RpgPlugin`: Platzierung nach dem Laden der Welten, versetzt zum Safe-Core-Respawn wie bei den Händlern
 
 **Checkpoint**: Alle sechs Geschichten stehen.
 

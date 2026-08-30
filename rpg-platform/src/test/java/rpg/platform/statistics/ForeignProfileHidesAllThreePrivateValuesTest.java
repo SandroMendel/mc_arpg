@@ -42,8 +42,8 @@ import rpg.core.statistics.StatisticsMessageKeys;
  *   <li>das <b>eigene</b> Fenster — zeigt sie (FR-038),
  *   <li>das <b>fremde</b> Profil — zeigt sie nicht,
  *   <li>die <b>Rangliste</b> — kennt sie gar nicht,
- *   <li>das <b>Hologramm</b> — kommt erst in Phase 8; die Stelle ist unten benannt, damit sie
- *       nicht als geprüft gilt.
+ *   <li>das <b>Hologramm</b> im Hub — zeigt keine Aufschlüsselung, und eine private Rangliste
+ *       kommt dort gar nicht erst an: die Schemaprüfung bricht damit den Start ab.
  * </ol>
  */
 class ForeignProfileHidesAllThreePrivateValuesTest {
@@ -54,7 +54,7 @@ class ForeignProfileHidesAllThreePrivateValuesTest {
 
     @BeforeEach
     void setUp() {
-        MockBukkit.mock();
+        MockBukkit.mock().addSimpleWorld("world");
         messages = messages();
     }
 
@@ -143,23 +143,57 @@ class ForeignProfileHidesAllThreePrivateValuesTest {
     }
 
     @Test
-    @DisplayName("Weg 4 - das Hologramm gibt es noch nicht, und das steht hier ausdruecklich")
-    void wayFourTheHologramDoesNotExistYet() {
-        // Phase 8 baut es. Diese Zeile ist kein Test, sondern eine Markierung: SC-006 verlangt
-        // ALLE vier Wege, und drei geprueft zu haben ist nicht dasselbe wie vier. Wer das
-        // Hologramm baut, findet hier den Hinweis, dass sein Weg noch fehlt.
-        assertThat(hologramExists())
-                .as("sobald es das Hologramm gibt, gehoert sein Weg in diesen Test")
-                .isFalse();
+    @DisplayName("Weg 4 - das Hologramm im Hub zeigt keinen der drei Werte")
+    void wayFourTheHologramShowsNoneOfTheThree() {
+        LeaderboardCache cache = LeaderboardCache.empty();
+        cache.replace(
+                Map.of(
+                        LeaderboardCache.Key.of(Aggregation.MOB_KILLS, Period.ALL_TIME),
+                        Leaderboard.of(
+                                Aggregation.MOB_KILLS,
+                                Period.ALL_TIME,
+                                "",
+                                Map.of(UUID.randomUUID(), 40L),
+                                Map.of(),
+                                10,
+                                account -> "Alpha",
+                                AT)),
+                AT);
+
+        LeaderboardHologram hologram =
+                new LeaderboardHologram(
+                        Leaderboards.backedBy(cache),
+                        messages,
+                        java.util.logging.Logger.getLogger("test"));
+        hologram.place(
+                new rpg.core.statistics.StatisticsConfig.Hologram(
+                        "world", 0.5, 65.0, 0.5, Aggregation.MOB_KILLS, Period.ALL_TIME, 10),
+                AT);
+
+        String shown =
+                PlainTextComponentSerializer.plainText()
+                        .serialize(
+                                MockBukkit.getMock().getWorlds().get(0).getEntities().stream()
+                                        .filter(LeaderboardHologram::isHologram)
+                                        .map(org.bukkit.entity.TextDisplay.class::cast)
+                                        .findFirst()
+                                        .orElseThrow()
+                                        .text());
+
+        // Eine Anzeige im Hub sieht jeder, der vorbeigeht - und niemand hat sie geoeffnet. Waere
+        // hier eine Aufschluesselung drin, waere sie der lauteste der vier Wege.
+        assertThat(shown).doesNotContain("dune-warlord").doesNotContain("void");
+        assertThat(shown).contains("Alpha");
     }
 
-    private static boolean hologramExists() {
-        try {
-            Class.forName("rpg.platform.statistics.HologramBoard");
-            return true;
-        } catch (ClassNotFoundException notYet) {
-            return false;
-        }
+    @Test
+    @DisplayName("Weg 4 - eine private Rangliste kommt hier gar nicht erst an")
+    void wayFourAprivateBoardNeverArrivesHere() {
+        // Der Riegel dagegen sitzt in der Schemapruefung, nicht in der Anzeige: eine private
+        // Rangliste als hologram.board bricht den Start ab (StatisticsConfigSchemaTest). Erst
+        // beim Zeichnen abzulehnen hiesse, eine Konfiguration anzunehmen, die nie tun wird, was
+        // dasteht - und der Betreiber suchte den Fehler an der Wand statt in der Datei.
+        assertThat(Aggregation.PLAYTIME_ONLINE.visibility()).isEqualTo(MetricVisibility.PRIVATE);
     }
 
     private static String everyText(Inventory window) {
@@ -194,6 +228,12 @@ class ForeignProfileHidesAllThreePrivateValuesTest {
         texts.put(StatisticsMessageKeys.PROFILE_PRIVATE_OMITTED.value(), "Only for the player.");
         texts.put(StatisticsMessageKeys.LEADERBOARD_YOUR_RANK.value(), "#{rank}");
         texts.put(StatisticsMessageKeys.LEADERBOARD_UNRANKED.value(), "unranked");
+        texts.put(StatisticsMessageKeys.HOLOGRAM_HEADER.value(), "{board} - {period}");
+        texts.put(StatisticsMessageKeys.HOLOGRAM_LINE.value(), "#{rank} {player} - {value}");
+        texts.put(StatisticsMessageKeys.LEADERBOARD_AS_OF.value(), "Updated {age} ago.");
+        for (Period period : Period.values()) {
+            texts.put(StatisticsMessageKeys.periodName(period).value(), period.name());
+        }
         for (Aggregation board : Aggregation.values()) {
             texts.put(StatisticsMessageKeys.boardName(board).value(), board.key());
             texts.put(StatisticsMessageKeys.boardHint(board).value(), "hint");
