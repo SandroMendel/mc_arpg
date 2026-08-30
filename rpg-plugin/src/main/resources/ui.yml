@@ -1,0 +1,63 @@
+# B13 - UI, HUD und Texte.
+#
+# Drei Flaechen, drei Rollen: die Actionbar traegt die laufenden Werte, die Bossbar das
+# Situative, das Scoreboard die Sidebar. Jeder Wert gehoert genau einer davon (FR-001).
+#
+# ABGESCHALTET HEISST KOSTENLOS, NICHT UNSICHTBAR (FR-013a): eine Flaeche mit
+# enabled: false wird gar nicht erst zusammengesetzt. Wer sie abschaltet, spart die
+# Arbeit und nicht nur den Anblick.
+#
+# Dieser Block speichert NICHTS. Es gibt keine persoenliche Anzeigeeinstellung, also
+# auch kein Schema und keine Migration (FR-013b, SC-011).
+
+# Welcher Sprachsatz gilt. Gesucht wird messages_<code>.yml im Plugin-Ordner; fuer 'en'
+# bleibt es bei messages.yml.
+#
+# Die Datei muss VOLLSTAENDIG sein, sonst startet der Server nicht (FR-018). Geprueft
+# wird gegen die Schluessel, die alle Module anmelden - und gemeldet werden ALLE
+# fehlenden auf einmal, nicht der erste. Wer eine Uebersetzung anlegt, will die Liste
+# und nicht zwanzig Startversuche.
+language: en
+
+hud:
+  # Der EINE Sammeltakt fuer alle Spieler (FR-010, FR-012). Es gibt keinen zweiten und
+  # keine Aufgabe je Spieler - Constitution II.2 verbietet beides.
+  #
+  # Kuerzer heisst mehr Pakete ohne Gewinn; laenger heisst, die Actionbar blinkt, weil
+  # Minecraft sie nach etwa zwei Sekunden von selbst ausblendet. Eine Sekunde liegt
+  # darunter, und das ist der ganze Grund fuer diesen Wert.
+  tick-ms: 1000
+
+  action-bar:
+    # Leben, Mana, Verteidigung. KEIN Fortschritt mehr - Level und Erfahrung stehen
+    # seit B13 auf der Sidebar (FR-002a).
+    enabled: true
+
+  boss-bar:
+    # Zonenname, Bosskampf, kanalisierte Faehigkeit. Es gibt genau EINE Bossbar je
+    # Spieler; die Rangfolge ist Kanalisierung > Bosskampf > Zonenname (FR-004), und
+    # ein verdraengter Anlass wird nicht nachgeholt (FR-004a).
+    enabled: true
+    # Wie lange der Zonenname stehen bleibt, wenn ihn nichts Wichtigeres verdraengt.
+    zone-notice-seconds: 4
+
+  sidebar:
+    # Level, Erfahrung, Coins, Zone.
+    #
+    # Drei dieser vier Zeilen zeichnen sofort neu, wenn sich ihr Wert aendert. Die
+    # COIN-ZEILE NICHT: B08b meldet eine Buchung nicht als Ereignis, also folgt sie dem
+    # Takt oben und steht bis zu eine Sekunde spaeter (FR-009a). Das ist eine benannte
+    # Grenze und kein Fehler.
+    enabled: true
+
+damage-numbers:
+  enabled: true
+  # Wie lange eine Zahl in der Welt steht.
+  #
+  # Sie ist NICHT persistent - ein Absturz laesst keine zurueck (SC-009). Das ist die
+  # genaue Umkehrung von B12s Hologramm, das persistent sein MUSS und deshalb vor dem
+  # Setzen aufraeumt. Eine Schadenszahl, die dasselbe taete, waere bei 150 Spielern in
+  # Minuten tausendfacher Muell, der einen Neustart ueberlebt.
+  lifetime-ms: 1200
+  # Hoehe ueber dem Trefferpunkt, in Bloecken.
+  offset: 1.4

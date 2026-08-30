@@ -130,7 +130,8 @@ public class RpgPlugin extends JavaPlugin {
                     "zones.yml",
                     "mobs.yml",
                     "items.yml",
-                    "statistics.yml");
+                    "statistics.yml",
+                    "ui.yml");
 
     private final BootstrapState bootstrapState = new BootstrapState();
 
@@ -165,6 +166,7 @@ public class RpgPlugin extends JavaPlugin {
     private rpg.core.mob.MobModule mobModule;
     private rpg.core.item.ItemModule itemModule;
     private rpg.core.statistics.StatisticsModule statisticsModule;
+    private rpg.core.ui.UiModule uiModule;
     private rpg.platform.statistics.PlaytimeAccrual playtimeAccrual;
     private rpg.core.statistics.LeaderboardCache leaderboardCache;
     private rpg.persistence.statistics.LeaderboardFill leaderboardFill;
@@ -459,6 +461,16 @@ public class RpgPlugin extends JavaPlugin {
         // Sie stehen also schon vor dem ersten Lesen einer YAML fest und koennen hier vollstaendig
         // geprueft werden.
         declared.addAll(rpg.core.statistics.StatisticsMessageKeys.all());
+        // B13 wie B12 und nicht wie B09/B10: seine Schluessel haengen an einer Aufzaehlung im Code
+        // (Attribute aus B04) und nicht an einer Konfigurationsdatei, stehen also schon vor dem
+        // ersten Lesen einer YAML fest.
+        //
+        // Ab hier ist diese Pruefung zugleich die Pruefung des SPRACHSATZES (FR-018): wer eine
+        // zweite Sprache anlegt, bekommt beim Start die vollstaendige Liste dessen, was ihm fehlt -
+        // MessageKeyValidator meldet ALLE Luecken auf einmal und nicht die erste. Genau das macht
+        // eine Uebersetzung ueberhaupt machbar; bei einer Meldung je Startversuch gaebe man nach
+        // dem zwanzigsten auf.
+        declared.addAll(rpg.core.ui.UiMessageKeys.all());
         MessageKeyValidator.verifyAllPresent(loaded, declared);
 
         getLogger().info("[messages] " + declared.size() + " declared key(s) resolved");
@@ -564,6 +576,12 @@ public class RpgPlugin extends JavaPlugin {
         statisticsModule =
                 new rpg.core.statistics.StatisticsModule(
                         getLogger(), () -> itemModule.config().templates().keySet());
+        // B13. Der letzte der Kette: er liest zehn Bloecke und wird von keinem gebraucht. Er
+        // deklariert trotzdem KEINE Abhaengigkeiten - was er liest, holt er zur Laufzeit ueber
+        // deren oeffentliche Naehte, und seine eigene Konfiguration braucht beim Laden keinen
+        // anderen Block. Eine Abhaengigkeit, die nur "spaeter mal" bedeutet, verengt die
+        // Startreihenfolge ohne Gegenwert.
+        uiModule = new rpg.core.ui.UiModule(getLogger());
         return List.of(
                 persistenceModule,
                 sessionModule,
@@ -580,7 +598,8 @@ public class RpgPlugin extends JavaPlugin {
                 itemModule,
                 gearConditionModule,
                 cosmeticModule,
-                statisticsModule);
+                statisticsModule,
+                uiModule);
     }
 
     /**

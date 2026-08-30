@@ -731,3 +731,68 @@ statistics:
   hologram:
     header: '&6{board} &8- &7{period}'
     line: '&8#{rank} &f{player} &8- &7{value}'
+
+# ---------------------------------------------------------------------------
+# B13 - UI, HUD und Texte.
+#
+# Drei Flaechen, drei Rollen. Wer hier etwas umschreibt, aendert nur den
+# Wortlaut - WELCHER Wert auf WELCHER Flaeche steht, ist eine Aufzaehlung im
+# Code und keine Einstellung (FR-001). Zwei Flaechen mit demselben Wert waeren
+# kein Layout, sondern eine doppelte Wahrheit auf dem Bildschirm.
+# ---------------------------------------------------------------------------
+ui:
+
+  sidebar:
+    title: '&6&lVuntex'
+    level: '&7Level&8: &f{level}'
+    # Level und Erfahrung stehen SEIT B13 hier und nicht mehr auf der
+    # Actionbar (FR-002a). Wer die alte Zeile sucht: sie ist umgezogen, nicht
+    # verschwunden.
+    xp: '&7XP&8: &f{xp}&8/&7{xpNext}'
+    # Am Hoechstlevel ist die Schwelle 0, und '4120/0' saehe aus wie ein
+    # Fehler. Deshalb ein eigener Schluessel statt einer abgeleiteten Regel.
+    xp-max: '&7XP&8: &f{xp} &8(&6max&8)'
+    coins: '&7Coins&8: &e{coins}'
+    zone: '&7Zone&8: &f{zone}'
+    zone-wilderness: '&8Wilderness'
+
+  bossbar:
+    zone-notice: '&f{zone}'
+    boss-fight: '&c&l{name}'
+    channelling: '&b{ability}'
+
+  damage:
+    number: '&f{amount}'
+    # Ein eigener Schluessel fuer den letzten Treffer - die einzige Zahl, auf
+    # die ein Spieler wirklich wartet.
+    number-lethal: '&c&l{amount}'
+
+  sheet:
+    title: '&6{character}'
+    attribute: '&7{label}&8: &f{value}'
+    # Nicht jedes Attribut ist eine Stueckzahl. Ohne eigene Zeile stuende bei
+    # einer Cooldown-Reduktion eine nackte 0.15, und der Spieler rechnete
+    # selbst.
+    attribute-percent: '&7{label}&8: &f{value}%'
+    class: '&7Class&8: &f{class}'
+    level: '&7Level&8: &f{level}'
+    coins: '&7Coins&8: &e{coins}'
+    equipment: '&7{slot}&8: &f{item}'
+    condition: '&8Condition&8: &7{percent}%'
+    equipment-empty: '&7{slot}&8: &8empty'
+    no-character: '&7Pick a character first.'
+
+  # Die Anzeigenamen der Attribute aus B04. Es sind heute zehn; die Zahl steht
+  # weder hier noch im Code, weil sie sich mit B04 aendert - die Startpruefung
+  # geht die Aufzaehlung durch und nicht eine gemerkte Zahl.
+  attribute:
+    health: 'Health'
+    health-regen: 'Health Regen'
+    defense: 'Defense'
+    mana: 'Mana'
+    mana-regen: 'Mana Regen'
+    physical-damage: 'Physical Damage'
+    magic-damage: 'Magic Damage'
+    attack-speed: 'Attack Speed'
+    movement-speed: 'Movement Speed'
+    ability-cooldown: 'Ability Cooldown'
