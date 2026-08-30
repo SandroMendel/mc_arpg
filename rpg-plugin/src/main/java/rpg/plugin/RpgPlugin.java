@@ -2065,7 +2065,33 @@ public class RpgPlugin extends JavaPlugin {
                                         new rpg.core.scheduler.EntityRef(player.getUniqueId()),
                                         () ->
                                                 statisticsMenus.openProfile(
-                                                        player, profileMenu, profile, player.getName())));
+                                                        player, profileMenu, profile, player.getName())),
+                        // Name -> Konto. getOfflinePlayer(String) fragt den Namens-Cache des
+                        // Servers; hasPlayedBefore() trennt einen echten Namen von einem
+                        // Tippfehler, der sonst als leeres Profil durchginge.
+                        name -> {
+                            org.bukkit.OfflinePlayer found = getServer().getOfflinePlayer(name);
+                            return found.hasPlayedBefore() || found.isOnline()
+                                    ? java.util.Optional.of(found.getUniqueId())
+                                    : java.util.Optional.empty();
+                        },
+                        // Das fremde Profil ist bereits fertig - es kommt aus dem Speicherstand.
+                        (player, profile) ->
+                                statisticsMenus.openProfile(
+                                        player,
+                                        profileMenu,
+                                        profile,
+                                        java.util.Optional.ofNullable(
+                                                        getServer()
+                                                                .getOfflinePlayer(profile.account())
+                                                                .getName())
+                                                .orElse(profile.account().toString())),
+                        (player, name) ->
+                                player.sendMessage(
+                                        messages.get(
+                                                rpg.core.statistics.StatisticsMessageKeys
+                                                        .UNKNOWN_PLAYER,
+                                                java.util.Map.of("player", name))));
 
         if (getCommand("stats") != null) {
             getCommand("stats").setExecutor(stats);

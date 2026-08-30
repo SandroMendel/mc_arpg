@@ -5,7 +5,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.function.BiConsumer;
+import java.util.function.Function;
 
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -42,9 +44,26 @@ public final class StatisticsCommand implements CommandExecutor, TabCompleter {
     /** Öffnet das fertige Fenster — auf dem Tick, vom Aufrufer bereitgestellt. */
     private final BiConsumer<Player, ProfileSnapshot> open;
 
-    public StatisticsCommand(ProfileLoader loader, BiConsumer<Player, ProfileSnapshot> open) {
+    /** Name → Konto; leer für einen Namen, den es nie gab. */
+    private final Function<String, Optional<UUID>> accountOf;
+
+    /** Öffnet ein fremdes Profil — dasselbe Fenster, ein anderer Titel. */
+    private final BiConsumer<Player, ProfileSnapshot> openForeignProfile;
+
+    /** Sagt dem Betrachter, dass es diesen Spieler nicht gibt. */
+    private final BiConsumer<Player, String> unknownPlayer;
+
+    public StatisticsCommand(
+            ProfileLoader loader,
+            BiConsumer<Player, ProfileSnapshot> open,
+            Function<String, Optional<UUID>> accountOf,
+            BiConsumer<Player, ProfileSnapshot> openForeignProfile,
+            BiConsumer<Player, String> unknownPlayer) {
         this.loader = Objects.requireNonNull(loader, "loader");
         this.open = Objects.requireNonNull(open, "open");
+        this.accountOf = Objects.requireNonNull(accountOf, "accountOf");
+        this.openForeignProfile = Objects.requireNonNull(openForeignProfile, "openForeignProfile");
+        this.unknownPlayer = Objects.requireNonNull(unknownPlayer, "unknownPlayer");
     }
 
     @Override
@@ -54,6 +73,14 @@ public final class StatisticsCommand implements CommandExecutor, TabCompleter {
             return true;
         }
         if (!player.hasPermission(PERMISSION)) {
+            return true;
+        }
+
+        // Ein Argument, das kein Zeitraum ist, ist ein Spielername (FR-044). Die Reihenfolge ist
+        // Absicht: /stats week soll den eigenen Zeitraum meinen und nicht nach einem Spieler
+        // namens "week" suchen.
+        if (args.length > 0 && periodOf(args[0]).isEmpty()) {
+            openForeign(player, args[0], args.length > 1 ? periodOf(args[1]).orElse(Period.ALL_TIME) : Period.ALL_TIME);
             return true;
         }
 
@@ -70,6 +97,26 @@ public final class StatisticsCommand implements CommandExecutor, TabCompleter {
                             return null;
                         });
         return true;
+    }
+
+    /**
+     * Das Profil eines anderen (FR-044).
+     *
+     * <p><b>Kostet keine Abfrage</b>: es kommt vollständig aus dem Ranglisten-Speicherstand. Eine
+     * Abfrage gäbe es hier auch gar nicht — die Aufschlüsselung, aus der die Kill-Aufteilung
+     * entsteht, verlässt das Modul nur für den Betrachter selbst (FR-037).
+     *
+     * <p>Ein Name, den es nie gab, bekommt eine <b>Meldung</b> und kein leeres Fenster. Ein leeres
+     * Fenster ist die schlechtere Antwort: es sieht aus wie „dieser Spieler hat nichts getan" und
+     * beantwortet damit eine Frage, die niemand gestellt hat.
+     */
+    private void openForeign(Player viewer, String name, Period period) {
+        Optional<UUID> account = accountOf.apply(name);
+        if (account.isEmpty()) {
+            unknownPlayer.accept(viewer, name);
+            return;
+        }
+        openForeignProfile.accept(viewer, loader.foreign(account.get(), period));
     }
 
     @Override

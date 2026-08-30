@@ -36,6 +36,7 @@ public record Leaderboard(
         String periodKey,
         List<LeaderboardEntry> top,
         Map<UUID, Integer> rankOf,
+        Map<UUID, Long> valueOf,
         Instant refreshedAt) {
 
     public Leaderboard {
@@ -44,6 +45,23 @@ public record Leaderboard(
         Objects.requireNonNull(refreshedAt, "refreshedAt");
         top = List.copyOf(Objects.requireNonNull(top, "top"));
         rankOf = Map.copyOf(Objects.requireNonNull(rankOf, "rankOf"));
+        valueOf = Map.copyOf(Objects.requireNonNull(valueOf, "valueOf"));
+    }
+
+    /**
+     * Der Wert eines Kontos — auch weit außerhalb der ersten N.
+     *
+     * <p><b>Dazugekommen für das fremde Profil</b> (FR-044): dessen Kill-Zahlen brauchen die
+     * Trennung in Mob- und Bosskills, und die entsteht aus der Aufschlüsselung — die ein fremdes
+     * Konto nach FR-037 nicht herausgibt. Aus dem Speicherstand kommt sie fertig, weil die
+     * Auffrischung sie ohnehin gebildet hat.
+     *
+     * <p>Der Preis ist ein {@code long} je Konto und Rangliste. Die Alternative wäre gewesen, dem
+     * fremden Profil die Aufteilung zu verweigern — oder ihm doch eine Aufschlüsselung zu geben,
+     * und damit die Regel, um die es hier geht.
+     */
+    public long valueFor(UUID playerId) {
+        return valueOf.getOrDefault(playerId, 0L);
     }
 
     /** Der Platz eines Kontos, sofern es überhaupt einen Wert hat. */
@@ -166,13 +184,14 @@ public record Leaderboard(
                                 entry.getValue()));
             }
         }
-        return new Leaderboard(board, period, periodKey, top, ranks, refreshedAt);
+        return new Leaderboard(board, period, periodKey, top, ranks, values, refreshedAt);
     }
 
     /** Eine Liste, die es noch nicht gibt — vor der ersten Auffrischung (FR-035). */
     public static Leaderboard empty(
             Aggregation board, Period period, String periodKey, Instant refreshedAt) {
-        return new Leaderboard(board, period, periodKey, List.of(), Map.of(), refreshedAt);
+        return new Leaderboard(
+                board, period, periodKey, List.of(), Map.of(), Map.of(), refreshedAt);
     }
 
     /** Nur damit der Vergleich in Tests lesbar bleibt. */

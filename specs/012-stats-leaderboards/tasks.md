@@ -256,13 +256,13 @@ Zeiträume durchschalten und gegen die gespeicherten Werte prüfen.
 untätig herum; der andere öffnet dessen Profil und findet weder die Aufschlüsselung noch die
 Onlinezeit noch die Zonenaufteilung.
 
-- [ ] T096 [P] [US4] Test `ForeignProfileHidesAllThreePrivateValuesTest` in `rpg-platform/src/test/java/rpg/platform/statistics/ForeignProfileHidesAllThreePrivateValuesTest.java` — **SC-006 und SC-017, die Anforderung mit der größten Chance, still verloren zu gehen**: geprüft werden **alle vier** Ausgabewege — eigenes Fenster (zeigt), Fremdprofil, Rangliste und Hologramm (zeigen nicht)
-- [ ] T097 [US4] `ProfileMenu` in `rpg-platform/src/main/java/rpg/platform/statistics/ProfileMenu.java` — Gesamtzahl der Tode und **aktive** Spielzeit; keiner der drei privaten Werte (FR-037)
-- [ ] T098 [US4] `StatisticsCommand` um `/stats <spieler>` erweitern (FR-044)
-- [ ] T099 [P] [US4] Test `UnknownPlayerGetsAMessageTest` in `rpg-platform/src/test/java/rpg/platform/statistics/UnknownPlayerGetsAMessageTest.java` — ein Name, den es nie gab, erzeugt eine Meldung und **kein leeres Fenster**
-- [ ] T100 [P] [US4] Test `PublicPlaytimeIsTheActiveOneTest` in `rpg-platform/src/test/java/rpg/platform/statistics/PublicPlaytimeIsTheActiveOneTest.java` — **FR-038a**: ein Spieler mit viel Leerlauf steht in der Rangliste mit seiner aktiven Zeit, nicht mit seiner Onlinezeit
-- [ ] T101 [US4] Fenster an `StatisticsMenuListener` anschließen, Verdrahtung in `RpgPlugin`
-- [ ] T102 [US4] `FullBootstrapTest` nachziehen, falls die Handlerzahl sich erneut ändert
+- [X] T096 [P] [US4] Test `ForeignProfileHidesAllThreePrivateValuesTest` in `rpg-platform/src/test/java/rpg/platform/statistics/ForeignProfileHidesAllThreePrivateValuesTest.java` — **SC-006 und SC-017, die Anforderung mit der größten Chance, still verloren zu gehen**: geprüft werden **alle vier** Ausgabewege — eigenes Fenster (zeigt), Fremdprofil, Rangliste und Hologramm (zeigen nicht)
+- [X] T097 [US4] `ProfileMenu` in `rpg-platform/src/main/java/rpg/platform/statistics/ProfileMenu.java` — Gesamtzahl der Tode und **aktive** Spielzeit; keiner der drei privaten Werte (FR-037)
+- [X] T098 [US4] `StatisticsCommand` um `/stats <spieler>` erweitern (FR-044)
+- [X] T099 [P] [US4] Test `UnknownPlayerGetsAMessageTest` in `rpg-platform/src/test/java/rpg/platform/statistics/UnknownPlayerGetsAMessageTest.java` — ein Name, den es nie gab, erzeugt eine Meldung und **kein leeres Fenster**
+- [X] T100 [P] [US4] Test `PublicPlaytimeIsTheActiveOneTest` in `rpg-platform/src/test/java/rpg/platform/statistics/PublicPlaytimeIsTheActiveOneTest.java` — **FR-038a**: ein Spieler mit viel Leerlauf steht in der Rangliste mit seiner aktiven Zeit, nicht mit seiner Onlinezeit
+- [X] T101 [US4] Fenster an `StatisticsMenuListener` anschließen, Verdrahtung in `RpgPlugin`
+- [X] T102 [US4] `FullBootstrapTest` nachziehen, falls die Handlerzahl sich erneut ändert
 
 **Checkpoint**: Das Fremdprofil zeigt, was es zeigen darf — und ein Test bewacht die Grenze über
 alle vier Wege.

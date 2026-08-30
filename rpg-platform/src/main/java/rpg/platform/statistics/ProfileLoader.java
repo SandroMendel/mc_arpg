@@ -91,6 +91,41 @@ public final class ProfileLoader {
     }
 
     /**
+     * Ein fremdes Profil (FR-044) — <b>ausschließlich aus dem Speicherstand.</b>
+     *
+     * <p>Nicht aus Sparsamkeit, sondern weil es keine erlaubte Abfrage gäbe: die Kill-Aufteilung
+     * braucht die Aufschlüsselung, und die verlässt das Modul nur für den Betrachter selbst
+     * (FR-037). Der Speicherstand hat sie fertig — die Auffrischung hat Mob- und Bosskills
+     * ohnehin getrennt, und jede Rangliste trägt seit dem fremden Profil auch die Werte außerhalb
+     * der ersten N.
+     *
+     * <p>Die drei privaten Werte kommen hier nicht vor, und {@link ProfileSnapshot} würde einen
+     * fremden Schnappschuss zurückweisen, der sie trüge: der Riegel liegt eine Ebene tiefer, wo
+     * ihn niemand umgehen kann.
+     *
+     * <p><b>Synchron</b>, weil nichts zu laden ist. Ein {@code CompletableFuture} wäre hier eine
+     * Behauptung über Arbeit, die nicht stattfindet.
+     */
+    public ProfileSnapshot foreign(UUID account, Period period) {
+        ProfileSnapshot.Builder builder = new ProfileSnapshot.Builder();
+
+        for (Aggregation board : Aggregation.values()) {
+            if (board.visibility() != rpg.core.statistics.MetricVisibility.PUBLIC) {
+                // Die Onlinezeit ist privat und steht in keinem fremden Profil (FR-037).
+                continue;
+            }
+            leaderboards
+                    .board(board, period)
+                    .ifPresent(
+                            list -> {
+                                builder.value(board, list.valueFor(account));
+                                list.rankFor(account).ifPresent(rank -> builder.rank(board, rank));
+                            });
+        }
+        return builder.foreign(account, period);
+    }
+
+    /**
      * Die eigene Platzierung je öffentlicher Rangliste (FR-042).
      *
      * <p>Aus dem Speicherstand, nicht aus einer Abfrage — die vollständige Rangzuordnung liegt

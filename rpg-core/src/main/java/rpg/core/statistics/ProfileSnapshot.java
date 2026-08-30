@@ -119,8 +119,25 @@ public record ProfileSnapshot(
                     account, period, values, ranks, deathsByCause, playtimeByZone, onlineSeconds, true);
         }
 
+        /**
+         * Ein fremdes Profil.
+         *
+         * <p><b>Wirft, wenn private Werte gesetzt wurden</b> — es verwirft sie nicht
+         * stillschweigend. Das war die erste Fassung, und sie war die gefährlichere: wer
+         * {@code onlineSeconds(...)} setzt und einen Schnappschuss ohne sie zurückbekommt, hat
+         * keinen Anhaltspunkt, dass etwas fehlt. Ein Aufruf, der hier landet, ist ein Denkfehler
+         * an der Aufrufstelle — und der gehört gemeldet, nicht weggeräumt (FR-037).
+         */
         public ProfileSnapshot foreign(UUID account, Period period) {
-            return new ProfileSnapshot(account, period, values, ranks, Map.of(), Map.of(), -1L, false);
+            return new ProfileSnapshot(
+                    account,
+                    period,
+                    values,
+                    ranks,
+                    deathsByCause,
+                    playtimeByZone,
+                    onlineSeconds,
+                    false);
         }
     }
 }
