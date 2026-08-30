@@ -24,8 +24,10 @@ import rpg.core.message.Messages;
  * Lore-Zeile kursiv — was einen sorgfältig gesetzten Namen wie einen Fehler aussehen lässt. Das
  * gehört zu „Text sichtbar machen" und nicht in jede aufrufende Klasse.
  *
- * <p><b>Vorläufig bis B13</b> (ADR-028). Wenn die Anzeige einen eigenen Block bekommt, zieht diese
- * Klasse um; die Message-Schlüssel bleiben, wo sie sind.
+ * <p><b>B13 ist da — und diese Klasse ist geblieben.</b> Der Vermerk hier lautete „Vorläufig bis
+ * B13" (ADR-028). Umgezogen ist nach ADR-028 das <em>Kontofenster</em>; eine Textumwandlung ist
+ * kein Fenster. Sie gehört zu {@code rpg.platform.item}, weil sie beantwortet, wie ein
+ * <em>Gegenstand</em> aussieht — und das ist B11s Frage.
  */
 public final class ItemText {
 

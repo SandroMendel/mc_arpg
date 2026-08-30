@@ -40,8 +40,15 @@ import rpg.platform.classes.BoundItemTag;
  * hieße: wer sich einloggt, sähe seine Rüstung bis zum ersten Treffer als unbeschädigt — und das ist
  * genau der Moment, in dem er entscheidet, ob er zum Händler geht.
  *
- * <p><b>Vorläufig bis B13</b> (ADR-028). Wenn die Anzeige einen eigenen Block bekommt, zieht das
- * hier um; die Message-Schlüssel bleiben.
+ * <p><b>B13 ist da — und diese Klasse ist geblieben.</b> Der Vermerk hier lautete „Vorläufig bis
+ * B13" (ADR-028); umgezogen ist nach ADR-028 die <em>Anzeige</em>, und das war das Kontofenster.
+ * Der Zustandsbalken auf einem Gegenstand ist keines: er gehört zu dem, was ein Gegenstand
+ * <em>ist</em>, und das entscheidet B11.
+ *
+ * <p><b>B13 benutzt sie stattdessen.</b> {@code PaperItemRenderer} reicht sowohl für Vorlagen als
+ * auch für getragene Ausrüstung an {@link #paint} durch, statt die Zeile ein zweites Mal zu bauen
+ * (FR-021a) — zwei Renderer für denselben Gegenstand driften auseinander, und der Fehler zeigt sich
+ * zuerst dem Spieler.
  */
 public final class GearConditionDisplay {
 

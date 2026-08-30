@@ -97,3 +97,73 @@ geschrieben wird.
 - Kein Spielertext ist im Code hartcodiert (per Test oder Lint nachgewiesen).
 - Die Herzleiste zeigt in allen Situationen den korrekten Prozentwert.
 - Ein Wechsel des `HudRenderer` erfordert keine Änderung an B04, B05 oder B08.
+
+---
+
+## Gebaut am 2026-08-30
+
+**168 von 177 Aufgaben.** Offen sind nur noch Deploy und die Serverabnahme (19 Schritte).
+`clean build`: **3103 Tests, 0 Fehler, 0 übersprungen.**
+
+### Die fünf Dinge, die benutzt statt gebaut wurden
+
+Die Recherche gegen den fertigen Code (research.md) hat fünf Stellen gefunden, an denen B13 nichts
+Neues brauchte. Alle fünf haben gehalten:
+
+1. **Der Sekundentakt existierte.** `StatusActionBar.startRefresh` war bereits eine Sekunde lang,
+   aus genau dem Grund, den FR-011 nennt, und plante sich nach ADR-007 selbst neu ein. `HudTick`
+   ist seine **Erweiterung** und kein zweiter daneben; `startRefresh` ist dafür entfallen.
+2. **Die Bossabfrage brauchte nichts Neues.** `DamageDealtEvent.targetId` → `MobKinds.ofEntity` →
+   `CombatStatusSource.statusOf`. Der dritte Punkt ist der, den man übersieht: `CombatStatusSource`
+   sieht nach einer Spielerschnittstelle aus, antwortet aber auch für Kreaturen — beide gehen durch
+   dieselbe Engine.
+3. **Die Kanalisierung lag fertig in `RunningAbility`** (`startedAt`, `dueAt`, `phase`).
+4. **Die Cooldown-Restzeit kommt aus `AbilityRegistry.remainingCooldown`** — dieselbe Methode, die
+   `AbilityRuntime` selbst benutzt.
+5. **Die Sprachprüfung war gebaut.** `MessageKeyValidator` meldet seit B01 alle fehlenden Schlüssel
+   auf einmal. B13 ändert nur, welche Datei gelesen wird.
+
+### Was die Spec nicht wusste
+
+Fünf Annahmen hat der Code widerlegt, alle erst beim Bauen:
+
+| Annahme | Wirklichkeit |
+|---|---|
+| Es sind acht Attribute | **Zehn** — die Zahl stammte aus einem Roadmap-Ziel, nicht aus einer Aufzählung |
+| `ItemId` und `RenderContext` | Gibt es nicht. B11 führt `templateKey` und `GearCondition` |
+| Ausrüstung ist B11s | **B07s** — `items.yml` kennt nur sieben Tränke und drei Trims, keine Rüstung |
+| Zustand läuft in `[0,1]` | **`[0,100]`** — `WearCurve.FULL` ist 100.0 |
+| Fortschritt gehört der Actionbar | Level und Erfahrung stehen auf der **Sidebar** (FR-002a) |
+
+Die letzte war eine echte Entscheidung: FR-002 gab der Actionbar den Fortschritt, FR-005 der Sidebar
+Level und Erfahrung — **dieselben Zahlen**. `StatusActionBar.progressText` ist entfallen.
+
+### Drei Zusagen, die grün waren und nichts bewiesen
+
+Der Block hat dreimal denselben Fehlermodus produziert, und alle drei sind gefunden worden:
+
+- **FR-004c war nie verdrahtet.** `PaperBossBar.forget` existierte, aber niemand rief es. Der Test
+  dazu prüfte die Klasse direkt und hat die fehlende Verdrahtung nie gesehen. Gefunden nur als
+  Nebeneffekt, weil `FullBootstrapTest` einen unerlaubten `PlayerQuitEvent`-Handler fand.
+- **FR-042 war nicht geprüft.** `isVisibleByDefault()` ist in MockBukkit nicht implementiert und
+  wird als **„skipped"** gemeldet, nicht als Fehler. Gefunden nur durch die Skip-Zählung.
+- **`ItemStack` als Wächter-Marker** schlug bei `CoinPickupListener` an — Coin-Haufen am Boden sind
+  B08bs Mechanik, kein Fenster.
+
+### Zwei ADRs geschlossen, zwei geschrieben
+
+- **ADR-032 vollständig eingelöst**: `WaypointMenu`, sein Listener **und** `CrystalInteractListener`
+  liegen in `rpg.platform.ui`.
+- **ADR-028 zur Hälfte**: das Kontofenster ist umgezogen, `/coins` wartet weiter auf B14.
+- **ADR-051** (neu): `/char`, befristet, nach dem Muster von ADR-028.
+- **ADR-052** (neu): `AbilityHotbar` bleibt vor der Schnittstelle — eine benannte Ausnahme von
+  Constitution III.4. Sie stand vorher nur unter *Assumptions*, und das ist die stille
+  Neuinterpretation, die die Governance ausschließt.
+
+### Was B13 ausdrücklich nicht getan hat
+
+`AbilityHotbar` (ADR-052), `ClassSelectionMenu` (B07), `StatisticsMenu` und `LeaderboardMenu` (B12),
+`MobNameplate`, `PaperVanillaAttributeBridge`, `ExperienceBar`, `PaperClassNotice`,
+`GearConditionDisplay`, `ItemText`. Bewacht von `UntouchedBlocksStayUntouchedTest`.
+
+Und es **persistiert nichts**: kein Schema, keine Tabelle, keine Migration (`UiPersistsNothingTest`).

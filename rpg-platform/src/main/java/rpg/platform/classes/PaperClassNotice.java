@@ -17,7 +17,15 @@ import rpg.core.message.MessageKey;
 import rpg.core.message.Messages;
 
 /**
- * Shows a notice as a title with a sound - the seam {@link ClassNotice} names, until B13 takes it over.
+ * Shows a notice as a title with a sound - the seam {@link ClassNotice} names.
+ *
+ * <p><b>B13 hat sie NICHT übernommen</b>, obwohl der Satz hier bis dahin „until B13 takes it over"
+ * lautete. Ein Titel ist keine der drei Flächen, die B13 ordnet (FR-001) — er blendet von selbst
+ * ein und aus und trägt keinen laufenden Wert. Der Block hat drei Flächen in Dienst genommen und
+ * die Klassenmeldung gelassen, wo sie ist.
+ *
+ * <p>Wer sie später doch hinter {@code HudRenderer} ziehen will, braucht dafür eine vierte Fläche
+ * in {@code HudSurface} — und damit eine Entscheidung, keine Umbenennung.
  *
  * <p>Title and sound because that is what the notice is for: a full inventory is a state the player has
  * to act on, and a chat line scrolls away unread while items keep failing to be picked up. The sound is

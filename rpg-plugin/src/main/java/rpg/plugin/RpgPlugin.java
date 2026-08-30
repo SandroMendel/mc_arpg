@@ -1035,7 +1035,9 @@ public class RpgPlugin extends JavaPlugin {
         wireUi(actionBar, statusSource, scheduler);
 
         // Und die dritte Anzeige: was eine Kreatur ist und wie viel von ihr uebrig ist, ueber ihrem
-        // Kopf. Ebenfalls nur bis B13. Eine Zeile, kein zweiter Entitaetstyp je Mob (Prinzip II).
+        // Kopf. B13 hat sie NICHT uebernommen: ein Namensschild steht ueber einer Kreatur und ist
+        // keine der drei Flaechen (FR-001). Eine Zeile, kein zweiter Entitaetstyp je Mob
+        // (Prinzip II).
         new rpg.platform.hud.MobNameplate(
                         getServer(),
                         stats,
