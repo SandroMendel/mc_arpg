@@ -1,4 +1,4 @@
-package rpg.platform.zone;
+package rpg.platform.ui;
 
 import java.util.Map;
 import java.util.Objects;
@@ -25,6 +25,7 @@ import rpg.core.zone.CrystalPlacement;
 import rpg.core.zone.Waypoints;
 import rpg.core.zone.ZoneMessageKeys;
 import rpg.core.zone.Zones;
+import rpg.platform.zone.BukkitPositions;
 
 /**
  * A right-click on a waypoint crystal (FR-046, FR-047, FR-048).

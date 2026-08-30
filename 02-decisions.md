@@ -1318,6 +1318,19 @@ B08b ist umgesetzt, und damit ist eingelöst, was oben als offen benannt war:
 
 **Status:** Angenommen · **Datum:** 2026-08-22 · **Blöcke:** B08b, später B14 und B13
 
+> **Zur Hälfte eingelöst am 2026-08-30 durch B13.** Das **Fenster** ist umgezogen: `CurrencyMenu` und
+> `CurrencyMenuListener` liegen jetzt in `rpg.platform.ui`. In `rpg.platform.currency` liegt kein
+> Anzeigecode mehr — `NoDisplayCodeLeftTest` hält das fest.
+>
+> **Das Kommando nicht.** `/coins` bleibt in `rpg.plugin.command` und wartet weiter auf **B14**:
+> dieses ADR weist Kommandos ausdrücklich dorthin zu, und B13 sammelt keine ein — es legt nur das
+> eine an, das sein eigenes Fenster braucht (`/char`, FR-057). Der Unterschied zu ADR-032, wo Fenster
+> *und* Eingabe wanderten: eine Rechtsklick-Geste ist Präsentation, ein Kommando mit Rechtebaum und
+> Tab-Completion ist es nicht.
+>
+> **Offen bleibt** damit genau die Kommandoschale. Was hier stand — „Anzeige gehört B13" — ist
+> erledigt.
+
 **Kontext.** B08b braucht einen Aufrufweg für den Admin-Eingriff (FR-039 bis FR-046) und eine Anzeige
 für Stand und Verlauf (FR-046a, FR-046b, FR-056). Kommandos, Rechtebaum und Tab-Completion gehören
 B14, Anzeige gehört B13 — beide Schicht 3, beide hängen von allen anderen Blöcken ab. Im Projekt
@@ -1526,6 +1539,22 @@ Ende; er ersetzt sie nicht.
 
 **Status:** Angenommen · **Datum:** 2026-08-23 · **Blöcke:** B09 (Eigentümer), B02, B08b und B13
 (Eingriffe) · **Befristet bis:** B13 (Fenster und Eingabe)
+
+> **VOLLSTÄNDIG EINGELÖST am 2026-08-30 durch B13.** `WaypointMenu`, `WaypointMenuListener` **und**
+> `CrystalInteractListener` liegen jetzt in `rpg.platform.ui`. In `rpg.platform.zone` liegt kein
+> Anzeige- und kein Eingabecode mehr.
+>
+> **Beide, nicht nur das Fenster** — dieses ADR nennt die Eingabe ausdrücklich mit, und ein Fenster
+> ohne seinen Listener wäre ein halber Umzug gewesen. Das ist der Unterschied zu ADR-028, wo nur die
+> Anzeige wanderte.
+>
+> **Was bei B09 geblieben ist, ist die Entscheidung:** welche Wegpunkte offen sind, was eine Reise
+> kostet, wo ein Kristall steht — und `BukkitPositions`, weil eine Koordinatenumrechnung keine
+> Anzeige ist. B13 hat die Anzeige übernommen, nicht die Regel (FR-063).
+>
+> Bewacht von `NoDisplayCodeLeftTest` und `Adr032ConformanceTest`. Der zweite hieß bis dahin „sind
+> als befristet gekennzeichnet" und prüfte den alten Ort; er ist **umgedreht** statt gelöscht — ein
+> Test, der eine offene Schuld bewacht, wird beim Begleichen zum Test, dass sie beglichen ist.
 
 **Kontext.** Für das Reisen zwischen den sechs Regionen war am Morgen des 2026-08-23 entschieden:
 Portale als Konfigurationsquader, ein Quader mit Zielkoordinate, kostenlos, ohne Bedienoberfläche.

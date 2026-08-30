@@ -806,16 +806,16 @@ public class RpgPlugin extends JavaPlugin {
                                     ? java.util.Optional.empty()
                                     : characterIdOf(online);
                         };
-        rpg.platform.zone.WaypointMenuListener waypointMenu =
-                new rpg.platform.zone.WaypointMenuListener(
-                        new rpg.platform.zone.WaypointMenu(messages),
+        rpg.platform.ui.WaypointMenuListener waypointMenu =
+                new rpg.platform.ui.WaypointMenuListener(
+                        new rpg.platform.ui.WaypointMenu(messages, uiMenuFrame()),
                         zoneModule::zones,
                         zonePersistenceModule.store(),
                         zoneTravel,
                         characterOfPlayer,
                         messages);
-        rpg.platform.zone.CrystalInteractListener crystalInteract =
-                new rpg.platform.zone.CrystalInteractListener(
+        rpg.platform.ui.CrystalInteractListener crystalInteract =
+                new rpg.platform.ui.CrystalInteractListener(
                         zoneModule::zones,
                         zonePersistenceModule.store(),
                         characterOfPlayer,
@@ -1169,6 +1169,21 @@ public class RpgPlugin extends JavaPlugin {
      * Klasse, B08b die Coins, B11 die Ausrüstung und ihren Zustand. Hier werden sie zusammengeführt
      * — <b>gelesen, nicht gespiegelt</b> (FR-074).
      */
+    /**
+     * Der gemeinsame Rahmen der <b>drei</b> Fenster in B13s Hand (T122).
+     *
+     * <p>Die Charakterübersicht, das Reisefenster und das Kontofenster. <b>Nicht</b>
+     * {@code ClassSelectionMenu} aus B07 und <b>nicht</b> B12s Fenster (FR-070, FR-071) — die laufen,
+     * sind abgenommen und keine ist befristet.
+     *
+     * <p>Neu erzeugt statt als Feld gehalten: {@code MenuFrame} ist zustandslos (nur die Texte), und
+     * die drei Aufrufstellen liegen in drei verschiedenen Schichten der Verdrahtung. Ein Feld
+     * quer durch alle drei wäre mehr Kopplung für dasselbe Objekt.
+     */
+    private rpg.platform.ui.MenuFrame uiMenuFrame() {
+        return new rpg.platform.ui.MenuFrame(messages);
+    }
+
     private void wireCharacterSheet() {
         java.util.function.Function<java.util.UUID, java.util.Optional<java.util.UUID>>
                 characterOfPlayer =
@@ -1240,7 +1255,7 @@ public class RpgPlugin extends JavaPlugin {
                                         .orElse(1),
                         characterId -> currencyModule.currency().balanceOrZero(characterId));
 
-        rpg.platform.ui.MenuFrame frame = new rpg.platform.ui.MenuFrame(messages);
+        rpg.platform.ui.MenuFrame frame = uiMenuFrame();
         // Eine eigene Factory und kein geteiltes Feld: sie ist zustandslos (Vorlagen plus Texte),
         // und ein Feld quer durch die Verdrahtung zu reichen waere mehr Kopplung fuer denselben
         // Gegenstand. B11s Verhalten kommt trotzdem unveraendert heraus - das ist der Punkt von
@@ -3401,10 +3416,11 @@ gearDisplay =
      */
     private void registerCurrencyWindow(
             rpg.core.currency.CurrencyConfig config, rpg.core.currency.DefaultCurrency currency) {
-        rpg.platform.currency.CurrencyMenu menu =
-                new rpg.platform.currency.CurrencyMenu(messages, config.historyPageSize());
-        rpg.platform.currency.CurrencyMenuListener menuListener =
-                new rpg.platform.currency.CurrencyMenuListener(
+        rpg.platform.ui.CurrencyMenu menu =
+                new rpg.platform.ui.CurrencyMenu(
+                        messages, uiMenuFrame(), config.historyPageSize());
+        rpg.platform.ui.CurrencyMenuListener menuListener =
+                new rpg.platform.ui.CurrencyMenuListener(
                         menu, currencyModule.ledger(), scheduler, getLogger());
         getServer().getPluginManager().registerEvents(menuListener, this);
 

@@ -337,21 +337,21 @@ Anzeigecode suchen und keinen finden.
 > **Die Asymmetrie ist Absicht** (contracts §5): von B09 wandern Fenster **und** Eingabe, von B08b
 > nur das Fenster. `/coins` bleibt stehen.
 
-- [ ] T115 [P] [US5] Test `WaypointMenuBehaviourUnchangedTest` in `rpg-platform/src/test/java/rpg/platform/ui/WaypointMenuBehaviourUnchangedTest.java` — **vor** dem Umzug geschrieben, gegen den heutigen Pfad: welche Wegpunkte erscheinen, was ein Klick auslöst. Nach dem Umzug läuft derselbe Test gegen den neuen Pfad und muss unverändert grün sein (FR-060)
-- [ ] T116 [P] [US5] Test `CurrencyMenuBehaviourUnchangedTest` in `rpg-platform/src/test/java/rpg/platform/ui/CurrencyMenuBehaviourUnchangedTest.java` — dito für Charakterwahl und seitenweisen Verlauf (FR-061)
-- [ ] T117 [US5] `WaypointMenu` von `rpg-platform/src/main/java/rpg/platform/zone/WaypointMenu.java` nach `rpg-platform/src/main/java/rpg/platform/ui/WaypointMenu.java` verschieben — Paket angepasst, Verhalten unverändert
-- [ ] T118 [US5] `WaypointMenuListener` von `rpg/platform/zone/` nach `rpg/platform/ui/` verschieben
-- [ ] T119 [US5] `CrystalInteractListener` von `rpg/platform/zone/` nach `rpg/platform/ui/` verschieben — **ADR-032 nennt die Eingabe ausdrücklich mit** (FR-060); ein Fenster ohne seinen Listener wäre ein halber Umzug
-- [ ] T120 [US5] `CurrencyMenu` von `rpg-platform/src/main/java/rpg/platform/currency/CurrencyMenu.java` nach `rpg/platform/ui/` verschieben
-- [ ] T121 [US5] `CurrencyMenuListener` von `rpg/platform/currency/` nach `rpg/platform/ui/` verschieben
-- [ ] T122 [US5] `rpg-platform/src/main/java/rpg/platform/ui/WaypointMenu.java` und `CurrencyMenu.java` auf `MenuFrame` umstellen — **derselbe Rahmen wie die Charakterübersicht**, weil sie jetzt derselben Hand gehören. Die zwei fremden Fenster bekommen ihn nicht (R10, FR-070, FR-071)
-- [ ] T123 [US5] Importe in `rpg-plugin/src/main/java/rpg/plugin/command/CoinsCommand.java` auf `rpg.platform.ui` umstellen — **`/coins` selbst bleibt, wo es ist** (FR-061a). Im Javadoc ergänzen, dass die Anzeige nach B13 gewandert ist und die Kommandoschale hier auf ADR-028 wartet, das sie B14 zuweist
-- [ ] T124 [US5] Verdrahtung in `RpgPlugin` auf die neuen Pfade umstellen (`rpg-plugin/src/main/java/rpg/plugin/RpgPlugin.java` ~Zeile 767) — Registrierung von `waypointMenu` und `crystalInteract`
-- [ ] T125 [US5] `package-info.java` von `rpg/platform/zone/` und `rpg/platform/currency/` fortschreiben — beide nennen jetzt ausdrücklich, dass die Anzeige **nicht mehr hier** liegt, und verweisen auf `rpg.platform.ui` (FR-062)
-- [ ] T126 [US5] Test `NoDisplayCodeLeftInZoneTest` in `rpg-platform/src/test/java/rpg/platform/ui/NoDisplayCodeLeftInZoneTest.java` — durchsucht `rpg/platform/zone/` nach `Inventory`, `ItemStack`, `InventoryClickEvent` und `PlayerInteractEvent` und findet **nichts** (FR-062, SC-008). Nach dem Muster der vorhandenen Quellcode-Wächter, Kommentare vorher entfernt
-- [ ] T127 [US5] Test `NoDisplayCodeLeftInCurrencyTest` in `rpg-platform/src/test/java/rpg/platform/ui/NoDisplayCodeLeftInCurrencyTest.java` — dito für `rpg/platform/currency/`, **mit einer benannten Ausnahme für die Coin-Piles**: `CoinPile` ist eine Weltentität und keine Anzeige. Die Ausnahmeliste prüft sich selbst mit (R9)
-- [ ] T128 [P] [US5] Schließvermerk zu **ADR-028** in `02-decisions.md` ergänzen — die Anzeige ist bei B13, `/coins` wartet weiter auf B14
-- [ ] T129 [P] [US5] Schließvermerk zu **ADR-032** in `02-decisions.md` ergänzen — Fenster **und** Eingabe sind bei B13, die Reiseregeln blieben bei B09 (FR-063)
+- [X] T115 [P] [US5] Test `WaypointMenuBehaviourUnchangedTest` in `rpg-platform/src/test/java/rpg/platform/ui/WaypointMenuBehaviourUnchangedTest.java` — **vor** dem Umzug geschrieben, gegen den heutigen Pfad: welche Wegpunkte erscheinen, was ein Klick auslöst. Nach dem Umzug läuft derselbe Test gegen den neuen Pfad und muss unverändert grün sein (FR-060)
+- [X] T116 [P] [US5] Test `CurrencyMenuBehaviourUnchangedTest` in `rpg-platform/src/test/java/rpg/platform/ui/CurrencyMenuBehaviourUnchangedTest.java` — dito für Charakterwahl und seitenweisen Verlauf (FR-061)
+- [X] T117 [US5] `WaypointMenu` von `rpg-platform/src/main/java/rpg/platform/zone/WaypointMenu.java` nach `rpg-platform/src/main/java/rpg/platform/ui/WaypointMenu.java` verschieben — Paket angepasst, Verhalten unverändert
+- [X] T118 [US5] `WaypointMenuListener` von `rpg/platform/zone/` nach `rpg/platform/ui/` verschieben
+- [X] T119 [US5] `CrystalInteractListener` von `rpg/platform/zone/` nach `rpg/platform/ui/` verschieben — **ADR-032 nennt die Eingabe ausdrücklich mit** (FR-060); ein Fenster ohne seinen Listener wäre ein halber Umzug
+- [X] T120 [US5] `CurrencyMenu` von `rpg-platform/src/main/java/rpg/platform/currency/CurrencyMenu.java` nach `rpg/platform/ui/` verschieben
+- [X] T121 [US5] `CurrencyMenuListener` von `rpg/platform/currency/` nach `rpg/platform/ui/` verschieben
+- [X] T122 [US5] `rpg-platform/src/main/java/rpg/platform/ui/WaypointMenu.java` und `CurrencyMenu.java` auf `MenuFrame` umstellen — **derselbe Rahmen wie die Charakterübersicht**, weil sie jetzt derselben Hand gehören. Die zwei fremden Fenster bekommen ihn nicht (R10, FR-070, FR-071)
+- [X] T123 [US5] Importe in `rpg-plugin/src/main/java/rpg/plugin/command/CoinsCommand.java` auf `rpg.platform.ui` umstellen — **`/coins` selbst bleibt, wo es ist** (FR-061a). Im Javadoc ergänzen, dass die Anzeige nach B13 gewandert ist und die Kommandoschale hier auf ADR-028 wartet, das sie B14 zuweist
+- [X] T124 [US5] Verdrahtung in `RpgPlugin` auf die neuen Pfade umstellen (`rpg-plugin/src/main/java/rpg/plugin/RpgPlugin.java` ~Zeile 767) — Registrierung von `waypointMenu` und `crystalInteract`
+- [X] T125 [US5] `package-info.java` von `rpg/platform/zone/` und `rpg/platform/currency/` fortschreiben — beide nennen jetzt ausdrücklich, dass die Anzeige **nicht mehr hier** liegt, und verweisen auf `rpg.platform.ui` (FR-062)
+- [X] T126 [US5] Test `NoDisplayCodeLeftInZoneTest` in `rpg-platform/src/test/java/rpg/platform/ui/NoDisplayCodeLeftInZoneTest.java` — durchsucht `rpg/platform/zone/` nach `Inventory`, `ItemStack`, `InventoryClickEvent` und `PlayerInteractEvent` und findet **nichts** (FR-062, SC-008). Nach dem Muster der vorhandenen Quellcode-Wächter, Kommentare vorher entfernt
+- [X] T127 [US5] Test `NoDisplayCodeLeftInCurrencyTest` in `rpg-platform/src/test/java/rpg/platform/ui/NoDisplayCodeLeftInCurrencyTest.java` — dito für `rpg/platform/currency/`, **mit einer benannten Ausnahme für die Coin-Piles**: `CoinPile` ist eine Weltentität und keine Anzeige. Die Ausnahmeliste prüft sich selbst mit (R9)
+- [X] T128 [P] [US5] Schließvermerk zu **ADR-028** in `02-decisions.md` ergänzen — die Anzeige ist bei B13, `/coins` wartet weiter auf B14
+- [X] T129 [P] [US5] Schließvermerk zu **ADR-032** in `02-decisions.md` ergänzen — Fenster **und** Eingabe sind bei B13, die Reiseregeln blieben bei B09 (FR-063)
 
 **Checkpoint**: Zwei ADRs, die zehn Blöcke lang offen standen, sind geschlossen — und für den
 Spieler hat sich nichts geändert.

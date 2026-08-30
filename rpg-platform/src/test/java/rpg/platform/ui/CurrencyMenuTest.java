@@ -1,4 +1,4 @@
-package rpg.platform.currency;
+package rpg.platform.ui;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -44,7 +44,7 @@ class CurrencyMenuTest {
     @BeforeEach
     void setUp() {
         server = MockBukkit.mock();
-        menu = new CurrencyMenu(messages(), 45);
+        menu = new CurrencyMenu(messages(), new MenuFrame(messages()), 45);
         warrior = PlayerCharacter.create(playerId, CharacterClass.WARRIOR, Instant.EPOCH);
         rogue = PlayerCharacter.create(playerId, CharacterClass.ROGUE, Instant.EPOCH);
         mage = PlayerCharacter.create(playerId, CharacterClass.MAGE, Instant.EPOCH);
@@ -179,7 +179,7 @@ class CurrencyMenuTest {
     @Test
     @DisplayName("eine page-size, die die Navigationsreihe ueberschriebe, wird abgelehnt")
     void anOversizedPageSizeIsRefused() {
-        assertThatThrownBy(() -> new CurrencyMenu(messages(), 54))
+        assertThatThrownBy(() -> new CurrencyMenu(messages(), new MenuFrame(messages()), 54))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("paging buttons");
     }

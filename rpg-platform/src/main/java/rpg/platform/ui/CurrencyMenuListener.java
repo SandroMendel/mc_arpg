@@ -1,4 +1,4 @@
-package rpg.platform.currency;
+package rpg.platform.ui;
 
 import java.util.List;
 import java.util.Map;

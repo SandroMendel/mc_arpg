@@ -22,8 +22,8 @@ import rpg.core.message.Messages;
 import rpg.core.session.PlayerCharacter;
 import rpg.core.session.PlayerSession;
 import rpg.core.session.SessionRegistry;
-import rpg.platform.currency.CurrencyMenu;
-import rpg.platform.currency.CurrencyMenuListener;
+import rpg.platform.ui.CurrencyMenu;
+import rpg.platform.ui.CurrencyMenuListener;
 
 /**
  * {@code /coins} - open the window, or change a balance.
@@ -31,6 +31,14 @@ import rpg.platform.currency.CurrencyMenuListener;
  * <p><b>Provisional, and meant to be replaced</b> (ADR-028). Commands, the permission tree and tab
  * completion belong to B14; this exists because an interface with no way to call it is present and
  * unusable, and B14 is several blocks away.
+ *
+ * <p><b>Das FENSTER ist seit B13 umgezogen, dieses Kommando nicht</b> (FR-061a). {@code CurrencyMenu}
+ * und sein Listener liegen jetzt in {@code rpg.platform.ui} — ADR-028 nennt die <em>Anzeige</em>
+ * befristet und weist <em>Kommandos</em> ausdrücklich B14 zu. B13 sammelt keine Kommandos ein; es
+ * legt nur das eine an, das sein eigenes Fenster braucht ({@code /char}).
+ *
+ * <p>Eine Eingabegeste ist Präsentation, ein Kommando mit Rechtebaum und Tab-Completion ist es
+ * nicht — deshalb ist B09s Rechtsklick am Kristall mitgewandert und dieses Kommando nicht.
  *
  * <p><b>The measure of this class is how little it contains.</b> It parses arguments, checks a
  * permission and calls. Every rule - never negative, always a reason, always an actor, online versus
@@ -226,8 +234,15 @@ public final class CoinsCommand implements CommandExecutor, TabCompleter {
         return List.of();
     }
 
-    /** The window's page size, so the plugin can build the menu with it. */
-    public static CurrencyMenu menuFor(Messages messages, int pageSize) {
-        return new CurrencyMenu(messages, pageSize);
+    /**
+     * The window's page size, so the plugin can build the menu with it.
+     *
+     * <p>Seit B13 braucht das Fenster zusätzlich den gemeinsamen Rahmen (T122) — geteilt wird die
+     * Titelbehandlung, nicht das Aussehen: {@code buildPlain} gibt ihm keinen Rand, den es vorher
+     * nicht hatte (FR-061).
+     */
+    public static CurrencyMenu menuFor(
+            Messages messages, rpg.platform.ui.MenuFrame frame, int pageSize) {
+        return new CurrencyMenu(messages, frame, pageSize);
     }
 }

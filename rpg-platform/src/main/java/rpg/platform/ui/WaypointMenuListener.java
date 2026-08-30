@@ -1,4 +1,4 @@
-package rpg.platform.zone;
+package rpg.platform.ui;
 
 import java.util.List;
 import java.util.Map;

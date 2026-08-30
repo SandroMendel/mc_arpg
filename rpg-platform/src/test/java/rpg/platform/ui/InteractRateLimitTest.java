@@ -1,4 +1,4 @@
-package rpg.platform.zone;
+package rpg.platform.ui;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

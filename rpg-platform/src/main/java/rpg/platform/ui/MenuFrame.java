@@ -71,6 +71,34 @@ public final class MenuFrame {
     }
 
     /**
+     * Ein leeres Fenster mit Titel und <b>ohne</b> Rand.
+     *
+     * <h2>Warum es diese zweite Form gibt</h2>
+     *
+     * <p>Die zwei übernommenen Fenster ({@code WaypointMenu}, {@code CurrencyMenu}) hatten vor dem
+     * Umzug keinen Rand. Ihnen einen zu geben wäre eine <b>sichtbare</b> Änderung — und FR-060 und
+     * FR-061 sagen beide: „Verhalten für den Spieler unverändert."
+     *
+     * <p>T122 verlangt, sie auf {@link MenuFrame} umzustellen; die Begründung dort ist Einheitlichkeit
+     * („derselbe Rahmen wie die Charakterübersicht"). <b>Eine Anforderung schlägt eine Aufgabe</b>:
+     * sie teilen sich jetzt die Titel- und Textbehandlung, aber nicht das Aussehen. Was sie gewinnen,
+     * ist die eine Stelle für Farbcodes und Kursivschrift; was sie behalten, ist ihr Anblick.
+     *
+     * <p>Der Umzug war ausdrücklich ein Umzug und keine Überarbeitung. Ein Rand, den vorher niemand
+     * gesehen hat, wäre genau die stille Änderung, die einen Spieler denken lässt, es sei etwas
+     * kaputt.
+     */
+    public Inventory buildPlain(MessageKey titleKey, Map<String, String> titleValues, int rows) {
+        Objects.requireNonNull(titleKey, "titleKey");
+        Objects.requireNonNull(titleValues, "titleValues");
+        if (rows < 1 || rows > 6) {
+            throw new IllegalArgumentException(
+                    "rows ist " + rows + " - ein Vanilla-Fenster hat eins bis sechs");
+        }
+        return Bukkit.createInventory(null, rows * 9, render(titleKey, titleValues));
+    }
+
+    /**
      * Legt einen beschrifteten Gegenstand auf einen Platz.
      *
      * <p><b>Kursiv wird ausgeschaltet.</b> Vanilla schreibt jeden gesetzten Anzeigenamen kursiv, und

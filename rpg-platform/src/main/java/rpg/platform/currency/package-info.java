@@ -38,8 +38,21 @@
  * and nobody tells them why. Invisibility is the honest lock. The pickup lock stays in place all the
  * same: invisibility is presentation, and presentation is never the authority (Constitution VI).
  *
- * <p><b>The window is provisional</b> (ADR-028). Display belongs to B13; until it exists, this
- * package builds a selection and a paged ledger view from pure vanilla materials (ADR-005), after
- * the pattern of {@code ClassSelectionMenu} in B07.
+ * <h2>Das Fenster ist seit B13 WEG</h2>
+ *
+ * <p>Es stand hier befristet — ADR-028: „Anzeige gehört B13". B13 existiert jetzt, und
+ * {@code CurrencyMenu} und {@code CurrencyMenuListener} liegen in {@link rpg.platform.ui}.
+ *
+ * <p><b>Nur das Fenster, nicht das Kommando</b> (FR-061a). {@code /coins} bleibt in
+ * {@code rpg.plugin.command} und wartet weiter auf B14: ADR-028 weist Kommandos ausdrücklich dorthin
+ * zu, und B13 sammelt keine ein — es legt nur das eine an, das sein eigenes Fenster braucht.
+ *
+ * <p>Das ist der Unterschied zu ADR-032, wo Fenster <em>und</em> Eingabe wanderten: eine
+ * Rechtsklick-Geste ist Präsentation, ein Kommando mit Rechtebaum und Tab-Completion ist es nicht.
+ *
+ * <p><b>Was hier geblieben ist, ist die Buchführung</b>: was ein Klick kostet, was der Verlauf
+ * enthält, wann eine Buchung gilt (FR-063). B13 hat die Anzeige übernommen, nicht die Entscheidung.
+ * {@code NoDisplayCodeLeftInCurrencyTest} hält das fest — und lässt die Kommandoschale ausdrücklich
+ * stehen.
  */
 package rpg.platform.currency;

@@ -1,4 +1,4 @@
-package rpg.platform.zone;
+package rpg.platform.ui;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -48,8 +48,19 @@ public final class WaypointMenu {
 
     private final Messages messages;
 
-    public WaypointMenu(Messages messages) {
+    /**
+     * Der gemeinsame Rahmen der drei Fenster in B13s Hand (T122).
+     *
+     * <p><b>Geteilt wird die Titelbehandlung, nicht das Aussehen.</b> Dieses Fenster hatte vor dem
+     * Umzug keinen Rand, und {@code buildPlain} gibt ihm auch keinen — FR-060 sagt „Verhalten für
+     * den Spieler unverändert", und ein Rand, den vorher niemand gesehen hat, wäre genau die stille
+     * Änderung, die einen Spieler denken lässt, es sei etwas kaputt.
+     */
+    private final MenuFrame frame;
+
+    public WaypointMenu(Messages messages, MenuFrame frame) {
         this.messages = Objects.requireNonNull(messages, "messages");
+        this.frame = Objects.requireNonNull(frame, "frame");
     }
 
     /**
@@ -81,9 +92,9 @@ public final class WaypointMenu {
 
         List<CrystalPlacement> ordered = order(crystals);
         int size = size(ordered.size());
-        Inventory inventory =
-                Bukkit.createInventory(
-                        null, size, Component.text(messages.get(ZoneMessageKeys.MENU_TITLE)));
+        // Ueber den gemeinsamen Rahmen (T122), aber randlos: der Titel traegt keine Farbcodes, also
+        // ist das Ergebnis Zeichen fuer Zeichen dasselbe wie vorher (FR-060).
+        Inventory inventory = frame.buildPlain(ZoneMessageKeys.MENU_TITLE, Map.of(), size / 9);
 
         for (int slot = 0; slot < ordered.size() && slot < size; slot++) {
             inventory.setItem(slot, entry(ordered.get(slot), unlocked, standingAt));

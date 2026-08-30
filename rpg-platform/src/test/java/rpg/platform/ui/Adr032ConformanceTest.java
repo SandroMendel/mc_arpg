@@ -1,4 +1,4 @@
-package rpg.platform.zone;
+package rpg.platform.ui;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -30,20 +30,29 @@ class Adr032ConformanceTest {
     private static final Path ROOT = repositoryRoot();
 
     @Test
-    @DisplayName("Fenster und Eingabe sind im Quelltext als befristet gekennzeichnet und nennen B13")
-    void thetemporaryPiecesSayThatTheyAreTemporary() throws IOException {
-        for (String file : List.of("WaypointMenu.java", "WaypointMenuListener.java",
-                "CrystalInteractListener.java")) {
-            String text =
-                    Files.readString(
-                            ROOT.resolve("rpg-platform/src/main/java/rpg/platform/zone")
-                                    .resolve(file));
+    @DisplayName("ADR-032 ist EINGELOEST: Fenster und Eingabe liegen bei B13")
+    void thetemporaryPiecesHaveArrived() throws IOException {
+        // Dieser Test hiess bis B13 "sind als befristet gekennzeichnet und nennen B13" und suchte
+        // die drei Dateien unter rpg/platform/zone. Er hat seinen Gegenstand verloren, weil die
+        // Zusage EINGELOEST ist - und ein Test, der eine offene Schuld bewacht, wird beim
+        // Begleichen nicht geloescht, sondern umgedreht.
+        //
+        // BEIDE, nicht nur das Fenster (FR-060): ADR-032 nennt die Eingabe ausdruecklich mit, und
+        // ein Fenster ohne seinen Listener waere ein halber Umzug.
+        for (String file :
+                List.of(
+                        "WaypointMenu.java",
+                        "WaypointMenuListener.java",
+                        "CrystalInteractListener.java")) {
+            Path moved =
+                    ROOT.resolve("rpg-platform/src/main/java/rpg/platform/ui").resolve(file);
+            Path old = ROOT.resolve("rpg-platform/src/main/java/rpg/platform/zone").resolve(file);
 
-            assertThat(text).as(file + " nennt das ADR").contains("ADR-032");
-            assertThat(text).as(file + " nennt den spaeteren Eigentuemer").contains("B13");
-            assertThat(text.toLowerCase(Locale.ROOT))
-                    .as(file + " sagt, dass es befristet ist")
-                    .contains("temporary");
+            assertThat(Files.exists(moved)).as(file + " liegt bei B13").isTrue();
+            assertThat(Files.exists(old)).as(file + " liegt nicht mehr bei B09").isFalse();
+            assertThat(Files.readString(moved))
+                    .as(file + " nennt weiterhin das ADR, unter dem es hierherkam")
+                    .contains("ADR-032");
         }
     }
 
@@ -106,7 +115,7 @@ class Adr032ConformanceTest {
         String listener =
                 Files.readString(
                         ROOT.resolve(
-                                "rpg-platform/src/main/java/rpg/platform/zone/CrystalInteractListener.java"));
+                                "rpg-platform/src/main/java/rpg/platform/ui/CrystalInteractListener.java"));
 
         // Das Fenster darf Materialien benutzen - es zeichnet Symbole. Die Erkennung darf es nicht,
         // sonst haengt das Reisen daran, dass niemand den Stein abbaut.

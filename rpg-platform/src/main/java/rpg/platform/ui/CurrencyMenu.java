@@ -1,4 +1,4 @@
-package rpg.platform.currency;
+package rpg.platform.ui;
 
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -62,8 +62,18 @@ public final class CurrencyMenu {
     private final Messages messages;
     private final int pageSize;
 
-    public CurrencyMenu(Messages messages, int pageSize) {
+    /**
+     * Der gemeinsame Rahmen der drei Fenster in B13s Hand (T122).
+     *
+     * <p><b>Geteilt wird die Titelbehandlung, nicht das Aussehen.</b> Dieses Fenster hatte vor dem
+     * Umzug keinen Rand, und {@code buildPlain} gibt ihm auch keinen — FR-061 sagt „Verhalten für
+     * den Spieler unverändert". Der Umzug war ein Umzug und keine Überarbeitung.
+     */
+    private final MenuFrame frame;
+
+    public CurrencyMenu(Messages messages, MenuFrame frame, int pageSize) {
         this.messages = Objects.requireNonNull(messages, "messages");
+        this.frame = Objects.requireNonNull(frame, "frame");
         if (pageSize <= 0 || pageSize > NAVIGATION_ROW) {
             throw new IllegalArgumentException(
                     "page size must be between 1 and "
@@ -89,11 +99,11 @@ public final class CurrencyMenu {
         Objects.requireNonNull(characters, "characters");
         Objects.requireNonNull(balances, "balances");
 
+        // Ueber den gemeinsamen Rahmen (T122), aber randlos: der Titel traegt keine Farbcodes, also
+        // ist das Ergebnis Zeichen fuer Zeichen dasselbe wie vorher (FR-061).
         Inventory inventory =
-                Bukkit.createInventory(
-                        null,
-                        SELECTION_SIZE,
-                        Component.text(messages.get(CurrencyMessageKeys.MENU_TITLE_CHARACTERS)));
+                frame.buildPlain(
+                        CurrencyMessageKeys.MENU_TITLE_CHARACTERS, Map.of(), SELECTION_SIZE / 9);
         for (int i = 0; i < characters.size() && i < CHARACTER_SLOTS.length; i++) {
             PlayerCharacter character = characters.get(i);
             long balance = balances.getOrDefault(character.characterId(), 0L);
@@ -124,13 +134,10 @@ public final class CurrencyMenu {
         Objects.requireNonNull(entries, "entries");
 
         Inventory inventory =
-                Bukkit.createInventory(
-                        null,
-                        HISTORY_SIZE,
-                        Component.text(
-                                messages.get(
-                                        CurrencyMessageKeys.MENU_TITLE_HISTORY,
-                                        Map.of("character", character.characterClass().name()))));
+                frame.buildPlain(
+                        CurrencyMessageKeys.MENU_TITLE_HISTORY,
+                        Map.of("character", character.characterClass().name()),
+                        HISTORY_SIZE / 9);
 
         if (entries.isEmpty()) {
             // Not an empty window with no explanation - a player who has never earned anything

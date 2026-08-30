@@ -1,4 +1,4 @@
-package rpg.platform.zone;
+package rpg.platform.ui;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -49,7 +49,7 @@ class WaypointMenuTest {
     @BeforeEach
     void setUp() {
         MockBukkit.mock();
-        menu = new WaypointMenu(messages());
+        menu = new WaypointMenu(messages(), new MenuFrame(messages()));
         crystals = sixRegions();
     }
 
