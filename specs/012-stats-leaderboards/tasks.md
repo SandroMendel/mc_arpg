@@ -290,11 +290,11 @@ den Endstand prüfen, den Anspruch einlösen und ein zweites Einlösen versuchen
 
 - [X] T109 [US5] Migration `V12_2__season_result.sql` — Endstand samt **der Gewichtung, mit der gerechnet wurde** ([data-model.md](./data-model.md) §1.3)
 - [X] T110 [US5] Migration `V12_3__season_reward_claim.sql` — Anspruch mit `claimed_at NULL` als „offen"; **keine Ablaufspalte**, weil es keine Frist gibt (FR-053a)
-- [ ] T111 [US5] `JdbcSeasonResultRepository` in `rpg-persistence/src/main/java/rpg/persistence/statistics/JdbcSeasonResultRepository.java` — **ohne Write-Behind** (R2). Javadoc begründet, warum: ein Endstand entsteht viermal im Jahr, und der Write-Behind-Weg bündelt viele Änderungen je Sekunde
-- [ ] T112 [US5] `JdbcRewardClaimRepository` in `rpg-persistence/src/main/java/rpg/persistence/statistics/JdbcRewardClaimRepository.java` — bedingtes Update `WHERE claimed_at IS NULL`, **erst markieren, dann gutschreiben**
-- [ ] T113 [P] [US5] Test `ClaimIsExactlyOnceTest` in `rpg-persistence/src/test/java/rpg/persistence/statistics/ClaimIsExactlyOnceTest.java` — **SC-008**: zwei gleichzeitige Einlösungen, genau eine Gutschrift. Und ein Absturz zwischen Markierung und Gutschrift **verliert höchstens, verdoppelt nie**
-- [ ] T113a [P] [US5] Test `ClaimNeverExpiresTest` in `rpg-persistence/src/test/java/rpg/persistence/statistics/ClaimNeverExpiresTest.java` — **FR-053a, SC-018**: ein Anspruch aus einer Saison, die ein Jahr zurückliegt, ist unverändert einlösbar. Der Test hält die Zusage fest, dass **keine** Ablaufspalte nachträglich eingeführt wird
-- [ ] T114 [P] [US5] Test `FrozenStandingIgnoresLaterWeightsTest` in `rpg-persistence/src/test/java/rpg/persistence/statistics/FrozenStandingIgnoresLaterWeightsTest.java` — **SC-021**: Gewichte ändern, Endstand bleibt
+- [X] T111 [US5] `JdbcSeasonResultRepository` in `rpg-persistence/src/main/java/rpg/persistence/statistics/JdbcSeasonResultRepository.java` — **ohne Write-Behind** (R2). Javadoc begründet, warum: ein Endstand entsteht viermal im Jahr, und der Write-Behind-Weg bündelt viele Änderungen je Sekunde
+- [X] T112 [US5] `JdbcRewardClaimRepository` in `rpg-persistence/src/main/java/rpg/persistence/statistics/JdbcRewardClaimRepository.java` — bedingtes Update `WHERE claimed_at IS NULL`, **erst markieren, dann gutschreiben**
+- [X] T113 [P] [US5] Test `ClaimIsExactlyOnceTest` in `rpg-persistence/src/test/java/rpg/persistence/statistics/ClaimIsExactlyOnceTest.java` — **SC-008**: zwei gleichzeitige Einlösungen, genau eine Gutschrift. Und ein Absturz zwischen Markierung und Gutschrift **verliert höchstens, verdoppelt nie**
+- [X] T113a [P] [US5] Test `ClaimNeverExpiresTest` in `rpg-persistence/src/test/java/rpg/persistence/statistics/ClaimNeverExpiresTest.java` — **FR-053a, SC-018**: ein Anspruch aus einer Saison, die ein Jahr zurückliegt, ist unverändert einlösbar. Der Test hält die Zusage fest, dass **keine** Ablaufspalte nachträglich eingeführt wird
+- [X] T114 [P] [US5] Test `FrozenStandingIgnoresLaterWeightsTest` in `rpg-persistence/src/test/java/rpg/persistence/statistics/FrozenStandingIgnoresLaterWeightsTest.java` — **SC-021**: Gewichte ändern, Endstand bleibt
 
 ### Abschluss und Einlösen
 

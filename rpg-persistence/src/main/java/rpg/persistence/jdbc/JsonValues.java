@@ -4,19 +4,24 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Minimal JSON encoding for the two JSONB columns in this schema.
+ * Minimal JSON encoding for the JSONB columns in this schema.
  *
  * <p>Hand-written rather than pulling in a JSON library: the shipped jar carries no third-party
  * classes (ADR-010), and the payloads here are flat maps of primitives and strings. A block that
  * later needs richer documents should declare a proper library in {@code libraries:} rather than
  * grow this.
+ *
+ * <p><b>Public since B12</b>, which adds two more such columns ({@code season_result.weights} and
+ * {@code season_reward_claim.reward}) from its own package. The alternative would have been a copy
+ * over there — and two encoders for the same column type in the same schema drift apart the first
+ * time one of them learns to escape something the other does not.
  */
-final class JsonValues {
+public final class JsonValues {
 
     private JsonValues() {}
 
     /** Encodes a flat map as a JSON object. */
-    static String toJson(Map<String, Object> values) {
+    public static String toJson(Map<String, Object> values) {
         StringBuilder json = new StringBuilder("{");
         boolean first = true;
         for (Map.Entry<String, Object> entry : values.entrySet()) {
@@ -35,7 +40,7 @@ final class JsonValues {
      * <p>Values come back as {@code String}, {@code Double}, {@code Boolean} or {@code null}. The
      * caller knows the template and interprets accordingly; B02 never inspects these values.
      */
-    static Map<String, Object> fromJson(String json) {
+    public static Map<String, Object> fromJson(String json) {
         Map<String, Object> values = new LinkedHashMap<>();
         if (json == null || json.isBlank()) {
             return values;
