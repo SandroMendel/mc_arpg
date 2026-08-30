@@ -44,6 +44,20 @@ public interface Leaderboards {
                 .orElse(OptionalInt.empty());
     }
 
+    /**
+     * Die Saison-Gesamtwertung der <b>laufenden</b> Saison (FR-050e).
+     *
+     * <p>Sie steht hier und nicht bei {@link Seasons}, weil sie dieselbe Zusicherung trägt wie jede
+     * andere Rangliste: aus dem Speicher, tickfrei, ohne Abfrage. Ein Zwischenstand, dessen Abruf
+     * etwas kostet, würde beim ersten Andrang abgeschaltet — und wäre damit wieder erst am
+     * Saisonende sichtbar.
+     *
+     * <p>Leer heißt <b>„gerade läuft keine Saison"</b> oder „noch nie aufgefrischt". Beides ist
+     * etwas anderes als eine leere Wertung: die eine sagt „es gibt nichts zu gewinnen", die andere
+     * „noch niemand hat Punkte".
+     */
+    Optional<SeasonScoreBoard> seasonScore();
+
     /** Wann zuletzt aufgefrischt wurde — jede Ansicht muss das Alter nennen (FR-032). */
     Optional<Instant> refreshedAt();
 
@@ -62,6 +76,11 @@ public interface Leaderboards {
                     return Optional.empty();
                 }
                 return cache.board(new LeaderboardCache.Key(board, period, periodKey));
+            }
+
+            @Override
+            public Optional<SeasonScoreBoard> seasonScore() {
+                return cache.seasonScore();
             }
 
             @Override

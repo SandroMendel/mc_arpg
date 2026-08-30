@@ -64,6 +64,18 @@ public final class StatisticsMenuListener implements Listener {
                 menu.build(board, period, player.getUniqueId(), clock.instant()));
     }
 
+    /**
+     * Öffnet die Saison-Gesamtwertung — der <b>Zwischenstand</b> der laufenden Saison (FR-050e).
+     *
+     * <p>Derselbe Bestand, derselbe Klick-Riegel: was hier offen ist, unterscheidet sich für den
+     * Riegel nicht von einer Rangliste. Ein viertes Fenster mit einem vierten Zuhörer wäre genau
+     * der Fall, an dem jemand den Riegel vergisst (FR-045).
+     */
+    public void openSeasonScore(Player player) {
+        open.put(player.getUniqueId(), new OpenView(null, Period.SEASON));
+        player.openInventory(menu.buildSeasonScore(player.getUniqueId(), clock.instant()));
+    }
+
     /** Was dieser Spieler gerade offen hat — für Tests und für das Umschalten. */
     public Optional<OpenView> openView(UUID playerId) {
         return Optional.ofNullable(open.get(playerId));

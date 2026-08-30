@@ -150,10 +150,12 @@ public final class LeaderboardFill {
                                                         account, ignored -> new LinkedHashMap<>())
                                                 .put(board, value)));
 
+        // Die Aufschlüsselung wird HIER gerechnet und mitgelegt, nicht erst im Fenster: dort
+        // laege sie ausserhalb des Speicherstands, und dann brauchte das Oeffnen die Rohwerte -
+        // also eine Abfrage, also genau das, was FR-030 ausschliesst (ADR-046).
         ScoreWeights weights = ScoreWeights.from(settings.score());
-        Map<UUID, Long> scores = new LinkedHashMap<>();
-        byAccount.forEach(
-                (account, values) -> scores.put(account, SeasonScore.of(values, weights).total()));
+        Map<UUID, SeasonScore> scores = new LinkedHashMap<>();
+        byAccount.forEach((account, values) -> scores.put(account, SeasonScore.of(values, weights)));
 
         return SeasonScoreBoard.of(season.key(), scores, places, nameOf, at);
     }

@@ -33,6 +33,7 @@ import rpg.persistence.PersistenceModule;
 public final class StatisticsPersistenceModule {
 
     private final LeaderboardFill fill;
+    private final SeasonClosingJob closing;
 
     /**
      * @param isBossKind ob ein Artenschlüssel ein Boss ist — B10s Verzeichnis, nicht ein eigenes
@@ -49,14 +50,30 @@ public final class StatisticsPersistenceModule {
         Objects.requireNonNull(persistence, "persistence");
 
         javax.sql.DataSource pool = persistence.pools().loginPool();
+
+        // EINE Quelle fuer beide: der Zwischenstand und der Endstand rechnen aus denselben
+        // Rohdaten. Zwei Quellen waeren zwei Wege, dieselbe Zahl zu bilden - und der Endstand
+        // duerfte den Spielern niemals etwas anderes sagen als der Stand, den sie die ganze
+        // Saison ueber gesehen haben.
+        JdbcLeaderboardSource counters = new JdbcLeaderboardSource(pool, isBossKind);
+
         this.fill =
                 new LeaderboardFill(
                         cache,
                         new LeaderboardRefresh(pool, logger),
-                        new JdbcLeaderboardSource(pool, isBossKind),
+                        counters,
                         new JdbcStateLeaderboardSource(pool),
                         config,
                         nameOf,
+                        logger,
+                        clock);
+
+        this.closing =
+                new SeasonClosingJob(
+                        counters,
+                        new JdbcSeasonResultRepository(pool),
+                        new JdbcRewardClaimRepository(pool),
+                        config,
                         logger,
                         clock);
     }
@@ -64,6 +81,17 @@ public final class StatisticsPersistenceModule {
     /** Die Auffrischung, fertig verdrahtet. */
     public LeaderboardFill fill() {
         return fill;
+    }
+
+    /**
+     * Der Saisonabschluss, fertig verdrahtet.
+     *
+     * <p>Er gehört an denselben Takt wie die Auffrischung <b>und</b> an den Start (FR-058) — der
+     * Start, weil ein Quartalsende selten in eine Laufzeit fällt, der Takt, weil ein Server, der
+     * durchläuft, sonst nie abschlösse.
+     */
+    public SeasonClosingJob closing() {
+        return closing;
     }
 
     /**

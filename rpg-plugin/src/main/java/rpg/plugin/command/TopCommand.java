@@ -37,6 +37,9 @@ public final class TopCommand implements CommandExecutor, TabCompleter {
 
     public static final String PERMISSION = "rpg.statistics.top";
 
+    /** Das erste Argument, das keine Rangliste meint, sondern die Saison-Gesamtwertung. */
+    public static final String SEASON_SCORE = "score";
+
     private final StatisticsMenuListener menus;
 
     public TopCommand(StatisticsMenuListener menus) {
@@ -52,6 +55,14 @@ public final class TopCommand implements CommandExecutor, TabCompleter {
             return true;
         }
         if (!player.hasPermission(PERMISSION)) {
+            return true;
+        }
+
+        // "/top score" meint keine Rangliste, sondern die Saison-Gesamtwertung: ein eigenes
+        // Fenster mit einer eigenen Einheit (Punkte). Sie unter die Ranglisten zu mischen hiesse,
+        // sie zu beschriften, als waere sie eine Metrik unter anderen (FR-050e).
+        if (args.length > 0 && args[0].equalsIgnoreCase(SEASON_SCORE)) {
+            menus.openSeasonScore(player);
             return true;
         }
 
@@ -77,6 +88,9 @@ public final class TopCommand implements CommandExecutor, TabCompleter {
                     .map(Aggregation::key)
                     .filter(key -> key.startsWith(args[0].toLowerCase(Locale.ROOT)))
                     .forEach(options::add);
+            if (SEASON_SCORE.startsWith(args[0].toLowerCase(Locale.ROOT))) {
+                options.add(SEASON_SCORE);
+            }
         } else if (args.length == 2) {
             for (Period period : Period.values()) {
                 String name = period.name().toLowerCase(Locale.ROOT).replace('_', '-');

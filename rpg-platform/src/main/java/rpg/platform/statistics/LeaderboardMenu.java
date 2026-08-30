@@ -23,6 +23,8 @@ import rpg.core.statistics.Leaderboard;
 import rpg.core.statistics.LeaderboardEntry;
 import rpg.core.statistics.Leaderboards;
 import rpg.core.statistics.Period;
+import rpg.core.statistics.SeasonScore;
+import rpg.core.statistics.SeasonScoreBoard;
 import rpg.core.statistics.StatisticsMessageKeys;
 import rpg.platform.item.ItemText;
 
@@ -113,6 +115,134 @@ public final class LeaderboardMenu {
 
         inventory.setItem(SLOT_OWN_RANK, ownRank(list, viewer));
         return inventory;
+    }
+
+    /**
+     * Das Fenster der Saison-Gesamtwertung — <b>der Zwischenstand, nicht erst der Endstand</b>
+     * (FR-050e).
+     *
+     * <p>Eigenes Fenster und kein Zeitraum der Ranglisten: die Gesamtwertung ist keine
+     * {@link Aggregation}, ihre Einheit sind Punkte, und ihr Titel nennt die Saison statt einer
+     * Rangliste. Sie in die Umschaltleiste zu hängen hätte bedeutet, sie so zu beschriften, als
+     * wäre sie eine Metrik unter anderen.
+     *
+     * <p>Unten steht <b>die eigene Rechnung</b>, nicht nur der eigene Platz: ADR-046 verlangt die
+     * Aufschlüsselung ausdrücklich, weil eine Wertung, deren Zustandekommen man nicht sieht, als
+     * Willkür gelesen wird — bei einer Belohnung lauter als anderswo. Sie liegt fertig im
+     * Speicherstand; das Öffnen kostet auch hier keine Abfrage.
+     */
+    public Inventory buildSeasonScore(UUID viewer, Instant now) {
+        Optional<SeasonScoreBoard> standing = leaderboards.seasonScore();
+
+        Inventory inventory =
+                Bukkit.createInventory(
+                        null,
+                        SIZE,
+                        ItemText.of(
+                                messages,
+                                StatisticsMessageKeys.SEASON_SCORE_TITLE,
+                                Map.of(
+                                        "season",
+                                        standing.map(SeasonScoreBoard::seasonKey).orElse("-"))));
+
+        if (standing.isEmpty()) {
+            // Zwei Gruende, ein Bild: es laeuft keine Saison, oder es wurde noch nie
+            // aufgefrischt. Der erste ist der haeufigere und der einzige, den ein Spieler
+            // ueberhaupt bemerken wuerde - deshalb steht er da.
+            inventory.setItem(SLOT_HEADER, note(Material.CLOCK, StatisticsMessageKeys.SEASON_NONE));
+            return inventory;
+        }
+
+        SeasonScoreBoard board = standing.get();
+        inventory.setItem(SLOT_HEADER, seasonHeader(board, now));
+
+        if (board.isEmpty()) {
+            inventory.setItem(
+                    FIRST_ENTRY_SLOT, note(Material.PAPER, StatisticsMessageKeys.LEADERBOARD_EMPTY));
+        }
+
+        int slot = FIRST_ENTRY_SLOT;
+        for (LeaderboardEntry entry : board.top()) {
+            inventory.setItem(slot++, row(entry, entry.playerId().equals(viewer)));
+        }
+
+        inventory.setItem(SLOT_OWN_RANK, ownScore(board, viewer));
+        return inventory;
+    }
+
+    /** Die Kopfzeile der Gesamtwertung: welche Saison — und wie alt der Stand ist. */
+    private ItemStack seasonHeader(SeasonScoreBoard board, Instant now) {
+        ItemStack head = new ItemStack(Material.BOOK);
+        ItemMeta meta = head.getItemMeta();
+        meta.displayName(
+                ItemText.onItem(
+                        ItemText.of(
+                                messages,
+                                StatisticsMessageKeys.SEASON_SCORE_TITLE,
+                                Map.of("season", board.seasonKey()))));
+        meta.lore(
+                List.of(
+                        ItemText.onItem(
+                                ItemText.of(
+                                        messages,
+                                        StatisticsMessageKeys.LEADERBOARD_AS_OF,
+                                        Map.of("age", age(board.refreshedAt(), now))))));
+        head.setItemMeta(meta);
+        return head;
+    }
+
+    /**
+     * Die eigene Punktzahl — und darunter, Zeile für Zeile, wie sie zustande kommt.
+     *
+     * <p><b>In der Zeile steht die Einheit, die multipliziert wird</b>, nicht der Rohwert: bei der
+     * Spielzeit sind das angefangene Stunden. Stünde dort die Sekundenzahl, ginge die angezeigte
+     * Rechnung nicht auf — und eine Rechnung, die nicht aufgeht, erklärt weniger als gar keine.
+     */
+    private ItemStack ownScore(SeasonScoreBoard board, UUID viewer) {
+        ItemStack own = new ItemStack(Material.NAME_TAG);
+        ItemMeta meta = own.getItemMeta();
+
+        Optional<SeasonScore> mine = board.scoreFor(viewer);
+        if (mine.isEmpty()) {
+            meta.displayName(
+                    ItemText.onItem(
+                            ItemText.of(
+                                    messages, StatisticsMessageKeys.LEADERBOARD_UNRANKED, Map.of())));
+            own.setItemMeta(meta);
+            return own;
+        }
+
+        SeasonScore score = mine.get();
+        meta.displayName(
+                ItemText.onItem(
+                        ItemText.of(
+                                messages,
+                                StatisticsMessageKeys.SEASON_SCORE_TOTAL,
+                                Map.of(
+                                        "points", String.valueOf(score.total()),
+                                        "rank", String.valueOf(board.rankFor(viewer).orElse(0))))));
+
+        List<Component> lore = new ArrayList<>();
+        for (SeasonScore.Part part : score.parts()) {
+            lore.add(
+                    ItemText.onItem(
+                            ItemText.of(
+                                    messages,
+                                    StatisticsMessageKeys.SEASON_SCORE_LINE,
+                                    Map.of(
+                                            "label", boardLabel(part.board()),
+                                            "value", String.valueOf(part.units()),
+                                            "weight", weightLabel(part.weight()),
+                                            "points", String.valueOf(part.points())))));
+        }
+        meta.lore(lore);
+        own.setItemMeta(meta);
+        return own;
+    }
+
+    /** {@code 2} statt {@code 2.0} — ganze Gewichte lesen sich als ganze Zahlen besser. */
+    static String weightLabel(double weight) {
+        return weight == Math.rint(weight) ? String.valueOf((long) weight) : String.valueOf(weight);
     }
 
     /** Die Kopfzeile: was gezeigt wird, über welchen Zeitraum — und wie alt es ist. */

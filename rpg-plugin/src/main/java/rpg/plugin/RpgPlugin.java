@@ -168,6 +168,10 @@ public class RpgPlugin extends JavaPlugin {
     private rpg.platform.statistics.PlaytimeAccrual playtimeAccrual;
     private rpg.core.statistics.LeaderboardCache leaderboardCache;
     private rpg.persistence.statistics.LeaderboardFill leaderboardFill;
+
+    /** B12s Saisonabschluss — beim Start nachgeholt und im Auffrischungstakt mitgeführt (FR-058). */
+    private rpg.persistence.statistics.SeasonClosingJob seasonClosing;
+
     private rpg.platform.statistics.StatisticsMenuListener statisticsMenus;
 
     /**
@@ -1988,24 +1992,25 @@ public class RpgPlugin extends JavaPlugin {
         // Die DataSource bleibt in rpg-persistence: NoDirectDatabaseAccessTest haelt seit B02
         // fest, dass java.sql nur dort vorkommt, und ein Pool, den sich das Plugin selbst holt,
         // waere der erste Schritt daran vorbei. Nach aussen geht eine fertige Auffrischung.
-        leaderboardFill =
+        rpg.persistence.statistics.StatisticsPersistenceModule statisticsPersistence =
                 new rpg.persistence.statistics.StatisticsPersistenceModule(
-                                persistenceModule,
-                                leaderboardCache,
-                                // Welche Art ein Boss ist, weiss B10 - eine zweite Antwort hier
-                                // waere eine zweite Wahrheit (FR-009a).
-                                kindKey ->
-                                        mobModule
-                                                .kinds()
-                                                .find(kindKey)
-                                                .map(rpg.core.mob.MobKind::boss)
-                                                .orElse(false),
-                                () -> statisticsModule.config(),
-                                // Namensaufloesung beim FUELLEN, ausserhalb des Ticks (FR-040).
-                                playerId -> getServer().getOfflinePlayer(playerId).getName(),
-                                getLogger(),
-                                Clock.systemUTC())
-                        .fill();
+                        persistenceModule,
+                        leaderboardCache,
+                        // Welche Art ein Boss ist, weiss B10 - eine zweite Antwort hier
+                        // waere eine zweite Wahrheit (FR-009a).
+                        kindKey ->
+                                mobModule
+                                        .kinds()
+                                        .find(kindKey)
+                                        .map(rpg.core.mob.MobKind::boss)
+                                        .orElse(false),
+                        () -> statisticsModule.config(),
+                        // Namensaufloesung beim FUELLEN, ausserhalb des Ticks (FR-040).
+                        playerId -> getServer().getOfflinePlayer(playerId).getName(),
+                        getLogger(),
+                        Clock.systemUTC());
+        leaderboardFill = statisticsPersistence.fill();
+        seasonClosing = statisticsPersistence.closing();
 
         statisticsMenus =
                 new rpg.platform.statistics.StatisticsMenuListener(
@@ -2021,7 +2026,35 @@ public class RpgPlugin extends JavaPlugin {
 
         wireOwnProfile(leaderboards);
 
+        // Faellige Saisonabschluesse NACHHOLEN, und zwar sofort (FR-058). Ein Quartalsende faellt
+        // selten auf einen Moment, in dem der Server gerade laeuft - die Nachholung beim Start ist
+        // der Normalfall, nicht die Ausnahme. Asynchron, weil hier abgefragt und geschrieben wird;
+        // ein Spieler, der in derselben Sekunde hereinkommt, hat damit nichts zu tun.
+        scheduler.runAsync(this::closeDueSeasons);
+
         startLeaderboardRefresh(statisticsModule.config().leaderboards().refreshInterval());
+    }
+
+    /**
+     * Faellige Saisonabschlüsse — beim Start und in jedem Auffrischungstakt (FR-058).
+     *
+     * <p>Zweimal zu laufen kostet nichts: der Beleg für „abgeschlossen" sind die Zeilen im
+     * Endstand, und ein zweiter Durchlauf findet sie und tut nichts. Deshalb braucht das hier
+     * keinen Zeitplan, der sich merkt, wann er zuletzt lief.
+     */
+    private void closeDueSeasons() {
+        if (seasonClosing == null) {
+            return;
+        }
+        try {
+            seasonClosing.closeDueSeasons();
+        } catch (RuntimeException failure) {
+            // Ein gescheiterter Abschluss darf weder den Start noch den Auffrischungstakt
+            // mitnehmen: die Ranglisten funktionieren ohne ihn weiter, und der naechste Takt
+            // versucht es erneut.
+            getLogger()
+                    .log(java.util.logging.Level.WARNING, "[statistics] season closing failed", failure);
+        }
     }
 
     /**
@@ -2113,6 +2146,10 @@ public class RpgPlugin extends JavaPlugin {
                     if (leaderboardFill != null) {
                         leaderboardFill.refreshNow();
                     }
+                    // Im SELBEN Takt und im selben Faden: ein Server, der ueber den Jahreswechsel
+                    // durchlaeuft, wuerde sonst nie abschliessen. Eine eigene Aufgabe waere ein
+                    // zweiter Takt fuer dieselbe Sache (R6, Prinzip II).
+                    closeDueSeasons();
                     if (isEnabled()) {
                         startLeaderboardRefresh(
                                 statisticsModule.config().leaderboards().refreshInterval());
