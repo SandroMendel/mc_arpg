@@ -78,6 +78,15 @@ public final class LeaderboardMenu {
      * @param viewer wessen eigene Platzierung unten steht
      */
     public Inventory build(Aggregation board, Period period, UUID viewer, Instant now) {
+        if (board.visibility() != rpg.core.statistics.MetricVisibility.PUBLIC) {
+            // Kein leeres Fenster und keine Meldung, sondern ein Abbruch: eine private Rangliste
+            // kann hier nur durch einen Programmierfehler ankommen - jeder Aufrufer filtert sie
+            // vorher weg (FR-036). Ein leeres Fenster haette den Fehler zugedeckt UND haette in
+            // seiner Kopfzeile trotzdem den Namen der privaten Rangliste getragen.
+            throw new IllegalArgumentException(
+                    "leaderboard window for a private board: " + board.key() + " (FR-036)");
+        }
+
         Optional<Leaderboard> standing = leaderboards.board(board, period);
 
         Inventory inventory =

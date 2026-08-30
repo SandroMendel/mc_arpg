@@ -37,25 +37,33 @@ Querschnitt: B15 Performance/Observability · B16 Content-Config
 
 ## Blockübersicht
 
-| ID | Block | Schicht | Hängt ab von |
-|---|---|---|---|
-| B01 | Core & Plattform | 0 | — |
-| B02 | Persistenz-Layer | 0 | B01 |
-| B03 | Spieler-Session & Datenlebenszyklus | 0 | B01, B02 |
-| B04 | Attribut- & Stat-Engine | 1 | B01, B03 |
-| B05 | Kampf- & Schadens-Pipeline | 1 | B04 |
-| B06 | Progression (XP/Level) | 1 | B03, B04 |
-| B07 | Klassen-System | 1 | B04, B06 |
-| B08 | Fähigkeiten-Framework | 1 | B04, B05, B07 |
-| B09 | Zonen & Regionen | 2 | B01 |
-| B10 | Mobs & Horden-Spawning | 2 | B04, B05, B09 |
-| B11 | Items, Ausrüstung & Loot | 2 | B03, B04, B05, B06, B07, B08b, B09, B10 |
-| B12 | Statistiken & Leaderboards | 3 | B02, B05, B06 |
-| B13 | UI, HUD & Texte | 3 | B04, B08, B09 |
-| B14 | Commands, Permissions, Admin | 3 | alle |
-| B15 | Performance & Observability | quer | B01 |
-| B16 | Content-Konfiguration & Balancing | quer | B01 |
-| B17 | Test & Deployment | quer | B01 |
+**Stand** heißt: gebaut, verdrahtet und mit grünem `FullBootstrapTest` — nicht „Modultests grün".
+Der Unterschied ist in diesem Projekt schon zweimal aufgefallen.
+
+| ID | Block | Schicht | Hängt ab von | Stand |
+|---|---|---|---|---|
+| B01 | Core & Plattform | 0 | — | gebaut |
+| B02 | Persistenz-Layer | 0 | B01 | gebaut |
+| B03 | Spieler-Session & Datenlebenszyklus | 0 | B01, B02 | gebaut |
+| B04 | Attribut- & Stat-Engine | 1 | B01, B03 | gebaut |
+| B05 | Kampf- & Schadens-Pipeline | 1 | B04 | gebaut |
+| B06 | Progression (XP/Level) | 1 | B03, B04 | gebaut |
+| B07 | Klassen-System | 1 | B04, B06 | gebaut |
+| B08 | Fähigkeiten-Framework | 1 | B04, B05, B07 | gebaut |
+| B08b | Währung & Kontostand | 1 | B03, B04 | gebaut |
+| B09 | Zonen & Regionen | 2 | B01 | gebaut |
+| B10 | Mobs & Horden-Spawning | 2 | B04, B05, B09 | gebaut |
+| B11 | Items, Ausrüstung & Loot | 2 | B03, B04, B05, B06, B07, B08b, B09, B10 | gebaut, Serverabnahme offen |
+| B12 | Statistiken & Leaderboards | 3 | B02, B05, B06 | gebaut, Serverabnahme offen |
+| B13 | UI, HUD & Texte | 3 | B04, B08, B09 | offen |
+| B14 | Commands, Permissions, Admin | 3 | alle | offen |
+| B15 | Performance & Observability | quer | B01 | offen |
+| B16 | Content-Konfiguration & Balancing | quer | B01 | offen |
+| B17 | Test & Deployment | quer | B01 | offen |
+
+> B08b ist nachträglich entstanden und stand bisher nur in den Abhängigkeiten von B11, nicht als
+> eigene Zeile. Er ist hier ergänzt: ein Block, auf den andere verweisen, der aber in der
+> Übersicht fehlt, ist beim Lesen ein Tippfehler und keine Entscheidung.
 
 ## Modul-/Projektstruktur (Vorschlag)
 

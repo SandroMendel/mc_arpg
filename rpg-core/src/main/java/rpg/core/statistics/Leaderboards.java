@@ -68,6 +68,13 @@ public interface Leaderboards {
 
             @Override
             public Optional<Leaderboard> board(Aggregation board, Period period, String periodKey) {
+                if (board.visibility() != MetricVisibility.PUBLIC) {
+                    // FR-036: es gibt keine private Rangliste. Nicht "eine, die man nicht sehen
+                    // darf" - gar keine. Der Unterschied ist der zwischen einer Sperre, die
+                    // jede Ansicht einzeln durchsetzen muss, und einer Antwort, die es nirgends
+                    // zu sperren gibt.
+                    return Optional.empty();
+                }
                 if (!period.fits(board.source().kind())) {
                     // FR-023: ein Zustandswert hat keine Tages-, Wochen- oder Saisonform.
                     // Abgewiesen, nicht auf den aktuellen Stand umgedeutet - sonst zeigte eine

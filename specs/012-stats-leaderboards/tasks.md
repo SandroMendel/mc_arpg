@@ -338,15 +338,15 @@ das Mob-Budget sie nicht mitzählt.
 
 ## Phase 9: Polish & Querschnitt
 
-- [ ] T135 [P] Test `PrivateValuesNeverLeaveTest` in `rpg-platform/src/test/java/rpg/platform/statistics/PrivateValuesNeverLeaveTest.java` — die Sichtbarkeitsprüfung **noch einmal über den fertigen Block**, jetzt mit allen Fenstern, Commands und dem Hologramm gleichzeitig
-- [ ] T136 [P] Test `NewMetricAppearsWithoutConfigTest` in `rpg-core/src/test/java/rpg/core/statistics/NewMetricAppearsWithoutConfigTest.java` — **SC-012, SC-023, FR-032a**: eine neu erfasste Zählermetrik erscheint in allen vier Zeiträumen als Rangliste — ohne eine Zeile Code **und ohne einen Eintrag in der Konfiguration**
-- [ ] T137 [P] Test `RefreshCostIsIndependentOfMetricCountTest` in `rpg-persistence/src/test/java/rpg/persistence/statistics/RefreshCostIsIndependentOfMetricCountTest.java` — **die Zusage aus R1**: zehn Metriken und sechzig Metriken kosten dieselben vier Abfragen
-- [ ] T138 [P] Messung des Erfassungspfades ohne Volllast, wiederholbar — **SC-001**, Prinzip VII. Kein Lasttest: der bleibt B15 (ADR-031) und hält diesen Block nicht offen
-- [ ] T139 `ADR-040` bis `ADR-047` in `02-decisions.md` gegen den gebauten Stand durchsehen — weicht die Umsetzung ab, wird der ADR nachgetragen, nicht die Umsetzung stillschweigend behalten
-- [ ] T140 [P] `01-architecture.md` — B12 als gebaut kennzeichnen
-- [ ] T141 [P] `minecraft-rpg-spec/minecraft-rpg-spec/blocks/B12-stats-leaderboards.md` nachziehen: die vier offenen Fragen sind beantwortet, Verweis auf die Spec und die ADRs
-- [ ] T142 Vollständigen Testlauf über alle Module, **Übersprungenes einzeln durchsehen** (MockBukkit meldet Nicht-Implementiertes als „skipped")
-- [ ] T143 `FullBootstrapTest` als letzte Instanz grün — **Modultests reichen nicht: das Modul muss im Plugin verdrahtet sein.** Erst hier ist der Block fertig
+- [X] T135 [P] Test `PrivateValuesNeverLeaveTest` in `rpg-platform/src/test/java/rpg/platform/statistics/PrivateValuesNeverLeaveTest.java` — die Sichtbarkeitsprüfung **noch einmal über den fertigen Block**, jetzt mit allen Fenstern, Commands und dem Hologramm gleichzeitig
+- [X] T136 [P] Test `NewMetricAppearsWithoutConfigTest` in `rpg-core/src/test/java/rpg/core/statistics/NewMetricAppearsWithoutConfigTest.java` — **SC-012, SC-023, FR-032a**: eine neu erfasste Zählermetrik erscheint in allen vier Zeiträumen als Rangliste — ohne eine Zeile Code **und ohne einen Eintrag in der Konfiguration**
+- [X] T137 [P] Test `RefreshCostIsIndependentOfMetricCountTest` in `rpg-persistence/src/test/java/rpg/persistence/statistics/RefreshCostIsIndependentOfMetricCountTest.java` — **die Zusage aus R1**: zehn Metriken und sechzig Metriken kosten dieselben vier Abfragen
+- [X] T138 [P] Messung des Erfassungspfades ohne Volllast, wiederholbar — **SC-001**, Prinzip VII. `CaptureBenchmarkTest`: ein vollstaendiger Ereignisdurchlauf (Empfaenger bestimmen, je Empfaenger zaehlen, Tod mit Ursache, Hoechstschaden) bei rund 2,6 us gegen 50 us Budget. Kein Lasttest: der bleibt B15 (ADR-031)
+- [X] T139 `ADR-040` bis `ADR-047` gegen den gebauten Stand durchgesehen. Nachgetragen: **ADR-046** (die Gesamtwertung ist keine `Aggregation`; die Spielzeit-Einheit ist die angefangene Stunde; der Zwischenstand wird gerechnet, nicht abgelegt), **ADR-045** (die Platzpruefung steht VOR dem Vermerk; Ansprueche werden vor dem Endstand geschrieben; beide Bestaende schreiben direkt statt ueber den Write-Behind-Weg) und **ADR-049** (die Grenze von FR-032a: eine MAX-Metrik braucht eine Migration)
+- [X] T140 [P] `01-architecture.md` — B12 als gebaut kennzeichnen
+- [X] T141 [P] `minecraft-rpg-spec/minecraft-rpg-spec/blocks/B12-stats-leaderboards.md` nachziehen: die vier offenen Fragen sind beantwortet, Verweis auf die Spec und die ADRs
+- [X] T142 Vollständigen Testlauf über alle Module, **Übersprungenes einzeln durchsehen** (MockBukkit meldet Nicht-Implementiertes als „skipped")
+- [X] T143 `FullBootstrapTest` als letzte Instanz grün — **Modultests reichen nicht: das Modul muss im Plugin verdrahtet sein.** Erst hier ist der Block fertig
 - [ ] T144 Deploy auf den Testserver — **`statistics.yml` muss von Hand mit.** Bukkit überschreibt vorhandene Configs nicht; das Jar allein deployt die YAML-Änderungen nicht, und der Server bricht dann beim Start gegen eine Datei ohne die neuen Schlüssel ab
 - [ ] T145 Startprüfungen auf dem Testserver **absichtlich provozieren**: eine Saisonlücke, eine leere Gewichtung, eine Schwelle von 0 — jede muss mit Datei, Schlüssel und Grund abbrechen ([quickstart.md](./quickstart.md) §5)
 - [ ] T146 Echter Serverstart als Beleg für den Klassenlader — **grüne Tests beweisen nichts über Papers `libraries:`-Mechanismus**, nur ein echter Start tut das

@@ -2378,6 +2378,25 @@ Entscheidung darüber gehört in `/speckit-plan`, nicht hierher. Dass der Endsta
 ist dagegen hier entschieden: eine Platzierung, die sich nach der Vergabe noch ändern kann, ist
 keine.
 
+**Nachtrag beim Bau (2026-08-30).** Drei Festlegungen, die „genau einmal" beim Bauen brauchte:
+
+- **Die eine Ausnahme von „erst vermerken, dann gutschreiben": das volle Inventar.** Die
+  Reihenfolge oben schützt gegen den *unvorhersehbaren* Fehler — einen Absturz, einen
+  Verbindungsabbruch. Ein volles Inventar ist keiner davon: es ist vorher bekannt. Es in dieselbe
+  Reihenfolge zu stecken hieße, einen Anspruch für einen Fall zu verbrauchen, den man hätte kommen
+  sehen, und der Spieler stünde mit leeren Händen und ohne Anspruch da, weil er einen Stapel zu
+  viel dabeihatte. Die Platzprüfung steht deshalb **vor** dem bedingten Update.
+- **Beim Abschluss werden die Ansprüche VOR dem Endstand geschrieben.** Der Beleg dafür, dass eine
+  Saison abgeschlossen ist, sind ihre Zeilen im Endstand. Stünden die zuerst da und bräche es
+  dazwischen ab, sähe der nächste Durchlauf die Saison als erledigt — und die Ansprüche wären für
+  immer weg. Andersherum ist ein Abbruch folgenlos: die Saison gilt weiter als offen, der nächste
+  Durchlauf schreibt beides, und der Anspruch fällt auf `ON CONFLICT DO NOTHING`.
+- **Beide Bestände schreiben direkt, nicht über den Write-Behind-Weg** — die offene Frage aus dem
+  Absatz oben. Sie entstehen viermal im Jahr; ein Puffer, der für tausend Schreibvorgänge je
+  Minute gebaut ist, würde hier nur eine weitere Stelle einführen, an der ein Anspruch zwischen
+  Erzeugung und Ablage hängen bleiben kann. Und der Riegel gegen doppelte Einlösung *ist* ein
+  bedingtes `UPDATE` in der Datenbank — er braucht die Datenbank ohnehin synchron.
+
 ---
 
 ## ADR-046: Die Saison kürt einen Spieler, nicht zwei Dutzend Ranglisten — eine gewichtete Gesamtwertung
@@ -2424,6 +2443,28 @@ Belohnung. Sie erzeugt eine neue Pflicht in der Konfigurationsprüfung: eine Gew
 bekannte Metrik nennt, ergäbe eine Rangliste aus Nullen und muss den Start scheitern lassen. Das
 Balancing der Gewichte selbst gehört dem Betreiber — der Start prüft auf Gültigkeit, nicht auf
 Geschmack.
+
+**Nachtrag beim Bau (2026-08-30).** Drei Punkte, die diese Entscheidung offen gelassen hatte und
+die die Umsetzung beantworten musste:
+
+- **Sie ist keine `Aggregation`, obwohl sie oben „die dreiundzwanzigste Rangliste" heißt.** Jede
+  Aggregation ist eine Sicht auf *eine* Metrikfamilie und trägt deren Quellmetrik; die
+  Gesamtwertung entsteht aus mehreren, gewichtet, und ihre Einheit sind Punkte. Sie trotzdem als
+  Aggregation zu führen hätte bedeutet, ihr eine Quellmetrik zu geben, die sie nicht hat — und
+  jede Stelle, die `source()` liest, hätte eine Lüge bekommen: die Zeitraumprüfung, die Metrikart,
+  der Literal-Wächter. Sie ist deshalb ein eigener Typ (`SeasonScoreBoard`) auf einem eigenen
+  Platz im Speicherstand. Am Verhalten ändert das nichts, am Modell alles.
+- **Die Einheit der Spielzeit ist die angefangene Stunde, nicht die Sekunde.** Der Text oben sagt
+  „ein Punktwert je Einheit" und lässt offen, was eine Einheit ist. Gespeichert wird die Spielzeit
+  in Sekunden; ein Gewicht von 2 hätte also „zwei Punkte je Sekunde" bedeutet — bei einer
+  Spielstunde 7200 Punkte statt 2, und die Saisonwertung wäre eine reine Anwesenheitsliste
+  gewesen. *Angefangen* und nicht abgerundet: abrunden hieße, die erste Dreiviertelstunde einer
+  Sitzung zählt gar nicht.
+- **Der Zwischenstand wird gerechnet, nicht abgelegt** — aber er ist sichtbar (FR-050e). Er
+  entsteht bei jeder Auffrischung aus denselben Rohdaten wie der Endstand und liegt samt
+  Aufschlüsselung im Speicherstand, damit das Fenster ihn ohne Abfrage zeigen kann. Eingefroren
+  wird nur der Endstand, und erst er trägt seine Gewichtung bei sich. Eine Wertung, deren Stand
+  man erst erfährt, wenn sie vorbei ist, ist kein Wettbewerb, sondern eine Bekanntgabe.
 
 ---
 
@@ -2539,3 +2580,18 @@ vollständigen Schlüssel einschließlich Dimension. Die Zusammenfassung je Fami
 von Boss- und Mob-Kills passieren beim Füllen des Speicherstands: welche Art ein Boss ist, steht in
 `mobs.yml` und nicht in der Datenbank (FR-009a). Verdichteten die Sichten bereits, wäre außerdem
 die Aufschlüsselung fürs eigene Profil verloren, die FR-038 verlangt.
+
+**Die Grenze von FR-032a, beim Bau gefunden (2026-08-30).** „Eine neue Metrik erscheint von allein
+auf dem Brett" gilt für **Summenmetriken**, nicht für Maximum-Metriken. Die Sicht muss wissen,
+welche Familie maximiert statt zu summieren, und das steht in keiner Spalte — sie nennt
+`damage_max` deshalb beim Namen. Eine **zweite** Maximum-Metrik braucht folglich eine Migration.
+
+Das ist keine Schlamperei, sondern eine Eigenschaft der Aggregation in SQL, und die Alternativen
+sind schlechter: eine Spalte „Art" in der Tageszeile wäre eine zweite Haltung derselben Angabe,
+die schon in `MetricRegistry` steht (ADR-040 hat dieselbe Frage für den Schreibweg entschieden).
+
+Wichtig ist, dass die Grenze **nicht still** ist: `NewMetricAppearsWithoutConfigTest` vergleicht
+die `IN (...)`-Liste der Sichten mit den Maximum-Metriken des Verzeichnisses in beide Richtungen.
+Wer eine Maximum-Metrik einträgt und die Sicht vergisst, bekommt einen roten Test — und nicht eine
+Rangliste, die still summiert. Eine summierte Höchstschadenzahl sähe nämlich wie eine plausible
+Zahl aus.
