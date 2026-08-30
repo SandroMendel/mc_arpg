@@ -181,6 +181,17 @@ public class RpgPlugin extends JavaPlugin {
      */
     private final List<java.util.function.Consumer<java.util.UUID>> uiForgetters =
             new java.util.ArrayList<>();
+
+    /**
+     * Was B13 beim Betreten einer Sitzung wiederherstellen muss.
+     *
+     * <p>Heute genau eines: die <b>verbleibende</b> Cooldown-Anzeige (FR-033). Über den
+     * {@code SessionObserver} und nicht über {@code PlayerJoinEvent} — B03 lässt dort genau einen
+     * Handler zu (FR-007), und der Beitritt allein reichte ohnehin nicht: erst mit der fertigen
+     * Sitzung steht fest, welcher Charakter gespielt wird.
+     */
+    private final List<java.util.function.Consumer<java.util.UUID>> uiOnJoin =
+            new java.util.ArrayList<>();
     private rpg.platform.statistics.PlaytimeAccrual playtimeAccrual;
     private rpg.core.statistics.LeaderboardCache leaderboardCache;
     private rpg.persistence.statistics.LeaderboardFill leaderboardFill;
@@ -599,7 +610,17 @@ public class RpgPlugin extends JavaPlugin {
         // deren oeffentliche Naehte, und seine eigene Konfiguration braucht beim Laden keinen
         // anderen Block. Eine Abhaengigkeit, die nur "spaeter mal" bedeutet, verengt die
         // Startreihenfolge ohne Gegenwert.
-        uiModule = new rpg.core.ui.UiModule(getLogger());
+        uiModule =
+                new rpg.core.ui.UiModule(
+                        getLogger(),
+                        // Ein Lambda und KEINE Methodenreferenz: abilityModule ist an dieser
+                        // Stelle noch nicht gebaut, und eine Referenz wuerde sofort auf null
+                        // binden. Dieselbe Falle, die CosmeticModule oben schon benennt.
+                        () ->
+                                characterClass ->
+                                        abilityModule.registry().abilitiesOf(characterClass).stream()
+                                                .map(rpg.core.ui.MaterialUniqueness.SlotUse::of)
+                                                .toList());
         return List.of(
                 persistenceModule,
                 sessionModule,
@@ -1099,6 +1120,17 @@ public class RpgPlugin extends JavaPlugin {
         // Was der HUD je Spieler haelt, geht mit der Sitzung (FR-004c). Vier Dinge, und jedes
         // einzeln vergessen zu koennen ist der Punkt: eine entfernte Bossbar, deren Eintrag stehen
         // bleibt, ist ein Leck, das erst nach Stunden auffaellt.
+        // B13 US3: das Cooldown-Overlay. Es setzt auf dem Material auf, das AbilityHotbar bereits
+        // gelegt hat - die Leiste selbst wird NICHT angefasst (FR-024).
+        rpg.platform.ui.AbilityCooldownOverlay cooldownOverlay =
+                new rpg.platform.ui.AbilityCooldownOverlay(
+                        getServer(), scheduler, abilityModule.registry(), characterOfPlayer);
+        // Beim Anmelden die VERBLEIBENDE Restzeit wiederherstellen (FR-033). B08 fuehrt den
+        // Cooldown ueber Zeitstempel, er ueberlebt die Abmeldung also von selbst - was fehlt, ist
+        // nur die Anzeige. Ohne diese Zeile saehe der Spieler ein bereites Item, drueckte es, und
+        // nichts geschaehe.
+        uiOnJoin.add(cooldownOverlay::restore);
+
         uiForgetters.add(refresh::forget);
         uiForgetters.add(renderer::forget);
         uiForgetters.add(zoneNotice::forget);
@@ -1854,6 +1886,13 @@ public class RpgPlugin extends JavaPlugin {
                                     // ist genau der Moment, in dem er entscheidet, ob er zum
                                     // Haendler geht (FR-050).
                                     refreshGearDisplay(player, characterId);
+                                    // B13: die VERBLEIBENDE Cooldown-Anzeige (FR-033). Erst hier,
+                                    // nachdem der Charakter feststeht - vorher gaebe es keine
+                                    // Faehigkeiten, ueber die man etwas legen koennte.
+                                    for (java.util.function.Consumer<java.util.UUID> restore :
+                                            uiOnJoin) {
+                                        restore.accept(player.getUniqueId());
+                                    }
                                 });
                 // B09: place the character in their region. This is the sanctioned way in - B03 owns
                 // the session lifecycle and allows exactly one join handler (FR-007), so the zone

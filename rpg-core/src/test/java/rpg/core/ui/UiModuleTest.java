@@ -44,7 +44,7 @@ class UiModuleTest {
     @DisplayName("der Start laedt die Konfiguration und meldet sie")
     void startLoadsTheConfiguration() {
         StubLoader loader = new StubLoader(document());
-        UiModule module = new UiModule(Logger.getLogger("test"));
+        UiModule module = new UiModule(Logger.getLogger("test"), noAbilities());
 
         module.start(new StubContext(loader));
 
@@ -60,7 +60,7 @@ class UiModuleTest {
         hud(broken).put("tick-ms", 0);
 
         StubLoader loader = new StubLoader(broken);
-        UiModule module = new UiModule(Logger.getLogger("test"));
+        UiModule module = new UiModule(Logger.getLogger("test"), noAbilities());
 
         assertThatThrownBy(() -> module.start(new StubContext(loader)))
                 .hasMessageContaining("hud.tick-ms");
@@ -71,7 +71,7 @@ class UiModuleTest {
     void configBeforeStartThrows() {
         // Ein null hier waere ein NullPointerException irgendwo im Takt, eine Sekunde spaeter und
         // ohne Bezug zur Ursache.
-        assertThatThrownBy(() -> new UiModule(Logger.getLogger("test")).config())
+        assertThatThrownBy(() -> new UiModule(Logger.getLogger("test"), noAbilities()).config())
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("not started");
     }
@@ -80,7 +80,7 @@ class UiModuleTest {
     @DisplayName("Nachladen tauscht die Konfiguration im Ganzen")
     void reloadSwapsTheWholeConfiguration() {
         StubLoader loader = new StubLoader(document());
-        UiModule module = new UiModule(Logger.getLogger("test"));
+        UiModule module = new UiModule(Logger.getLogger("test"), noAbilities());
         module.start(new StubContext(loader));
 
         Map<String, Object> next = document();
@@ -102,7 +102,7 @@ class UiModuleTest {
     @DisplayName("Nachladen benachrichtigt die angemeldeten Zuhoerer")
     void reloadNotifiesListeners() {
         StubLoader loader = new StubLoader(document());
-        UiModule module = new UiModule(Logger.getLogger("test"));
+        UiModule module = new UiModule(Logger.getLogger("test"), noAbilities());
         module.start(new StubContext(loader));
 
         AtomicInteger calls = new AtomicInteger();
@@ -119,7 +119,7 @@ class UiModuleTest {
     void reloadBeforeStartIsQuiet() {
         // Das Nachladen laeuft ueber alle Module; eines, das noch nicht dran war, darf den Durchlauf
         // fuer die anderen nicht abbrechen.
-        UiModule module = new UiModule(Logger.getLogger("test"));
+        UiModule module = new UiModule(Logger.getLogger("test"), noAbilities());
 
         module.applyReloadedConfig();
     }
@@ -130,7 +130,7 @@ class UiModuleTest {
         // SC-011 in seiner kleinsten Form: kein Bestand, also nichts zu leeren. Der Test steht hier,
         // damit ein spaeterer Zustand im Modul auffaellt, statt sich einzuschleichen.
         StubLoader loader = new StubLoader(document());
-        UiModule module = new UiModule(Logger.getLogger("test"));
+        UiModule module = new UiModule(Logger.getLogger("test"), noAbilities());
         module.start(new StubContext(loader));
 
         module.stop();
@@ -138,7 +138,68 @@ class UiModuleTest {
         assertThat(module.config()).isNotNull();
     }
 
+    @Test
+    @DisplayName("T095: eine Materialdoppelung bricht den Start ab")
+    void amaterialClashAbortsTheStart() {
+        // FR-032, und sie laeuft beim START und nicht zur Laufzeit: im Spiel waere es zu spaet -
+        // der Spieler hat die Klasse schon gewaehlt, die Leiste liegt schon, und eine Meldung an
+        // ihn hilft ihm nicht, weil er die Datei nicht aendern kann.
+        StubLoader loader = new StubLoader(document());
+        UiModule module =
+                new UiModule(
+                        Logger.getLogger("test"),
+                        () ->
+                                characterClass ->
+                                        characterClass == rpg.core.session.CharacterClass.WARRIOR
+                                                ? List.of(
+                                                        new MaterialUniqueness.SlotUse(
+                                                                "cleave", List.of("IRON_SWORD")),
+                                                        new MaterialUniqueness.SlotUse(
+                                                                "bash", List.of("IRON_SWORD")))
+                                                : List.of());
+
+        assertThatThrownBy(() -> module.start(new StubContext(loader)))
+                .hasMessageContaining("IRON_SWORD")
+                .hasMessageContaining("FR-032");
+    }
+
+    @Test
+    @DisplayName("T095: die Pruefung laeuft NACH dem Laden der Konfiguration")
+    void thecheckRunsAfterTheConfigurationIsLoaded() {
+        // Andersherum wuerde eine kaputte ui.yml von einer Materialdoppelung verdeckt - und der
+        // Betreiber bekaeme die zweite Meldung erst, nachdem er die erste behoben hat.
+        Map<String, Object> broken = document();
+        hud(broken).put("tick-ms", 0);
+        StubLoader loader = new StubLoader(broken);
+        UiModule module =
+                new UiModule(
+                        Logger.getLogger("test"),
+                        () -> {
+                            throw new AssertionError(
+                                    "die Materialpruefung darf gar nicht erst laufen, wenn die"
+                                            + " Konfiguration schon abgelehnt ist");
+                        });
+
+        assertThatThrownBy(() -> module.start(new StubContext(loader)))
+                .hasMessageContaining("hud.tick-ms");
+    }
+
     // --- Aufbau -------------------------------------------------------------
+
+    /**
+     * Keine Fähigkeiten — für die Tests, in denen die Materialprüfung nicht das Prüfobjekt ist.
+     *
+     * <p>Eine leere Liste je Klasse ist hier <b>gültig</b> und nicht der Nullfall: eine Klasse ohne
+     * Fähigkeiten kann sich keine Slots teilen. Dass die Prüfung dabei nichts findet, ist richtig
+     * und nicht stillschweigend übergangen.
+     */
+    private static java.util.function.Supplier<
+                    java.util.function.Function<
+                            rpg.core.session.CharacterClass,
+                            List<MaterialUniqueness.SlotUse>>>
+            noAbilities() {
+        return () -> characterClass -> List.of();
+    }
 
     private static Map<String, Object> document() {
         Map<String, Object> doc = new LinkedHashMap<>();

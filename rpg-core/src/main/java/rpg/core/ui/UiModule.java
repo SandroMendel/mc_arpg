@@ -4,6 +4,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -11,6 +13,7 @@ import rpg.core.config.ConfigHandle;
 import rpg.core.config.ConfigValidationException;
 import rpg.core.module.Module;
 import rpg.core.module.ModuleContext;
+import rpg.core.session.CharacterClass;
 
 /**
  * Start und Nachladen von B13 — nach dem Muster von {@code MobModule} und
@@ -45,12 +48,21 @@ public final class UiModule implements Module {
     private static final String CONFIG_FILE = "ui.yml";
 
     private final Logger logger;
+    private final Supplier<Function<CharacterClass, List<MaterialUniqueness.SlotUse>>> slotsOf;
     private final List<Runnable> reloadListeners = new ArrayList<>();
 
     private ConfigHandle<UiConfig> configHandle;
 
-    public UiModule(Logger logger) {
+    /**
+     * @param slotsOf die Materialbelegung je Klasse, für die Startprüfung aus FR-032 — als
+     *     {@link Supplier}, weil B08 beim Bau dieses Moduls noch nicht geladen sein muss. Dieselbe
+     *     Bauart, mit der {@code StatisticsModule} an B11s Vorlagenliste kommt.
+     */
+    public UiModule(
+            Logger logger,
+            Supplier<Function<CharacterClass, List<MaterialUniqueness.SlotUse>>> slotsOf) {
         this.logger = Objects.requireNonNull(logger, "logger");
+        this.slotsOf = Objects.requireNonNull(slotsOf, "slotsOf");
     }
 
     @Override
@@ -60,17 +72,32 @@ public final class UiModule implements Module {
 
     @Override
     public List<String> dependencies() {
-        // Dieses Modul liest zehn Bloecke - aber erst zur Laufzeit, ueber deren oeffentliche
-        // Naehte. Zum LADEN seiner Konfiguration braucht es keinen davon. Eine Abhaengigkeit, die
-        // nur "wird spaeter mal gebraucht" bedeutet, verengt die Startreihenfolge ohne Gegenwert;
-        // dieselbe Ueberlegung wie bei StatisticsModule, das nur "item" nennt.
-        return List.of();
+        // GENAU EINE, und sie ist verdient: die Startpruefung aus FR-032 liest B08s Verzeichnis,
+        // also muss B08 vorher stehen. Ohne diese Zeile liefe sie gegen eine leere Liste und
+        // pruefte still nichts - dieselbe Falle, die StatisticsModule bei den Belohnungsvorlagen
+        // ausdruecklich abfaengt.
+        //
+        // Alles andere liest dieses Modul erst zur LAUFZEIT ueber oeffentliche Naehte: zehn Bloecke,
+        // und keiner davon steht hier. Eine Abhaengigkeit, die nur "wird spaeter mal gebraucht"
+        // bedeutet, verengt die Startreihenfolge ohne Gegenwert.
+        return List.of("abilities");
     }
 
     @Override
     public void start(ModuleContext context) {
         this.configHandle = loadConfig(context);
         UiConfig config = configHandle.get();
+
+        // NACH dem Laden der Konfiguration und VOR der ersten Meldung: die Pruefung gehoert zum
+        // Start und nicht zur Laufzeit (FR-032). Im Spiel waere es zu spaet - der Spieler hat die
+        // Klasse schon gewaehlt, die Leiste liegt schon, und eine Meldung an ihn hilft ihm nicht,
+        // weil er die Datei nicht aendern kann.
+        //
+        // Sie steht hier und nicht in UiConfigSchema, weil sie eine Regel ueber B08s Verzeichnis
+        // ist und keine Zahlenwahl in ui.yml - dieselbe Aufteilung, die ItemConfigSchema und
+        // StatisticsModule treffen.
+        MaterialUniqueness.verify(slotsOf.get());
+
         logger.info(
                 "[ui] phase=START state=LOADED - language="
                         + config.language()
