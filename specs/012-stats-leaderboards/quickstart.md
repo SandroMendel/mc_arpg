@@ -97,10 +97,30 @@ Erwartete Änderungen gegenüber heute:
 
 ```powershell
 ./gradlew build
-# Jar deployen — und daran denken: Bukkit überschreibt vorhandene Configs NICHT.
-# statistics.yml muss von Hand mit, sonst läuft der Server gegen eine Datei ohne
-# die neuen Schlüssel und bricht beim Start ab.
+# Jar deployen - und daran denken: Bukkit ueberschreibt vorhandene Configs NICHT.
+# ZWEI Dateien muessen von Hand mit:
+#   statistics.yml  - neu, wird ohne sie gar nicht erst angelegt
+#   messages.yml    - VORHANDEN, aber um 46 Schluessel gewachsen
+# Fehlt die zweite, bricht der Start mit "messages.yml is missing 46 text(s)" ab -
+# und zwar BEVOR irgendeine Pruefung aus diesem Block laeuft.
 ```
+
+> **Das ist beim ersten echten Start passiert** *(2026-08-30)*. Die Anweisung nannte nur
+> `statistics.yml`, weil das die neue Datei ist — und übersah die alte, die *gewachsen* ist. Die
+> Startprüfung hat es sauber gemeldet und alle 46 Schlüssel einzeln aufgezählt; trotzdem kostet es
+> einen Serverstart, wenn es hier nicht steht.
+>
+> **Die allgemeine Form der Falle:** nicht „welche Datei ist neu", sondern „welche Datei im Repo
+> unterscheidet sich von der auf dem Server". Ein Vergleich beantwortet das in einer Zeile —
+> `diff --strip-trailing-cr` ist nötig, sonst meldet jede Datei Unterschiede, weil das Repo LF und
+> der Server CRLF hat:
+>
+> ```bash
+> for f in <server>/plugins/VuntexRPG/*.yml; do
+>   n=$(basename "$f"); [ "$n" = persistence.yml ] && continue   # echtes Passwort, NIE ueberschreiben
+>   diff -q --strip-trailing-cr "$f" <repo>/rpg-plugin/src/main/resources/"$n" >/dev/null || echo "$n"
+> done
+> ```
 
 Was nur hier auffällt:
 
