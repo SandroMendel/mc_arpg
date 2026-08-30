@@ -8,6 +8,7 @@ import java.util.UUID;
 import rpg.core.message.MessageKey;
 import rpg.core.ui.BossBarOccasion;
 import rpg.core.ui.HudSurface;
+import rpg.core.ui.SidebarLines;
 
 /**
  * Ein {@link HudRenderer}, der Aufrufe sammelt statt zu senden.
@@ -49,6 +50,7 @@ final class RecordingHudRenderer implements HudRenderer {
             double fraction) {}
 
     private final List<Shown> shown = new ArrayList<>();
+    private final List<List<SidebarLines.Line>> linesShown = new ArrayList<>();
     private final List<Barred> barred = new ArrayList<>();
     private final List<HudSurface> cleared = new ArrayList<>();
     private final List<BossBarOccasion> barsCleared = new ArrayList<>();
@@ -57,6 +59,15 @@ final class RecordingHudRenderer implements HudRenderer {
     public void show(
             UUID playerId, HudSurface surface, MessageKey key, Map<String, String> values) {
         shown.add(new Shown(playerId, surface, key, Map.copyOf(values)));
+    }
+
+    @Override
+    public void showLines(
+            UUID playerId, HudSurface surface, MessageKey titleKey, List<SidebarLines.Line> lines) {
+        // Als EIN Aufruf gezaehlt, nicht als vier: ein Scoreboard wird als Ganzes gesetzt, und
+        // FR-013 fragt, ob gesendet wurde - nicht, wie viele Zeilen dabei waren.
+        shown.add(new Shown(playerId, surface, titleKey, Map.of()));
+        linesShown.add(List.copyOf(lines));
     }
 
     @Override
@@ -122,8 +133,14 @@ final class RecordingHudRenderer implements HudRenderer {
         return shown.isEmpty() && barred.isEmpty();
     }
 
+    /** Die Sidebar-Zeilen jedes {@code showLines}-Aufrufs, in ihrer Reihenfolge. */
+    List<List<SidebarLines.Line>> linesShown() {
+        return List.copyOf(linesShown);
+    }
+
     /** Setzt die Aufzeichnung zurück — für den zweiten Durchlauf in einem Sparsamkeitstest. */
     void reset() {
+        linesShown.clear();
         shown.clear();
         barred.clear();
         cleared.clear();

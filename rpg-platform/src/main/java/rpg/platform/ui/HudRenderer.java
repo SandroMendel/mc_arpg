@@ -1,11 +1,13 @@
 package rpg.platform.ui;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 import rpg.core.message.MessageKey;
 import rpg.core.ui.BossBarOccasion;
 import rpg.core.ui.HudSurface;
+import rpg.core.ui.SidebarLines;
 
 /**
  * Die Naht aus ADR-005 und Constitution III.4: <b>wohin ein Wert geschrieben wird</b>.
@@ -58,6 +60,30 @@ public interface HudRenderer {
      * @param values die Platzhalter, die {@code Messages} einsetzt
      */
     void show(UUID playerId, HudSurface surface, MessageKey key, Map<String, String> values);
+
+    /**
+     * Schreibt <b>mehrere</b> Zeilen auf eine Fläche — die Sidebar.
+     *
+     * <p><b>Diese Methode stand nicht im ersten Vertragsentwurf</b> (contracts/hud-api.md §1), und
+     * das war eine Lücke: {@link #show} nimmt <em>einen</em> Schlüssel, die Sidebar trägt aber vier
+     * Zeilen (Level, Erfahrung, Coins, Zone). Die Alternativen waren schlechter:
+     *
+     * <ul>
+     *   <li><b>Viermal {@code show} rufen</b> hieße, dass der Renderer die Zeilen zwischen den
+     *       Aufrufen sammelt — also Zustand hält und eine Konvention braucht, wann er fertig ist.
+     *       Genau die Sorte Absprache, die Zusage 3 des Vertrags an anderer Stelle vermeidet.
+     *   <li><b>Die Zeilen im Schlüssel zusammenfassen</b> hieße, das Layout im Code zu haben statt
+     *       in der Sprachdatei (FR-014).
+     * </ul>
+     *
+     * <p>Ein Scoreboard wird ohnehin als Ganzes gesetzt und nicht zeilenweise — die Signatur folgt
+     * damit dem, was Paper tut, statt dagegen zu arbeiten.
+     *
+     * @param titleKey der Schlüssel der Überschrift
+     * @param lines die Zeilen von oben nach unten; jede ein Schlüssel mit Platzhaltern
+     */
+    void showLines(
+            UUID playerId, HudSurface surface, MessageKey titleKey, List<SidebarLines.Line> lines);
 
     /**
      * Räumt eine Fläche.
