@@ -1131,6 +1131,27 @@ public class RpgPlugin extends JavaPlugin {
         // nichts geschaehe.
         uiOnJoin.add(cooldownOverlay::restore);
 
+        // B13 US4: die Schadenszahlen. Sie haengen am EventBus und NICHT am HUD-Takt - und das ist
+        // der Punkt: DamageDealtEvent kommt aus dem Tick, nicht aus dem asynchronen Durchlauf.
+        // Damit ist die Falle aus T112 gar nicht erst betreten (R2), statt nur umgangen.
+        new rpg.platform.ui.DamageNumbers(
+                        this,
+                        getServer(),
+                        scheduler,
+                        messages,
+                        () -> uiModule.config(),
+                        // Wo das Ziel steht: B05 nennt im Ereignis nur seine Kennung.
+                        entityId -> {
+                            org.bukkit.entity.Entity entity = getServer().getEntity(entityId);
+                            return entity == null
+                                    ? java.util.Optional.empty()
+                                    : java.util.Optional.of(
+                                            BukkitPositions.of(entity.getLocation()));
+                        },
+                        java.time.Clock.systemUTC(),
+                        getLogger())
+                .subscribeTo(eventBus);
+
         uiForgetters.add(refresh::forget);
         uiForgetters.add(renderer::forget);
         uiForgetters.add(zoneNotice::forget);
