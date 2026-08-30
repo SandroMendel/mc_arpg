@@ -58,6 +58,16 @@ public final class LeaderboardCache {
     private final AtomicReference<Instant> refreshedAt = new AtomicReference<>();
 
     /**
+     * Die Saison-Gesamtwertung — <b>ein eigener Platz, kein Eintrag in der Karte oben.</b>
+     *
+     * <p>Sie ist keine {@link Aggregation}: sie entsteht aus mehreren Metriken, gewichtet, und
+     * ihre Einheit ist „Punkte". Siehe {@link SeasonScoreBoard} für die Begründung. Sie liegt
+     * trotzdem <em>hier</em> und nicht anderswo, weil FR-030 auch für sie gilt — der Zwischenstand
+     * ist sichtbar (FR-050e), und sichtbar heißt: ohne Abfrage beim Öffnen.
+     */
+    private final AtomicReference<SeasonScoreBoard> seasonScore = new AtomicReference<>();
+
+    /**
      * Eine Rangliste, oder leer, wenn es sie noch nicht gibt.
      *
      * <p><b>Synchron und tickfrei</b>: ein Zugriff auf eine Map. Genau deshalb darf diese Methode
@@ -87,6 +97,22 @@ public final class LeaderboardCache {
         Objects.requireNonNull(at, "at");
         boards.set(Map.copyOf(Objects.requireNonNull(next, "next")));
         refreshedAt.set(at);
+    }
+
+    /** Der Zwischenstand der laufenden Saison, sofern eine läuft und gerechnet wurde (FR-050e). */
+    public Optional<SeasonScoreBoard> seasonScore() {
+        return Optional.ofNullable(seasonScore.get());
+    }
+
+    /**
+     * Ersetzt die Saison-Gesamtwertung.
+     *
+     * <p>{@code null} heißt „keine laufende Saison" — und das ist etwas anderes als eine leere
+     * Wertung: die eine sagt „es gibt gerade nichts zu gewinnen", die andere „noch niemand hat
+     * Punkte". Beides trifft zwischen zwei Saisons zu, aber nur das Erste erklärt es.
+     */
+    public void replaceSeasonScore(SeasonScoreBoard board) {
+        seasonScore.set(board);
     }
 
     /** Wie viele Ranglisten gerade im Stand liegen — für Diagnose und Tests. */

@@ -19,7 +19,10 @@ import rpg.core.statistics.Aggregation;
 import rpg.core.statistics.Leaderboard;
 import rpg.core.statistics.LeaderboardCache;
 import rpg.core.statistics.Period;
+import rpg.core.statistics.ScoreWeights;
 import rpg.core.statistics.SeasonCalendar;
+import rpg.core.statistics.SeasonScore;
+import rpg.core.statistics.SeasonScoreBoard;
 import rpg.core.statistics.StatisticsConfig;
 
 /**
@@ -99,15 +102,17 @@ public final class LeaderboardFill {
             put(next, counters.day(today), Period.DAY, today.toString(), places, at);
 
             Optional<SeasonCalendar.Season> season = settings.seasons().seasonOf(today);
-            season.ifPresent(
-                    running ->
-                            put(
-                                    next,
-                                    counters.season(running.from(), running.to()),
-                                    Period.SEASON,
-                                    running.key(),
-                                    places,
-                                    at));
+            if (season.isPresent()) {
+                Map<Aggregation, Map<UUID, Long>> ofSeason =
+                        counters.season(season.get().from(), season.get().to());
+                put(next, ofSeason, Period.SEASON, season.get().key(), places, at);
+                cache.replaceSeasonScore(
+                        scoreBoard(season.get(), ofSeason, settings, places, at));
+            } else {
+                // Zwischen zwei Saisons gibt es nichts zu gewinnen - und das ist etwas anderes
+                // als "noch niemand hat Punkte" (FR-050e).
+                cache.replaceSeasonScore(null);
+            }
 
             putStateBoards(next, places, at);
 
@@ -118,6 +123,39 @@ public final class LeaderboardFill {
             // weiter, und das ist die ehrlichere Auskunft als eine leere Liste.
             logger.log(Level.WARNING, "[statistics] leaderboard refresh failed", failure);
         }
+    }
+
+    /**
+     * Die Saison-Gesamtwertung aus den Saisonwerten (ADR-046, FR-050e).
+     *
+     * <p>Gerechnet, nicht abgelegt: der <em>Zwischenstand</em> einer laufenden Saison gehört in
+     * keine Tabelle ([data-model.md] §3). Erst der Endstand wird eingefroren, und erst dann trägt
+     * er seine Gewichtung bei sich.
+     */
+    private SeasonScoreBoard scoreBoard(
+            SeasonCalendar.Season season,
+            Map<Aggregation, Map<UUID, Long>> ofSeason,
+            StatisticsConfig settings,
+            int places,
+            Instant at) {
+
+        // Umgedreht: von "je Rangliste alle Konten" auf "je Konto alle Ranglisten".
+        Map<UUID, Map<Aggregation, Long>> byAccount = new LinkedHashMap<>();
+        ofSeason.forEach(
+                (board, values) ->
+                        values.forEach(
+                                (account, value) ->
+                                        byAccount
+                                                .computeIfAbsent(
+                                                        account, ignored -> new LinkedHashMap<>())
+                                                .put(board, value)));
+
+        ScoreWeights weights = ScoreWeights.from(settings.score());
+        Map<UUID, Long> scores = new LinkedHashMap<>();
+        byAccount.forEach(
+                (account, values) -> scores.put(account, SeasonScore.of(values, weights).total()));
+
+        return SeasonScoreBoard.of(season.key(), scores, places, nameOf, at);
     }
 
     private void put(

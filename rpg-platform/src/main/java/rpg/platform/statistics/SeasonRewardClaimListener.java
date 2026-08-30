@@ -76,6 +76,14 @@ public final class SeasonRewardClaimListener {
     /** Sagt dem Spieler etwas. */
     private final BiConsumer<UUID, String> tell;
 
+    /**
+     * Schreibt einen Eintrag ins Protokoll (FR-056).
+     *
+     * <p>Als Naht und nicht als direkter Aufruf von B02s Repository: dieses Modul kennt die
+     * Datenbank nicht, und der Weg dorthin gehört ins Plugin.
+     */
+    private final BiConsumer<UUID, Map<String, String>> audit;
+
     /** Der Schritt, der über Gewinnen und Verlieren entscheidet (R2). */
     @FunctionalInterface
     public interface ClaimMarker {
@@ -89,6 +97,7 @@ public final class SeasonRewardClaimListener {
             ClaimMarker marker,
             Function<UUID, List<RewardClaim>> openClaims,
             BiConsumer<UUID, String> tell,
+            BiConsumer<UUID, Map<String, String>> audit,
             Messages messages,
             Logger logger,
             Clock clock) {
@@ -98,6 +107,7 @@ public final class SeasonRewardClaimListener {
         this.marker = Objects.requireNonNull(marker, "marker");
         this.openClaims = Objects.requireNonNull(openClaims, "openClaims");
         this.tell = Objects.requireNonNull(tell, "tell");
+        this.audit = Objects.requireNonNull(audit, "audit");
         this.messages = Objects.requireNonNull(messages, "messages");
         this.logger = Objects.requireNonNull(logger, "logger");
         this.clock = Objects.requireNonNull(clock, "clock");
@@ -192,6 +202,17 @@ public final class SeasonRewardClaimListener {
             }
             what.append(item.template()).append(" x").append(item.amount());
         }
+
+        // FR-056: JEDE Einloesung wird protokolliert - ueber den vorhandenen Audit-Weg, nicht
+        // ueber einen eigenen. Der Buchungsgrund im Coin-Ledger deckt nur die Coins ab; ein
+        // Anspruch aus reinen Gegenstaenden haette sonst keine Spur hinterlassen.
+        audit.accept(
+                playerId,
+                Map.of(
+                        "season", claim.seasonKey(),
+                        "rank", String.valueOf(claim.rank()),
+                        "character", characterId.toString(),
+                        "reward", what.toString()));
 
         tell.accept(
                 playerId,

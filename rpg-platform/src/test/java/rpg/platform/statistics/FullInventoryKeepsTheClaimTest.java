@@ -144,6 +144,7 @@ class FullInventoryKeepsTheClaimTest {
                         (season, playerId, character, at) -> true,
                         playerId -> List.of(),
                         new Recorder(),
+                        (playerId, details) -> {},
                         messages(),
                         Logger.getLogger("test"),
                         Clock.fixed(Instant.now(), ZoneOffset.UTC));
@@ -176,6 +177,50 @@ class FullInventoryKeepsTheClaimTest {
         assertThat(markAttempts).hasValue(0);
     }
 
+    @Test
+    @DisplayName("FR-056 - jede Einloesung hinterlaesst einen Protokolleintrag")
+    void everyClaimLeavesAnAuditEntry() {
+        List<Map<String, String>> audited = new ArrayList<>();
+
+        listener(
+                        (playerId, stacks) -> true,
+                        (playerId, template, amount) -> true,
+                        (season, playerId, character, at) -> true,
+                        new Recorder(),
+                        new CoinRecorder(),
+                        audited)
+                .claim(ACCOUNT, CHARACTER, SEASON);
+
+        // Der Buchungsgrund im Coin-Ledger deckt nur die Coins ab. Ein Anspruch aus reinen
+        // Gegenstaenden haette ohne diesen Eintrag keine Spur hinterlassen - und FR-056 verlangt
+        // JEDE Einloesung.
+        assertThat(audited).hasSize(1);
+        assertThat(audited.get(0))
+                .containsEntry("season", SEASON)
+                .containsEntry("rank", "1")
+                .containsEntry("character", CHARACTER.toString());
+    }
+
+    @Test
+    @DisplayName("FR-056 - eine abgelehnte Einloesung hinterlaesst KEINEN Eintrag")
+    void arefusedClaimLeavesNoEntry() {
+        List<Map<String, String>> audited = new ArrayList<>();
+
+        listener(
+                        (playerId, stacks) -> false,
+                        (playerId, template, amount) -> true,
+                        (season, playerId, character, at) -> true,
+                        new Recorder(),
+                        new CoinRecorder(),
+                        audited)
+                .claim(ACCOUNT, CHARACTER, SEASON);
+
+        // Protokolliert wird, was GESCHEHEN ist. Ein Eintrag fuer eine Ablehnung machte das
+        // Protokoll zu einer Liste von Versuchen, und die eigentliche Frage - wer hat wann was
+        // bekommen - waere darin nicht mehr zu finden.
+        assertThat(audited).isEmpty();
+    }
+
     // ------------------------------------------------------------------ Gerüst
 
     private static SeasonRewardClaimListener listener(
@@ -184,6 +229,16 @@ class FullInventoryKeepsTheClaimTest {
             SeasonRewardClaimListener.ClaimMarker marker,
             Recorder told,
             CoinRecorder coins) {
+        return listener(space, delivery, marker, told, coins, new ArrayList<>());
+    }
+
+    private static SeasonRewardClaimListener listener(
+            SeasonRewardClaimListener.InventorySpace space,
+            SeasonRewardClaimListener.ItemDelivery delivery,
+            SeasonRewardClaimListener.ClaimMarker marker,
+            Recorder told,
+            CoinRecorder coins,
+            List<Map<String, String>> audited) {
         return new SeasonRewardClaimListener(
                 coins,
                 space,
@@ -191,6 +246,7 @@ class FullInventoryKeepsTheClaimTest {
                 marker,
                 playerId -> List.of(openClaim()),
                 told,
+                (playerId, details) -> audited.add(details),
                 messages(),
                 Logger.getLogger("test"),
                 Clock.fixed(Instant.now(), ZoneOffset.UTC));

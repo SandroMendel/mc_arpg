@@ -305,8 +305,8 @@ den Endstand prüfen, den Anspruch einlösen und ein zweites Einlösen versuchen
 - [X] T119 [US5] `SeasonRewardClaimListener` in `rpg-platform/src/main/java/rpg/platform/statistics/SeasonRewardClaimListener.java` — offene Ansprüche beim nächsten Spielen anbieten (FR-052)
 - [X] T120 [US5] Einlösen durch einen Charakter: Coins über B08b, Items über den Weg aus B11 (FR-054)
 - [X] T121 [P] [US5] Test `FullInventoryKeepsTheClaimTest` in `rpg-platform/src/test/java/rpg/platform/statistics/FullInventoryKeepsTheClaimTest.java` — **FR-055**: kein Platz → Ablehnung mit Begründung, Anspruch bleibt offen, **und wird gar nicht erst markiert**
-- [ ] T122 [US5] Jede Einlösung protokollieren (FR-056) — über den vorhandenen Audit-Weg, kein eigener. **Teilweise:** Coins tragen den neuen Buchungsgrund `SEASON_REWARD` und stehen damit im Coin-Ledger, das B08b ohnehin führt. **Offen:** ein Anspruch aus reinen Gegenständen erzeugt keinen Ledger-Eintrag und ist damit unprotokolliert — dafür braucht es `rpg.audit_log` (B02s `JdbcAuditLogRepository`), verdrahtet in `SeasonRewardClaimListener`
-- [ ] T123 [US5] Gesamtwertung als eigene Rangliste in Fenster und Cache aufnehmen; **Zwischenstand der laufenden Saison sichtbar** (FR-050e)
+- [X] T122 [US5] Jede Einlösung protokollieren (FR-056) — über den vorhandenen Audit-Weg, kein eigener. **Teilweise:** Coins tragen den neuen Buchungsgrund `SEASON_REWARD` und stehen damit im Coin-Ledger, das B08b ohnehin führt. **Offen:** ein Anspruch aus reinen Gegenständen erzeugt keinen Ledger-Eintrag und ist damit unprotokolliert — dafür braucht es `rpg.audit_log` (B02s `JdbcAuditLogRepository`), verdrahtet in `SeasonRewardClaimListener`
+- [X] T123 [US5] Gesamtwertung als eigene Rangliste in Fenster und Cache aufnehmen; **Zwischenstand der laufenden Saison sichtbar** (FR-050e)
 - [X] T124 [P] [US5] Test `SeasonChangeDeletesNothingTest` in `rpg-persistence/src/test/java/rpg/persistence/statistics/SeasonChangeDeletesNothingTest.java` — **FR-057, ADR-044**: nach einem Saisonwechsel ist kein Rohdatensatz verschwunden
 - [ ] T125 [US5] Verdrahtung in `RpgPlugin`: Abschlussprüfung beim Start und im Auffrischungstakt
 
