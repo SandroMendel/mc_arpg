@@ -5,6 +5,7 @@ import java.util.Optional;
 import org.bukkit.inventory.ItemStack;
 
 import rpg.core.classes.LadderSlot;
+import rpg.core.classes.TierAppearance;
 import rpg.core.item.ItemCategory;
 import rpg.core.item.WearCurve;
 
@@ -72,12 +73,31 @@ public interface ItemRenderer {
      * <p>Ein erster Entwurf hatte nur die Vorlagenform. Das ist beim Bauen aufgefallen, nicht beim
      * Planen — die Spec nahm an, die Ausrüstung sei B11s, und der Code sagt etwas anderes.
      *
-     * @param slot welcher Platz — entscheidet, welcher Zustand gilt
-     * @param material das Vanilla-Material aus B07s {@code TierAppearance}
+     * <h2>Warum {@code TierAppearance} und nicht ein Materialname</h2>
+     *
+     * <p><b>Ein erster Entwurf nahm einen {@code String} und ist im Spiel aufgeflogen</b>
+     * (Serverabnahme, Schritt 11): die Rüstungsleiter in {@code classes.yml} nennt
+     * <em>Materialfamilien</em> — {@code LEATHER}, {@code COPPER}, {@code IRON}, {@code DIAMOND},
+     * {@code NETHERITE} —, keine Bukkit-Materialien. {@code Material.matchMaterial("IRON")} ist
+     * {@code null}; das Rüstungsteil heißt {@code IRON_CHESTPLATE}.
+     *
+     * <p>Aufgefallen ist es <b>nur</b>, weil der Magier ging und Krieger und Schurke nicht: seine
+     * Leiter besteht durchgehend aus {@code LEATHER}, und das ist zufällig <em>auch</em> ein
+     * Vanilla-Material. Ein Fehler, der bei einer von drei Klassen funktioniert, sieht wie ein
+     * Sonderfall aus und nicht wie ein falsches Modell.
+     *
+     * <p>{@link TierAppearance} trägt außerdem <b>Farbe und Trim</b>. Der Materialname allein hätte
+     * sie verloren — ein gefärbter Umhang und ein Ember-Trim wären in der Übersicht verschwunden,
+     * obwohl der Spieler sie trägt.
+     *
+     * @param slot welcher Platz — entscheidet, welches Teil und welcher Zustand gilt
+     * @param appearance das Aussehen aus B07s {@code BoundEquipment.expectedFor}
+     * @param tag der Bindungsvermerk, den B07 für diesen Charakter erwartet
      * @param condition der Zustand aus B11, in {@code [0, WearCurve.FULL]} — also Prozent
-     * @return leer, wenn das Material kein Vanilla-Material ist
+     * @return leer, wenn das Teil sich nicht bauen lässt
      */
-    Optional<ItemStack> renderGear(LadderSlot slot, String material, double condition);
+    Optional<ItemStack> renderGear(
+            LadderSlot slot, TierAppearance appearance, String tag, double condition);
 
     /**
      * Was die Anzeige über den reinen Gegenstand hinaus braucht.

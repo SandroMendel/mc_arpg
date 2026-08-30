@@ -192,6 +192,21 @@ public class RpgPlugin extends JavaPlugin {
      */
     private final List<java.util.function.Consumer<java.util.UUID>> uiOnJoin =
             new java.util.ArrayList<>();
+
+    /**
+     * Was B13 tun muss, wenn eine Fähigkeit <b>erfolgreich</b> ausgelöst wurde.
+     *
+     * <p>Heute genau eines: das Cooldown-Overlay über den Slot legen (FR-030). B08 veröffentlicht
+     * dafür kein Ereignis — {@code AbilityRuntime.startCooldown} ist privat —, und die
+     * Trigger-Stelle im Plugin ist die einzige, die vom Erfolg weiß.
+     *
+     * <p><b>Nicht über den HUD-Takt</b>: ein Cooldown, der erst beim nächsten Durchlauf grau wird,
+     * ist bis zu eine Sekunde zu spät. Genau in dieser Sekunde drückt ein Spieler ein zweites Mal
+     * und hält die Ablehnung für einen Fehler des Servers.
+     */
+    private final List<
+                    java.util.function.BiConsumer<java.util.UUID, rpg.core.ability.Ability>>
+            uiOnAbilityUsed = new java.util.ArrayList<>();
     private rpg.platform.statistics.PlaytimeAccrual playtimeAccrual;
     private rpg.core.statistics.LeaderboardCache leaderboardCache;
     private rpg.persistence.statistics.LeaderboardFill leaderboardFill;
@@ -1189,6 +1204,25 @@ public class RpgPlugin extends JavaPlugin {
         // nur die Anzeige. Ohne diese Zeile saehe der Spieler ein bereites Item, drueckte es, und
         // nichts geschaehe.
         uiOnJoin.add(cooldownOverlay::restore);
+        // Und beim AUSLOESEN - das ist der Normalfall, den der erste Entwurf vergessen hatte:
+        // verdrahtet war nur der Anmeldepfad, also erschien das Overlay ausschliesslich nach einem
+        // Relog. Gefunden beim Spielen, Schritt 8.
+        uiOnAbilityUsed.add(
+                (playerId, ability) -> {
+                    java.util.Optional<java.util.UUID> characterId =
+                            characterOfPlayer.apply(playerId);
+                    if (characterId.isEmpty()) {
+                        return;
+                    }
+                    // Die Restzeit kommt aus B08 und wird NICHT zweitgerechnet (FR-031). Direkt
+                    // nach dem Ausloesen steht sie bereits - startCooldown lief im selben Aufruf.
+                    abilityModule
+                            .registry()
+                            .remainingCooldown(characterId.get(), ability.id())
+                            .ifPresent(
+                                    remaining ->
+                                            cooldownOverlay.apply(playerId, ability, remaining));
+                });
 
         // B13 US4: die Schadenszahlen. Sie haengen am EventBus und NICHT am HUD-Takt - und das ist
         // der Punkt: DamageDealtEvent kommt aus dem Tick, nicht aus dem asynchronen Durchlauf.
@@ -1262,35 +1296,30 @@ public class RpgPlugin extends JavaPlugin {
                         new rpg.core.ui.CharacterSheets.EquipmentSource() {
 
                             @Override
-                            public java.util.Map<rpg.core.classes.LadderSlot, String> equipmentOf(
-                                    java.util.UUID characterId) {
+                            public java.util.Optional<String> tagOf(
+                                    java.util.UUID characterId, rpg.core.classes.LadderSlot slot) {
+                                return classesModule.boundEquipment().expectedTag(characterId, slot);
+                            }
+
+                            @Override
+                            public java.util.Map<
+                                            rpg.core.classes.LadderSlot,
+                                            rpg.core.classes.TierAppearance>
+                                    equipmentOf(java.util.UUID characterId) {
                                 // B07 fuehrt, WAS ein Charakter traegt - als gebundene Ausruestung
                                 // mit einem Aussehen je Platz. NICHT B11: dessen items.yml kennt
                                 // nur Traenke und Trims, keine Ruestung (ItemCategory hat genau
                                 // CONSUMABLE und COSMETIC).
                                 //
-                                // Was hier herauskommt, ist deshalb ein MATERIALNAME und keine
-                                // Vorlagenkennung - und das Fenster rendert ihn ueber renderGear.
+                                // Das Aussehen geht UNVERAENDERT durch. Ein erster Entwurf hat hier
+                                // appearance.material() genommen und damit Farbe und Trim
+                                // weggeworfen - und vor allem eine FAMILIE ("IRON") an eine Stelle
+                                // gegeben, die ein Material erwartete. Beim Magier ging es, weil
+                                // seine Leiter durchgehend LEATHER ist und das zufaellig auch ein
+                                // Material; bei Krieger und Schurke blieb der Platz leer.
                                 return classesModule
                                         .boundEquipment()
                                         .expectedFor(characterId)
-                                        .map(
-                                                expected -> {
-                                                    java.util.Map<
-                                                                    rpg.core.classes.LadderSlot,
-                                                                    String>
-                                                            worn =
-                                                                    new java.util.EnumMap<>(
-                                                                            rpg.core.classes
-                                                                                    .LadderSlot
-                                                                                    .class);
-                                                    expected.forEach(
-                                                            (slot, appearance) ->
-                                                                    worn.put(
-                                                                            slot,
-                                                                            appearance.material()));
-                                                    return worn;
-                                                })
                                         .orElseGet(java.util.Map::of);
                             }
 
@@ -1321,7 +1350,12 @@ public class RpgPlugin extends JavaPlugin {
         // FR-021a.
         rpg.platform.ui.PaperItemRenderer itemRenderer =
                 new rpg.platform.ui.PaperItemRenderer(
-                        new rpg.platform.item.ItemStackFactory(itemModule, messages), gearDisplay);
+                        new rpg.platform.item.ItemStackFactory(itemModule, messages),
+                        // B07s Factory: sie setzt Familie, Platz, Farbe und Trim zu einem Teil
+                        // zusammen. Genau das, was ein zusammengebastelter Materialname verloren
+                        // hatte.
+                        new BoundItemFactory(messages),
+                        gearDisplay);
         rpg.platform.ui.CharacterSheetMenu sheetMenu =
                 new rpg.platform.ui.CharacterSheetMenu(frame, itemRenderer);
         rpg.platform.ui.CharacterSheetListener sheetListener =
@@ -1725,8 +1759,30 @@ public class RpgPlugin extends JavaPlugin {
                                         // eine Fähigkeit, die gewirkt hat.
                                         abilities.find(abilityId)
                                                 .ifPresent(
-                                                        ability ->
-                                                                abilityFeedback.show(player, ability));
+                                                        ability -> {
+                                                            abilityFeedback.show(player, ability);
+                                                            // B13: das graue Sweep ueber dem Slot
+                                                            // (FR-030). HIER und nicht am HUD-Takt:
+                                                            // ein Cooldown, der erst beim naechsten
+                                                            // Durchlauf grau wird, ist bis zu eine
+                                                            // Sekunde zu spaet - und genau die
+                                                            // Sekunde druecken Spieler ein zweites
+                                                            // Mal.
+                                                            //
+                                                            // B08 veroeffentlicht kein
+                                                            // Cooldown-Ereignis, an das man sich
+                                                            // haengen koennte; startCooldown ist
+                                                            // privat. Diese Stelle ist die einzige
+                                                            // im Plugin, die vom ERFOLG einer
+                                                            // Ausloesung weiss - und sie gehoert
+                                                            // bereits der Verdrahtung, nicht B08.
+                                                            uiOnAbilityUsed.forEach(
+                                                                    hook ->
+                                                                            hook.accept(
+                                                                                    player
+                                                                                            .getUniqueId(),
+                                                                                    ability));
+                                                        });
                                     }
                                     // Asked straight after the trigger, while the state that caused
                                     // the refusal is still the state: the cooldown still running, the

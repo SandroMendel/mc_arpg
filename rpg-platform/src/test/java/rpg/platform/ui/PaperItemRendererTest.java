@@ -49,6 +49,9 @@ class PaperItemRendererTest {
         renderer =
                 new PaperItemRenderer(
                         new ItemStackFactory(items, messages),
+                        // B07s ECHTE Factory. Gegen ein Double waere der Fehler aus Schritt 11 nie
+                        // herausgekommen: ein Double haette "IRON" anstandslos angenommen.
+                        new rpg.platform.classes.BoundItemFactory(messages),
                         new GearConditionDisplay(
                                 messages,
                                 new rpg.core.item.GearConditions() {
@@ -156,6 +159,77 @@ class PaperItemRendererTest {
                 second.getItemMeta().lore() == null ? 0 : second.getItemMeta().lore().size();
 
         assertThat(secondLore).isEqualTo(firstLore);
+    }
+
+    @Test
+    @DisplayName("T081: eine Materialfamilie wird zum Ruestungsteil - DER Test, der gefehlt hat")
+    void amaterialFamilyBecomesAnArmourPiece() {
+        // Serverabnahme, Schritt 11: die Ruestung von Krieger und Schurke fehlte in der Uebersicht,
+        // beim Magier ging es.
+        //
+        // Die Ursache: classes.yml nennt FAMILIEN - LEATHER, COPPER, IRON, DIAMOND, NETHERITE -,
+        // und die erste Fassung rief damit Material.matchMaterial. "IRON" ist kein Material; das
+        // Teil heisst IRON_CHESTPLATE. Beim Magier ging es, weil seine Leiter durchgehend LEATHER
+        // ist und das zufaellig AUCH ein Material - ein Fehler, der bei einer von drei Klassen
+        // funktioniert, sieht wie ein Sonderfall aus und nicht wie ein falsches Modell.
+        ItemStack armour =
+                renderer.renderGear(
+                                LadderSlot.ARMOR,
+                                rpg.core.classes.TierAppearance.ofMaterial("IRON"),
+                                "test-tag",
+                                WearCurve.FULL)
+                        .orElseThrow();
+
+        assertThat(armour.getType())
+                .as("aus der Familie IRON und dem Platz ARMOR wird IRON_CHESTPLATE")
+                .isEqualTo(Material.IRON_CHESTPLATE);
+    }
+
+    @Test
+    @DisplayName("T081: auch die Familien, die KEIN Material sind, gehen durch")
+    void everyFamilyWorksNotJustLeather() {
+        // Die Gegenprobe zum Test darueber. LEATHER haette auch mit der kaputten Fassung
+        // funktioniert - COPPER, IRON, DIAMOND und NETHERITE nicht. Dass hier alle fuenf stehen,
+        // ist der Unterschied zwischen "geht bei meinem Charakter" und "geht".
+        for (String family : java.util.List.of("LEATHER", "COPPER", "IRON", "DIAMOND", "NETHERITE")) {
+            assertThat(
+                            renderer.renderGear(
+                                    LadderSlot.ARMOR,
+                                    rpg.core.classes.TierAppearance.ofMaterial(family),
+                                    "test-tag",
+                                    WearCurve.FULL))
+                    .as("Familie " + family)
+                    .isPresent();
+        }
+    }
+
+    @Test
+    @DisplayName("T081: die Waffenleiter nennt VOLLE Namen und geht den anderen Weg")
+    void theweaponLadderUsesFullNames() {
+        // Die zwei Leitern fuehren verschiedene Vokabulare: Ruestung als Familie, Waffe als
+        // vollstaendiges Material (IRON_SWORD). Das ist B07s Entscheidung, und renderGear muss
+        // beide bedienen - deshalb das switch ueber den Slot.
+        ItemStack weapon =
+                renderer.renderGear(
+                                LadderSlot.WEAPON,
+                                rpg.core.classes.TierAppearance.ofMaterial("IRON_SWORD"),
+                                "test-tag",
+                                WearCurve.FULL)
+                        .orElseThrow();
+
+        assertThat(weapon.getType()).isEqualTo(Material.IRON_SWORD);
+    }
+
+    @Test
+    @DisplayName("T081: ein Teil, das es nicht gibt, laesst den Platz frei statt zu werfen")
+    void anunbuildablePieceLeavesTheSlotEmpty() {
+        assertThat(
+                        renderer.renderGear(
+                                LadderSlot.ARMOR,
+                                rpg.core.classes.TierAppearance.ofMaterial("UNOBTAINIUM"),
+                                "test-tag",
+                                WearCurve.FULL))
+                .isEmpty();
     }
 
     // --- Aufbau ---------------------------------------------------------------

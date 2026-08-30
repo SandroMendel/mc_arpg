@@ -68,6 +68,7 @@ class CharacterSheetsTest {
                                         incomplete,
                                         1L,
                                         Map.of(),
+                                        Map.of(),
                                         Map.of()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("jedes Attribut");
@@ -170,6 +171,49 @@ class CharacterSheetsTest {
     }
 
     @Test
+    @DisplayName("die Uebersicht traegt B07s AUSSEHEN, keinen Materialnamen")
+    void thesheetCarriesTheAppearanceNotAMaterialName() {
+        // DER TEST, DER GEFEHLT HAT (Serverabnahme, Schritt 11).
+        //
+        // Die Ruestungsleiter nennt FAMILIEN - LEATHER, COPPER, IRON, DIAMOND, NETHERITE -, keine
+        // Bukkit-Materialien. Ein erster Entwurf reichte appearance.material() als String durch;
+        // aus "IRON" wurde in der Paper-Schicht Material.matchMaterial("IRON") und damit null, und
+        // der Platz blieb leer.
+        //
+        // Warum das kein Test gefunden hat: die alten Tests reichten "IRON_CHESTPLATE" durch - ein
+        // Name, den es GIBT. Sie haben also einen Wert geprueft, den die Wirklichkeit nie liefert.
+        // Und im Spiel ging es bei einer von drei Klassen, weil die Leiter des Magiers durchgehend
+        // LEATHER ist und das zufaellig auch ein Material.
+        //
+        // Der Typ ist die Abhilfe: TierAppearance KANN keine Familie mit einem Material
+        // verwechseln, weil es keinen String mehr durchreicht - und es traegt Farbe und Trim mit,
+        // die der Name ohnehin verloren haette.
+        Sources sources = new Sources();
+        sources.give(ids.characterId(), 100.0, 1L, CharacterClass.WARRIOR, 12, 250L);
+        sources.wear(ids.characterId(), LadderSlot.ARMOR, "IRON");
+
+        CharacterSheet sheet =
+                new CharacterSheets(
+                                sources,
+                                sources,
+                                sources::classOf,
+                                sources::levelOf,
+                                sources::coinsOf)
+                        .of(ids.characterId())
+                        .orElseThrow();
+
+        assertThat(sheet.equipmentOn(LadderSlot.ARMOR))
+                .as("der Platz ist belegt - IRON ist eine Familie und trotzdem gueltig")
+                .isPresent();
+        assertThat(sheet.equipmentOn(LadderSlot.ARMOR).orElseThrow().material())
+                .as("die FAMILIE kommt durch, nicht ein zusammengebauter Materialname")
+                .isEqualTo("IRON");
+        assertThat(sheet.tagOn(LadderSlot.ARMOR))
+                .as("und der Bindungsvermerk, den BoundItemFactory zum Bauen braucht")
+                .isPresent();
+    }
+
+    @Test
     @DisplayName("ein leerer Ausruestungsplatz gilt als voll erhalten")
     void anemptySlotCountsAsPristine() {
         // Ein leeres Optional zwaenge jede Aufrufstelle zu derselben Fallunterscheidung, und
@@ -196,6 +240,7 @@ class CharacterSheetsTest {
                                         CharacterSheet.emptyAttributes(),
                                         1L,
                                         Map.of(),
+                                        Map.of(),
                                         Map.of(LadderSlot.ARMOR, 150.0)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("ARMOR");
@@ -215,6 +260,7 @@ class CharacterSheetsTest {
                                         0,
                                         CharacterSheet.emptyAttributes(),
                                         1L,
+                                        Map.of(),
                                         Map.of(),
                                         Map.of(LadderSlot.ARMOR, 40.0)))
                 .doesNotThrowAnyException();
@@ -237,7 +283,8 @@ class CharacterSheetsTest {
         private final Map<UUID, CharacterClass> classes = new HashMap<>();
         private final Map<UUID, Integer> levels = new HashMap<>();
         private final Map<UUID, Long> coins = new HashMap<>();
-        private final Map<UUID, Map<LadderSlot, String>> worn = new HashMap<>();
+        private final Map<UUID, Map<LadderSlot, rpg.core.classes.TierAppearance>> worn =
+                new HashMap<>();
 
         void give(
                 UUID characterId,
@@ -263,9 +310,20 @@ class CharacterSheetsTest {
             return Optional.ofNullable(snapshots.get(characterId));
         }
 
+        /** Was der Charakter traegt — B07s Aussehen, keine Vorlagenkennung. */
+        void wear(UUID characterId, LadderSlot slot, String materialFamily) {
+            worn.computeIfAbsent(characterId, id -> new HashMap<>())
+                    .put(slot, rpg.core.classes.TierAppearance.ofMaterial(materialFamily));
+        }
+
         @Override
-        public Map<LadderSlot, String> equipmentOf(UUID characterId) {
+        public Map<LadderSlot, rpg.core.classes.TierAppearance> equipmentOf(UUID characterId) {
             return worn.getOrDefault(characterId, Map.of());
+        }
+
+        @Override
+        public Optional<String> tagOf(UUID characterId, LadderSlot slot) {
+            return Optional.of("test-tag");
         }
 
         @Override

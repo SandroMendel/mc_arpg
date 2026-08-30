@@ -128,8 +128,13 @@ class CharacterSheetCommandTest {
                 new CharacterSheets.EquipmentSource() {
 
                     @Override
-                    public Map<LadderSlot, String> equipmentOf(UUID id) {
+                    public Map<LadderSlot, rpg.core.classes.TierAppearance> equipmentOf(UUID id) {
                         return Map.of();
+                    }
+
+                    @Override
+                    public Optional<String> tagOf(UUID id, LadderSlot slot) {
+                        return Optional.of("test-tag");
                     }
 
                     @Override
@@ -153,7 +158,10 @@ class CharacterSheetCommandTest {
 
         @Override
         public Optional<org.bukkit.inventory.ItemStack> renderGear(
-                LadderSlot slot, String material, double condition) {
+                LadderSlot slot,
+                rpg.core.classes.TierAppearance appearance,
+                String tag,
+                double condition) {
             return Optional.empty();
         }
     }

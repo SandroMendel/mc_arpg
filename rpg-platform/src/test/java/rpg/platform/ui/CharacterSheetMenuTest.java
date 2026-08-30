@@ -162,13 +162,15 @@ class CharacterSheetMenuTest {
         // FR-021a. Der Test prueft, dass das Fenster die Naht BENUTZT statt einen eigenen
         // Gegenstand zu bauen - der Renderer haette sonst keine Aufrufe gesehen.
         Inventory inventory =
-                menu.open(player.getUniqueId(), sheetWith(LadderSlot.ARMOR, "IRON_CHESTPLATE", 60.0));
+                menu.open(player.getUniqueId(), sheetWith(LadderSlot.ARMOR, "IRON", 60.0));
 
         // renderGear und NICHT render(templateKey, ...): getragene Ausruestung hat keine
         // items.yml-Vorlage. Was hier durchgereicht wird, ist B07s Material und B11s Zustand.
         assertThat(items.gearCalls).hasSize(1);
         assertThat(items.calls).as("die Vorlagenform wird dafuer NICHT benutzt").isEmpty();
-        assertThat(items.gearCalls.get(0).material()).isEqualTo("IRON_CHESTPLATE");
+        assertThat(items.gearCalls.get(0).material())
+                .as("die FAMILIE kommt durch - aus ihr macht B07s Factory erst IRON_CHESTPLATE")
+                .isEqualTo("IRON");
         assertThat(items.gearCalls.get(0).condition()).isEqualTo(60.0);
         assertThat(items.gearCalls.get(0).slot()).isEqualTo(LadderSlot.ARMOR);
         assertThat(inventory.getItem(15)).isNotNull();
@@ -182,7 +184,7 @@ class CharacterSheetMenuTest {
         items.refuse = true;
 
         Inventory inventory =
-                menu.open(player.getUniqueId(), sheetWith(LadderSlot.ARMOR, "IRON_CHESTPLATE", 100.0));
+                menu.open(player.getUniqueId(), sheetWith(LadderSlot.ARMOR, "IRON", 100.0));
 
         assertThat(inventory.getItem(15)).isNotNull();
         assertThat(inventory.getItem(15).getType()).isEqualTo(Material.BARRIER);
@@ -195,7 +197,7 @@ class CharacterSheetMenuTest {
         // ein zweites Mal anzuhaengen ergaebe zwei Zeilen mit demselben Wert, und beim naechsten
         // Aufruf drei.
         Inventory inventory =
-                menu.open(player.getUniqueId(), sheetWith(LadderSlot.ARMOR, "IRON_CHESTPLATE", 60.0));
+                menu.open(player.getUniqueId(), sheetWith(LadderSlot.ARMOR, "IRON", 60.0));
 
         ItemStack armor = inventory.getItem(15);
         assertThat(armor).isNotNull();
@@ -209,7 +211,7 @@ class CharacterSheetMenuTest {
     void openingTwiceBuildsOnce() {
         // FR-054. Ein Fenster neu zu bauen kostet zehn ItemStacks und zwei Nachfragen an fremde
         // Bloecke; das zweimal fuer denselben Stand zu tun ist Arbeit ohne Anlass.
-        CharacterSheet sheet = sheetWith(LadderSlot.ARMOR, "IRON_CHESTPLATE", 100.0);
+        CharacterSheet sheet = sheetWith(LadderSlot.ARMOR, "IRON", 100.0);
 
         Inventory first = menu.open(player.getUniqueId(), sheet);
         Inventory second = menu.open(player.getUniqueId(), sheet);
@@ -245,6 +247,7 @@ class CharacterSheetMenuTest {
                                 9999,
                                 attributes(),
                                 7L,
+                                Map.of(),
                                 Map.of(),
                                 Map.of()));
 
@@ -342,10 +345,19 @@ class CharacterSheetMenuTest {
                 attributes(),
                 revision,
                 Map.of(),
+                Map.of(),
                 Map.of());
     }
 
-    private CharacterSheet sheetWith(LadderSlot slot, String templateKey, double condition) {
+    /**
+     * Eine Übersicht mit einem getragenen Stück.
+     *
+     * <p><b>Der Parameter ist eine Material<em>familie</em></b> ({@code IRON}), kein Materialname
+     * ({@code IRON_CHESTPLATE}) — genau die Unterscheidung, an der die erste Fassung gescheitert
+     * ist. Ein Test, der einen Namen durchreicht, den es <em>gibt</em>, prüft einen Wert, den die
+     * Wirklichkeit nie liefert.
+     */
+    private CharacterSheet sheetWith(LadderSlot slot, String materialFamily, double condition) {
         return new CharacterSheet(
                 characterId,
                 CharacterClass.WARRIOR,
@@ -353,7 +365,8 @@ class CharacterSheetMenuTest {
                 250,
                 attributes(),
                 1L,
-                Map.of(slot, templateKey),
+                Map.of(slot, rpg.core.classes.TierAppearance.ofMaterial(materialFamily)),
+                Map.of(slot, "test-tag"),
                 Map.of(slot, condition));
     }
 
@@ -414,8 +427,12 @@ class CharacterSheetMenuTest {
         }
 
         @Override
-        public Optional<ItemStack> renderGear(LadderSlot slot, String material, double condition) {
-            gearCalls.add(new GearCall(slot, material, condition));
+        public Optional<ItemStack> renderGear(
+                LadderSlot slot,
+                rpg.core.classes.TierAppearance appearance,
+                String tag,
+                double condition) {
+            gearCalls.add(new GearCall(slot, appearance.material(), condition));
             return refuse ? Optional.empty() : Optional.of(new ItemStack(Material.IRON_CHESTPLATE));
         }
     }

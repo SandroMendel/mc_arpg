@@ -5,6 +5,7 @@ import java.util.Optional;
 
 import org.bukkit.inventory.ItemStack;
 
+import rpg.platform.classes.BoundItemFactory;
 import rpg.platform.item.GearConditionDisplay;
 import rpg.platform.item.ItemStackFactory;
 
@@ -38,32 +39,65 @@ import rpg.platform.item.ItemStackFactory;
 public final class PaperItemRenderer implements ItemRenderer {
 
     private final ItemStackFactory factory;
+    private final BoundItemFactory boundItems;
     private final GearConditionDisplay conditions;
 
-    public PaperItemRenderer(ItemStackFactory factory, GearConditionDisplay conditions) {
+    /**
+     * @param factory B11: Gegenstände mit einer {@code items.yml}-Vorlage
+     * @param boundItems B07: getragene Ausrüstung samt Farbe und Trim
+     * @param conditions B11: die Zustandszeile
+     */
+    public PaperItemRenderer(
+            ItemStackFactory factory,
+            BoundItemFactory boundItems,
+            GearConditionDisplay conditions) {
         this.factory = Objects.requireNonNull(factory, "factory");
+        this.boundItems = Objects.requireNonNull(boundItems, "boundItems");
         this.conditions = Objects.requireNonNull(conditions, "conditions");
     }
 
     @Override
     public Optional<ItemStack> renderGear(
-            rpg.core.classes.LadderSlot slot, String material, double condition) {
+            rpg.core.classes.LadderSlot slot,
+            rpg.core.classes.TierAppearance appearance,
+            String tag,
+            double condition) {
         Objects.requireNonNull(slot, "slot");
-        Objects.requireNonNull(material, "material");
+        Objects.requireNonNull(appearance, "appearance");
+        Objects.requireNonNull(tag, "tag");
 
-        // Das Material kommt aus B07s TierAppearance und nicht aus einer Vorlage: getragene
-        // Ausruestung HAT keine (ItemCategory kennt nur CONSUMABLE und COSMETIC). Deshalb gibt es
-        // hier auch keine ItemStackFactory - es gibt nichts, was sie nachschlagen koennte.
-        org.bukkit.Material type = org.bukkit.Material.matchMaterial(material);
-        if (type == null) {
-            // Kein Vanilla-Material: den Platz frei lassen statt den Aufrufer mitzureissen.
+        try {
+            // ZWEI BLOECKE, zwei Haelften - und keine davon baut diese Klasse selbst:
+            //
+            //   B07 (BoundItemFactory) -> das Teil samt Farbe und Trim
+            //   B11 (GearConditionDisplay) -> die Zustandszeile darunter
+            //
+            // Ein erster Entwurf nahm hier einen Materialnamen und rief matchMaterial. Das ist im
+            // Spiel aufgeflogen (Schritt 11): die Ruestungsleiter nennt FAMILIEN - LEATHER, COPPER,
+            // IRON, DIAMOND, NETHERITE -, und "IRON" ist kein Material. Das Teil heisst
+            // IRON_CHESTPLATE, und die Zusammensetzung macht B07s Factory.
+            //
+            // Der Fehler ging durch, weil er bei einer von drei Klassen FUNKTIONIERTE: die Leiter
+            // des Magiers ist durchgehend LEATHER, und das ist zufaellig auch ein Material.
+            ItemStack stack =
+                    switch (slot) {
+                        case ARMOR ->
+                                boundItems.armorPiece(
+                                        appearance,
+                                        BoundItemFactory.ArmorPiece.CHESTPLATE,
+                                        tag);
+                        // Die Waffenleiter nennt VOLLE Materialnamen (IRON_SWORD), nicht Familien -
+                        // deshalb geht sie den anderen Weg. Dass die zwei Leitern verschiedene
+                        // Vokabulare fuehren, ist B07s Entscheidung und nicht unsere.
+                        case WEAPON -> boundItems.weapon(appearance, tag);
+                    };
+            conditions.paint(stack, condition);
+            return Optional.of(stack);
+        } catch (RuntimeException notBuildable) {
+            // Ein Teil, das sich auf dieser Serverversion nicht bauen laesst, laesst den Platz
+            // frei - es reisst nicht das Fenster mit (Constitution VI).
             return Optional.empty();
         }
-        ItemStack stack = new ItemStack(type);
-        // Die Zustandszeile schreibt B11, genau wie bei einer Vorlage - das ist die Haelfte, die
-        // ihm gehoert, und die einzige, die auch fuer getragene Ausruestung gilt (FR-021a).
-        conditions.paint(stack, condition);
-        return Optional.of(stack);
     }
 
     @Override

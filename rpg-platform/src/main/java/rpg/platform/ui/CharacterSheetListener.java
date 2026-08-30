@@ -63,6 +63,22 @@ public final class CharacterSheetListener implements Listener {
         event.setCancelled(true);
     }
 
+    /**
+     * Ziehen ist ein <b>eigenes</b> Ereignis, und der abgefangene Klick deckt es nicht ab.
+     *
+     * <p>Das ist beim Spielen aufgefallen, nicht beim Schreiben: {@code InventoryClickEvent} fängt
+     * Klicks und Shift-Klicks, aber ein über mehrere Slots <em>gezogener</em> Stapel geht durch
+     * {@code InventoryDragEvent}. Ohne diesen Handler wäre die Übersicht „zum Lesen da" mit genau
+     * einer Ausnahme — und die hätte niemand gesucht.
+     */
+    @EventHandler
+    public void onDrag(org.bukkit.event.inventory.InventoryDragEvent event) {
+        if (event.getWhoClicked() instanceof Player player
+                && open.contains(player.getUniqueId())) {
+            event.setCancelled(true);
+        }
+    }
+
     @EventHandler
     public void onClose(InventoryCloseEvent event) {
         if (event.getPlayer() instanceof Player player) {

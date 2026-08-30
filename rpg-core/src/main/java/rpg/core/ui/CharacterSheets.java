@@ -7,6 +7,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import rpg.core.classes.LadderSlot;
+import rpg.core.classes.TierAppearance;
 import rpg.core.session.CharacterClass;
 import rpg.core.stats.Attribute;
 import rpg.core.stats.StatSnapshot;
@@ -41,7 +42,10 @@ public final class CharacterSheets {
 
     /** Was auf welchem Platz steckt und in welchem Zustand — B07 und B11. */
     public interface EquipmentSource {
-        Map<LadderSlot, String> equipmentOf(UUID characterId);
+        Map<LadderSlot, TierAppearance> equipmentOf(UUID characterId);
+
+        /** Der Bindungsvermerk, den B07 fuer diesen Charakter und Platz erwartet. */
+        Optional<String> tagOf(UUID characterId, LadderSlot slot);
 
         double conditionOf(UUID characterId, LadderSlot slot);
     }
@@ -91,10 +95,12 @@ public final class CharacterSheets {
             values.put(attribute, snapshot.get().get(attribute));
         }
 
-        Map<LadderSlot, String> worn = equipment.equipmentOf(characterId);
+        Map<LadderSlot, TierAppearance> worn = equipment.equipmentOf(characterId);
         Map<LadderSlot, Double> conditions = new EnumMap<>(LadderSlot.class);
+        Map<LadderSlot, String> tags = new EnumMap<>(LadderSlot.class);
         for (LadderSlot slot : LadderSlot.values()) {
             conditions.put(slot, equipment.conditionOf(characterId, slot));
+            equipment.tagOf(characterId, slot).ifPresent(tag -> tags.put(slot, tag));
         }
 
         return Optional.of(
@@ -106,6 +112,7 @@ public final class CharacterSheets {
                         values,
                         snapshot.get().revision(),
                         worn,
+                        tags,
                         conditions));
     }
 }

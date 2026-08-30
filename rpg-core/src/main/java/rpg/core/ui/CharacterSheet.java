@@ -7,6 +7,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import rpg.core.classes.LadderSlot;
+import rpg.core.classes.TierAppearance;
 import rpg.core.item.WearCurve;
 import rpg.core.session.CharacterClass;
 import rpg.core.stats.Attribute;
@@ -44,8 +45,13 @@ import rpg.core.stats.Attribute;
  * @param coins sein Coin-Stand aus B08b
  * @param attributes jedes Attribut, das B04 führt, mit seinem aktuellen Wert
  * @param revision die Marke aus {@code StatSnapshot.revision()}
- * @param equipment was auf welchem Platz steckt — die Vorlagenkennung, nicht der Gegenstand
- * @param conditions der Zustand je Platz, wie B11 ihn führt, in {@code [0,1]}
+ * @param equipment was auf welchem Platz steckt — B07s {@link TierAppearance}, also Materialfamilie,
+ *     Farbe und Trim. <b>Kein Materialname</b>: die Rüstungsleiter nennt Familien
+ *     ({@code IRON}, {@code NETHERITE}), und aus einer Familie wird erst mit dem Platz ein Teil
+ *     ({@code IRON_CHESTPLATE}). Ein erster Entwurf trug hier einen {@code String} und hat die
+ *     Rüstung von Krieger und Schurke verschwinden lassen — beim Magier ging es, weil seine Leiter
+ *     durchgehend {@code LEATHER} ist und das zufällig auch ein Material.
+ * @param conditions der Zustand je Platz, wie B11 ihn führt, in {@code [0, WearCurve.FULL]}
  */
 public record CharacterSheet(
         UUID characterId,
@@ -54,7 +60,8 @@ public record CharacterSheet(
         long coins,
         Map<Attribute, Double> attributes,
         long revision,
-        Map<LadderSlot, String> equipment,
+        Map<LadderSlot, TierAppearance> equipment,
+        Map<LadderSlot, String> tags,
         Map<LadderSlot, Double> conditions) {
 
     public CharacterSheet {
@@ -62,6 +69,7 @@ public record CharacterSheet(
         Objects.requireNonNull(characterClass, "characterClass");
         attributes = Map.copyOf(Objects.requireNonNull(attributes, "attributes"));
         equipment = Map.copyOf(Objects.requireNonNull(equipment, "equipment"));
+        tags = Map.copyOf(Objects.requireNonNull(tags, "tags"));
         conditions = Map.copyOf(Objects.requireNonNull(conditions, "conditions"));
 
         // JEDES Attribut, nicht die, die gerade ungleich null sind (FR-050). Eine Uebersicht, die
@@ -99,8 +107,19 @@ public record CharacterSheet(
     }
 
     /** Was auf diesem Platz steckt, oder leer, wenn er frei ist. */
-    public Optional<String> equipmentOn(LadderSlot slot) {
+    public Optional<TierAppearance> equipmentOn(LadderSlot slot) {
         return Optional.ofNullable(equipment.get(slot));
+    }
+
+    /**
+     * Der Bindungsvermerk, den B07 für diesen Platz erwartet.
+     *
+     * <p>Nur zum <b>Bauen</b> des Anzeigestücks: {@code BoundItemFactory} verlangt ihn, weil ein
+     * gebundenes Stück ohne Vermerk ein Stück wäre, das jeder bewegen darf. Die Übersicht ist
+     * ohnehin zum Lesen da — jeder Klick und jedes Ziehen wird abgefangen.
+     */
+    public Optional<String> tagOn(LadderSlot slot) {
+        return Optional.ofNullable(tags.get(slot));
     }
 
     /**

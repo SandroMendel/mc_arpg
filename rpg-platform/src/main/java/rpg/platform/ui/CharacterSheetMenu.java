@@ -158,8 +158,8 @@ public final class CharacterSheetMenu {
 
     private void putEquipment(
             Inventory inventory, int slot, CharacterSheet sheet, LadderSlot ladderSlot) {
-        Optional<String> templateKey = sheet.equipmentOn(ladderSlot);
-        if (templateKey.isEmpty()) {
+        Optional<rpg.core.classes.TierAppearance> appearance = sheet.equipmentOn(ladderSlot);
+        if (appearance.isEmpty()) {
             frame.put(
                     inventory,
                     slot,
@@ -172,9 +172,14 @@ public final class CharacterSheetMenu {
         double condition = sheet.conditionOn(ladderSlot);
         // renderGear und NICHT render(templateKey, ...): getragene Ausruestung hat keine
         // items.yml-Vorlage - ItemCategory kennt nur CONSUMABLE und COSMETIC. Was hier im
-        // Ausruestungsplatz steht, ist das Material aus B07s TierAppearance; den Zustand darunter
-        // schreibt B11 (FR-051, FR-021a).
-        Optional<ItemStack> rendered = items.renderGear(ladderSlot, templateKey.get(), condition);
+        // Ausruestungsplatz steht, baut B07 aus seiner TierAppearance (Familie, Farbe, Trim); den
+        // Zustand darunter schreibt B11 (FR-051, FR-021a).
+        Optional<ItemStack> rendered =
+                items.renderGear(
+                        ladderSlot,
+                        appearance.get(),
+                        sheet.tagOn(ladderSlot).orElse(""),
+                        condition);
         if (rendered.isEmpty()) {
             // Unbekannte Vorlage: den Platz frei lassen statt den Aufrufer mitzureissen. Ein
             // Tippfehler in items.yml darf kein kaputtes Fenster ergeben.
