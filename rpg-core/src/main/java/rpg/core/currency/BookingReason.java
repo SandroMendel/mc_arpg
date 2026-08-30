@@ -93,7 +93,17 @@ public enum BookingReason {
     ADMIN_ADD(Direction.CREDIT),
 
     /** An operator removed coins. */
-    ADMIN_REMOVE(Direction.DEBIT);
+    ADMIN_REMOVE(Direction.DEBIT),
+
+    /**
+     * A season reward was claimed. B12.
+     *
+     * <p>Its own reason rather than reusing {@link #ADMIN_ADD}: the ledger is the record of where
+     * a balance came from, and "an operator added coins" would simply be false here — nobody did.
+     * FR-056 requires every claim to be logged, and this is the entry that makes that log
+     * readable a year later.
+     */
+    SEASON_REWARD(Direction.CREDIT);
 
     /**
      * Which way a reason can move a balance.
