@@ -1,10 +1,13 @@
 package rpg.platform.ui;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
 import org.bukkit.Material;
@@ -60,16 +63,26 @@ public final class AbilityCooldownOverlay {
     private final Scheduler scheduler;
     private final AbilityRegistry abilities;
     private final Function<UUID, Optional<UUID>> characterOfPlayer;
+    private final java.time.Clock clock;
+
+    /**
+     * Welchen Cooldown-Endzeitpunkt wir je Spieler und Fähigkeit zuletzt gesetzt haben.
+     *
+     * <p>Die Grundlage dafür, dass der Sekundenabgleich <b>nur bei Änderung</b> sendet.
+     */
+    private final Map<UUID, Map<String, Instant>> lastApplied = new ConcurrentHashMap<>();
 
     public AbilityCooldownOverlay(
             Server server,
             Scheduler scheduler,
             AbilityRegistry abilities,
-            Function<UUID, Optional<UUID>> characterOfPlayer) {
+            Function<UUID, Optional<UUID>> characterOfPlayer,
+            java.time.Clock clock) {
         this.server = Objects.requireNonNull(server, "server");
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
         this.abilities = Objects.requireNonNull(abilities, "abilities");
         this.characterOfPlayer = Objects.requireNonNull(characterOfPlayer, "characterOfPlayer");
+        this.clock = Objects.requireNonNull(clock, "clock");
     }
 
     /**
@@ -80,6 +93,35 @@ public final class AbilityCooldownOverlay {
      * Gelegenheiten, sie verschieden zu beantworten.
      */
     public void restore(UUID playerId) {
+        refresh(playerId);
+    }
+
+    /**
+     * Gleicht das Overlay mit dem <b>tatsächlichen</b> Cooldown ab — einmal je Sekunde.
+     *
+     * <h2>Warum es das braucht, obwohl der Auslösepfad verdrahtet ist</h2>
+     *
+     * <p><b>Nicht jeder Cooldown beginnt beim Auslösen.</b> Eine <em>anhaltende</em> Fähigkeit
+     * ({@code sustained: true}) startet ihren, wenn sie <b>endet</b> — beim Krieger sind das
+     * {@code shield}, {@code whirl} und {@code call-of-the-berserker}, beim Schurken
+     * {@code invisibility}. Eine Fähigkeit mit <em>Ladungen</em> startet ihn erst, wenn die letzte
+     * verbraucht ist ({@code rogue.teleport}, zwei Ladungen).
+     *
+     * <p>Der erste Entwurf hing nur am Auslösepfad. Im Spiel hieß das: beim Krieger wurde
+     * <b>ausschließlich Leap</b> grau — die einzige seiner aktiven Fähigkeiten ohne
+     * {@code sustained}. Ein Fehler, der bei einer von vier funktioniert.
+     *
+     * <p><b>Beide Wege, nicht einer:</b> der Auslösepfad macht es <em>sofort</em> (eine Sekunde
+     * Verzug ist genau die Sekunde, in der ein Spieler ein zweites Mal drückt), dieser Abgleich
+     * macht es <em>vollständig</em> — er greift für jeden Cooldown, gleich woher er kommt.
+     *
+     * <h2>Er sendet nur bei Änderung</h2>
+     *
+     * <p>{@code setCooldown} ist ein Paket. Bei 200 Spielern mal sieben Fähigkeiten je Sekunde
+     * wären das 1400 — für eine Anzeige, die sich meist nicht ändert. Gemerkt wird deshalb der
+     * <b>Endzeitpunkt</b>, den wir zuletzt gesetzt haben; ein unveränderter kostet nichts.
+     */
+    public void refresh(UUID playerId) {
         Objects.requireNonNull(playerId, "playerId");
         Optional<UUID> characterId = characterOfPlayer.apply(playerId);
         if (characterId.isEmpty()) {
@@ -91,14 +133,33 @@ public final class AbilityCooldownOverlay {
             return;
         }
 
+        Map<String, Instant> applied =
+                lastApplied.computeIfAbsent(playerId, id -> new ConcurrentHashMap<>());
+
         for (Ability ability : abilities.abilitiesOf(characterClass.get())) {
             Optional<Duration> remaining =
                     abilities.remainingCooldown(characterId.get(), ability.id());
             if (remaining.isEmpty() || remaining.get().isNegative() || remaining.get().isZero()) {
+                // Kein Cooldown mehr. Den Merker wegnehmen, damit der naechste wieder als neu
+                // erkannt wird - sonst bliebe eine zweite Ausloesung mit gleicher Dauer stumm.
+                applied.remove(ability.id());
                 continue;
             }
+            Instant until = clock.instant().plus(remaining.get());
+            Instant previous = applied.get(ability.id());
+            // Eine Sekunde Toleranz: der Takt laeuft sekundenweise, und ein Endzeitpunkt, der sich
+            // nur um Millisekunden unterscheidet, ist derselbe Cooldown und kein neuer.
+            if (previous != null && Duration.between(previous, until).abs().toMillis() < 1000) {
+                continue;
+            }
+            applied.put(ability.id(), until);
             apply(playerId, ability, remaining.get());
         }
+    }
+
+    /** Vergisst diesen Spieler — beim Abmelden. */
+    public void forget(UUID playerId) {
+        lastApplied.remove(playerId);
     }
 
     /**

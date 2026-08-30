@@ -148,11 +148,102 @@ class AbilityCooldownOverlayTest {
     void withoutACharacterNothingIsRestored() {
         AbilityCooldownOverlay overlay =
                 new AbilityCooldownOverlay(
-                        server, new DirectScheduler(), registry(), id -> Optional.empty());
+                        server,
+                        new DirectScheduler(),
+                        registry(),
+                        id -> Optional.empty(),
+                        Clock.fixed(T0, ZoneOffset.UTC));
 
         overlay.restore(player.getUniqueId());
 
         assertThat(player.getCooldown(Material.IRON_SWORD)).isZero();
+    }
+
+    @Test
+    @DisplayName("der Sekundenabgleich faengt einen Cooldown, der NICHT beim Ausloesen begann")
+    void thesecondlyReconciliationCatchesALateCooldown() {
+        // DER FALL, DEN DER ERSTE ENTWURF NICHT SAH (Serverabnahme, Schritt 8).
+        //
+        // Eine ANHALTENDE Faehigkeit (sustained: true) startet ihren Cooldown, wenn sie ENDET -
+        // nicht beim Ausloesen. Beim Krieger sind das shield, whirl und call-of-the-berserker, beim
+        // Schurken invisibility. Der Ausloesepfad allein liess deshalb AUSSCHLIESSLICH Leap grau
+        // werden: die einzige aktive Faehigkeit des Kriegers ohne sustained.
+        //
+        // Ein Fehler, der bei einer von vier funktioniert - und deshalb wie ein Sonderfall aussieht.
+        MovingRegistry registry = new MovingRegistry();
+        AbilityCooldownOverlay overlay =
+                new AbilityCooldownOverlay(
+                        server,
+                        new DirectScheduler(),
+                        registry.registry(),
+                        id -> Optional.of(characterId),
+                        Clock.fixed(T0, ZoneOffset.UTC));
+
+        // Erster Abgleich: nichts kuehlt ab, also faerbt nichts.
+        overlay.refresh(player.getUniqueId());
+        assertThat(player.getCooldown(Material.IRON_SWORD)).isZero();
+
+        // Die Faehigkeit endet - JETZT beginnt ihr Cooldown, ohne dass jemand ausgeloest hat.
+        registry.startCooldown(Duration.ofSeconds(5));
+        overlay.refresh(player.getUniqueId());
+
+        assertThat(player.getCooldown(Material.IRON_SWORD))
+                .as("der Takt hat ihn gefunden, obwohl der Ausloesepfad nichts gemeldet hat")
+                .isPositive();
+    }
+
+    @Test
+    @DisplayName("derselbe Cooldown wird nicht jede Sekunde neu gesendet")
+    void thesameCooldownIsNotResentEverySecond() {
+        // setCooldown ist ein Paket. Bei 200 Spielern mal sieben Faehigkeiten je Sekunde waeren das
+        // 1400 fuer eine Anzeige, die sich nicht aendert.
+        MovingRegistry registry = new MovingRegistry();
+        AbilityCooldownOverlay overlay =
+                new AbilityCooldownOverlay(
+                        server,
+                        new DirectScheduler(),
+                        registry.registry(),
+                        id -> Optional.of(characterId),
+                        Clock.fixed(T0, ZoneOffset.UTC));
+        registry.startCooldown(Duration.ofSeconds(5));
+
+        overlay.refresh(player.getUniqueId());
+        int afterFirst = player.getCooldown(Material.IRON_SWORD);
+        player.setCooldown(Material.IRON_SWORD, 0);
+
+        overlay.refresh(player.getUniqueId());
+
+        assertThat(afterFirst).isPositive();
+        assertThat(player.getCooldown(Material.IRON_SWORD))
+                .as("beim zweiten Mal wurde nichts gesendet - der Endzeitpunkt ist derselbe")
+                .isZero();
+    }
+
+    @Test
+    @DisplayName("ein NEUER Cooldown derselben Faehigkeit wird wieder gesendet")
+    void anewCooldownOnTheSameAbilityIsSentAgain() {
+        // Die Gegenprobe: der Merker darf nicht dazu fuehren, dass eine zweite Ausloesung stumm
+        // bleibt.
+        MovingRegistry registry = new MovingRegistry();
+        AbilityCooldownOverlay overlay =
+                new AbilityCooldownOverlay(
+                        server,
+                        new DirectScheduler(),
+                        registry.registry(),
+                        id -> Optional.of(characterId),
+                        Clock.fixed(T0, ZoneOffset.UTC));
+
+        registry.startCooldown(Duration.ofSeconds(5));
+        overlay.refresh(player.getUniqueId());
+        player.setCooldown(Material.IRON_SWORD, 0);
+
+        // Abgelaufen, dann neu - ein anderer Endzeitpunkt.
+        registry.startCooldown(Duration.ZERO);
+        overlay.refresh(player.getUniqueId());
+        registry.startCooldown(Duration.ofSeconds(9));
+        overlay.refresh(player.getUniqueId());
+
+        assertThat(player.getCooldown(Material.IRON_SWORD)).isPositive();
     }
 
     // T097 - der Teil, den dieser Test NICHT beweist:
@@ -169,9 +260,61 @@ class AbilityCooldownOverlayTest {
 
     // --- Aufbau ---------------------------------------------------------------
 
+    /**
+     * Ein Verzeichnis, dessen Cooldown sich stellen lässt.
+     *
+     * <p>Genau eine aktive Fähigkeit auf {@code IRON_SWORD}. Mehr braucht die Frage nicht — und
+     * weniger hätte sie nicht beantwortet: der Fehler aus Schritt 8 hing daran, <em>wann</em> ein
+     * Cooldown beginnt, nicht daran, welche Fähigkeit ihn hat.
+     */
+    private final class MovingRegistry {
+
+        private final rpg.core.ability.AbilityRegistry registry;
+
+        MovingRegistry() {
+            rpg.core.classes.AbilityBinding binding =
+                    new rpg.core.classes.AbilityBinding("cleave", AbilityKind.ACTIVE, false, 1);
+            this.registry =
+                    new rpg.core.ability.AbilityRegistry(
+                            new rpg.core.ability.AbilityConfig(
+                                    Map.of("cleave", active("cleave", "IRON_SWORD")),
+                                    Duration.ofSeconds(1),
+                                    1.0,
+                                    1.0),
+                            id -> rpg.core.session.CharacterClass.WARRIOR,
+                            characterClass -> List.of(binding),
+                            id -> List.of(binding),
+                            Clock.fixed(T0, ZoneOffset.UTC));
+        }
+
+        /**
+         * Setzt den Cooldown so, wie B08 ihn setzen würde.
+         *
+         * <p><b>Über {@code put(stateOf(...).withCooldown(...))} und nicht über ein Double</b>: das
+         * ist derselbe Weg, den {@code AbilityRuntime.startCooldown} geht. Ein Doppelgänger hätte
+         * hier jede Antwort geliefert, die der Test hören will — und genau deshalb hätte er den
+         * Fehler aus Schritt 8 nicht gefunden.
+         */
+        void startCooldown(Duration duration) {
+            registry.put(
+                    duration.isZero()
+                            ? rpg.core.ability.AbilityState.initial(characterId, "cleave")
+                            : registry.stateOf(characterId, "cleave")
+                                    .withCooldown(T0.plus(duration)));
+        }
+
+        rpg.core.ability.AbilityRegistry registry() {
+            return registry;
+        }
+    }
+
     private AbilityCooldownOverlay overlay() {
         return new AbilityCooldownOverlay(
-                server, new DirectScheduler(), registry(), id -> Optional.of(characterId));
+                server,
+                new DirectScheduler(),
+                registry(),
+                id -> Optional.of(characterId),
+                Clock.fixed(T0, ZoneOffset.UTC));
     }
 
     private static rpg.core.ability.AbilityRegistry registry() {

@@ -1180,6 +1180,17 @@ public class RpgPlugin extends JavaPlugin {
                                 .apply(event.characterId())
                                 .ifPresent(refresh::refresh));
 
+        // B13 US3: das Cooldown-Overlay. Es setzt auf dem Material auf, das AbilityHotbar bereits
+        // gelegt hat - die Leiste selbst wird NICHT angefasst (FR-024). VOR dem Takt gebaut, weil
+        // der Takt es mitlaufen laesst.
+        rpg.platform.ui.AbilityCooldownOverlay cooldownOverlay =
+                new rpg.platform.ui.AbilityCooldownOverlay(
+                        getServer(),
+                        scheduler,
+                        abilityModule.registry(),
+                        characterOfPlayer,
+                        java.time.Clock.systemUTC());
+
         rpg.platform.ui.HudTick tick =
                 new rpg.platform.ui.HudTick(
                         scheduler,
@@ -1189,16 +1200,18 @@ public class RpgPlugin extends JavaPlugin {
                         this::playersInPlay,
                         refresh,
                         getLogger());
+        // Der Sekundenabgleich des Cooldown-Overlays. Er faengt, was der Ausloesepfad nicht sieht:
+        // anhaltende Faehigkeiten starten ihren Cooldown beim ENDEN, Ladungsfaehigkeiten erst bei
+        // der letzten. Beim Krieger wurde deshalb ausschliesslich Leap grau - die einzige seiner
+        // aktiven ohne sustained.
+        //
+        // Kein zweiter Takt (FR-010): er laeuft in DIESEM mit.
+        tick.alsoPerPlayer(cooldownOverlay::refresh);
         tick.start();
 
         // Was der HUD je Spieler haelt, geht mit der Sitzung (FR-004c). Vier Dinge, und jedes
         // einzeln vergessen zu koennen ist der Punkt: eine entfernte Bossbar, deren Eintrag stehen
         // bleibt, ist ein Leck, das erst nach Stunden auffaellt.
-        // B13 US3: das Cooldown-Overlay. Es setzt auf dem Material auf, das AbilityHotbar bereits
-        // gelegt hat - die Leiste selbst wird NICHT angefasst (FR-024).
-        rpg.platform.ui.AbilityCooldownOverlay cooldownOverlay =
-                new rpg.platform.ui.AbilityCooldownOverlay(
-                        getServer(), scheduler, abilityModule.registry(), characterOfPlayer);
         // Beim Anmelden die VERBLEIBENDE Restzeit wiederherstellen (FR-033). B08 fuehrt den
         // Cooldown ueber Zeitstempel, er ueberlebt die Abmeldung also von selbst - was fehlt, ist
         // nur die Anzeige. Ohne diese Zeile saehe der Spieler ein bereites Item, drueckte es, und
@@ -1246,6 +1259,7 @@ public class RpgPlugin extends JavaPlugin {
                 .subscribeTo(eventBus);
 
         uiForgetters.add(refresh::forget);
+        uiForgetters.add(cooldownOverlay::forget);
         uiForgetters.add(renderer::forget);
         uiForgetters.add(zoneNotice::forget);
         uiForgetters.add(bossFight::forget);

@@ -57,6 +57,9 @@ public final class HudTick {
     private final HudRefresh refresh;
     private final Logger logger;
 
+    private final List<java.util.function.Consumer<UUID>> alsoPerPlayer =
+            new java.util.concurrent.CopyOnWriteArrayList<>();
+
     private volatile boolean running;
 
     public HudTick(
@@ -109,7 +112,36 @@ public final class HudTick {
             // refresh faengt selbst je Flaeche; hier steht kein zweiter Faenger, sonst verdeckte er
             // die Stelle, an der es schiefging.
             refresh.refresh(playerId);
+            for (java.util.function.Consumer<UUID> extra : alsoPerPlayer) {
+                try {
+                    extra.accept(playerId);
+                } catch (RuntimeException failure) {
+                    logger.log(
+                            Level.WARNING,
+                            "[ui] a per-player step failed for " + playerId,
+                            failure);
+                }
+            }
         }
+    }
+
+    /**
+     * Etwas, das je Spieler und Durchlauf mitlaufen soll, aber <b>keine</b> der drei Flächen ist.
+     *
+     * <p>Heute genau eines: der Abgleich des Cooldown-Overlays. Es liegt auf dem Slot-Item und
+     * nicht auf einer Fläche — es gehört also nicht in {@link HudRefresh}, braucht aber denselben
+     * Sekundentakt.
+     *
+     * <p><b>Warum es den Takt braucht, obwohl das Auslösen verdrahtet ist:</b> nicht jeder Cooldown
+     * beginnt beim Auslösen. Eine anhaltende Fähigkeit startet ihren, wenn sie <em>endet</em>, eine
+     * mit Ladungen erst bei der letzten. Der Auslösepfad macht es sofort, dieser Abgleich macht es
+     * vollständig.
+     *
+     * <p>Und es bleibt <b>ein</b> Takt (FR-010): ein zweiter daneben wäre genau das, was R1 und
+     * dieser Block seit dem ersten Commit vermeiden.
+     */
+    public void alsoPerPlayer(java.util.function.Consumer<UUID> step) {
+        alsoPerPlayer.add(Objects.requireNonNull(step, "step"));
     }
 
     private void scheduleNext() {
