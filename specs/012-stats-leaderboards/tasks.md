@@ -279,17 +279,17 @@ den Endstand prüfen, den Anspruch einlösen und ein zweites Einlösen versuchen
 
 ### Die Punktzahl
 
-- [ ] T103 [P] [US5] Test `SeasonScoreIsRecomputableTest` in `rpg-core/src/test/java/rpg/core/statistics/SeasonScoreIsRecomputableTest.java` — **SC-020**: die Punktzahl lässt sich aus den gezeigten Werten und Gewichten nachrechnen, und die Aufschlüsselung summiert sich auf den ausgewiesenen Wert
-- [ ] T104 [P] [US5] Test `StateValuesNeverScoreTest` in `rpg-core/src/test/java/rpg/core/statistics/StateValuesNeverScoreTest.java` — **FR-050c, ADR-046**: eine Gewichtung, die Level, XP, Coins oder einen privaten Wert nennt, wird beim Start zurückgewiesen. Zustandswerte trügen den Fortschritt alter Saisons in die neue
-- [ ] T105 [P] [US5] Test `EmptyWeightsFailStartupTest` in `rpg-core/src/test/java/rpg/core/statistics/EmptyWeightsFailStartupTest.java` — **FR-050d, SC-022**: eine Gewichtung ohne bekannte Metrik bricht den Start ab, und die Meldung nennt die fehlende Metrik
-- [ ] T106 [US5] `ScoreWeights` in `rpg-core/src/main/java/rpg/core/statistics/ScoreWeights.java` — Gewichte je Metrik, einfrierbar
-- [ ] T107 [US5] `SeasonScore` in `rpg-core/src/main/java/rpg/core/statistics/SeasonScore.java` — Summe gewichteter Werte des Saisonzeitraums (FR-050b)
-- [ ] T108 [US5] `ScoreBreakdown` — je beitragender Metrik Wert, Gewicht und Punkte (FR-050f)
+- [X] T103 [P] [US5] Test `SeasonScoreIsRecomputableTest` in `rpg-core/src/test/java/rpg/core/statistics/SeasonScoreIsRecomputableTest.java` — **SC-020**: die Punktzahl lässt sich aus den gezeigten Werten und Gewichten nachrechnen, und die Aufschlüsselung summiert sich auf den ausgewiesenen Wert
+- [X] T104 [P] [US5] Test `StateValuesNeverScoreTest` in `rpg-core/src/test/java/rpg/core/statistics/StateValuesNeverScoreTest.java` — **FR-050c, ADR-046**: eine Gewichtung, die Level, XP, Coins oder einen privaten Wert nennt, wird beim Start zurückgewiesen. Zustandswerte trügen den Fortschritt alter Saisons in die neue
+- [X] T105 [P] [US5] Test `EmptyWeightsFailStartupTest` in `rpg-core/src/test/java/rpg/core/statistics/EmptyWeightsFailStartupTest.java` — **FR-050d, SC-022**: eine Gewichtung ohne bekannte Metrik bricht den Start ab, und die Meldung nennt die fehlende Metrik
+- [X] T106 [US5] `ScoreWeights` in `rpg-core/src/main/java/rpg/core/statistics/ScoreWeights.java` — Gewichte je Metrik, einfrierbar
+- [X] T107 [US5] `SeasonScore` in `rpg-core/src/main/java/rpg/core/statistics/SeasonScore.java` — Summe gewichteter Werte des Saisonzeitraums (FR-050b)
+- [X] T108 [US5] `ScoreBreakdown` — je beitragender Metrik Wert, Gewicht und Punkte (FR-050f)
 
 ### Bestand
 
-- [ ] T109 [US5] Migration `V12_2__season_result.sql` — Endstand samt **der Gewichtung, mit der gerechnet wurde** ([data-model.md](./data-model.md) §1.3)
-- [ ] T110 [US5] Migration `V12_3__season_reward_claim.sql` — Anspruch mit `claimed_at NULL` als „offen"; **keine Ablaufspalte**, weil es keine Frist gibt (FR-053a)
+- [X] T109 [US5] Migration `V12_2__season_result.sql` — Endstand samt **der Gewichtung, mit der gerechnet wurde** ([data-model.md](./data-model.md) §1.3)
+- [X] T110 [US5] Migration `V12_3__season_reward_claim.sql` — Anspruch mit `claimed_at NULL` als „offen"; **keine Ablaufspalte**, weil es keine Frist gibt (FR-053a)
 - [ ] T111 [US5] `JdbcSeasonResultRepository` in `rpg-persistence/src/main/java/rpg/persistence/statistics/JdbcSeasonResultRepository.java` — **ohne Write-Behind** (R2). Javadoc begründet, warum: ein Endstand entsteht viermal im Jahr, und der Write-Behind-Weg bündelt viele Änderungen je Sekunde
 - [ ] T112 [US5] `JdbcRewardClaimRepository` in `rpg-persistence/src/main/java/rpg/persistence/statistics/JdbcRewardClaimRepository.java` — bedingtes Update `WHERE claimed_at IS NULL`, **erst markieren, dann gutschreiben**
 - [ ] T113 [P] [US5] Test `ClaimIsExactlyOnceTest` in `rpg-persistence/src/test/java/rpg/persistence/statistics/ClaimIsExactlyOnceTest.java` — **SC-008**: zwei gleichzeitige Einlösungen, genau eine Gutschrift. Und ein Absturz zwischen Markierung und Gutschrift **verliert höchstens, verdoppelt nie**

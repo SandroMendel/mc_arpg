@@ -176,6 +176,30 @@ public enum Aggregation {
         return source.kind() == MetricKind.STATE;
     }
 
+    /**
+     * Wie viele <b>Punkteinheiten</b> ein Rohwert dieser Rangliste ergibt.
+     *
+     * <p>Für fast alle ist eine Einheit ein Rohwert: ein Kill ist ein Kill. Die Spielzeit ist die
+     * Ausnahme — sie wird in <em>Sekunden</em> gespeichert, und {@code statistics.yml} vergibt
+     * ihre Punkte ausdrücklich <b>je angefangener Stunde</b>. Ohne diese Umrechnung wäre ein
+     * Gewicht von 2 in Wahrheit „zwei Punkte je Sekunde" — bei einer einzigen Spielstunde 7200
+     * Punkte statt 2, und die Saisonwertung wäre eine reine Anwesenheitsliste.
+     *
+     * <p><b>Angefangen, nicht abgerundet:</b> wer 61 Minuten spielt, bekommt zwei Einheiten. Das
+     * ist die Lesart, die der Kommentar in der Konfiguration zusagt, und sie ist die freundlichere
+     * — abrunden hieße, die erste Dreiviertelstunde einer Sitzung zählt gar nicht.
+     */
+    public long scoreUnits(long rawValue) {
+        if (rawValue <= 0) {
+            return 0;
+        }
+        return this == PLAYTIME_ACTIVE || this == PLAYTIME_ONLINE
+                ? (rawValue + SECONDS_PER_HOUR - 1) / SECONDS_PER_HOUR
+                : rawValue;
+    }
+
+    private static final long SECONDS_PER_HOUR = 3_600L;
+
     /** Die Aggregation zu einem Konfigurationsschlüssel. */
     public static Optional<Aggregation> byKey(String key) {
         return Optional.ofNullable(BY_KEY.get(key));
