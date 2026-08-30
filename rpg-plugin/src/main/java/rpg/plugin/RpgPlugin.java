@@ -244,6 +244,14 @@ public class RpgPlugin extends JavaPlugin {
      */
     private rpg.core.item.ConsumableBuffs consumableBuffs;
 
+    /**
+     * Das Cooldown-Overlay (B13 US3) — ein Feld, weil es in <b>zwei</b> Schritten fertig wird.
+     *
+     * <p>{@code wireUi} baut es und hängt es in den Takt; die Trankschicht kommt erst in
+     * {@code wireConsumables}, weit später im Start. Ein lokales Ding wäre bis dahin weg.
+     */
+    private rpg.platform.ui.AbilityCooldownOverlay cooldownOverlay;
+
     /** Wer gerade ein Klon ist — B10s Liste, von B11 mitgelesen (FR-041a). */
     private rpg.platform.mob.CloneAggroListener cloneRegistry;
 
@@ -1183,7 +1191,7 @@ public class RpgPlugin extends JavaPlugin {
         // B13 US3: das Cooldown-Overlay. Es setzt auf dem Material auf, das AbilityHotbar bereits
         // gelegt hat - die Leiste selbst wird NICHT angefasst (FR-024). VOR dem Takt gebaut, weil
         // der Takt es mitlaufen laesst.
-        rpg.platform.ui.AbilityCooldownOverlay cooldownOverlay =
+        cooldownOverlay =
                 new rpg.platform.ui.AbilityCooldownOverlay(
                         getServer(),
                         scheduler,
@@ -3343,6 +3351,65 @@ gearDisplay =
                                 messages,
                                 getLogger()),
                         this);
+
+        showConsumableCooldowns(cooldowns);
+    }
+
+    /**
+     * Hängt die Trank-Abklingzeiten an das Cooldown-Overlay (B13 US3, Erweiterung von FR-030).
+     *
+     * <p><b>Warum überhaupt hier und nicht in {@code wireUi}</b>: {@code ConsumableCooldown} entsteht
+     * erst in der Gegenstandsschicht, lange nach dem HUD. Das Overlay wartet als Feld darauf — und
+     * bis dahin zeigt es die Fähigkeiten, was der ältere und wichtigere Teil ist.
+     *
+     * <p><b>Nur Vorlagen mit einer Abklingzeit.</b> {@code items.yml} gibt sie nicht jedem Trank; wer
+     * keine hat, kühlt nie ab, und ihn jede Sekunde zu fragen wäre Arbeit für eine Antwort, die
+     * immer null lautet.
+     */
+    private void showConsumableCooldowns(rpg.core.item.ConsumableCooldown cooldowns) {
+        if (cooldownOverlay == null) {
+            // Kann nicht vorkommen - wireUi laeuft vor der Gegenstandsschicht. Falls doch, ist die
+            // Trankanzeige das Falsche, um daran den Start scheitern zu lassen.
+            getLogger()
+                    .warning(
+                            "[ui] phase=START state=CONSUMABLE_OVERLAY_SKIPPED"
+                                    + " - the overlay was not built, potions will not grey out");
+            return;
+        }
+        cooldownOverlay.alsoShow(
+                new rpg.platform.ui.AbilityCooldownOverlay.ConsumableCooldowns() {
+
+                    @Override
+                    public java.util.Map<String, java.time.Duration> remainingFor(
+                            java.util.UUID characterId) {
+                        java.util.Map<String, java.time.Duration> cooling =
+                                new java.util.LinkedHashMap<>();
+                        for (java.util.Map.Entry<String, rpg.core.item.ItemTemplate> entry :
+                                itemModule.templates().entrySet()) {
+                            rpg.core.item.ItemTemplate template = entry.getValue();
+                            if (template.category() != rpg.core.item.ItemCategory.CONSUMABLE
+                                    || template.effect() == null
+                                    || template.effect().cooldown() == null) {
+                                continue;
+                            }
+                            // Die Restzeit kommt aus B11 - dieselbe Methode, die auch entscheidet,
+                            // ob ein zweiter Schluck abgelehnt wird. Eine zweite Rechnung hier
+                            // waere eine zweite Wahrheit darueber, wann der Trank bereit ist.
+                            java.time.Duration left =
+                                    cooldowns.remaining(
+                                            characterId, entry.getKey(), template.effect().cooldown());
+                            if (!left.isZero() && !left.isNegative()) {
+                                cooling.put(entry.getKey(), left);
+                            }
+                        }
+                        return cooling;
+                    }
+
+                    @Override
+                    public java.util.Optional<String> materialOf(String templateKey) {
+                        return itemModule.template(templateKey).map(rpg.core.item.ItemTemplate::material);
+                    }
+                });
     }
 
     /** Das Level eines Charakters — B06 besitzt die Antwort. */

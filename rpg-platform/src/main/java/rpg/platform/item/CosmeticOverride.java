@@ -38,6 +38,21 @@ public final class CosmeticOverride implements ClassEquipmentApplier.AppearanceO
         if (appearance == null) {
             return null;
         }
+        // NUR die Ruestung. Ein Trim ist in Vanilla eine Ruestungsverzierung - ein Schwert hat
+        // keine ArmorMeta, und BoundItemFactory.applyTrim wirft dafuer zu Recht:
+        //
+        //   IllegalStateException: NETHERITE_SWORD cannot carry a trim, but one was configured
+        //
+        // Die Ausnahme flog aus ClassEquipmentApplier.apply heraus, NACHDEM die Ruestung gesetzt
+        // war und BEVOR die Waffe gesetzt wurde. Sichtbar war das als "mein Schwert ist weg" -
+        // ein Ausruestungsverlust, kein Anzeigefehler. Gefunden beim Testspiel am 2026-08-30.
+        //
+        // Der slot-Parameter gibt es genau fuer diese Unterscheidung, und er wurde bis dahin
+        // entgegengenommen und nicht gelesen. items.yml sagt es auch: ItemCategory.COSMETIC sind
+        // "Trimfarben fuer die KlassenRUESTUNG".
+        if (slot != LadderSlot.ARMOR) {
+            return appearance;
+        }
         Optional<CosmeticAppearance> bought = cosmetics.appearanceOf(characterId);
         if (bought.isEmpty()) {
             // Nichts gekauft, nichts getragen, oder eine Farbe, die die Konfiguration nicht mehr

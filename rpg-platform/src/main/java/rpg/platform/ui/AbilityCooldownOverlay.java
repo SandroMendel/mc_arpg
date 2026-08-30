@@ -127,14 +127,16 @@ public final class AbilityCooldownOverlay {
         if (characterId.isEmpty()) {
             return;
         }
+        Map<String, Instant> applied =
+                lastApplied.computeIfAbsent(playerId, id -> new ConcurrentHashMap<>());
+
+        refreshConsumables(playerId, characterId.get(), applied);
+
         Optional<rpg.core.session.CharacterClass> characterClass =
                 abilities.classOf(characterId.get());
         if (characterClass.isEmpty()) {
             return;
         }
-
-        Map<String, Instant> applied =
-                lastApplied.computeIfAbsent(playerId, id -> new ConcurrentHashMap<>());
 
         for (Ability ability : abilities.abilitiesOf(characterClass.get())) {
             Optional<Duration> remaining =
@@ -163,13 +165,116 @@ public final class AbilityCooldownOverlay {
     }
 
     /**
+     * Woher die Abklingzeiten <b>verbrauchbarer</b> Gegenstände kommen (B11).
+     *
+     * <p>Was gerade abkühlt, als Vorlagenschlüssel und Restzeit — und zu welchem Material eine
+     * Vorlage gehört.
+     */
+    public interface ConsumableCooldowns {
+
+        /** Die Vorlagen, die für diesen Charakter gerade abkühlen, mit ihrer Restzeit. */
+        Map<String, Duration> remainingFor(UUID characterId);
+
+        /** Das Vanilla-Material einer Vorlage. */
+        Optional<String> materialOf(String templateKey);
+    }
+
+    /**
+     * Solange niemand {@link #alsoShow} gerufen hat, kühlt kein Trank.
+     *
+     * <p>Ein leerer Vorgabewert statt {@code null}: die Fähigkeitsanzeige ist das ältere und
+     * wichtigere Stück, und sie darf nicht davon abhängen, dass B11 überhaupt verdrahtet ist.
+     */
+    private ConsumableCooldowns consumables =
+            new ConsumableCooldowns() {
+
+                @Override
+                public Map<String, Duration> remainingFor(UUID characterId) {
+                    return Map.of();
+                }
+
+                @Override
+                public Optional<String> materialOf(String templateKey) {
+                    return Optional.empty();
+                }
+            };
+
+    /**
+     * Nimmt zusätzlich die Abklingzeiten von Tränken auf.
+     *
+     * <h2>Das ist eine Erweiterung von FR-030, keine Fehlerbehebung</h2>
+     *
+     * <p>FR-030 spricht vom „<b>Fähigkeits</b>-Item"; ein Trank ist keine Fähigkeit, und B11 setzt
+     * für ihn selbst kein Vanilla-Overlay. Aus Spielersicht ist es trotzdem dieselbe Frage: das Ding
+     * hat eine Abklingzeit und wird nicht grau. <b>Auf ausdrücklichen Wunsch am 2026-08-30
+     * aufgenommen</b>, nachdem der Manatrank des Magiers beim Testspiel auffiel.
+     *
+     * <h2>Über das Material, nicht über das Inventar</h2>
+     *
+     * <p>Das Vanilla-Overlay hängt am <b>Material</b>, nicht am Slot — es muss also niemand
+     * nachsehen, ob der Spieler den Trank überhaupt dabei hat. Das spart 36 Inventarplätze mal 200
+     * Spieler je Sekunde, und vor allem spart es einen Bukkit-Zugriff aus einem asynchronen Takt
+     * (Constitution I.1).
+     *
+     * <p>Wer den Trank nicht trägt, sieht davon nichts: ein Cooldown auf einem Material, das nirgends
+     * liegt, zeigt sich auf keinem Slot.
+     */
+    public void alsoShow(ConsumableCooldowns consumables) {
+        this.consumables = Objects.requireNonNull(consumables, "consumables");
+    }
+
+    /**
+     * Der Abgleich für die Tränke — dieselbe Regel, dieselbe Nur-bei-Änderung-Bremse.
+     *
+     * <p>Bewusst <b>vor</b> der Klassenabfrage und außerhalb von ihr: ein Trank gehört dem
+     * Charakter, nicht seiner Klasse. Stünde das im Fähigkeitszweig, verlöre jeder ohne gewählte
+     * Klasse seine Trank-Anzeige — und niemand fände heraus, warum.
+     *
+     * <p>Die Schlüssel bekommen ein {@code item:} vorweg. Ein Vorlagenschlüssel und eine
+     * Fähigkeits-ID teilen sich denselben Merkspeicher, und {@code potion.mana} als Fähigkeitsname
+     * ist nicht verboten — die Verwechslung wäre lautlos und selten.
+     */
+    private void refreshConsumables(UUID playerId, UUID characterId, Map<String, Instant> applied) {
+        for (Map.Entry<String, Duration> cooling :
+                consumables.remainingFor(characterId).entrySet()) {
+            Duration remaining = cooling.getValue();
+            String key = "item:" + cooling.getKey();
+            if (remaining == null || remaining.isNegative() || remaining.isZero()) {
+                applied.remove(key);
+                continue;
+            }
+            Optional<String> material = consumables.materialOf(cooling.getKey());
+            if (material.isEmpty()) {
+                continue;
+            }
+            Instant until = clock.instant().plus(remaining);
+            Instant previous = applied.get(key);
+            if (previous != null && Duration.between(previous, until).abs().toMillis() < 1000) {
+                continue;
+            }
+            applied.put(key, until);
+            applyTo(playerId, List.of(material.get()), remaining);
+        }
+    }
+
+    /**
      * Legt das Overlay über eine einzelne Fähigkeit.
      *
      * <p>Über <b>alle</b> ihre Materialien: eine passive kann mehrere Slots belegen, und eines davon
      * grau zu lassen sähe aus, als hätte nur die Hälfte ausgelöst.
      */
     public void apply(UUID playerId, Ability ability, Duration remaining) {
-        List<String> materials = MaterialUniqueness.materialsOf(ability);
+        applyTo(playerId, MaterialUniqueness.materialsOf(ability), remaining);
+    }
+
+    /**
+     * Setzt das Overlay auf diese Materialien.
+     *
+     * <p>Der gemeinsame Boden von Fähigkeit und Trank. Beide rechnen dieselbe Restzeit in dieselben
+     * Ticks um und hüpfen über denselben Weg in den Takt — zwei Fassungen davon wären zwei
+     * Gelegenheiten, verschieden zu runden.
+     */
+    private void applyTo(UUID playerId, List<String> materials, Duration remaining) {
         if (materials.isEmpty()) {
             return;
         }

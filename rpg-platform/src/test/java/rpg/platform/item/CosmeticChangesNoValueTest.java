@@ -68,6 +68,44 @@ class CosmeticChangesNoValueTest {
     }
 
     @Test
+    @DisplayName("die WAFFE bekommt keinen Trim - ein Schwert hat keine ArmorMeta")
+    void theweaponNeverGetsATrim() {
+        // GEFUNDEN BEIM TESTSPIEL (2026-08-30), und es war ein Ausruestungsverlust:
+        //
+        //   IllegalStateException: NETHERITE_SWORD cannot carry a trim, but one was configured
+        //     at BoundItemFactory.applyTrim
+        //     at BoundItemFactory.weapon
+        //     at ClassEquipmentApplier.applyWeapon
+        //
+        // Ein Trim ist in Vanilla eine RUESTUNGSverzierung. CosmeticOverride hat ihn aber auf jede
+        // Ausruestung geschrieben, die es bekam - auch auf den Waffenplatz. Die Ausnahme flog
+        // heraus, NACHDEM die Ruestung gesetzt war und BEVOR die Waffe gesetzt wurde: fuer den
+        // Spieler war das Schwert weg.
+        //
+        // Warum kein Test das fand: dieser hier rief bis dahin AUSSCHLIESSLICH mit
+        // LadderSlot.ARMOR. Der slot-Parameter existiert genau fuer diese Unterscheidung und wurde
+        // von niemandem geprueft - und im Code auch von niemandem gelesen.
+        TierAppearance ladderWeapon = new TierAppearance("NETHERITE_SWORD", null, null, null, 0);
+
+        TierAppearance worn = override.apply(CHARACTER, LadderSlot.WEAPON, ladderWeapon);
+
+        assertThat(worn.hasTrim())
+                .as("der gekaufte Trim gehoert auf die Ruestung, nicht auf die Klinge")
+                .isFalse();
+        assertThat(worn).isEqualTo(ladderWeapon);
+    }
+
+    @Test
+    @DisplayName("und die Ruestung bekommt ihn weiterhin - die Gegenprobe")
+    void thearmourStillGetsIt() {
+        // Ohne diesen Test waere "gar keinen Trim mehr" auch eine gruene Loesung gewesen.
+        TierAppearance ladder =
+                new TierAppearance("LEATHER_CHESTPLATE", 0x1f3a93, null, null, 7);
+
+        assertThat(override.apply(CHARACTER, LadderSlot.ARMOR, ladder).hasTrim()).isTrue();
+    }
+
+    @Test
     @DisplayName("genau die zwei Trim-Felder aendern sich - Material, Farbe und Modell bleiben")
     void exactlyTheTwoTrimFieldsChange() {
         TierAppearance ladder =

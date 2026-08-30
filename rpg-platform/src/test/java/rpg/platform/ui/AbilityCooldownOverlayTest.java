@@ -308,6 +308,91 @@ class AbilityCooldownOverlayTest {
         }
     }
 
+    @Test
+    @DisplayName("ein abkuehlender Trank faerbt SEIN Material - und ein bereiter faerbt nichts")
+    void acoolingPotionGreysItsMaterialAndAReadyOneDoesNot() {
+        // GEFUNDEN BEIM TESTSPIEL (2026-08-30): "Mage: Nur Mana Potion geht nicht."
+        //
+        // Und das war richtig so: FR-030 spricht vom FAEHIGKEITS-Item, und ein Trank ist keine
+        // Faehigkeit - B11 setzte fuer ihn nie ein Overlay. Aus Spielersicht ist es trotzdem
+        // dieselbe Frage. Auf ausdruecklichen Wunsch aufgenommen.
+        AbilityCooldownOverlay overlay = overlay();
+        overlay.alsoShow(
+                potions(Map.of("potion.mana", Duration.ofSeconds(8)), Map.of("potion.mana", "POTION")));
+
+        overlay.refresh(player.getUniqueId());
+
+        assertThat(player.getCooldown(Material.POTION)).isEqualTo(160);
+        assertThat(player.getCooldown(Material.GLOWSTONE_DUST))
+                .as("was nicht abkuehlt, wird nicht grau")
+                .isZero();
+    }
+
+    @Test
+    @DisplayName("der Trank haengt NICHT an der Klasse - er gehoert dem Charakter")
+    void thepotionDoesNotHangOnTheClass() {
+        // Der Registry-Doppelgaenger hier gibt KEINEM Charakter eine Klasse. Stuende der
+        // Trankabgleich hinter der Klassenabfrage, kaeme dieser Test nie dort an - und im Spiel
+        // verloere jeder ohne gewaehlte Klasse seine Trankanzeige, ohne dass jemand herausfaende,
+        // warum. Der Test ist der ganze Grund, warum die Reihenfolge im Code so ist.
+        AbilityCooldownOverlay overlay = overlay();
+        overlay.alsoShow(
+                potions(
+                        Map.of("potion.health", Duration.ofSeconds(2)),
+                        Map.of("potion.health", "GLOWSTONE_DUST")));
+
+        overlay.refresh(player.getUniqueId());
+
+        assertThat(player.getCooldown(Material.GLOWSTONE_DUST)).isPositive();
+    }
+
+    @Test
+    @DisplayName("ein unveraenderter Cooldown wird KEIN zweites Mal gesendet")
+    void anunchangedCooldownIsNotSentTwice() {
+        // Die Bremse aus refresh(...): bei 200 Spielern mal sieben Vorlagen je Sekunde waeren das
+        // 1400 Pakete fuer eine Anzeige, die sich meist nicht aendert.
+        //
+        // Sichtbar gemacht, indem der Cooldown zwischendurch von aussen weggenommen wird: kommt er
+        // beim zweiten Abgleich nicht zurueck, wurde nichts gesendet.
+        AbilityCooldownOverlay overlay = overlay();
+        overlay.alsoShow(
+                potions(Map.of("potion.mana", Duration.ofSeconds(8)), Map.of("potion.mana", "POTION")));
+
+        overlay.refresh(player.getUniqueId());
+        player.setCooldown(Material.POTION, 0);
+        overlay.refresh(player.getUniqueId());
+
+        assertThat(player.getCooldown(Material.POTION))
+                .as("derselbe Endzeitpunkt kostet kein zweites Paket")
+                .isZero();
+    }
+
+    @Test
+    @DisplayName("eine Vorlage ohne bekanntes Material wird uebergangen statt zu werfen")
+    void atemplateWithoutAKnownMaterialIsSkipped() {
+        AbilityCooldownOverlay overlay = overlay();
+        overlay.alsoShow(potions(Map.of("potion.ghost", Duration.ofSeconds(4)), Map.of()));
+
+        assertThatCode(() -> overlay.refresh(player.getUniqueId())).doesNotThrowAnyException();
+    }
+
+    /** Ein Trank-Doppelgänger: was kühlt, und zu welchem Material es gehört. */
+    private static AbilityCooldownOverlay.ConsumableCooldowns potions(
+            Map<String, Duration> cooling, Map<String, String> materials) {
+        return new AbilityCooldownOverlay.ConsumableCooldowns() {
+
+            @Override
+            public Map<String, Duration> remainingFor(UUID characterId) {
+                return cooling;
+            }
+
+            @Override
+            public Optional<String> materialOf(String templateKey) {
+                return Optional.ofNullable(materials.get(templateKey));
+            }
+        };
+    }
+
     private AbilityCooldownOverlay overlay() {
         return new AbilityCooldownOverlay(
                 server,
