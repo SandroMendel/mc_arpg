@@ -932,9 +932,11 @@ public class RpgPlugin extends JavaPlugin {
         StatusActionBar actionBar =
                 new StatusActionBar(getServer(), statusSource, scheduler, messages, getLogger());
         actionBar.subscribeTo(eventBus);
-        // The list comes from B03's registry, which is the authority on who is playing - not from
-        // whichever module happens to keep a map of them.
-        actionBar.startRefresh(this::playersInPlay);
+        // startRefresh(...) stand hier bis B13. Der Takt ist UMGEZOGEN: wireUi() unten baut daraus
+        // den einen HUD-Takt, der alle drei Flaechen bedient (R1, FR-010). Es bleibt bei EINEM -
+        // wer hier den alten wiederherstellt, hat zwei Durchlaeufe je Sekunde, und welcher zuletzt
+        // sendet, haengt an der Registrierungsreihenfolge.
+        wireUi(actionBar, statusSource, scheduler);
 
         // Und die dritte Anzeige: was eine Kreatur ist und wie viel von ihr uebrig ist, ueber ihrem
         // Kopf. Ebenfalls nur bis B13. Eine Zeile, kein zweiter Entitaetstyp je Mob (Prinzip II).
@@ -970,6 +972,152 @@ public class RpgPlugin extends JavaPlugin {
             return;
         }
         regeneration.settleAll(charactersInPlay());
+    }
+
+    /**
+     * B13: die drei Flächen unter einem Takt.
+     *
+     * <p><b>Der Takt ist die Erweiterung von {@code StatusActionBar.startRefresh}</b>, nicht ein
+     * zweiter daneben (R1, FR-010). Er war schon eine Sekunde lang und plante sich schon selbst neu
+     * ein; B13 gibt ihm die zwei anderen Flächen dazu.
+     *
+     * <p><b>Und die Ereignispfade.</b> Der Takt allein erfüllt FR-009 nicht: „unmittelbar" und „bis
+     * zu eine Sekunde später" sind zwei verschiedene Zusagen. Ein Aufstieg, der eine Sekunde
+     * braucht, bis er auf der Sidebar steht, sieht aus, als hätte der Server ihn verschluckt.
+     *
+     * <p><b>Der Coin-Stand bekommt hier bewusst nichts</b> (FR-009a): {@code rpg.core.currency}
+     * führt keinen Ereignistyp, nur {@code CoinLedger} und {@code BookingResult}. Die Zeile folgt
+     * dem Takt. Nachgerüstet wird nichts — ein Ereignis in B08b wäre der Eingriff in einen fremden
+     * Block, den dieser Block an drei anderen Stellen ablehnt.
+     */
+    private void wireUi(
+            StatusActionBar actionBar,
+            rpg.platform.hud.CombatStatusSource statusSource,
+            rpg.core.scheduler.Scheduler scheduler) {
+        rpg.platform.ui.PaperBossBar bossBar =
+                new rpg.platform.ui.PaperBossBar(getServer(), messages);
+        rpg.platform.ui.PaperSidebar sidebar =
+                new rpg.platform.ui.PaperSidebar(getServer(), messages);
+        rpg.platform.ui.PaperHudRenderer renderer =
+                new rpg.platform.ui.PaperHudRenderer(
+                        getServer(), scheduler, messages, bossBar, sidebar, getLogger());
+
+        java.util.function.Function<java.util.UUID, java.util.Optional<java.util.UUID>>
+                characterOfPlayer =
+                        playerId ->
+                                sessionModule.registry().all().stream()
+                                        .filter(s -> s.playerId().equals(playerId))
+                                        .findFirst()
+                                        .flatMap(rpg.core.session.PlayerSession::activeCharacter)
+                                        .map(rpg.core.session.PlayerCharacter::characterId);
+        java.util.function.Function<java.util.UUID, java.util.Optional<java.util.UUID>>
+                playerOfCharacter =
+                        characterId ->
+                                sessionModule.registry().all().stream()
+                                        .filter(
+                                                s ->
+                                                        s.activeCharacter()
+                                                                .map(
+                                                                        c ->
+                                                                                c.characterId()
+                                                                                        .equals(
+                                                                                                characterId))
+                                                                .orElse(false))
+                                        .findFirst()
+                                        .map(rpg.core.session.PlayerSession::playerId);
+
+        rpg.platform.ui.ZoneNoticeSource zoneNotice =
+                new rpg.platform.ui.ZoneNoticeSource(
+                        () -> uiModule.config(), playerOfCharacter, java.time.Clock.systemUTC());
+        rpg.platform.ui.BossFightSource bossFight =
+                new rpg.platform.ui.BossFightSource(
+                        mobModule.kinds(), statusSource, java.time.Clock.systemUTC());
+        rpg.platform.ui.ChannellingSource channelling =
+                new rpg.platform.ui.ChannellingSource(
+                        abilityRuntime,
+                        abilityModule.registry(),
+                        characterOfPlayer,
+                        java.time.Clock.systemUTC());
+        zoneNotice.subscribeTo(eventBus);
+        bossFight.subscribeTo(eventBus);
+        // ChannellingSource abonniert NICHTS: sie rechnet gegen die Uhr aus RunningAbility, und der
+        // Takt fragt ohnehin jede Sekunde (R4). Die einzige der drei ohne eigenen Zustand.
+
+        rpg.platform.ui.HudRefresh refresh =
+                new rpg.platform.ui.HudRefresh(
+                        renderer,
+                        () -> uiModule.config(),
+                        actionBar::show,
+                        playerId -> sidebarLinesFor(playerId, characterOfPlayer),
+                        new rpg.platform.ui.BossBarOccasions(channelling, bossFight, zoneNotice),
+                        getLogger());
+
+        // Die Ereignispfade der Sidebar (FR-009). Sie sind aus StatusActionBar HIERHER umgezogen -
+        // dort zeichneten sie nur die Actionbar, hier den ganzen HUD.
+        eventBus.subscribe(
+                rpg.core.progression.ProgressChangedEvent.class,
+                event -> refresh.refresh(event.playerId()));
+        eventBus.subscribe(
+                rpg.core.progression.LevelUpEvent.class,
+                event -> refresh.refresh(event.playerId()));
+        eventBus.subscribe(
+                rpg.core.zone.ZoneChangedEvent.class,
+                event ->
+                        playerOfCharacter
+                                .apply(event.characterId())
+                                .ifPresent(refresh::refresh));
+
+        rpg.platform.ui.HudTick tick =
+                new rpg.platform.ui.HudTick(
+                        scheduler,
+                        () -> uiModule.config(),
+                        // Die Liste kommt aus B03s Registry, die die Autoritaet darueber ist, wer
+                        // spielt - nicht aus irgendeinem Modul, das zufaellig eine Map davon haelt.
+                        this::playersInPlay,
+                        refresh,
+                        getLogger());
+        tick.start();
+    }
+
+    /**
+     * Die vier Sidebar-Zeilen eines Spielers, oder leer, wenn er keinen Charakter hat.
+     *
+     * <p><b>Leer heißt „kein Charakter"</b> (FR-008), nicht „keine Zeilen": Nullen, die wie echte
+     * Werte aussehen, sind schlimmer als nichts.
+     */
+    private java.util.Optional<List<rpg.core.ui.SidebarLines.Line>> sidebarLinesFor(
+            java.util.UUID playerId,
+            java.util.function.Function<java.util.UUID, java.util.Optional<java.util.UUID>>
+                    characterOfPlayer) {
+        java.util.Optional<java.util.UUID> characterId = characterOfPlayer.apply(playerId);
+        if (characterId.isEmpty()) {
+            return java.util.Optional.empty();
+        }
+        rpg.core.progression.ProgressView progress =
+                progressionModule.progression().progressOf(characterId.get()).orElse(null);
+        if (progress == null) {
+            return java.util.Optional.empty();
+        }
+        // balanceOf und NICHT balanceOrZero: der Unterschied zwischen "nicht geladen" und "pleite"
+        // ist genau der, um den es bei FR-008 geht. Eine Null, die wie ein echter Wert aussieht,
+        // ist schlimmer als keine Zeile.
+        java.util.OptionalLong coins = currencyModule.currency().balanceOf(characterId.get());
+        if (coins.isEmpty()) {
+            return java.util.Optional.empty();
+        }
+        // Der Zonenname ist selbst ein Schluessel (ZoneMessageKeys.nameOf) - eine Region heisst,
+        // was die Sprachdatei sagt, und nicht, wie ihr Konfigurationsschluessel lautet. Der Umweg
+        // ueber den Tracker nimmt die HALTERkennung, nicht die des Charakters.
+        String zoneKey = zoneTracker.zoneKeyOf(playerId);
+        java.util.Optional<String> zoneName =
+                zoneKey == null
+                        ? java.util.Optional.empty()
+                        : java.util.Optional.of(
+                                messages.get(
+                                        rpg.core.zone.ZoneMessageKeys.nameOf(zoneKey),
+                                        java.util.Map.of()));
+        return java.util.Optional.of(
+                rpg.core.ui.SidebarLines.of(progress, coins.getAsLong(), zoneName));
     }
 
     /** Every character currently being played. */
