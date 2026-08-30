@@ -462,11 +462,33 @@ public class RpgPlugin extends JavaPlugin {
      * instead of having to guess the keys.
      */
     private Messages loadMessages(YamlConfigLoader loader) throws ConfigValidationException {
-        Path file = getDataFolder().toPath().resolve(MESSAGES_FILE);
-        if (!Files.exists(file)) {
+        // Die ausgelieferte englische Datei liegt immer da - auch wenn eine andere Sprache gilt.
+        // Ein Betreiber, der uebersetzt, braucht sie als Vorlage, und ohne sie muesste er die
+        // Schluessel raten.
+        Path shipped = getDataFolder().toPath().resolve(MESSAGES_FILE);
+        if (!Files.exists(shipped)) {
             saveResource(MESSAGES_FILE, false);
         }
-        Messages loaded = MapMessages.fromNested(loader.readDocument(Path.of(MESSAGES_FILE)));
+
+        // WELCHE Datei gelesen wird, entscheidet ui.yml (FR-016, FR-017). Sie wird hier DIREKT
+        // gelesen und nicht ueber UiModule: die Texte muessen stehen, bevor irgendein Modul
+        // startet - der Pre-Login-Guard braucht sie, und ein fehlender Text soll den Start
+        // abbrechen statt spaeter als leerer Kick-Bildschirm aufzutauchen.
+        //
+        // Das ist der EINZIGE Griff dieses Blocks an eine Konfiguration ausserhalb seines Moduls,
+        // und er ist so klein wie moeglich gehalten: ein Feld, kein Schema.
+        rpg.core.ui.LanguageSet language = configuredLanguage(loader);
+        Path languageFile = getDataFolder().toPath().resolve(language.file());
+        if (!Files.exists(languageFile)) {
+            throw new IllegalStateException(
+                    "ui.yml: language ist '"
+                            + language.code()
+                            + "', aber "
+                            + language.file()
+                            + " gibt es nicht im Plugin-Ordner. Lege die Datei an oder stelle"
+                            + " language auf 'en' zurueck (FR-018)");
+        }
+        Messages loaded = MapMessages.fromNested(loader.readDocument(Path.of(language.file())));
 
         // Collect the keys every module can ask for. A block that adds player-facing text adds its
         // keys here, and the check below then covers it too.
@@ -502,8 +524,43 @@ public class RpgPlugin extends JavaPlugin {
         declared.addAll(rpg.core.ui.UiMessageKeys.all());
         MessageKeyValidator.verifyAllPresent(loaded, declared);
 
-        getLogger().info("[messages] " + declared.size() + " declared key(s) resolved");
+        getLogger()
+                .info(
+                        "[messages] "
+                                + declared.size()
+                                + " declared key(s) resolved from "
+                                + language.file());
         return loaded;
+    }
+
+    /**
+     * Welche Sprache in {@code ui.yml} steht — gelesen, bevor irgendein Modul startet.
+     *
+     * <p><b>Ohne Schema und ohne {@code UiModule}</b>, und das ist Absicht: die Texte müssen vor der
+     * ersten Anmeldung stehen, die Module kommen später. Ein halbes Schema hier wäre eine zweite
+     * Vorstellung davon, was {@code ui.yml} ist — {@code UiConfigSchema} bleibt die einzige, die die
+     * Datei wirklich prüft, und sie tut es beim Start des Moduls.
+     *
+     * <p>Fehlt die Datei oder das Feld, gilt Englisch. Das ist kein Fehler: beim allerersten Start
+     * ist {@code ui.yml} gerade erst geschrieben worden, und der ausgelieferte Wert <em>ist</em>
+     * {@code en}.
+     */
+    private rpg.core.ui.LanguageSet configuredLanguage(YamlConfigLoader loader) {
+        try {
+            Object hud = loader.readDocument(Path.of("ui.yml")).get("language");
+            return hud == null
+                    ? rpg.core.ui.LanguageSet.defaultSet()
+                    : new rpg.core.ui.LanguageSet(String.valueOf(hud));
+        } catch (RuntimeException | ConfigValidationException unreadable) {
+            // Eine kaputte ui.yml bricht den Start ohnehin ab - aber in UiModule, mit der Meldung,
+            // die Datei, Schluessel und Grund nennt. Hier waere eine zweite, schlechtere Meldung.
+            getLogger()
+                    .warning(
+                            "[messages] ui.yml is not readable yet - falling back to English;"
+                                    + " UiModule will report why: "
+                                    + unreadable.getMessage());
+            return rpg.core.ui.LanguageSet.defaultSet();
+        }
     }
 
     /**

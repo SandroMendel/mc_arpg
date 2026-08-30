@@ -35,6 +35,16 @@ class DeathCostsNothingTest {
     private static final Path PLATFORM =
             repositoryRoot().resolve("rpg-platform/src/main/java/rpg/platform/zone");
 
+    /**
+     * Wo das Reisefenster seit B13 liegt.
+     *
+     * <p>Es stand hier befristet (ADR-032) und ist eingelöst: {@code WaypointMenu} gehört jetzt zu
+     * {@code rpg.platform.ui}. Die Zusage dieses Tests — <b>ein Tod kostet keine Gegenstände</b> —
+     * gilt unverändert; nur das Fenster wohnt woanders.
+     */
+    private static final Path UI =
+            repositoryRoot().resolve("rpg-platform/src/main/java/rpg/platform/ui");
+
     @Test
     @DisplayName("nothing in this block touches experience")
     void nothingTouchesExperience() throws IOException {
@@ -67,11 +77,15 @@ class DeathCostsNothingTest {
     @Test
     @DisplayName("the waypoint window fills its own chest and never a player's backpack")
     void thewindowNeverReachesIntoAPlayersInventory() throws IOException {
-        String window = Files.readString(PLATFORM.resolve(THE_WINDOW));
+        String window = Files.readString(UI.resolve(THE_WINDOW));
 
         // It creates the inventory it fills. Anything that got at a player's own would show up as
         // one of these, and none of them is needed to draw six icons.
-        assertThat(window).contains("Bukkit.createInventory");
+        //
+        // SEIT B13 ueber MenuFrame.buildPlain statt direkt ueber Bukkit.createInventory - der
+        // Rahmen erzeugt es, das Fenster fuellt es. Die Zusage ist dieselbe: es baut sein eigenes
+        // und greift in keines.
+        assertThat(window).contains("buildPlain");
         assertThat(window).doesNotContain("getInventory()");
         assertThat(window).doesNotContain("addItem");
         assertThat(window).doesNotContain("dropItem");
