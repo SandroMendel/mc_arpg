@@ -341,11 +341,20 @@ public class RpgPlugin extends JavaPlugin {
 
         // Messages before anything else: the pre-login guard needs them, and a missing text must
         // stop the start rather than surface later as a blank kick screen (FR-023a).
+        //
+        // Die Sprache wird VOR dem try aufgeloest, damit die Abbruchmeldung die Datei nennen kann,
+        // die wirklich gelesen wurde (FR-018). Vorher stand hier fest "messages.yml" - bei
+        // language: de schickte das den Betreiber in die englische Vorlage, in der nichts fehlt.
+        rpg.core.ui.LanguageSet language = configuredLanguage(yamlLoader);
         try {
-            messages = loadMessages(yamlLoader);
+            messages = loadMessages(yamlLoader, language);
         } catch (RuntimeException | ConfigValidationException failure) {
-            getLogger().log(Level.SEVERE, "RPG bootstrap failed - messages.yml is unusable", failure);
-            bootstrapState.markFailed("messages.yml is unusable: " + failure.getMessage());
+            getLogger()
+                    .log(
+                            Level.SEVERE,
+                            "RPG bootstrap failed - " + language.file() + " is unusable",
+                            failure);
+            bootstrapState.markFailed(language.file() + " is unusable: " + failure.getMessage());
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
@@ -552,12 +561,16 @@ public class RpgPlugin extends JavaPlugin {
     }
 
     /**
-     * Loads {@code messages.yml} and verifies every declared key has a text.
+     * Loads the configured language file and verifies every declared key has a text.
      *
      * <p>The default file is written out on first start so an operator has something to edit
      * instead of having to guess the keys.
+     *
+     * @param language welcher Satz gilt — bestimmt die gelesene Datei und den Namen, den jede
+     *     Fehlermeldung dieses Pfades trägt (FR-018)
      */
-    private Messages loadMessages(YamlConfigLoader loader) throws ConfigValidationException {
+    private Messages loadMessages(YamlConfigLoader loader, rpg.core.ui.LanguageSet language)
+            throws ConfigValidationException {
         // Die ausgelieferte englische Datei liegt immer da - auch wenn eine andere Sprache gilt.
         // Ein Betreiber, der uebersetzt, braucht sie als Vorlage, und ohne sie muesste er die
         // Schluessel raten.
@@ -566,14 +579,14 @@ public class RpgPlugin extends JavaPlugin {
             saveResource(MESSAGES_FILE, false);
         }
 
-        // WELCHE Datei gelesen wird, entscheidet ui.yml (FR-016, FR-017). Sie wird hier DIREKT
-        // gelesen und nicht ueber UiModule: die Texte muessen stehen, bevor irgendein Modul
-        // startet - der Pre-Login-Guard braucht sie, und ein fehlender Text soll den Start
-        // abbrechen statt spaeter als leerer Kick-Bildschirm aufzutauchen.
+        // WELCHE Datei gelesen wird, entscheidet ui.yml (FR-016, FR-017). Sie wird DIREKT gelesen
+        // und nicht ueber UiModule: die Texte muessen stehen, bevor irgendein Modul startet - der
+        // Pre-Login-Guard braucht sie, und ein fehlender Text soll den Start abbrechen statt
+        // spaeter als leerer Kick-Bildschirm aufzutauchen.
         //
         // Das ist der EINZIGE Griff dieses Blocks an eine Konfiguration ausserhalb seines Moduls,
-        // und er ist so klein wie moeglich gehalten: ein Feld, kein Schema.
-        rpg.core.ui.LanguageSet language = configuredLanguage(loader);
+        // und er ist so klein wie moeglich gehalten: ein Feld, kein Schema. Aufgeloest wird er von
+        // onEnable, damit auch der Abbruchpfad dort den Dateinamen kennt.
         Path languageFile = getDataFolder().toPath().resolve(language.file());
         if (!Files.exists(languageFile)) {
             throw new IllegalStateException(
@@ -620,7 +633,7 @@ public class RpgPlugin extends JavaPlugin {
         declared.addAll(rpg.core.ui.UiMessageKeys.all());
         // B14: die Meldungen des Kommandogeruests (T041). Ab hier prueft der Start auch sie.
         declared.addAll(rpg.plugin.command.CommandMessageKeys.all());
-        MessageKeyValidator.verifyAllPresent(loaded, declared);
+        MessageKeyValidator.verifyAllPresent(loaded, declared, language.file());
 
         getLogger()
                 .info(
