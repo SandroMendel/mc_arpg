@@ -416,10 +416,50 @@ unvollständiger Satz sagt ihm beim Start, was fehlt — alles auf einmal.
 - [X] T158 Jar bauen und auf den Testserver deployen — **Bukkit überschreibt vorhandene Configs nicht** ([[vuntexrpg-server-deploy]]). Zwei Dateien von Hand: `ui.yml` (neu) und `messages.yml` (vorhanden, aber gewachsen). Vergleich mit `diff --strip-trailing-cr`, sonst meldet CRLF-vs-LF jede Datei als abweichend
 - [ ] T159 Serverabnahme Schritte 1 bis 9 **einschließlich 1a, 2a und 9a** aus [quickstart.md](./quickstart.md) §5 — Anmeldung, Schaden, Zonenname, Kanalisierung, Rückkehr des Bossbalkens, Bosskampf, verdrängter Zonenname, Cooldown-Overlay, Cooldown nach Wiederanmeldung
 - [ ] T160 Serverabnahme Schritte 10 bis 14 — Schadenszahl am Trefferort, `/char` mit allen Attributen, Charakterwechsel schließt das Fenster, Wegpunkt-Rechtsklick, `/coins`
-- [ ] T161 Serverabnahme Schritte 15 bis 18 **einschließlich 15a** aus [quickstart.md](./quickstart.md) §5 — `sidebar.enabled: false` und **keine Spur im Log**, zweite Sprachdatei vollständig, zweite Sprachdatei lückenhaft bricht ab, **harter Abbruch mit Zahlen in der Luft und keine einzige übrig** (SC-009)
+- [ ] T161 Serverabnahme Schritte 15 bis 18 **einschließlich 15a** aus [quickstart.md](./quickstart.md) §5 — `sidebar.enabled: false` und **keine Spur im Log**, zweite Sprachdatei vollständig, zweite Sprachdatei lückenhaft bricht ab, **harter Abbruch mit Zahlen in der Luft und keine einzige übrig** (SC-009). **Stand 2026-09-05: 15 und 15a liefen am 2026-08-30; 16 und 17 sind belegt (siehe unten), 18 fehlt noch** — er braucht Schadenszahlen in der Luft und damit einen Spieler
 - [ ] T162 Serverabnahme Schritt 19 aus [quickstart.md](./quickstart.md) §5 — **braucht einen zweiten Spieler**: A schlägt eine Kreatur, B steht daneben und sieht As Zahl **nicht** (FR-042). Der einzige Schritt dieses Blocks, der nicht allein geht
 
 ---
+
+## Phase 10: Was der zweite Abnahmelauf ergeben hat (2026-09-05)
+
+Schritt 16 und 17 aus §5 sind gelaufen, weil beide am **Startverhalten** hängen und nicht am
+Bildschirm — sie brauchen keinen Spieler. Dafür wurde `messages_de.yml` angelegt: alle 378
+Schlüssel übersetzt, Platzhalter und Farbcodes unverändert, maschinell gegen `messages.yml`
+abgeglichen (kein fehlender, kein überzähliger, keine Platzhalterabweichung).
+
+**Schritt 16 belegt.** Mit `language: de` und vollständiger Datei startet der Server:
+`[messages] 192 declared key(s) resolved from messages_de.yml`, `[ui] phase=START state=LOADED -
+language=de`, dazu `[zone] 6 regions` und `[mob] 54 kinds` — die Zonen- und Artnamen prüfen ihre
+Module selbst gegen die deutsche Datei, also ist auch der B09/B10-Teil der Zusage maschinell
+gedeckt. Was am Bildschirm ankommt, muss ein Spieler noch bestätigen.
+
+**Schritt 17 belegt — und er hat einen Fehler gefunden.** Mit drei entfernten Schlüsseln bricht der
+Start ab und nennt **alle drei auf einmal** (FR-018, wie zugesagt). Aber die Meldung lautete:
+
+```
+RPG bootstrap failed - messages.yml is unusable
+messages.yml is missing 3 text(s) for declared message key(s): [ui.bossbar.channelling, ...]
+```
+
+Gelesen wurde `messages_de.yml`. Die genannte Datei ist die **englische Vorlage, in der nichts
+fehlt** — wer dort nachsieht, findet alle drei Schlüssel und hält die Meldung für falsch. Der
+Dateiname stand an drei Stellen fest verdrahtet, geschrieben zu einer Zeit, als es nur eine
+Textdatei gab. **B13 ist der Block, der „welche Datei" überhaupt erst zur Frage macht** — und der
+Erfolgspfad in `loadMessages` protokollierte längst korrekt `language.file()`, nur der Fehlerpfad
+nicht. Ein Fehler, der ausschließlich dann auftritt, wenn jemand das tut, wofür der Block gebaut
+wurde.
+
+- [X] T163 `MessageKeyValidator.verifyAllPresent` bekommt eine Überladung mit dem Dateinamen;
+      `MissingMessageKeysException` trägt ihn in der Meldung und als `sourceFile()`. Die alte
+      Zwei-Argument-Form bleibt und meldet weiter `messages.yml` — jeder Aufrufer von B01 bis B12
+      liest wirklich diese Datei
+- [X] T164 `RpgPlugin.onEnable` löst die Sprache **vor** dem `try` auf und reicht sie in
+      `loadMessages`; beide Abbruchmeldungen und `bootstrapState.markFailed` nennen jetzt
+      `language.file()`
+- [X] T165 Zwei Tests in `LanguageSwitchTest`: die Meldung nennt die gelesene Datei und **nicht**
+      die Vorlage; ohne Angabe bleibt es bei `messages.yml`. Nachgeprüft auf dem echten Server —
+      `RPG bootstrap failed - messages_de.yml is unusable`
 
 ## Dependencies & Execution Order
 
