@@ -1,16 +1,14 @@
-package rpg.platform.item;
+package rpg.plugin.command;
 
 import java.time.Clock;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandExecutor;
-import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
@@ -18,6 +16,8 @@ import rpg.core.item.ItemMessageKeys;
 import rpg.core.message.MessageKey;
 import rpg.core.message.Messages;
 import rpg.platform.classes.BoundItemTag;
+import rpg.platform.item.ItemText;
+import rpg.plugin.command.framework.RpgCommand;
 
 /**
  * {@code /trash} — der dritte Entsorgungsweg (FR-078).
@@ -40,7 +40,7 @@ import rpg.platform.classes.BoundItemTag;
  * Tab-Vervollständigung gehören dorthin; das hier existiert, weil ein Weg, den niemand aufrufen kann,
  * kein Weg ist.
  */
-public final class TrashCommand implements CommandExecutor {
+public final class TrashCommand {
 
     public static final String PERMISSION = "rpg.item.trash";
 
@@ -72,13 +72,25 @@ public final class TrashCommand implements CommandExecutor {
         this.bound = Objects.requireNonNull(bound, "bound");
     }
 
-    @Override
-    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (!(sender instanceof Player player)) {
-            return true;
-        }
-        handle(player);
-        return true;
+    /**
+     * Der Knoten für den Kommandobaum (T033).
+     *
+     * <p>Kein Argument, und das ist eine Zusage und keine Auslassung: die Bestätigung läuft über den
+     * <em>zweiten Aufruf</em> und nicht über ein {@code confirm}-Wort. Ein Wort, das man tippen
+     * kann, tippt man auch versehentlich zweimal.
+     *
+     * <p><b>Was der Umzug nebenbei repariert:</b> Das alte {@code onCommand} gab für die Konsole
+     * {@code true} zurück und sagte <em>nichts</em> — der Betreiber sah eine leere Zeile und wusste
+     * nicht, ob das Kommando kaputt ist oder er selbst. {@link RpgCommand#playerLeaf} macht daraus
+     * die Meldung, die FR-008 verlangt, ohne dass diese Klasse etwas davon wissen muss.
+     */
+    public RpgCommand definition() {
+        return RpgCommand.playerLeaf(
+                "trash",
+                MessageKey.of("command.trash.description"),
+                PERMISSION,
+                List.of(),
+                context -> handle(context.player().orElseThrow()));
     }
 
     /** Der eigentliche Vorgang, ohne Bukkits Befehlsverpackung — so ist er prüfbar. */

@@ -70,20 +70,25 @@ class CharacterSheetCommandTest {
     @Test
     @DisplayName("T089: /char ohne Argument oeffnet die Uebersicht")
     void charWithoutAnArgumentOpensTheSheet() {
-        boolean handled = command.onCommand(player, null, "char", new String[0]);
+        command.handle(player);
 
-        assertThat(handled).isTrue();
         assertThat(player.getOpenInventory().getTopInventory().getSize()).isEqualTo(54);
         assertThat(listener.hasOpen(player.getUniqueId())).isTrue();
     }
 
     @Test
-    @DisplayName("T089: von der Konsole tut es nichts - ein Inventar braucht einen Empfaenger")
-    void fromTheConsoleItDoesNothing() {
-        boolean handled =
-                command.onCommand(server.getConsoleSender(), null, "char", new String[0]);
-
-        assertThat(handled).as("behandelt, aber ohne Fenster").isTrue();
+    @DisplayName("T034: von der Konsole aus verlangt der KNOTEN einen Spieler")
+    void fromTheConsoleTheNodeDemandsAPlayer() {
+        // Hier stand bis B14 ein Test, der prueft, dass onCommand fuer die Konsole `true`
+        // zurueckgibt - „behandelt, aber ohne Fenster". Das war die Beschreibung eines Mangels:
+        // der Betreiber bekam eine leere Zeile und keine Auskunft.
+        //
+        // Seit dem Umzug entscheidet das nicht mehr diese Klasse, sondern der Knoten. Sie kann
+        // den Fall nicht mehr falsch behandeln, weil sie ihn nicht mehr sieht - was das Geruest
+        // dann sagt, prueft ConsoleSenderTest.
+        assertThat(command.definition().requiresPlayer())
+                .as("FR-008: ein Fenster braucht jemanden, dem man es zeigen kann")
+                .isTrue();
     }
 
     @Test
@@ -93,29 +98,34 @@ class CharacterSheetCommandTest {
         // Fenster, das man ausdruecklich oeffnet, noch mehr als auf einer Flaeche, die man streift.
         hasCharacter = false;
 
-        command.onCommand(player, null, "char", new String[0]);
+        command.handle(player);
 
         assertThat(player.nextMessage()).contains("Pick a character");
         assertThat(listener.hasOpen(player.getUniqueId())).isFalse();
     }
 
     @Test
-    @DisplayName("T089: Tab-Completion gibt LEER zurueck, nicht null")
-    void tabCompletionIsEmptyNotNull() {
-        // null laesst Bukkit auf die Spielernamen zurueckfallen - eine Vervollstaendigung fuer ein
-        // Argument, das es nicht gibt. Und es gibt keines: die Uebersicht zeigt den AKTIVEN
-        // Charakter, eine Summe ueber mehrere bildet sie nicht (FR-053).
-        assertThat(command.onTabComplete(player, null, "char", new String[] {""})).isEmpty();
+    @DisplayName("T034: der Knoten hat KEIN Argument - und braucht deshalb keine Tab-Completion")
+    void thenodeHasNoArgument() {
+        // Hier stand bis B14: „Tab-Completion gibt LEER zurueck, nicht null" - eine Vorkehrung
+        // gegen Bukkits Rueckfall auf Spielernamen, wenn onTabComplete null liefert. Der Baum
+        // kennt diesen Rueckfall nicht: ohne deklariertes Argument gibt es nichts zu
+        // vervollstaendigen, und die Methode, die das falsch machen konnte, ist weg.
+        //
+        // Die Zusage dahinter gilt unveraendert (FR-053): die Uebersicht zeigt den AKTIVEN
+        // Charakter, eine Summe ueber mehrere bildet sie nicht. Ein Argument waere die Einladung,
+        // genau das zu erwarten.
+        assertThat(command.definition().arguments()).isEmpty();
     }
 
     @Test
     @DisplayName("T089: ein zweiter Aufruf gibt dasselbe Fenster - der Zwischenspeicher greift")
     void asecondCallReusesTheWindow() {
-        command.onCommand(player, null, "char", new String[0]);
+        command.handle(player);
         int firstSize = player.getOpenInventory().getTopInventory().getSize();
         player.closeInventory();
 
-        command.onCommand(player, null, "char", new String[0]);
+        command.handle(player);
 
         assertThat(player.getOpenInventory().getTopInventory().getSize()).isEqualTo(firstSize);
     }

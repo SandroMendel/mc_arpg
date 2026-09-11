@@ -131,7 +131,19 @@ public class RpgPlugin extends JavaPlugin {
                     "mobs.yml",
                     "items.yml",
                     "statistics.yml",
-                    "ui.yml");
+                    "ui.yml",
+                    "commands.yml");
+
+    /**
+     * Was am Ende von {@code onEnable} als <b>ein</b> Baum registriert wird (B14, T033/T039).
+     *
+     * <p>Gesammelt statt sofort registriert, weil die Kommandos über den ganzen Start verteilt
+     * entstehen — jedes bei seinem Block —, der {@code LifecycleEventManager} den Handler aber nur
+     * einmal und nur aus {@code onEnable} entgegennimmt. Eine Liste ist die einzige Stelle, an der
+     * beides zusammenkommt.
+     */
+    private final List<rpg.plugin.command.framework.RpgCommand> declaredCommands =
+            new ArrayList<>();
 
     private final BootstrapState bootstrapState = new BootstrapState();
 
@@ -262,7 +274,7 @@ public class RpgPlugin extends JavaPlugin {
     private rpg.platform.item.GearConditionDisplay gearDisplay;
 
     /** B11s Mülleimer — der dritte Entsorgungsweg (US7). */
-    private rpg.platform.item.TrashCommand trashCommand;
+    private rpg.plugin.command.TrashCommand trashCommand;
 
     /** B11s Trimfarben — Datenbankseite und Sitzungsgrenzen (US6). */
     private rpg.persistence.item.CosmeticModule cosmeticModule;
@@ -389,6 +401,8 @@ public class RpgPlugin extends JavaPlugin {
         // where there is no quit path.
         startInventorySweep(INVENTORY_SWEEP);
 
+        registerDeclaredCommands();
+
         Duration took = Duration.ofNanos(System.nanoTime() - startedAt);
         if (took.compareTo(BOOTSTRAP_BUDGET) > 0) {
             getLogger()
@@ -478,6 +492,65 @@ public class RpgPlugin extends JavaPlugin {
         }
     }
 
+    /** Nimmt ein Kommando in den Baum auf, der am Ende von {@code onEnable} registriert wird. */
+    private void registerCommand(rpg.plugin.command.framework.RpgCommand command) {
+        declaredCommands.add(command);
+    }
+
+    /**
+     * Was dieser Start deklariert hat — <b>für Tests, und mit einer ausdrücklichen Grenze</b>.
+     *
+     * <p>Vor B14 prüfte {@code FullBootstrapTest} die Registrierung über
+     * {@code getCommand("char") != null}: der {@code plugin.yml}-Eintrag und die Verdrahtung mussten
+     * sich einig sein, und das konnte man nachsehen. Seit dem Umzug auf Brigadier gibt es keinen
+     * Eintrag mehr, und <b>MockBukkit bildet den {@code LifecycleEventManager} nicht ab</b>.
+     *
+     * <p>Diese Liste beweist deshalb genau eine Sache: dass der Start das Kommando <em>angemeldet
+     * hat</em>. Ob Brigadier daraus einen aufrufbaren Knoten macht, beweist sie <b>nicht</b> — das
+     * kann nur der echte Server, und dafür gibt es quickstart §5.
+     */
+    java.util.List<rpg.plugin.command.framework.RpgCommand> declaredCommandsForTest() {
+        return List.copyOf(declaredCommands);
+    }
+
+    /**
+     * Meldet alle gesammelten Kommandos in <b>einem</b> Zug an (T039).
+     *
+     * <p>Vor B14 standen hier acht {@code getCommand(...).setExecutor(...)} plus ebenso viele
+     * {@code setTabCompleter(...)}, verteilt über den ganzen Start, jedes mit seiner eigenen
+     * Null-Prüfung gegen einen {@code plugin.yml}-Eintrag. Der Baum braucht davon nichts: die
+     * Registrierung läuft über den Lebenszyklus, und ein Eintrag desselben Namens würde ohnehin nie
+     * erreicht (research.md §1).
+     *
+     * <p><b>Die Wurzel {@code /rpg} kommt nur mit, wenn etwas darunter hängt.</b> Solange keine
+     * Betreibergeschichte gebaut ist, gäbe es sonst ein Kommando, das auf jede Eingabe
+     * „unvollständig" antwortet.
+     */
+    private void registerDeclaredCommands() {
+        List<rpg.plugin.command.framework.RpgCommand> all = new ArrayList<>(declaredCommands);
+        rpg.plugin.command.admin.RpgRootCommand.of(List.of()).ifPresent(all::add);
+
+        if (all.isEmpty()) {
+            return;
+        }
+
+        new rpg.plugin.command.framework.CommandTree(
+                        new rpg.plugin.command.framework.CommandErrors(messages),
+                        new rpg.plugin.command.framework.RateLimits(Clock.systemUTC()),
+                        messages)
+                .register(this, all);
+
+        getLogger()
+                .info(
+                        "[command] "
+                                + all.size()
+                                + " registriert ueber Brigadier: "
+                                + all.stream()
+                                        .map(rpg.plugin.command.framework.RpgCommand::name)
+                                        .sorted()
+                                        .toList());
+    }
+
     /**
      * Loads {@code messages.yml} and verifies every declared key has a text.
      *
@@ -545,6 +618,8 @@ public class RpgPlugin extends JavaPlugin {
         // eine Uebersetzung ueberhaupt machbar; bei einer Meldung je Startversuch gaebe man nach
         // dem zwanzigsten auf.
         declared.addAll(rpg.core.ui.UiMessageKeys.all());
+        // B14: die Meldungen des Kommandogeruests (T041). Ab hier prueft der Start auch sie.
+        declared.addAll(rpg.plugin.command.CommandMessageKeys.all());
         MessageKeyValidator.verifyAllPresent(loaded, declared);
 
         getLogger()
@@ -1387,15 +1462,12 @@ public class RpgPlugin extends JavaPlugin {
         rpg.plugin.command.CharacterSheetCommand sheetCommand =
                 new rpg.plugin.command.CharacterSheetCommand(
                         characterOfPlayer, sheets, sheetMenu, sheetListener, messages);
-        var charCommand = getCommand("char");
-        if (charCommand == null) {
-            // plugin.yml und diese Stelle muessen sich einig sein; sind sie es nicht, ist es besser
-            // das zu sagen als ein Kommando zu haben, das still nicht existiert.
-            getLogger().severe("[ui] /char is not declared in plugin.yml - not registered");
-            return;
-        }
-        charCommand.setExecutor(sheetCommand);
-        charCommand.setTabCompleter(sheetCommand);
+        // Seit B14 (T034) im Kommandobaum. Hier stand eine Null-Pruefung gegen den
+        // plugin.yml-Eintrag, die bei Nichtübereinstimmung mit `return` abbrach - und damit auch
+        // das uiForgetters.add() darunter uebersprungen haette. Ein fehlender Eintrag haette so
+        // nicht nur das Kommando gekostet, sondern eine Aufraeumzusage. Beides ist weg: es gibt
+        // keinen Eintrag mehr, mit dem diese Stelle sich einig sein muesste.
+        registerCommand(sheetCommand.definition());
 
         uiForgetters.add(sheetListener::sessionEnded);
     }
@@ -2560,10 +2632,8 @@ public class RpgPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(statisticsMenus, this);
 
         rpg.plugin.command.TopCommand top = new rpg.plugin.command.TopCommand(statisticsMenus);
-        if (getCommand("top") != null) {
-            getCommand("top").setExecutor(top);
-            getCommand("top").setTabCompleter(top);
-        }
+        // Seit B14 (T036) im Kommandobaum, mit Sperrzeit aus commands.yml (T042).
+        registerCommand(top.definition(rateLimits().forCommand("top")));
 
         wireOwnProfile(leaderboards);
 
@@ -2727,9 +2797,31 @@ public class RpgPlugin extends JavaPlugin {
                                                         .UNKNOWN_PLAYER,
                                                 java.util.Map.of("player", name))));
 
-        if (getCommand("stats") != null) {
-            getCommand("stats").setExecutor(stats);
-            getCommand("stats").setTabCompleter(stats);
+        // Seit B14 (T035) im Kommandobaum, mit Sperrzeit aus commands.yml (T042): /stats fragt
+        // die Datenbank.
+        registerCommand(stats.definition(getServer(), rateLimits().forCommand("stats")));
+    }
+
+    /**
+     * Die Sperrzeiten aus {@code commands.yml} — bei jedem Aufruf gelesen.
+     *
+     * <p>Nicht gemerkt, weil die Kommandos über den ganzen Start verteilt entstehen und ein
+     * gemerkter Wert die Reihenfolge zu einer Abhängigkeit machte. Es ist ein Lesen aus einer schon
+     * geladenen Datei, kein Dateizugriff.
+     */
+    private rpg.plugin.command.framework.RateLimitConfig rateLimits() {
+        try {
+            return rpg.plugin.command.framework.RateLimitConfig.from(
+                    ((YamlConfigLoader) configLoader).readDocument(Path.of("commands.yml")));
+        } catch (RuntimeException | ConfigValidationException unreadable) {
+            // Eine Sperrzeit ist eine Bremse. Eine fehlende Bremse darf keinen Start verhindern -
+            // aber sie darf auch nicht still fehlen.
+            getLogger()
+                    .warning(
+                            "[command] commands.yml ist nicht lesbar - es gelten die"
+                                    + " Voreinstellungen: "
+                                    + unreadable.getMessage());
+            return rpg.plugin.command.framework.RateLimitConfig.defaults();
         }
     }
 
@@ -3197,17 +3289,13 @@ gearDisplay =
                         getLogger());
         getServer().getPluginManager().registerEvents(vendorListener, this);
 
+        // Seit B14 (T033) haengt /trash im Kommandobaum und nicht mehr an einem plugin.yml-Eintrag.
+        // Die Pruefung auf getCommand(...) == null ist damit weggefallen: es gibt keinen Eintrag
+        // mehr, mit dem diese Stelle sich einig sein muesste.
         trashCommand =
-                new rpg.platform.item.TrashCommand(
+                new rpg.plugin.command.TrashCommand(
                         messages, Clock.systemUTC(), boundEquipment::isBound);
-        var trash = getCommand("trash");
-        if (trash == null) {
-            // plugin.yml und diese Stelle muessen sich einig sein. Es zu sagen ist besser als ein
-            // Befehl, den es still nicht gibt - dasselbe Muster wie bei /coins.
-            getLogger().severe("[item] /trash is not declared in plugin.yml - not registered");
-        } else {
-            trash.setExecutor(trashCommand);
-        }
+        registerCommand(trashCommand.definition());
 
         vendorNpcs = new rpg.platform.item.VendorNpc(getLogger());
         placeVendors();
@@ -3639,15 +3727,10 @@ gearDisplay =
                                         .map(rpg.core.currency.CharacterBalance::balance)
                                         .orElse(0L));
 
-        var command = getCommand("coins");
-        if (command == null) {
-            // plugin.yml and this method have to agree; if they do not, saying so beats a command
-            // that silently does not exist.
-            getLogger().severe("[currency] /coins is not declared in plugin.yml - not registered");
-            return;
-        }
-        command.setExecutor(coins);
-        command.setTabCompleter(coins);
+        // Seit B14 (T037) im Kommandobaum. Auch hier stand eine Null-Pruefung mit `return`, die
+        // bei fehlendem plugin.yml-Eintrag registerXpCommand() darunter mit uebersprungen haette -
+        // dasselbe Muster wie bei /char.
+        registerCommand(coins.definition(getServer()));
 
         registerXpCommand();
     }
@@ -3671,13 +3754,9 @@ gearDisplay =
                         progressionModule.progression(),
                         progressionModule.config().curve(),
                         messages);
-        var command = getCommand("xp");
-        if (command == null) {
-            getLogger().severe("[progression] /xp is not declared in plugin.yml - not registered");
-            return;
-        }
-        command.setExecutor(xp);
-        command.setTabCompleter(xp);
+        // Seit B14 (T038) im Kommandobaum - das letzte der sechs. Damit ist der commands:-Block
+        // in plugin.yml leer und entfaellt (T040).
+        registerCommand(xp.definition(getServer()));
     }
 
     /**

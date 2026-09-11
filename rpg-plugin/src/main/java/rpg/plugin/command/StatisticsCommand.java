@@ -1,23 +1,23 @@
 package rpg.plugin.command;
 
-import java.util.ArrayList;
+import java.time.Duration;
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandExecutor;
-import org.bukkit.command.CommandSender;
-import org.bukkit.command.TabCompleter;
+import org.bukkit.Server;
 import org.bukkit.entity.Player;
 
+import rpg.core.message.MessageKey;
 import rpg.core.statistics.Period;
 import rpg.core.statistics.ProfileSnapshot;
 import rpg.platform.statistics.ProfileLoader;
+import rpg.plugin.command.framework.Argument;
+import rpg.plugin.command.framework.Arguments;
+import rpg.plugin.command.framework.RpgCommand;
 
 /**
  * {@code /stats} — das eigene Profil (FR-041, FR-046).
@@ -35,7 +35,7 @@ import rpg.platform.statistics.ProfileLoader;
  * Testdatenbank tadellos und hält bei fünfzig Spielern den Server an — und zwar an genau der
  * Stelle, an der eine Statistik keinen Schaden anrichten dürfte.
  */
-public final class StatisticsCommand implements CommandExecutor, TabCompleter {
+public final class StatisticsCommand {
 
     public static final String PERMISSION = "rpg.statistics.own";
 
@@ -66,26 +66,55 @@ public final class StatisticsCommand implements CommandExecutor, TabCompleter {
         this.unknownPlayer = Objects.requireNonNull(unknownPlayer, "unknownPlayer");
     }
 
-    @Override
-    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (!(sender instanceof Player player)) {
-            sender.sendMessage("This command opens a window and needs a player.");
-            return true;
-        }
-        if (!player.hasPermission(PERMISSION)) {
-            return true;
-        }
+    /**
+     * Der Knoten für den Kommandobaum (T035).
+     *
+     * <p><b>{@code /stats [zeitraum|spieler] [zeitraum]}</b> — genau die Syntax von vorher (FR-005).
+     * Die Mehrdeutigkeit des ersten Arguments steckt jetzt im Typ
+     * {@link Arguments#periodOrPlayer} statt in einer {@code if}-Kette; die Regel ist dieselbe:
+     * <em>ein Wort, das ein Zeitraum ist, ist ein Zeitraum</em> (B12-FR-044), sonst suchte
+     * {@code /stats week} nach einem Spieler namens „week".
+     *
+     * <p><b>Die handgeschriebene {@code onTabComplete} ist weg</b> — und mit ihr zwei Mängel. Sie
+     * lief über {@code Period.values()} und war damit eine <em>zweite</em> Schleife neben
+     * {@code periodOf(raw)}; beide mussten übereinstimmen, ohne dass etwas sie dazu zwang (genau das
+     * Paar, für das FR-002 geschrieben wurde). Und sie schlug <b>nur Zeiträume</b> vor, nie
+     * Spielernamen, obwohl beide erlaubt sind: die Vervollständigung war schon vorher unvollständig,
+     * es ist nur niemandem aufgefallen.
+     *
+     * <p><b>Sperrzeit</b> aus {@code commands.yml} (T042, FR-032) — {@code /stats} fragt die
+     * Datenbank.
+     */
+    public RpgCommand definition(Server server, Duration rateLimit) {
+        Argument<Arguments.PeriodOrPlayer> target =
+                Argument.optional("target", Arguments.periodOrPlayer(server));
+        Argument<Period> period = Argument.optional("period", Arguments.period());
 
-        // Ein Argument, das kein Zeitraum ist, ist ein Spielername (FR-044). Die Reihenfolge ist
-        // Absicht: /stats week soll den eigenen Zeitraum meinen und nicht nach einem Spieler
-        // namens "week" suchen.
-        if (args.length > 0 && periodOf(args[0]).isEmpty()) {
-            openForeign(player, args[0], args.length > 1 ? periodOf(args[1]).orElse(Period.ALL_TIME) : Period.ALL_TIME);
-            return true;
-        }
+        return RpgCommand.playerLeaf(
+                        "stats",
+                        MessageKey.of("command.stats.description"),
+                        PERMISSION,
+                        List.of(target, period),
+                        context -> {
+                            Player player = context.player().orElseThrow();
+                            Optional<Arguments.PeriodOrPlayer> first = context.find(target);
+                            Period when =
+                                    first.filter(Arguments.PeriodOrPlayer::isPeriod)
+                                            .map(Arguments.PeriodOrPlayer::period)
+                                            .or(() -> context.find(period))
+                                            .orElse(Period.ALL_TIME);
 
-        Period period = args.length > 0 ? periodOf(args[0]).orElse(Period.ALL_TIME) : Period.ALL_TIME;
+                            if (first.isPresent() && !first.get().isPeriod()) {
+                                openForeign(player, first.get().player().getName(), when);
+                                return;
+                            }
+                            openOwn(player, when);
+                        })
+                .throttled(rateLimit);
+    }
 
+    /** Das eigene Profil, ohne Bukkits Befehlsverpackung. */
+    public void openOwn(Player player, Period period) {
         loader.own(player.getUniqueId(), period)
                 .thenAccept(profile -> open.accept(player, profile))
                 .exceptionally(
@@ -96,7 +125,6 @@ public final class StatisticsCommand implements CommandExecutor, TabCompleter {
                             player.sendMessage("Your record could not be loaded. Try again shortly.");
                             return null;
                         });
-        return true;
     }
 
     /**
@@ -119,28 +147,4 @@ public final class StatisticsCommand implements CommandExecutor, TabCompleter {
         openForeignProfile.accept(viewer, loader.foreign(account.get(), period));
     }
 
-    @Override
-    public List<String> onTabComplete(
-            CommandSender sender, Command command, String label, String[] args) {
-        List<String> options = new ArrayList<>();
-        if (args.length == 1) {
-            for (Period period : Period.values()) {
-                String name = period.name().toLowerCase(Locale.ROOT).replace('_', '-');
-                if (name.startsWith(args[0].toLowerCase(Locale.ROOT))) {
-                    options.add(name);
-                }
-            }
-        }
-        return options;
-    }
-
-    private static Optional<Period> periodOf(String raw) {
-        String wanted = raw.toUpperCase(Locale.ROOT).replace('-', '_');
-        for (Period period : Period.values()) {
-            if (period.name().equals(wanted)) {
-                return Optional.of(period);
-            }
-        }
-        return Optional.empty();
-    }
 }

@@ -63,27 +63,47 @@ class PluginDescriptorTest {
     }
 
     @Test
-    @DisplayName("jedes Kommando nennt eine Berechtigung, und die ist auch definiert")
-    void everyCommandNamesAPermissionThatExists() {
-        // Ein Kommando mit einer Berechtigung, die nirgends definiert ist, faellt auf Bukkits
-        // Standard zurueck - und der ist "jeder darf". Bei /xp und /coins waere das ein Loch.
-        Map<String, Object> commands = section("commands");
+    @DisplayName("es gibt KEINEN commands:-Block mehr - alle sechs sind auf Brigadier umgezogen")
+    void thereIsNoCommandsBlockAnyMore() {
+        // T040. Die Entscheidung stammt aus dem Serverbeweis (T007-T010): bei Namensgleichheit
+        // gewinnt Brigadier, und die plugin.yml-Fassung wird NIE erreicht. Ein Eintrag, der
+        // beschreibt, was er nicht bedient, ist schlimmer als keiner - wer die usage-Zeile dort
+        // aendert, aendert nichts und merkt es nicht.
+        assertThat(descriptor())
+                .as("ein zurueckgekehrter Eintrag waere still wirkungslos")
+                .doesNotContainKey("commands");
+    }
+
+    @Test
+    @DisplayName("jedes Recht, das ein Kommando verlangt, ist im Deskriptor definiert")
+    void everyPermissionACommandDemandsIsDeclared() {
+        // Dieser Test prueft bis B14 den commands:-Block. Den gibt es nicht mehr - die ZUSAGE aber
+        // schon, und sie ist dieselbe: ein Recht, das nirgends definiert ist, faellt auf Bukkits
+        // Standard zurueck, und der ist "jeder darf". Bei /xp und /coins waere das ein Loch.
+        //
+        // Geprueft wird jetzt gegen die KONSTANTEN der Kommandos statt gegen eine YAML-Liste. Das
+        // ist strenger: die Liste konnte einen Eintrag verlieren, ohne dass etwas rot wurde.
         Map<String, Object> permissions = section("permissions");
 
-        for (Map.Entry<String, Object> entry : commands.entrySet()) {
-            Object permission = ((Map<?, ?>) entry.getValue()).get("permission");
-            assertThat(permission)
-                    .as("Kommando /" + entry.getKey() + " nennt keine Berechtigung")
-                    .isNotNull();
-            assertThat(permissions)
-                    .as(
-                            "Kommando /"
-                                    + entry.getKey()
-                                    + " verlangt "
-                                    + permission
-                                    + ", aber die Berechtigung ist im Deskriptor nicht definiert")
-                    .containsKey(String.valueOf(permission));
-        }
+        Map<String, String> demanded = new java.util.LinkedHashMap<>();
+        demanded.put("/char", rpg.plugin.command.CharacterSheetCommand.PERMISSION);
+        demanded.put("/trash", rpg.plugin.command.TrashCommand.PERMISSION);
+        demanded.put("/stats", rpg.plugin.command.StatisticsCommand.PERMISSION);
+        demanded.put("/top", rpg.plugin.command.TopCommand.PERMISSION);
+        demanded.put("/coins", rpg.plugin.command.CoinsCommand.PERMISSION_BALANCE);
+        demanded.put("/coins set|add|remove", rpg.plugin.command.CoinsCommand.PERMISSION_ADMIN);
+        demanded.put("/xp", rpg.plugin.command.XpCommand.PERMISSION);
+
+        demanded.forEach(
+                (command, permission) ->
+                        assertThat(permissions)
+                                .as(
+                                        command
+                                                + " verlangt "
+                                                + permission
+                                                + ", aber die Berechtigung ist im Deskriptor nicht"
+                                                + " definiert")
+                                .containsKey(permission));
     }
 
     // --- fixtures ---

@@ -588,13 +588,33 @@ class FullBootstrapTest {
     }
 
     @Test
-    void theCharCommandIsRegistered() {
-        // Der vierte unter derselben befristeten Lizenz (ADR-051, nach dem Muster von ADR-028).
-        // Ein Fenster ohne Aufrufweg ist fuer den Spieler nicht vorhanden - und wenn plugin.yml und
-        // die Verdrahtung sich uneinig sind, existiert das Kommando still nicht.
-        assertThat(plugin.getCommand("char")).isNotNull();
-        assertThat(plugin.getCommand("char").getExecutor())
-                .isInstanceOf(rpg.plugin.command.CharacterSheetCommand.class);
+    void theCharCommandIsDeclared() {
+        // Bis B14 stand hier getCommand("char") != null - der plugin.yml-Eintrag und die
+        // Verdrahtung mussten sich einig sein, und das war nachsehbar. Seit dem Umzug auf
+        // Brigadier (T034) gibt es keinen Eintrag mehr, und MockBukkit bildet den
+        // LifecycleEventManager nicht ab.
+        //
+        // WAS DIESER TEST NOCH BEWEIST: dass der Start /char angemeldet hat, mit seinem Recht und
+        // mit Spielerbezug. WAS ER NICHT MEHR BEWEIST: dass Brigadier daraus einen aufrufbaren
+        // Knoten macht. Das kann nur der echte Server (quickstart §5) - und genau deshalb gehoert
+        // der Serverlauf in diese Story und nicht ans Ende des Blocks.
+        assertThat(declared("char"))
+                .isPresent()
+                .get()
+                .satisfies(
+                        node -> {
+                            assertThat(node.permissionOrNone())
+                                    .contains(rpg.plugin.command.CharacterSheetCommand.PERMISSION);
+                            assertThat(node.requiresPlayer()).isTrue();
+                            assertThat(node.arguments()).isEmpty();
+                        });
+    }
+
+    /** Der angemeldete Knoten dieses Namens, falls es ihn gibt. */
+    private java.util.Optional<rpg.plugin.command.framework.RpgCommand> declared(String name) {
+        return plugin.declaredCommandsForTest().stream()
+                .filter(node -> node.name().equals(name))
+                .findFirst();
     }
 
     @Test
@@ -617,45 +637,247 @@ class FullBootstrapTest {
     }
 
     @Test
-    void theCoinsCommandIsRegistered() {
-        // The one place B08b reaches outside its layer (ADR-028). If plugin.yml and the wiring ever
-        // disagree, the command silently does not exist - so it is asserted rather than assumed.
-        assertThat(plugin.getCommand("coins")).isNotNull();
-        assertThat(plugin.getCommand("coins").getExecutor())
-                .isInstanceOf(rpg.plugin.command.CoinsCommand.class);
+    void theCoinsCommandIsDeclared() {
+        // Der interessanteste der sechs: /coins hat Unterkommandos UND eigene Formen (T037). Die
+        // Regel aus T014 - „eine Verzweigung hat keine eigene Ausfuehrung" - musste dafuer
+        // nachgeben; sie war strenger als der Vertrag und strenger als Brigadier.
+        assertThat(declared("coins"))
+                .isPresent()
+                .get()
+                .satisfies(
+                        node -> {
+                            assertThat(node.permissionOrNone())
+                                    .as("die Wurzel traegt das GRUNDrecht, nicht das Admin-Recht")
+                                    .contains(rpg.plugin.command.CoinsCommand.PERMISSION_BALANCE);
+                            assertThat(node.isBranch()).isTrue();
+                            assertThat(node.action())
+                                    .as("und hat trotzdem eigene Formen: /coins und /coins <spieler>")
+                                    .isNotNull();
+                            assertThat(node.children())
+                                    .extracting(rpg.plugin.command.framework.RpgCommand::name)
+                                    .containsExactlyInAnyOrder("set", "add", "remove");
+                            assertThat(node.children())
+                                    .allSatisfy(
+                                            child ->
+                                                    assertThat(child.permissionOrNone())
+                                                            .as("jeder Eingriff braucht das Admin-Recht")
+                                                            .contains(
+                                                                    rpg.plugin.command.CoinsCommand
+                                                                            .PERMISSION_ADMIN));
+                            assertThat(node.children())
+                                    .allSatisfy(
+                                            child ->
+                                                    assertThat(child.requiresPlayer())
+                                                            .as("ein Eingriff geht von der Konsole")
+                                                            .isFalse());
+                        });
     }
 
     @Test
-    void theXpCommandIsRegistered() {
-        // The second one under the same temporary licence (ADR-028), and asserted for the same
-        // reason: a correction that can only be made with a database editor is one nobody makes.
-        assertThat(plugin.getCommand("xp")).isNotNull();
-        assertThat(plugin.getCommand("xp").getExecutor())
-                .isInstanceOf(rpg.plugin.command.XpCommand.class);
+    void theXpCommandIsDeclared() {
+        // Das letzte der sechs (T038). Eine reine Verzweigung: /xp allein tut nichts, jeder der
+        // drei Zweige tut etwas - und jeder laeuft von der Konsole, weil eine Korrektur genau
+        // dort gemacht wird.
+        assertThat(declared("xp"))
+                .isPresent()
+                .get()
+                .satisfies(
+                        node -> {
+                            assertThat(node.permissionOrNone())
+                                    .contains(rpg.plugin.command.XpCommand.PERMISSION);
+                            assertThat(node.isBranch()).isTrue();
+                            assertThat(node.action())
+                                    .as("/xp allein ist unvollstaendig, nicht wirkungslos")
+                                    .isNull();
+                            assertThat(node.children())
+                                    .extracting(rpg.plugin.command.framework.RpgCommand::name)
+                                    .containsExactlyInAnyOrder("give", "take", "set");
+                            assertThat(node.children())
+                                    .allSatisfy(
+                                            child ->
+                                                    assertThat(child.requiresPlayer()).isFalse());
+                        });
     }
 
     @Test
-    void theTopCommandIsRegistered() {
-        // Der dritte unter derselben befristeten Lizenz (ADR-028). Eine Rangliste ohne einen Weg,
-        // sie zu oeffnen, waere vorhanden und unbenutzbar - und die Berechtigung steht auf
-        // default: true, weil ein Recht, das erst vergeben werden muss, auf jedem frisch
-        // aufgesetzten Server eine stumme Funktion waere.
-        assertThat(plugin.getCommand("top")).isNotNull();
-        assertThat(plugin.getCommand("top").getExecutor())
-                .isInstanceOf(rpg.plugin.command.TopCommand.class);
-        assertThat(plugin.getCommand("top").getPermission())
-                .isEqualTo(rpg.plugin.command.TopCommand.PERMISSION);
+    void allSixCommandsAreDeclared() {
+        // Der Sammelbeweis fuer FR-005: sechs Kommandos gingen hinein, sechs kommen heraus. Ein
+        // Umzug, der eines davon unterwegs verliert, faellt hier auf und nicht erst dem Spieler.
+        assertThat(plugin.declaredCommandsForTest())
+                .extracting(rpg.plugin.command.framework.RpgCommand::name)
+                .containsExactlyInAnyOrder("char", "coins", "stats", "top", "trash", "xp");
+    }
+
+    /**
+     * T044 — <b>die Syntax der sechs ist unveraendert</b> (FR-005, SC-008).
+     *
+     * <p>Die Sollwerte sind die {@code usage:}-Zeilen, die bis zum Umzug in {@code plugin.yml}
+     * standen; der Block ist geloescht (T040), also gaebe es sonst nichts mehr, woran sich
+     * „unveraendert" messen liesse. Sie stehen deshalb hier woertlich.
+     *
+     * <p><b>Der Test steht in dieser Klasse und nicht in einer eigenen</b>, weil er den ECHTEN
+     * Baum braucht. Ein erster Anlauf baute die Kommandos mit null-Mitarbeitern nach — die
+     * Konstruktoren pruefen ihre Mitarbeiter aber mit {@code requireNonNull}, und das zu Recht.
+     * Ein nachgebauter Baum haette ohnehin nur bewiesen, dass der Nachbau stimmt.
+     *
+     * <p>Er prueft die <em>Form</em>: welche Woerter, welche Argumente, welche davon Pflicht. Dass
+     * die <em>Ausgabe</em> dieselbe ist, koennen nur die Abnahmeschritte aus B08b, B11, B12 und
+     * B13 — und SC-008 sagt genau das: keiner von ihnen muss angepasst werden.
+     */
+    @Test
+    void thesixCommandsKeptTheirSyntax() {
+        // char   usage: '/char'
+        assertThat(declared("char").orElseThrow().arguments()).isEmpty();
+
+        // trash  usage: '/trash (again to confirm)'  - '(again to confirm)' war eine Erklaerung,
+        //        kein Argument: die Bestaetigung ist der zweite Aufruf.
+        assertThat(declared("trash").orElseThrow().arguments()).isEmpty();
+
+        // top    usage: '/top [board] [period]'
+        assertThat(argumentNames("top")).containsExactly("board", "period");
+        assertThat(declared("top").orElseThrow().arguments())
+                .allSatisfy(argument -> assertThat(argument.required()).isFalse());
+
+        // stats  usage: '/stats [period]'  - schon damals unvollstaendig: B12-FR-044 laesst auch
+        //        '/stats <spieler> [period]' zu, und der Code konnte es. Die Zeile beschrieb das
+        //        Kommando falsch; ein weiterer Grund, warum usage: nicht mitgezogen ist.
+        assertThat(argumentNames("stats")).containsExactly("target", "period");
+
+        // xp     usage: '/xp give|take <player> <amount> | /xp set <player> <level> [xp]'
+        assertThat(declared("xp").orElseThrow().arguments())
+                .as("/xp allein nimmt nichts - es verzweigt nur")
+                .isEmpty();
+        for (String verb : java.util.List.of("give", "take")) {
+            assertThat(childArgumentNames("xp", verb)).as(verb).containsExactly("player", "amount");
+            assertThat(child("xp", verb).arguments())
+                    .allSatisfy(argument -> assertThat(argument.required()).isTrue());
+        }
+        assertThat(childArgumentNames("xp", "set")).containsExactly("player", "level", "xp");
+        assertThat(child("xp", "set").arguments().get(2).required())
+                .as("[xp] stand in eckigen Klammern - also optional")
+                .isFalse();
+
+        // coins  usage: '/coins | /coins <player> | /coins set|add|remove <player> <class> <amount>'
+        assertThat(argumentNames("coins"))
+                .as("ein optionales Argument deckt /coins und /coins <spieler>")
+                .containsExactly("player");
+        assertThat(declared("coins").orElseThrow().arguments().get(0).required()).isFalse();
+        for (String verb : java.util.List.of("set", "add", "remove")) {
+            assertThat(childArgumentNames("coins", verb))
+                    .as(verb)
+                    .containsExactly("player", "class", "amount");
+        }
+    }
+
+    /**
+     * T054 — <b>jedes Recht am LEBENDEN Baum steht im Deskriptor</b> (FR-010, FR-035).
+     *
+     * <p>{@code DeclaredPermissionsGuardTest} prüft dasselbe über einen Quellscan. Dieser hier
+     * prüft es am fertig gebauten Baum, und das ist nicht dieselbe Frage: der Quellscan findet
+     * jedes Recht, das <em>irgendwo im Code steht</em>; dieser findet die, die ein Kommando
+     * <em>wirklich trägt</em> — auch wenn es sie zusammensetzt, statt sie hinzuschreiben.
+     *
+     * <p>Die Vollständigkeitsprüfung über <em>alle</em> Kommandos folgt in T116, wenn die
+     * Admin-Werkzeuge existieren.
+     */
+    @Test
+    void everyPermissionOnTheLiveTreeIsDeclared() {
+        java.util.Set<String> declared = permissionsFromDescriptor();
+        java.util.List<String> demanded = new java.util.ArrayList<>();
+        for (rpg.plugin.command.framework.RpgCommand root : plugin.declaredCommandsForTest()) {
+            collectPermissions(root, demanded);
+        }
+
+        assertThat(demanded).as("sechs Kommandos ohne ein einziges Recht waeren verdaechtig").isNotEmpty();
+        assertThat(declared)
+                .as("ein Recht, das kein plugin.yml-Eintrag deckt, wirkt je nach Server anders")
+                .containsAll(demanded);
+    }
+
+    private static void collectPermissions(
+            rpg.plugin.command.framework.RpgCommand node, java.util.List<String> into) {
+        node.permissionOrNone().ifPresent(into::add);
+        node.children().forEach(child -> collectPermissions(child, into));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static java.util.Set<String> permissionsFromDescriptor() {
+        try (java.io.InputStream stream = FullBootstrapTest.class.getResourceAsStream("/plugin.yml")) {
+            java.util.Map<String, Object> descriptor =
+                    new org.yaml.snakeyaml.Yaml()
+                            .load(
+                                    new String(
+                                            stream.readAllBytes(),
+                                            java.nio.charset.StandardCharsets.UTF_8));
+            return ((java.util.Map<String, Object>) descriptor.get("permissions")).keySet();
+        } catch (java.io.IOException unreadable) {
+            throw new IllegalStateException(unreadable);
+        }
+    }
+
+    private java.util.List<String> argumentNames(String command) {
+        return declared(command).orElseThrow().arguments().stream()
+                .map(rpg.plugin.command.framework.Argument::name)
+                .toList();
+    }
+
+    private rpg.plugin.command.framework.RpgCommand child(String parent, String name) {
+        return declared(parent).orElseThrow().children().stream()
+                .filter(node -> node.name().equals(name))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("kein Unterkommando " + parent + " " + name));
+    }
+
+    private java.util.List<String> childArgumentNames(String parent, String name) {
+        return child(parent, name).arguments().stream()
+                .map(rpg.plugin.command.framework.Argument::name)
+                .toList();
     }
 
     @Test
-    void theStatisticsCommandIsRegistered() {
-        // Der vierte unter derselben befristeten Lizenz. Die eigenen Zahlen anzusehen ist kein
-        // administrativer Akt - deshalb ebenfalls default: true.
-        assertThat(plugin.getCommand("stats")).isNotNull();
-        assertThat(plugin.getCommand("stats").getExecutor())
-                .isInstanceOf(rpg.plugin.command.StatisticsCommand.class);
-        assertThat(plugin.getCommand("stats").getPermission())
-                .isEqualTo(rpg.plugin.command.StatisticsCommand.PERMISSION);
+    void theTopCommandIsDeclared() {
+        // Wie bei /char und /stats: die plugin.yml-Pruefung ist mit dem Umzug weggefallen (T036).
+        // Die Berechtigung steht weiter auf default: true - ein Recht, das erst vergeben werden
+        // muss, waere auf jedem frisch aufgesetzten Server eine stumme Funktion.
+        assertThat(declared("top"))
+                .isPresent()
+                .get()
+                .satisfies(
+                        node -> {
+                            assertThat(node.permissionOrNone())
+                                    .contains(rpg.plugin.command.TopCommand.PERMISSION);
+                            assertThat(node.requiresPlayer()).isTrue();
+                            assertThat(node.arguments())
+                                    .as("/top [tafel|score] [zeitraum]")
+                                    .hasSize(2);
+                            assertThat(node.rateLimitOrNone())
+                                    .as("FR-032: /top fragt die Datenbank")
+                                    .isPresent();
+                        });
+    }
+
+    @Test
+    void theStatisticsCommandIsDeclared() {
+        // Wie bei /char: die plugin.yml-Pruefung ist mit dem Umzug weggefallen (T035). Was hier
+        // NEU dazukommt und vorher nicht pruefbar war: die beiden Argumente und die Sperrzeit.
+        assertThat(declared("stats"))
+                .isPresent()
+                .get()
+                .satisfies(
+                        node -> {
+                            assertThat(node.permissionOrNone())
+                                    .contains(rpg.plugin.command.StatisticsCommand.PERMISSION);
+                            assertThat(node.requiresPlayer()).isTrue();
+                            assertThat(node.arguments())
+                                    .as("/stats [zeitraum|spieler] [zeitraum] - beide optional")
+                                    .hasSize(2)
+                                    .allSatisfy(
+                                            argument ->
+                                                    assertThat(argument.required()).isFalse());
+                            assertThat(node.rateLimitOrNone())
+                                    .as("FR-032: /stats fragt die Datenbank")
+                                    .isPresent();
+                        });
     }
 
     @Test

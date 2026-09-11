@@ -170,9 +170,11 @@ class InventoryFullWarningTest {
         try (var sources = Files.walk(ITEM_PACKAGE)) {
             var offenders =
                     sources.filter(path -> path.toString().endsWith(".java"))
-                            // Der Muelleimer vernichtet - aber nur, was ein Spieler zweimal
-                            // bestaetigt hat. Das ist das Gegenteil von still.
-                            .filter(path -> !path.getFileName().toString().equals("TrashCommand.java"))
+                            // Hier stand eine Ausnahme fuer TrashCommand.java - der Muelleimer
+                            // vernichtet, aber nur nach zweifacher Bestaetigung. Seit B14 (T003)
+                            // wohnt er in rpg.plugin.command, also findet dieser Scan ihn ohnehin
+                            // nicht mehr, und die Ausnahme waere ein Filter auf eine Datei, die es
+                            // hier nicht gibt. Sein eigener Wachtest ist mit umgezogen.
                             .filter(
                                     path -> {
                                         try {

@@ -1,20 +1,18 @@
 package rpg.plugin.command;
 
-import java.util.ArrayList;
+import java.time.Duration;
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
-import java.util.Optional;
 
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandExecutor;
-import org.bukkit.command.CommandSender;
-import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
+import rpg.core.message.MessageKey;
 import rpg.core.statistics.Aggregation;
 import rpg.core.statistics.Period;
 import rpg.platform.statistics.StatisticsMenuListener;
+import rpg.plugin.command.framework.Argument;
+import rpg.plugin.command.framework.Arguments;
+import rpg.plugin.command.framework.RpgCommand;
 
 /**
  * {@code /top} — die Rangliste öffnen (FR-046).
@@ -33,12 +31,18 @@ import rpg.platform.statistics.StatisticsMenuListener;
  * für alle da, und ein Recht, das erst vergeben werden muss, wäre eine stumme Funktion auf jedem
  * frisch aufgesetzten Server (Muster {@code rpg.currency.balance}).
  */
-public final class TopCommand implements CommandExecutor, TabCompleter {
+public final class TopCommand {
 
     public static final String PERMISSION = "rpg.statistics.top";
 
-    /** Das erste Argument, das keine Rangliste meint, sondern die Saison-Gesamtwertung. */
-    public static final String SEASON_SCORE = "score";
+    /**
+     * Das erste Argument, das keine Rangliste meint, sondern die Saison-Gesamtwertung.
+     *
+     * <p>Wohnt seit dem Umzug (T036) in {@link Arguments#SEASON_SCORE} - dort, wo geprueft und
+     * vorgeschlagen wird. Zwei Konstanten desselben Wortes waeren zwei Wahrheiten; hier steht nur
+     * noch der Verweis, damit wer sie hier sucht, sie findet.
+     */
+    public static final String SEASON_SCORE = Arguments.SEASON_SCORE;
 
     private final StatisticsMenuListener menus;
 
@@ -46,74 +50,47 @@ public final class TopCommand implements CommandExecutor, TabCompleter {
         this.menus = Objects.requireNonNull(menus, "menus");
     }
 
-    @Override
-    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (!(sender instanceof Player player)) {
-            // Ein Fenster braucht jemanden, dem man es zeigen kann. Die Konsole bekommt eine
-            // Antwort statt einer Ausnahme.
-            sender.sendMessage("This command opens a window and needs a player.");
-            return true;
-        }
-        if (!player.hasPermission(PERMISSION)) {
-            return true;
-        }
+    /**
+     * Der Knoten für den Kommandobaum (T036).
+     *
+     * <p><b>{@code /top [tafel|score] [zeitraum]}</b> — dieselbe Syntax wie vorher (FR-005), und
+     * {@code score} bleibt daneben statt darin: es ist ein eigenes Fenster mit einer eigenen
+     * Einheit, keine Metrik unter anderen (B12-FR-050e).
+     *
+     * <p><b>Eine bewusste Verhaltensänderung.</b> Bisher fiel {@code boardOf} sowohl für einen
+     * <em>unbekannten</em> als auch für einen <em>privaten</em> Schlüssel still auf
+     * {@code MOB_KILLS} zurück. Wer {@code /top playtme_active} vertippte oder
+     * {@code /top playtime_online} versuchte, bekam die Kill-Tafel und erfuhr nie warum — er hätte
+     * ihre Zahlen für die angefragten gehalten. Jetzt wird der Schlüssel genannt und abgelehnt
+     * (FR-004). Der <em>argumentlose</em> Aufruf öffnet weiterhin {@code MOB_KILLS}: das ist eine
+     * Voreinstellung und keine stille Ersetzung.
+     *
+     * <p><b>Sperrzeit</b> aus {@code commands.yml} (T042) — {@code /top} fragt die Datenbank.
+     */
+    public RpgCommand definition(Duration rateLimit) {
+        Argument<Arguments.BoardChoice> which =
+                Argument.optional("board", Arguments.leaderboard());
+        Argument<Period> when = Argument.optional("period", Arguments.period());
 
-        // "/top score" meint keine Rangliste, sondern die Saison-Gesamtwertung: ein eigenes
-        // Fenster mit einer eigenen Einheit (Punkte). Sie unter die Ranglisten zu mischen hiesse,
-        // sie zu beschriften, als waere sie eine Metrik unter anderen (FR-050e).
-        if (args.length > 0 && args[0].equalsIgnoreCase(SEASON_SCORE)) {
-            menus.openSeasonScore(player);
-            return true;
-        }
-
-        Aggregation board =
-                args.length > 0
-                        ? boardOf(args[0]).orElse(Aggregation.MOB_KILLS)
-                        : Aggregation.MOB_KILLS;
-        Period period = args.length > 1 ? periodOf(args[1]).orElse(Period.ALL_TIME) : Period.ALL_TIME;
-
-        menus.openLeaderboard(player, board, period);
-        return true;
-    }
-
-    @Override
-    public List<String> onTabComplete(
-            CommandSender sender, Command command, String label, String[] args) {
-        List<String> options = new ArrayList<>();
-        if (args.length == 1) {
-            // Nur die oeffentlichen: eine private Rangliste vorzuschlagen hiesse, sie anzubieten
-            // und dann abzulehnen (FR-036).
-            Aggregation.all().values().stream()
-                    .filter(board -> board.visibility() == rpg.core.statistics.MetricVisibility.PUBLIC)
-                    .map(Aggregation::key)
-                    .filter(key -> key.startsWith(args[0].toLowerCase(Locale.ROOT)))
-                    .forEach(options::add);
-            if (SEASON_SCORE.startsWith(args[0].toLowerCase(Locale.ROOT))) {
-                options.add(SEASON_SCORE);
-            }
-        } else if (args.length == 2) {
-            for (Period period : Period.values()) {
-                String name = period.name().toLowerCase(Locale.ROOT).replace('_', '-');
-                if (name.startsWith(args[1].toLowerCase(Locale.ROOT))) {
-                    options.add(name);
-                }
-            }
-        }
-        return options;
-    }
-
-    private static Optional<Aggregation> boardOf(String raw) {
-        return Aggregation.byKey(raw.toLowerCase(Locale.ROOT))
-                .filter(board -> board.visibility() == rpg.core.statistics.MetricVisibility.PUBLIC);
-    }
-
-    private static Optional<Period> periodOf(String raw) {
-        String wanted = raw.toUpperCase(Locale.ROOT).replace('-', '_');
-        for (Period period : Period.values()) {
-            if (period.name().equals(wanted)) {
-                return Optional.of(period);
-            }
-        }
-        return Optional.empty();
+        return RpgCommand.playerLeaf(
+                        "top",
+                        MessageKey.of("command.top.description"),
+                        PERMISSION,
+                        List.of(which, when),
+                        context -> {
+                            Player player = context.player().orElseThrow();
+                            Period period = context.find(when).orElse(Period.ALL_TIME);
+                            Arguments.BoardChoice choice =
+                                    context.find(which)
+                                            .orElse(
+                                                    new Arguments.BoardChoice(
+                                                            Aggregation.MOB_KILLS, false));
+                            if (choice.seasonScore()) {
+                                menus.openSeasonScore(player);
+                                return;
+                            }
+                            menus.openLeaderboard(player, choice.board(), period);
+                        })
+                .throttled(rateLimit);
     }
 }

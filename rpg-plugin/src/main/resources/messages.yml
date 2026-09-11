@@ -803,3 +803,71 @@ ui:
     attack-speed: 'Attack Speed'
     movement-speed: 'Movement Speed'
     ability-cooldown: 'Ability Cooldown'
+
+# ==============================================================================
+# B14 - Kommandos, Rechte & Admin-Werkzeuge
+# ==============================================================================
+# Was das GERUEST erzeugt, bevor ein Kommando ueberhaupt laeuft. Die Texte der
+# einzelnen Kommandos stehen weiter bei ihrem Block - der Umzug auf das Geruest
+# aendert an keiner Zeile davon etwas (FR-005).
+#
+# FR-004: eine Argumentmeldung nennt das betroffene ARGUMENT und den erlaubten
+# Bereich - sie wiederholt nicht die Nutzungszeile. Wer die schon vor sich hatte
+# und trotzdem falsch getippt hat, liest sie kein zweites Mal richtig.
+command:
+  # Die Beschreibungen der Kommandos. Sie stehen in der Serverhilfe und nicht vor einem Spieler -
+  # aber Prinzip V kennt keine Ausnahme fuer Betreibertext. Seit dem Umzug auf Brigadier liest
+  # ohnehin niemand mehr die description: aus plugin.yml (research.md §1).
+  char:
+    description: "Open your character sheet."
+
+  stats:
+    description: "Open your own record."
+
+  top:
+    description: "Open a leaderboard."
+
+  coins:
+    description: "Open the coin window, or change a balance."
+  coins.set:
+    description: "Set a character's balance."
+  coins.add:
+    description: "Add coins to a character."
+  coins.remove:
+    description: "Remove coins from a character."
+
+  xp:
+    description: "Give experience, take it away, or set a level."
+  xp.give:
+    description: "Give experience to a character."
+  xp.take:
+    description: "Take experience away from a character."
+  xp.set:
+    description: "Set a character to a level."
+
+  trash:
+    description: "Destroy the item in your hand for good, after a confirmation."
+
+  # Die Wurzel aller Betreiberwerkzeuge.
+  rpg:
+    description: "Operator tools."
+
+  error:
+    argument-missing: '&cMissing &f{argument}&c - expected {expected}.'
+    argument-invalid: '&cThe value &f{value}&c is not a valid {argument} - expected {expected}.'
+    # Eigener Schluessel, weil DER BEREICH die Antwort ist: "61 is not a valid
+    # level" hilft niemandem, "level goes from 1 to 60" schon.
+    argument-out-of-range: '&c{argument} must be between &f{min}&c and &f{max}&c - you gave &f{value}&c.'
+    unknown-player: '&cNo player named &f{name}&c.'
+    unknown-key: '&cUnknown key &f{key}&c.'
+    # Eine MELDUNG, keine Ausnahme im Log (FR-008). Eine Ausnahme saehe aus wie
+    # ein Fehler des Servers, obwohl der Betreiber nur etwas getippt hat, was
+    # von der Konsole nicht geht.
+    needs-player: '&cThat command needs a player. Run it in game.'
+    # Selten zu sehen: ohne Recht erscheint der Zweig gar nicht erst in der
+    # Vervollstaendigung (FR-014). Wer ihn volltippt, bekommt trotzdem eine
+    # Antwort - Schweigen liest sich wie ein kaputtes Kommando.
+    denied: '&cYou may not do that.'
+    # FR-032 verlangt ausdruecklich die Restzeit. Eine Sperrzeit ohne sie ist von
+    # einem defekten Kommando nicht zu unterscheiden.
+    rate-limited: '&cToo quick - try again in {seconds}s.'

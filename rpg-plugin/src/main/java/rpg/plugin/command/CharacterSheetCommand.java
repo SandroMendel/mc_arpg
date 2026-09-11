@@ -7,18 +7,16 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
 
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandExecutor;
-import org.bukkit.command.CommandSender;
-import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
+import rpg.core.message.MessageKey;
 import rpg.core.message.Messages;
 import rpg.core.ui.CharacterSheet;
 import rpg.core.ui.CharacterSheets;
 import rpg.core.ui.UiMessageKeys;
 import rpg.platform.ui.CharacterSheetListener;
 import rpg.platform.ui.CharacterSheetMenu;
+import rpg.plugin.command.framework.RpgCommand;
 
 /**
  * {@code /char} — öffnet die Übersicht des <b>aktiven</b> Charakters.
@@ -44,7 +42,7 @@ import rpg.platform.ui.CharacterSheetMenu;
  * Attribute es gibt, was ein Zustand ist, wann der Stand veraltet — liegt in {@code rpg-core} und
  * ist ohne Server geprüft. Was hier eine Regel bekommt, ist im falschen Modul.
  */
-public final class CharacterSheetCommand implements CommandExecutor, TabCompleter {
+public final class CharacterSheetCommand {
 
     /**
      * Das Recht.
@@ -73,19 +71,35 @@ public final class CharacterSheetCommand implements CommandExecutor, TabComplete
         this.messages = Objects.requireNonNull(messages, "messages");
     }
 
-    @Override
-    public boolean onCommand(
-            CommandSender sender, Command command, String label, String[] args) {
-        if (!(sender instanceof Player player)) {
-            // Von der Konsole ergibt es keinen Sinn: ein Inventar braucht jemanden, dem man es
-            // zeigen kann.
-            sender.sendMessage(messages.get(UiMessageKeys.SHEET_NO_CHARACTER, Map.of()));
-            return true;
-        }
+    /**
+     * Der Knoten für den Kommandobaum (T034).
+     *
+     * <p>Kein Argument — deshalb ist auch die {@code onTabComplete} verschwunden, die bisher eine
+     * leere Liste zurückgab, <em>um Bukkits Rückfall auf Spielernamen zu verhindern</em>. Der Baum
+     * kennt hier kein Argument, also gibt es nichts, worauf zurückgefallen werden könnte: die
+     * Methode war eine Vorkehrung gegen ein Verhalten, das es nicht mehr gibt.
+     *
+     * <p><b>Was der Umzug an der Konsole ändert:</b> bisher kam dort {@code ui.sheet.no-character}
+     * — „Pick a character first." Das ist die falsche Auskunft. Der Betreiber hat keinen Charakter
+     * und wird auch keinen wählen; das Kommando braucht schlicht einen Spieler, und
+     * {@link RpgCommand#playerLeaf} sagt genau das (FR-008). <b>Für einen Spieler ändert sich
+     * nichts</b> (FR-005).
+     */
+    public RpgCommand definition() {
+        return RpgCommand.playerLeaf(
+                "char",
+                MessageKey.of("command.char.description"),
+                PERMISSION,
+                List.of(),
+                context -> handle(context.player().orElseThrow()));
+    }
+
+    /** Der eigentliche Vorgang, ohne Bukkits Befehlsverpackung — so ist er prüfbar. */
+    public void handle(Player player) {
         Optional<UUID> characterId = characterOfPlayer.apply(player.getUniqueId());
         if (characterId.isEmpty()) {
             player.sendMessage(messages.get(UiMessageKeys.SHEET_NO_CHARACTER, Map.of()));
-            return true;
+            return;
         }
         Optional<CharacterSheet> sheet = sheets.of(characterId.get());
         if (sheet.isEmpty()) {
@@ -93,18 +107,9 @@ public final class CharacterSheetCommand implements CommandExecutor, TabComplete
             // und kein Fehler. Dieselbe Antwort wie ohne Charakter: Nullen, die wie echte Werte
             // aussehen, waeren schlimmer.
             player.sendMessage(messages.get(UiMessageKeys.SHEET_NO_CHARACTER, Map.of()));
-            return true;
+            return;
         }
         player.openInventory(menu.open(player.getUniqueId(), sheet.get()));
         listener.opened(player.getUniqueId());
-        return true;
-    }
-
-    @Override
-    public List<String> onTabComplete(
-            CommandSender sender, Command command, String alias, String[] args) {
-        // Leer und nicht null: null laesst Bukkit auf die Spielernamen zurueckfallen, und die
-        // waeren hier eine Vervollstaendigung fuer ein Argument, das es nicht gibt.
-        return List.of();
     }
 }

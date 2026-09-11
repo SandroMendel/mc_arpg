@@ -246,8 +246,14 @@ public final class ItemModule implements Module, Items {
         reloadListeners.add(Objects.requireNonNull(listener, "listener"));
     }
 
-    /** Vom Plugin nach einem erfolgreichen {@code reloadAll()} aufgerufen. */
-    public void notifyReloaded() {
+    /**
+     * Vom Plugin nach einem erfolgreichen {@code reloadAll()} aufgerufen.
+     *
+     * <p>Hieß bis B14 {@code notifyReloaded()} — als einziges der sechs Module. Wer die Reihe
+     * abarbeitete, übersah damit ausgerechnet das Modul, dessen Haken zusätzlich Zonen, Arten und
+     * Namen prüft. Umbenannt statt dokumentiert (T004, research.md §5).
+     */
+    public void applyReloadedConfig() {
         ItemConfig config = config();
         verifyZonesExist(config);
         verifyKindsExist(config);

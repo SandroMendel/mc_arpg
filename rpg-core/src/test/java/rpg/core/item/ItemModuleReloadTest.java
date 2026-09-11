@@ -58,7 +58,7 @@ class ItemModuleReloadTest {
         module.onReload(() -> told[0] = true);
 
         handle.set(configWith(80.0));
-        module.notifyReloaded();
+        module.applyReloadedConfig();
 
         assertThat(told[0]).isTrue();
     }

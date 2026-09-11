@@ -1,4 +1,4 @@
-package rpg.platform.item;
+package rpg.plugin.command;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -9,7 +9,9 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
@@ -47,8 +49,18 @@ import rpg.platform.classes.BoundItemFactory;
  */
 class TrashRefusesBoundEquipmentTest {
 
-    private static final Path ITEM_PACKAGE =
-            Path.of("src", "main", "java", "rpg", "platform", "item");
+    /**
+     * Die zwei Orte, an denen ein Entsorgungsweg heute wohnen kann.
+     *
+     * <p>Der Test lag bis B14 in {@code rpg-platform} und scannte nur das Item-Paket. Mit dem Umzug
+     * von {@code TrashCommand} nach {@code rpg.plugin.command} (T003) hätte ein Scan über das
+     * Item-Paket allein <b>genau die Klasse verloren, um die es geht</b> — er wäre grün geblieben,
+     * weil er nichts mehr findet. Deshalb beide Wurzeln.
+     */
+    private static final List<Path> DISPOSAL_ROOTS =
+            List.of(
+                    Path.of("..", "rpg-platform", "src", "main", "java", "rpg", "platform", "item"),
+                    Path.of("src", "main", "java", "rpg", "plugin", "command"));
 
     private final AtomicLong now = new AtomicLong(1_000_000L);
 
@@ -184,26 +196,31 @@ class TrashRefusesBoundEquipmentTest {
     @Test
     @DisplayName("KEINE Klasse dieses Blocks entscheidet die Bindung selbst")
     void nothingHereDecidesTheBindingItself() throws IOException {
-        try (var sources = Files.walk(ITEM_PACKAGE)) {
-            var offenders =
-                    sources.filter(path -> path.toString().endsWith(".java"))
-                            .filter(
-                                    path -> {
-                                        try {
-                                            String code = codeOnly(Files.readString(path));
-                                            return code.contains("class_bound")
-                                                    || code.contains("BoundEquipment.tagFor(");
-                                        } catch (IOException failure) {
-                                            throw new IllegalStateException(failure);
-                                        }
-                                    })
-                            .map(path -> path.getFileName().toString())
-                            .toList();
-
-            assertThat(offenders)
-                    .as("alle drei Entsorgungswege fragen B07 - keiner entscheidet selbst (FR-079)")
-                    .isEmpty();
+        List<String> offenders = new ArrayList<>();
+        for (Path root : DISPOSAL_ROOTS) {
+            assertThat(root)
+                    .as("der Scan ist nur so viel wert wie der Ort, den er findet")
+                    .exists();
+            try (var sources = Files.walk(root)) {
+                sources.filter(path -> path.toString().endsWith(".java"))
+                        .filter(
+                                path -> {
+                                    try {
+                                        String code = codeOnly(Files.readString(path));
+                                        return code.contains("class_bound")
+                                                || code.contains("BoundEquipment.tagFor(");
+                                    } catch (IOException failure) {
+                                        throw new IllegalStateException(failure);
+                                    }
+                                })
+                        .map(path -> path.getFileName().toString())
+                        .forEach(offenders::add);
+            }
         }
+
+        assertThat(offenders)
+                .as("alle drei Entsorgungswege fragen B07 - keiner entscheidet selbst (FR-079)")
+                .isEmpty();
     }
 
     // --- Hilfsmittel ---------------------------------------------------------------
