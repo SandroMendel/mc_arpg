@@ -86,18 +86,21 @@ class CommandsRegisteredThroughFrameworkTest {
     @Test
     @DisplayName("die Kommandos kommen ALLE aus einer Sammelstelle in RpgPlugin")
     void everyCommandGoesThroughTheOneCollector() throws IOException {
-        // registerCommand(...) sammelt, registerDeclaredCommands() meldet an. Wer ein Kommando
-        // anders in den Baum bekommt, umgeht die Stelle, an der /rpg dazugehaengt wird - und sein
-        // Kommando fehlte dann in declaredCommandsForTest(), also auch im Sammelbeweis fuer
-        // FR-005.
+        // Die beiden Sammler liefern die Spielerkommandos und die Admin-Gruppen; erst
+        // registerDeclaredCommands() komponiert daraus den einen Baum. Wer einen anderen Weg
+        // nimmt, umgeht die Stelle, an der /rpg dazugehaengt wird.
         String plugin =
                 Files.readString(SOURCES.resolve("rpg/plugin/RpgPlugin.java"), StandardCharsets.UTF_8);
 
         long collected = plugin.split("registerCommand\\(", -1).length - 1;
+        long collectedAdmin = plugin.split("registerAdminCommand\\(", -1).length - 1;
 
         assertThat(collected)
-                .as("sechs Kommandos plus die Methodendeklaration selbst")
+                .as("sechs Spielerkommandos plus die Methodendeklaration selbst")
                 .isEqualTo(7);
+        assertThat(collectedAdmin)
+                .as("eine Admin-Gruppe plus die Methodendeklaration selbst")
+                .isEqualTo(2);
     }
 
     // --- Aufbau ---------------------------------------------------------------

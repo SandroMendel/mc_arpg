@@ -241,11 +241,11 @@ Admin-Kommando weder sichtbar noch ausführbar.
 **Independent Test**: Jede Vorlage aus `items.yml` vergeben und mit einem erbeuteten Exemplar
 vergleichen (quickstart 11–15).
 
-- [ ] T056 [US3] `ItemGiveCommand` in `rpg-plugin/.../command/admin/ItemGiveCommand.java` — `/rpg item give <Spieler> <Vorlage> [Menge]` über `ItemStackFactory.create(templateKey, amount)` (FR-015)
-- [ ] T057 [US3] Volles Inventar über B11s vorhandene Regel behandeln (B11 US7) statt eine eigene zu erfinden (FR-017)
-- [ ] T058 [US3] Unbekannte Vorlage: leeres `Optional` aus `create` in eine Meldung übersetzen, die den Schlüssel nennt (FR-015)
-- [ ] T059 [US3] Audit-Eintrag `item_granted` über `AdminAudit` schreiben (FR-028)
-- [ ] T060 [P] [US3] `ItemGiveTest` in `rpg-plugin/src/test/java/rpg/plugin/command/admin/ItemGiveTest.java` — vergebener Gegenstand ist von einem erbeuteten nicht zu unterscheiden (FR-016); volles Inventar verliert nichts; unbekannter Schlüssel bricht ab
+- [X] T056 [US3] `ItemGiveCommand` in `rpg-plugin/.../command/admin/ItemGiveCommand.java` — `/rpg item give <Spieler> <Vorlage> [Menge]` über `ItemStackFactory.create(templateKey, amount)` (FR-015)
+- [X] T057 [US3] Volles Inventar über B11s vorhandene Regel behandeln (B11 US7) statt eine eigene zu erfinden (FR-017)
+- [X] T058 [US3] Unbekannte Vorlage: leeres `Optional` aus `create` in eine Meldung übersetzen, die den Schlüssel nennt (FR-015)
+- [X] T059 [US3] Audit-Eintrag `item_granted` über `AdminAudit` schreiben (FR-028)
+- [X] T060 [P] [US3] `ItemGiveTest` in `rpg-plugin/src/test/java/rpg/plugin/command/admin/ItemGiveTest.java` — vergebener Gegenstand ist von einem erbeuteten nicht zu unterscheiden (FR-016); volles Inventar verliert nichts; unbekannter Schlüssel bricht ab
 - [ ] T061 [US3] quickstart 11–15 auf dem echten Server — dabei die Zeit stoppen: ein beliebiger Gegenstand muss in **unter zehn Sekunden** in der Hand eines Spielers sein, ohne Kampf, Händler oder Neustart (SC-003)
 
 ---

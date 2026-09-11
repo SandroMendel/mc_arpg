@@ -145,6 +145,10 @@ public class RpgPlugin extends JavaPlugin {
     private final List<rpg.plugin.command.framework.RpgCommand> declaredCommands =
             new ArrayList<>();
 
+    /** Admin command groups that are composed below the single {@code /rpg} root. */
+    private final List<rpg.plugin.command.framework.RpgCommand> declaredAdminCommands =
+            new ArrayList<>();
+
     private final BootstrapState bootstrapState = new BootstrapState();
 
     /**
@@ -497,6 +501,11 @@ public class RpgPlugin extends JavaPlugin {
         declaredCommands.add(command);
     }
 
+    /** Nimmt eine Admin-Gruppe in den {@code /rpg}-Baum auf. */
+    private void registerAdminCommand(rpg.plugin.command.framework.RpgCommand command) {
+        declaredAdminCommands.add(command);
+    }
+
     /**
      * Was dieser Start deklariert hat — <b>für Tests, und mit einer ausdrücklichen Grenze</b>.
      *
@@ -510,7 +519,9 @@ public class RpgPlugin extends JavaPlugin {
      * kann nur der echte Server, und dafür gibt es quickstart §5.
      */
     java.util.List<rpg.plugin.command.framework.RpgCommand> declaredCommandsForTest() {
-        return List.copyOf(declaredCommands);
+        List<rpg.plugin.command.framework.RpgCommand> all = new ArrayList<>(declaredCommands);
+        rpg.plugin.command.admin.RpgRootCommand.of(declaredAdminCommands).ifPresent(all::add);
+        return List.copyOf(all);
     }
 
     /**
@@ -527,8 +538,7 @@ public class RpgPlugin extends JavaPlugin {
      * „unvollständig" antwortet.
      */
     private void registerDeclaredCommands() {
-        List<rpg.plugin.command.framework.RpgCommand> all = new ArrayList<>(declaredCommands);
-        rpg.plugin.command.admin.RpgRootCommand.of(List.of()).ifPresent(all::add);
+        List<rpg.plugin.command.framework.RpgCommand> all = new ArrayList<>(declaredCommandsForTest());
 
         if (all.isEmpty()) {
             return;
@@ -620,6 +630,7 @@ public class RpgPlugin extends JavaPlugin {
         declared.addAll(rpg.core.ui.UiMessageKeys.all());
         // B14: die Meldungen des Kommandogeruests (T041). Ab hier prueft der Start auch sie.
         declared.addAll(rpg.plugin.command.CommandMessageKeys.all());
+        declared.addAll(rpg.plugin.command.admin.ItemGiveMessageKeys.all());
         MessageKeyValidator.verifyAllPresent(loaded, declared);
 
         getLogger()
@@ -3166,6 +3177,19 @@ public class RpgPlugin extends JavaPlugin {
         // unsichtbar, waehrend beide Schloesser weiter passen - unsichtbar aber aufsammelbar ist
         // das Schlechteste von beidem. Dieselbe Falle, die B08b fuer Coin-Haufen gefunden hat.
         itemDropVisibility = dropRegistry;
+
+        registerAdminCommand(
+                new rpg.plugin.command.admin.ItemGiveCommand(
+                                getServer(),
+                                itemModule,
+                                itemFactory,
+                                drops,
+                                this::activeCharacterOf,
+                                new rpg.plugin.command.framework.AdminAudit(
+                                        registry.getService(rpg.core.persistence.AuditLogRepository.class),
+                                        Clock.systemUTC()),
+                                messages)
+                        .definition());
 
         wireConsumables(stats, itemFactory);
         wireVendors(itemFactory);

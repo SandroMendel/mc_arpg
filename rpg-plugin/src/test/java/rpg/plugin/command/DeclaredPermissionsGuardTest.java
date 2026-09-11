@@ -110,7 +110,6 @@ class DeclaredPermissionsGuardTest {
                         "rpg.admin.inspect.statistics",
                         "rpg.admin.inspect.inventory",
                         "rpg.admin.inspect.session",
-                        "rpg.admin.item.give",
                         "rpg.admin.mob.spawn",
                         "rpg.admin.set.class",
                         "rpg.admin.reload",
