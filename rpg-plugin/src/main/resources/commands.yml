@@ -1,0 +1,46 @@
+# B14 - Kommandos, Rechte & Admin-Werkzeuge.
+#
+# WARUM DIESE DATEI UND NICHT config.yml: tasks.md T006 nannte eine config.yml fuer die
+# Sperrzeiten. Die gibt es in diesem Projekt nicht - jeder Block bringt seine eigene YAML mit
+# (abilities.yml, items.yml, mobs.yml, statistics.yml, ui.yml ...), und eine Sammeldatei waere
+# die einzige Ausnahme davon. Also folgt B14 der Reihe.
+#
+# Der RECHTEBAUM steht NICHT hier, sondern im permissions:-Block von plugin.yml (FR-010). Bukkit
+# erwartet ihn dort, und nur dort bedient ihn jedes Rechte-Plugin ohne eine neue Abhaengigkeit
+# (FR-011). Zwei Orte fuer Rechte waeren zwei Wahrheiten.
+
+# Sperrzeit je Absender fuer Kommandos, die eine Datenbankabfrage ausloesen (FR-032).
+#
+# WOGEGEN DAS SCHUETZT: nicht gegen Boshaftigkeit, sondern gegen die gehaltene Eingabetaste. Eine
+# Rangliste fragt echte Zeilen ab; zwanzig Aufrufe in zwei Sekunden sind zwanzig Abfragen, und die
+# laufen, waehrend der Server Spieler bedienen soll.
+#
+# DIE ABLEHNUNG NENNT DIE RESTZEIT (command.error.rate-limited). Das ist keine Hoeflichkeit: eine
+# Sperrzeit, die nur schweigt, ist von einem defekten Kommando nicht zu unterscheiden.
+#
+# Gerechnet wird LAZY aus einem Zeitstempel je Absender, wie bei den Cooldowns - es gibt keine
+# wiederkehrende Aufgabe und keine Sammlung ueber alle Spieler (Constitution II).
+#
+# 0 schaltet die Sperre fuer ein Kommando ab. Ein Kommando, das hier fehlt, hat keine.
+rate-limit:
+  # Die Voreinstellung fuer alles, was die Datenbank befragt und hier nicht eigens genannt ist.
+  default-seconds: 3
+
+  # Je Kommando, wo die Voreinstellung nicht passt. Der Schluessel ist der Kommandoname ohne
+  # Schraegstrich; bei Unterkommandos der Pfad mit Punkten (rpg.audit).
+  per-command:
+    # Zwei Ranglistenabfragen, beide mit echten Zeilen dahinter.
+    top: 3
+    stats: 3
+
+    # Das Audit-Log liest einen Zeitraum, nicht eine Zeile - die teuerste Abfrage, die B14 kennt.
+    rpg.audit: 10
+
+    # Fremde Spielerdaten ansehen: eine Abfrage je Aufruf, und der Betreiber tippt dabei Namen.
+    rpg.inspect: 3
+
+    # KEINE Sperrzeit: /char, /trash und /coins ohne Argument lesen den geladenen Zustand aus dem
+    # Speicher, nicht die Datenbank. Eine Sperre waere hier Reibung ohne Gegenwert - und FR-032
+    # verlangt sie ausdruecklich nur fuer das, was eine Abfrage ausloest.
+    char: 0
+    trash: 0

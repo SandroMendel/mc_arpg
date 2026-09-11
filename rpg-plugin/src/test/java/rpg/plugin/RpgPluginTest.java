@@ -34,6 +34,11 @@ class RpgPluginTest {
         rpg.persistence.support.PostgresContainer.resetSchema();
         server = MockBukkit.mock();
         TestServerSetup.useTestDatabase();
+        // A world has to exist before the plugin enables - the same line and the same reason
+        // FullBootstrapTest already carries. B09 made it load-bearing: a zone is (worldId, geometry),
+        // so `zones.yml` naming a world that does not exist refuses the start (FR-002a). On a real
+        // server Paper has loaded the worlds long before onEnable; a mock server has to be told.
+        server.addSimpleWorld("world");
         plugin = MockBukkit.load(RpgPlugin.class);
     }
 

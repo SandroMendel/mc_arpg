@@ -1,0 +1,334 @@
+# B11 - Items, Ausruestung & Loot.
+#
+# Was ein Gegenstand ist, steht vollstaendig hier. Eine neue Vorlage entsteht durch Bearbeiten
+# dieser Datei und einen Neustart, ohne eine Zeile Java (SC-002). Kein Bezeichner einer einzelnen
+# Vorlage kommt im Code vor - ConfigOnlyItemTest erzwingt das.
+#
+# AUSRUESTUNG STEHT NICHT HIER. Ruestung und Waffe sind seit ADR-017 Klassenprogression: je Klasse
+# eine feste Leiter mit festen Werten in classes.yml, geliefert von B07. Eine Beutetabelle oder ein
+# Haendlerbestand, der eine Ausruestungskennung nennt, nennt eine Vorlage, die es nicht gibt - und
+# der Start bricht ab (FR-024).
+#
+# Und: ein Item speichert die Vorlagen-ID und sonst nichts. Keine berechneten Endwerte, kein
+# gerendertes Lore (ADR-004 in der Fassung von ADR-027). Wer hier eine Zahl aendert und neu laedt,
+# aendert damit JEDES vorhandene Exemplar in JEDEM Inventar - ohne dass ein Inventar angefasst
+# wird. Das ist der Zweck der ganzen Bauweise (SC-001).
+
+# -------------------------------------------------------------------------------------------
+# Inventar.
+#
+# Nur eine Zahl, und sie gehoert hierher, weil ADR-018 das Fallenlassen abschaltet: ein volles
+# Inventar ist damit ein Zustand, aus dem der Spieler sich aktiv befreien muss - ueber Enderchest,
+# Haendler oder /trash. Die Warnung ist das Einzige, was ihm das sagt.
+#
+# Weglassen ist erlaubt. Fehlt der Abschnitt, gilt eine Viertelminute - dieselbe Zahl, die B07
+# vorher fest im Quelltext hatte.
+# -------------------------------------------------------------------------------------------
+inventory:
+  # Wie lange nach einer Warnung geschwiegen wird (FR-076). Wer auf einem Haufen Beute steht,
+  # loest das Aufsammel-Ereignis mehrmals je Sekunde aus; ohne diese Zahl waere die Warnung eine
+  # Wand aus Titeln, und Prinzip II verboete die Arbeit ohnehin.
+  full-warning-cooldown-ms: 15000
+
+# -------------------------------------------------------------------------------------------
+# Verschleiss.
+#
+# Ausruestung zerbricht NIE. B07 haelt sie unzerstoerbar, ausdruecklich mit der Begruendung, dass
+# eine zerbrochene Waffe den Krieger waffenlos zuruecklaesst - die Leiter ist die einzige
+# Waffenquelle. Stattdessen sinkt ihr BEITRAG mit dem Zustand (FR-038, FR-047, ADR-039).
+# -------------------------------------------------------------------------------------------
+wear:
+  # Oberhalb dieses Zustands traegt die Ausruestung ihren vollen Wert. Leichter Verschleiss kostet
+  # nichts - sonst waere jeder Kratzer sofort spuerbar und Reparatur eine Dauerbeschaeftigung.
+  threshold: 50.0
+  # Was bei Zustand 0 uebrig bleibt: ein Fuenftel. Also bis zu 80 % Wirkungsverlust.
+  # Bei den Werten hier: Zustand 50 -> 1,00 · 25 -> 0,60 · 10 -> 0,36 · 0 -> 0,20.
+  floor: 0.20
+
+  # Zustandspunkte je Schadenspunkt.
+  #
+  # Die RUESTUNG nutzt sich am ERLITTENEN Schaden ab, und zwar VOR der Abwehr gemessen (FR-040a).
+  # Am durchgekommenen Schaden gemessen entstuende eine Abwaertsspirale: verschlissene Ruestung
+  # laesst mehr durch, das nutzt sie schneller ab, das laesst noch mehr durch. Und gute Ruestung
+  # waere doppelt belohnt - weniger Schaden UND langsamerer Verschleiss.
+  per-damage-taken: 0.01
+  # Die WAFFE nutzt sich am AUSGETEILTEN Schaden ab - aber nur aus Autoattacks (MELEE, PROJECTILE).
+  # Faehigkeitsschaden schont sie, und ein beschworener Klon nutzt gar nichts ab (FR-041, FR-041a).
+  # Das ist es, was die Trennung der beiden Werte ueberhaupt spuerbar macht: ein Magier, der ueber
+  # Faehigkeiten kaempft, repariert seltener als ein Krieger, der zuschlaegt.
+  per-damage-dealt: 0.01
+  # Der Tod, auf BEIDE Werte. Zehn Tode fuehren von voll auf null, fuenf bis zur Schwelle.
+  per-death: 10.0
+  # Der Start weist eine Konfiguration zurueck, in der per-death kleiner ist als die groessere
+  # Schadensrate mal diesem Faktor (FR-044).
+  #
+  # Warum das eine Startpruefung ist und keine Zahlenwahl: die Todesstrafe aus ADR-017 ist die
+  # einzige, die dieses Projekt kennt, und sie haengt seit ADR-039 an einem Zahlenverhaeltnis. Ein
+  # Zahlenverhaeltnis laesst sich in einer YAML-Datei umdrehen, ohne dass irgendetwas kaputtgeht:
+  # der Server startet, alles funktioniert, und der Tod kostet weniger als drei Treffer. Genau
+  # solche Verstoesse fallen erst Monate spaeter auf.
+  death-factor-min: 100
+
+  # Gewarnt wird beim Unterschreiten, hoechstens einmal je Schwelle und Ruhezeit - nicht bei jedem
+  # Treffer (FR-051).
+  warn-at: [50.0, 25.0, 10.0]
+  warn-cooldown-ms: 60000
+
+# -------------------------------------------------------------------------------------------
+# Reparatur. Der Kontostand liegt in B08b, die Preise bei dem, der sie verlangt (ADR-027).
+# -------------------------------------------------------------------------------------------
+repair:
+  # Voller Preis je Stufe bei Zustand 0; er sinkt linear mit dem fehlenden Anteil (FR-053). Eine
+  # Reparatur bei Zustand 99 kostet ein Hundertstel einer bei Zustand 0 - sonst waere es guenstiger,
+  # die Ausruestung erst herunterkommen zu lassen.
+  #
+  # Sechs Eintraege fuer sechs Stufen, dieselbe Laenge wie die Leitern in classes.yml.
+  base-per-tier: [0, 40, 120, 400, 1200, 3000]
+
+# -------------------------------------------------------------------------------------------
+# Vorlagen. ZWEI Kategorien - mehr gibt es nicht (FR-017).
+#
+# "Aufstiegsmaterial" entfaellt: der Aufstieg kostet Level und Coins, beides steht in classes.yml
+# und wird von B08bs EquipmentPurchase geprueft (ADR-039).
+#
+# Die Raritaet ist ein ETIKETT. Ein epischer Trank heilt nicht mehr als ein gewoehnlicher; er ist
+# seltener (FR-014, ADR-027). Wer hier einen Wertaufschlag je Stufe einbaut, holt genau die
+# Wertebereiche zurueck, die ADR-027 abgeschafft hat - RarityHasNoEffectTest sieht danach.
+# -------------------------------------------------------------------------------------------
+templates:
+
+  # --- Verbrauchbares -----------------------------------------------------------------------
+
+  # HEILTRAENKE WERDEN GEWORFEN, nicht getrunken (SPLASH_POTION).
+  #
+  # Ein Trank, den man nur selbst trinkt, hilft in einer Gruppe genau einem. Geworfen hilft er
+  # allen, die im Radius stehen - und macht aus dem Heiltrank eine Entscheidung, wohin man ihn
+  # wirft, statt einer Taste, die man drueckt.
+  #
+  # Das Material ist die einzige Wahrheit darueber: ThrownConsumables liest es, und Vanilla wirft.
+  # Ein zusaetzlicher Schluessel splash: true waere eine zweite Wahrheit, die der ersten
+  # widersprechen koennte.
+  #
+  # Manatraenke bleiben POTION: sie wirken auf den, der sie braucht, und das ist der Traeger.
+  potion.minor-healing:
+    category: CONSUMABLE
+    material: 'SPLASH_POTION'
+    rarity: COMMON
+    sell-price: 3
+    effect:
+      heal: 40.0
+      cooldown-ms: 8000
+
+  potion.healing:
+    category: CONSUMABLE
+    material: 'SPLASH_POTION'
+    rarity: UNCOMMON
+    sell-price: 14
+    min-level: 15
+    effect:
+      heal: 140.0
+      cooldown-ms: 8000
+
+  potion.greater-healing:
+    category: CONSUMABLE
+    material: 'SPLASH_POTION'
+    rarity: RARE
+    sell-price: 60
+    min-level: 35
+    effect:
+      heal: 420.0
+      cooldown-ms: 8000
+
+  potion.lesser-mana:
+    category: CONSUMABLE
+    material: 'POTION'
+    rarity: COMMON
+    sell-price: 3
+    min-level: 5
+    effect:
+      mana: 30.0
+      cooldown-ms: 8000
+
+  potion.mana:
+    category: CONSUMABLE
+    material: 'POTION'
+    rarity: UNCOMMON
+    sell-price: 16
+    min-level: 25
+    effect:
+      mana: 110.0
+      cooldown-ms: 8000
+
+  potion.stoneskin:
+    category: CONSUMABLE
+    material: 'SPLASH_POTION'
+    rarity: RARE
+    sell-price: 45
+    min-level: 20
+    effect:
+      # Ueber SourceKind.BUFF, zeitstempelbasiert ausgewertet - keine wiederkehrende Aufgabe
+      # (FR-034, Prinzip II). B11 fuehrt dafuer KEINE eigene Buff-Verwaltung ein.
+      buff: { defense: 12.0 }
+      duration-ms: 45000
+      cooldown-ms: 120000
+
+  potion.fury:
+    category: CONSUMABLE
+    material: 'SPLASH_POTION'
+    rarity: EPIC
+    sell-price: 180
+    min-level: 40
+    effect:
+      buff: { physical_damage: 18.0, attack_speed: 0.15 }
+      duration-ms: 30000
+      cooldown-ms: 180000
+
+  # --- Kosmetik -----------------------------------------------------------------------------
+  #
+  # Der Grindfaktor nach Stufe 60. Anwendbar ERST auf der Hoechststufe der Leiter (FR-069):
+  # in classes.yml unterscheiden sich Schurkenstufe 4, 5 und 6 NUR durch den Trim (dreimal
+  # CHAINMAIL), und Kriegerstufe 5 von 6 ebenso. Ein frei anwendbarer Trim machte sie optisch
+  # ununterscheidbar, was B07s FR-016 verbietet. Gekauft werden kann eine Farbe jederzeit; keine
+  # einzelne traegt eine eigene Levelhuerde.
+
+  trim.ember:
+    category: COSMETIC
+    material: 'NETHERITE_UPGRADE_SMITHING_TEMPLATE'
+    rarity: LEGENDARY
+    sell-price: 0
+    appearance:
+      trim-material: 'REDSTONE'
+      trim-pattern: 'RAISER'
+
+  trim.frost:
+    category: COSMETIC
+    material: 'NETHERITE_UPGRADE_SMITHING_TEMPLATE'
+    rarity: LEGENDARY
+    sell-price: 0
+    appearance:
+      trim-material: 'DIAMOND'
+      trim-pattern: 'SNOUT'
+
+  trim.verdant:
+    category: COSMETIC
+    material: 'NETHERITE_UPGRADE_SMITHING_TEMPLATE'
+    rarity: MYTHIC
+    sell-price: 0
+    appearance:
+      trim-material: 'EMERALD'
+      trim-pattern: 'WILD'
+
+# -------------------------------------------------------------------------------------------
+# Beutetabellen. Je Art, sonst je Region; der Boss hat seine eigene (FR-018, FR-023).
+#
+# Vanillas eigene Drops sind BEREITS unterdrueckt - B05s CombatDeathListener raeumt getDrops() und
+# setzt setDroppedExp(0) (research.md R3). Hier steht, was STATTDESSEN faellt.
+#
+# Die Stueckzahl ist der EINZIGE Zufall in diesem Block. Die Werte des gefallenen Gegenstands sind
+# fest, weil sie aus der Vorlage kommen (FR-021, ADR-027).
+#
+# Und: gefallene Beute gehoert GENAU EINEM Charakter - dem groessten Beitragenden, nicht dem
+# letzten Treffer (FR-026, B05s lootRecipient). Nur er sieht sie, nur er hebt sie auf. In einer
+# Party wandert sie reihum, je gefallenem Gegenstand (FR-026b).
+# -------------------------------------------------------------------------------------------
+loot:
+
+  # Gilt fuer jede Art der Region, die keine eigene Tabelle hat.
+  by-zone:
+    greenfields:
+      - { template: 'potion.minor-healing', chance: 0.08, min: 1, max: 1 }
+      - { template: 'potion.lesser-mana',   chance: 0.05, min: 1, max: 1 }
+    dustlands:
+      - { template: 'potion.minor-healing', chance: 0.10, min: 1, max: 2 }
+      - { template: 'potion.lesser-mana',   chance: 0.07, min: 1, max: 1 }
+    safari-plains:
+      - { template: 'potion.healing', chance: 0.09, min: 1, max: 2 }
+      - { template: 'potion.mana',    chance: 0.06, min: 1, max: 1 }
+    terracotta-canyons:
+      - { template: 'potion.healing',   chance: 0.11, min: 1, max: 2 }
+      - { template: 'potion.stoneskin', chance: 0.03, min: 1, max: 1 }
+    darkforest:
+      - { template: 'potion.greater-healing', chance: 0.08, min: 1, max: 1 }
+      - { template: 'potion.mana',            chance: 0.08, min: 1, max: 2 }
+    pale-wilds:
+      - { template: 'potion.greater-healing', chance: 0.12, min: 1, max: 2 }
+      - { template: 'potion.fury',            chance: 0.04, min: 1, max: 1 }
+
+  # Gewinnt gegen die Regionstabelle. Zwei Arten auf derselben Vanilla-Basis lassen damit
+  # unterschiedliche Beute fallen - nach ART, nicht nach Basistyp (FR-020). Dieselbe Zusage, die
+  # B10 fuer Werte, Erfahrung und Coins gibt.
+  by-kind:
+    greenfields.rotling:
+      - { template: 'potion.minor-healing', chance: 0.12, min: 1, max: 1 }
+    greenfields.wight-of-the-hedge:
+      - { template: 'potion.minor-healing', chance: 0.20, min: 1, max: 2 }
+      - { template: 'potion.stoneskin',     chance: 0.02, min: 1, max: 1 }
+
+  # Getrennt von der Region, und OHNE Rueckfall auf sie: ein Boss ohne eigene Tabelle laesst
+  # nichts fallen, statt die Ausbeute eines gewoehnlichen Gegners zu liefern (FR-023).
+  by-boss:
+    greenfields.warden-of-the-field:
+      - { template: 'potion.healing',   chance: 0.60, min: 1, max: 2 }
+      - { template: 'potion.stoneskin', chance: 0.25, min: 1, max: 1 }
+    dustlands.dune-warlord:
+      - { template: 'potion.healing',   chance: 0.60, min: 2, max: 3 }
+      - { template: 'potion.stoneskin', chance: 0.35, min: 1, max: 1 }
+    safari-plains.savanna-overlord:
+      - { template: 'potion.greater-healing', chance: 0.50, min: 1, max: 2 }
+      - { template: 'potion.mana',            chance: 0.40, min: 1, max: 2 }
+    terracotta-canyons.canyon-warden:
+      - { template: 'potion.greater-healing', chance: 0.60, min: 1, max: 2 }
+      - { template: 'potion.fury',            chance: 0.20, min: 1, max: 1 }
+    darkforest.gloom-sovereign:
+      - { template: 'potion.greater-healing', chance: 0.70, min: 2, max: 3 }
+      - { template: 'potion.fury',            chance: 0.30, min: 1, max: 1 }
+      - { template: 'trim.frost',             chance: 0.02, min: 1, max: 1 }
+    pale-wilds.pale-sovereign:
+      - { template: 'potion.greater-healing', chance: 0.80, min: 2, max: 4 }
+      - { template: 'potion.fury',            chance: 0.45, min: 1, max: 2 }
+      - { template: 'trim.ember',             chance: 0.03, min: 1, max: 1 }
+      - { template: 'trim.verdant',           chance: 0.01, min: 1, max: 1 }
+
+# -------------------------------------------------------------------------------------------
+# Die sechs Haendler. Einer je Region im Safe-Core; sie kaufen an, verkaufen, reparieren und
+# fuehren den Stufenaufstieg durch (FR-057).
+#
+# Hier steht nur, was ein Haendler VERKAUFT. Was er ANKAUFT, steht als sell-price an der Vorlage
+# (FR-016) - sonst gaebe es sechs Orte fuer denselben Betrag, und beim naechsten Balancing wuerde
+# einer davon vergessen.
+#
+# Das Angebot skaliert mit der Region: Greenfields fuehrt anderes als die Pale Wilds. Reisen lohnt
+# sich, und niemand muss quer ueber die Karte, um einen Trank loszuwerden.
+# -------------------------------------------------------------------------------------------
+vendors:
+  greenfields:
+    stock:
+      - { template: 'potion.minor-healing', price: 12 }
+      - { template: 'potion.lesser-mana',   price: 12 }
+  dustlands:
+    stock:
+      - { template: 'potion.minor-healing', price: 12 }
+      - { template: 'potion.lesser-mana',   price: 12 }
+      - { template: 'potion.healing',       price: 55 }
+  safari-plains:
+    stock:
+      - { template: 'potion.healing', price: 55 }
+      - { template: 'potion.mana',    price: 60 }
+  terracotta-canyons:
+    stock:
+      - { template: 'potion.healing',   price: 55 }
+      - { template: 'potion.mana',      price: 60 }
+      - { template: 'potion.stoneskin', price: 180 }
+  darkforest:
+    stock:
+      - { template: 'potion.greater-healing', price: 220 }
+      - { template: 'potion.mana',            price: 60 }
+      - { template: 'potion.stoneskin',       price: 180 }
+  pale-wilds:
+    stock:
+      - { template: 'potion.greater-healing', price: 220 }
+      - { template: 'potion.fury',            price: 700 }
+      # Der Endgame-Grind steht dort, wo das Endgame ist.
+      - { template: 'trim.ember',   price: 25000 }
+      - { template: 'trim.frost',   price: 25000 }
+      - { template: 'trim.verdant', price: 60000 }

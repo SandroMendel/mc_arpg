@@ -37,25 +37,33 @@ Querschnitt: B15 Performance/Observability · B16 Content-Config
 
 ## Blockübersicht
 
-| ID | Block | Schicht | Hängt ab von |
-|---|---|---|---|
-| B01 | Core & Plattform | 0 | — |
-| B02 | Persistenz-Layer | 0 | B01 |
-| B03 | Spieler-Session & Datenlebenszyklus | 0 | B01, B02 |
-| B04 | Attribut- & Stat-Engine | 1 | B01, B03 |
-| B05 | Kampf- & Schadens-Pipeline | 1 | B04 |
-| B06 | Progression (XP/Level) | 1 | B03, B04 |
-| B07 | Klassen-System | 1 | B04, B06 |
-| B08 | Fähigkeiten-Framework | 1 | B04, B05, B07 |
-| B09 | Zonen & Regionen | 2 | B01 |
-| B10 | Mobs & Horden-Spawning | 2 | B04, B05, B09 |
-| B11 | Items, Ausrüstung & Loot | 2 | B04, B09, B10 |
-| B12 | Statistiken & Leaderboards | 3 | B02, B05, B06 |
-| B13 | UI, HUD & Texte | 3 | B04, B08, B09 |
-| B14 | Commands, Permissions, Admin | 3 | alle |
-| B15 | Performance & Observability | quer | B01 |
-| B16 | Content-Konfiguration & Balancing | quer | B01 |
-| B17 | Test & Deployment | quer | B01 |
+**Stand** heißt: gebaut, verdrahtet und mit grünem `FullBootstrapTest` — nicht „Modultests grün".
+Der Unterschied ist in diesem Projekt schon zweimal aufgefallen.
+
+| ID | Block | Schicht | Hängt ab von | Stand |
+|---|---|---|---|---|
+| B01 | Core & Plattform | 0 | — | gebaut |
+| B02 | Persistenz-Layer | 0 | B01 | gebaut |
+| B03 | Spieler-Session & Datenlebenszyklus | 0 | B01, B02 | gebaut |
+| B04 | Attribut- & Stat-Engine | 1 | B01, B03 | gebaut |
+| B05 | Kampf- & Schadens-Pipeline | 1 | B04 | gebaut |
+| B06 | Progression (XP/Level) | 1 | B03, B04 | gebaut |
+| B07 | Klassen-System | 1 | B04, B06 | gebaut |
+| B08 | Fähigkeiten-Framework | 1 | B04, B05, B07 | gebaut |
+| B08b | Währung & Kontostand | 1 | B03, B04 | gebaut |
+| B09 | Zonen & Regionen | 2 | B01 | gebaut |
+| B10 | Mobs & Horden-Spawning | 2 | B04, B05, B09 | gebaut |
+| B11 | Items, Ausrüstung & Loot | 2 | B03, B04, B05, B06, B07, B08b, B09, B10 | gebaut, Serverabnahme offen |
+| B12 | Statistiken & Leaderboards | 3 | B02, B05, B06 | gebaut, Serverabnahme offen |
+| B13 | UI, HUD & Texte | 3 | B04, B08, B09 | offen |
+| B14 | Commands, Permissions, Admin | 3 | alle | offen |
+| B15 | Performance & Observability | quer | B01 | offen |
+| B16 | Content-Konfiguration & Balancing | quer | B01 | offen |
+| B17 | Test & Deployment | quer | B01 | offen |
+
+> B08b ist nachträglich entstanden und stand bisher nur in den Abhängigkeiten von B11, nicht als
+> eigene Zeile. Er ist hier ergänzt: ein Block, auf den andere verweisen, der aber in der
+> Übersicht fehlt, ist beim Lesen ein Tippfehler und keine Entscheidung.
 
 ## Modul-/Projektstruktur (Vorschlag)
 
@@ -72,16 +80,34 @@ Abhängigkeitsrichtung strikt: `plugin → platform → core`, `core` kennt niem
 ## Datenfluss Spielerwert (Beispiel)
 
 ```
-Item angelegt / Level-Up / Buff
-        ↓
-StatModifier registriert (Quelle, Typ, Wert)
-        ↓
-StatRecalculation (nur bei Änderung, nie pro Tick)
-        ↓
-StatSnapshot (unveränderlich, im Session-Cache)
-        ↓                       ↓
-Kampf-Pipeline (B05)     Vanilla-Attribut-Sync + HUD (B13)
+Stufenaufstieg / Level-Up / Verschleiß        Buff / Trank / Zonenwirkung
+        ↓                                              ↓
+BaseStatContributor (Klasse, Level, Gear)      StatModifier (Quelle, Typ, Wert)
+        ↓                                              ↓
+        └──────────────► StatRecalculation ◄───────────┘
+                    (nur bei Änderung, nie pro Tick)
+                                ↓
+                StatSnapshot (unveränderlich, im Session-Cache)
+                    ↓                            ↓
+        Kampf-Pipeline (B05)          Vanilla-Attribut-Sync + HUD (B13)
 ```
+
+> **Korrigiert am 2026-08-29.** Hier stand ursprünglich „Item angelegt →
+> StatModifier". Das ist seit ADR-017 und ADR-039 in zwei Punkten falsch, und
+> beide sind für den nächsten Block wichtig:
+>
+> 1. **Ausrüstung ist kein Modifikator, sondern ein Grundwert.** Sie kommt über
+>    `ClassStatContributor` als `addBase` herein, nicht als `SourceKind.EQUIPMENT`.
+>    Der Grund steht in B07: das Modifikatorband aus B04 (±30 %) würde die 1385
+>    Lebensenergie der Höchststufe stillschweigend abschneiden.
+> 2. **Ein Item legt gar keine Werte an.** Es trägt seine Vorlagen-ID und sonst
+>    nichts (ADR-004 in der Fassung von ADR-027); die einzige Stelle, an der B11
+>    den Ausrüstungsbeitrag beeinflusst, ist der Verschleißfaktor — er
+>    multipliziert den Stufenbeitrag über die Naht `GearConditionFactor`
+>    (FR-047, FR-080).
+>
+> Was weiterhin als Modifikator läuft: Tränke, Fähigkeitsbuffs und
+> Zonenwirkungen — alles, was zeitlich begrenzt ist.
 
 ## Persistenzstrategie in Kurzform
 

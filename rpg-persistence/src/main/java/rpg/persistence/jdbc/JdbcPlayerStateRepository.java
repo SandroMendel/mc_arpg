@@ -83,11 +83,15 @@ public final class JdbcPlayerStateRepository implements PlayerStateRepository, B
             "UPDATE rpg.audit_log SET target_player_id = NULL WHERE target_player_id = ?";
 
     private static final String DELETE_ITEMS =
-            // Items hang off the character since ADR-011, so the account reaches them through it.
-            // Deleting the account would cascade there anyway; doing it explicitly keeps the
-            // anonymisation readable as a list of what it removes, rather than as something the
-            // reader has to reconstruct from foreign keys.
-            "DELETE FROM rpg.item_instance WHERE owner_character_id IN"
+            // Was ein Charakter besitzt, erreicht das Konto nur ueber ihn (ADR-011). Das Loeschen
+            // des Kontos kaskadiert ohnehin bis hierher; es ausdruecklich hinzuschreiben haelt die
+            // Anonymisierung als LISTE dessen lesbar, was sie entfernt, statt es dem Leser aus
+            // Fremdschluesseln zusammensetzen zu lassen.
+            //
+            // Bis ADR-039 stand hier rpg.item_instance. Die Tabelle ist mit V11_1 zurueckgebaut;
+            // ein Gegenstand liegt seit B11 im Inventar-Blob des Charakters, und das ist genau die
+            // Zeile, die jetzt genannt wird. Die Ebene ist dieselbe geblieben.
+            "DELETE FROM rpg.character_inventory WHERE character_id IN"
                     + " (SELECT character_id FROM rpg.character WHERE player_id = ?)";
 
     private static final String DELETE_PLAYER =

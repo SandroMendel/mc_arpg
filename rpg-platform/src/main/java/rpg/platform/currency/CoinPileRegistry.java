@@ -15,6 +15,7 @@ import org.bukkit.entity.Player;
 
 import rpg.core.currency.BookingReason;
 import rpg.core.currency.CurrencyConfig;
+import rpg.platform.drop.OwnedDropPlatform;
 
 /**
  * Knows which piles are lying in the world, so the cap can be enforced (FR-030).
@@ -56,12 +57,12 @@ public final class CoinPileRegistry implements CoinPile.PileCap {
     private final Payout payout;
     private final Clock clock;
     private final Logger logger;
-    private final CoinPile.PilePlatform platform;
+    private final OwnedDropPlatform platform;
 
     private final Map<UUID, Entry> piles = new ConcurrentHashMap<>();
 
     /**
-     * @param platform how a pile is shown to a player - {@code PilePlatform.vanilla(plugin)} in
+     * @param platform how a pile is shown to a player - {@code OwnedDropPlatform.vanilla(plugin)} in
      *     production, a recorder in a test. There is deliberately no convenience constructor without
      *     it: showing a pile is not optional (FR-027a), and a default would have to invent a plugin.
      */
@@ -70,7 +71,7 @@ public final class CoinPileRegistry implements CoinPile.PileCap {
             Payout payout,
             Clock clock,
             Logger logger,
-            CoinPile.PilePlatform platform) {
+            OwnedDropPlatform platform) {
         this.platform = Objects.requireNonNull(platform, "platform");
         this.config = Objects.requireNonNull(config, "config");
         this.payout = Objects.requireNonNull(payout, "payout");

@@ -86,7 +86,9 @@ public final class CoinDropListener {
                 // guessing either would be worse than dropping nothing.
                 return;
             }
-            String mobTypeKey = creature.getType().name();
+            // Die Art, nicht der Vanilla-Typ (B10, FR-007). Vier Arten auf ZOMBIE waren hier vier
+            // Mal derselbe Schluessel und damit vier Mal derselbe Betrag.
+            String mobTypeKey = rpg.platform.mob.MobKindTag.kindKeyOf(creature);
             WorldPoint origin = pointOf(creature.getLocation());
 
             List<CoinDropPlan> plans = planner.planFor(death, mobTypeKey, origin);

@@ -9,10 +9,12 @@ import rpg.core.ability.AbilityState;
 import rpg.core.classes.ClassProgress;
 import rpg.core.currency.CharacterBalance;
 import rpg.core.inventory.CharacterInventory;
-import rpg.core.persistence.ItemInstance;
+import rpg.core.item.CosmeticUnlock;
+import rpg.core.item.GearCondition;
 import rpg.core.persistence.PlayerState;
 import rpg.core.progression.CharacterProgress;
 import rpg.core.stats.CharacterResources;
+import rpg.core.zone.ZoneCharacterState;
 
 /**
  * Everything a session needs, read in one go (FR-005).
@@ -24,7 +26,6 @@ import rpg.core.stats.CharacterResources;
  * @param playerId the account
  * @param accountState the stored account record, empty for a first-time player
  * @param characters every character of the account, at most one per class
- * @param items the items belonging to those characters
  * @param resources stored health and mana per character (B04)
  * @param progress stored level and experience per character (B06)
  * @param classProgress reached armour and weapon tier per character (B07)
@@ -36,25 +37,110 @@ public record SessionBundle(
         UUID playerId,
         Optional<PlayerState> accountState,
         List<PlayerCharacter> characters,
-        List<ItemInstance> items,
         List<CharacterResources> resources,
         List<CharacterProgress> progress,
         List<ClassProgress> classProgress,
         List<CharacterInventory> inventories,
         List<AbilityState> abilities,
-        List<CharacterBalance> balances) {
+        List<CharacterBalance> balances,
+        List<ZoneCharacterState> zoneStates,
+        List<GearCondition> gearConditions,
+        List<CosmeticUnlock> cosmetics) {
 
     public SessionBundle {
         Objects.requireNonNull(playerId, "playerId");
         Objects.requireNonNull(accountState, "accountState");
         characters = List.copyOf(Objects.requireNonNull(characters, "characters"));
-        items = List.copyOf(Objects.requireNonNull(items, "items"));
         resources = List.copyOf(Objects.requireNonNull(resources, "resources"));
         progress = List.copyOf(Objects.requireNonNull(progress, "progress"));
         classProgress = List.copyOf(Objects.requireNonNull(classProgress, "classProgress"));
         inventories = List.copyOf(Objects.requireNonNull(inventories, "inventories"));
         abilities = List.copyOf(Objects.requireNonNull(abilities, "abilities"));
         balances = List.copyOf(Objects.requireNonNull(balances, "balances"));
+        zoneStates = List.copyOf(Objects.requireNonNull(zoneStates, "zoneStates"));
+        gearConditions =
+                List.copyOf(Objects.requireNonNull(gearConditions, "gearConditions"));
+        cosmetics = List.copyOf(Objects.requireNonNull(cosmetics, "cosmetics"));
+    }
+
+    /** A bundle without cosmetics - the shape before US6 of B11 existed. */
+    public SessionBundle(
+            UUID playerId,
+            Optional<PlayerState> accountState,
+            List<PlayerCharacter> characters,
+            List<CharacterResources> resources,
+            List<CharacterProgress> progress,
+            List<ClassProgress> classProgress,
+            List<CharacterInventory> inventories,
+            List<AbilityState> abilities,
+            List<CharacterBalance> balances,
+            List<ZoneCharacterState> zoneStates,
+            List<GearCondition> gearConditions) {
+        this(
+                playerId,
+                accountState,
+                characters,
+                resources,
+                progress,
+                classProgress,
+                inventories,
+                abilities,
+                balances,
+                zoneStates,
+                gearConditions,
+                List.of());
+    }
+
+    /** A bundle without gear condition - the shape before B11 existed. */
+    public SessionBundle(
+            UUID playerId,
+            Optional<PlayerState> accountState,
+            List<PlayerCharacter> characters,
+            List<CharacterResources> resources,
+            List<CharacterProgress> progress,
+            List<ClassProgress> classProgress,
+            List<CharacterInventory> inventories,
+            List<AbilityState> abilities,
+            List<CharacterBalance> balances,
+            List<ZoneCharacterState> zoneStates) {
+        this(
+                playerId,
+                accountState,
+                characters,
+                resources,
+                progress,
+                classProgress,
+                inventories,
+                abilities,
+                balances,
+                zoneStates,
+                List.of(),
+                List.of());
+    }
+
+    /** A bundle without zone state - the shape before B09 existed. */
+    public SessionBundle(
+            UUID playerId,
+            Optional<PlayerState> accountState,
+            List<PlayerCharacter> characters,
+            List<CharacterResources> resources,
+            List<CharacterProgress> progress,
+            List<ClassProgress> classProgress,
+            List<CharacterInventory> inventories,
+            List<AbilityState> abilities,
+            List<CharacterBalance> balances) {
+        this(
+                playerId,
+                accountState,
+                characters,
+                resources,
+                progress,
+                classProgress,
+                inventories,
+                abilities,
+                balances,
+                List.of(),
+                List.of());
     }
 
     /**
@@ -67,7 +153,6 @@ public record SessionBundle(
             UUID playerId,
             Optional<PlayerState> accountState,
             List<PlayerCharacter> characters,
-            List<ItemInstance> items,
             List<CharacterResources> resources,
             List<CharacterProgress> progress,
             List<ClassProgress> classProgress,
@@ -77,12 +162,12 @@ public record SessionBundle(
                 playerId,
                 accountState,
                 characters,
-                items,
                 resources,
                 progress,
                 classProgress,
                 inventories,
                 abilities,
+                List.of(),
                 List.of());
     }
 
@@ -102,6 +187,22 @@ public record SessionBundle(
     }
 
     /**
+     * What one character carries out of the zone block, or empty if it has never been placed (B09).
+     *
+     * <p>Loaded here for the same reason as everything else in this bundle: the login path never
+     * waits on a second round trip, and the tick never waits at all.
+     *
+     * <p><b>Empty means never placed</b>, which is not the same as "nothing discovered". The first is
+     * a new character and sends them to the start region (B09/FR-037b); the second is somebody who
+     * has simply not found a crystal yet.
+     */
+    public Optional<ZoneCharacterState> zoneStateOf(UUID characterId) {
+        return zoneStates.stream()
+                .filter(state -> state.characterId().equals(characterId))
+                .findFirst();
+    }
+
+    /**
      * A bundle without stored abilities - the shape before B08 existed.
      *
      * <p>Same reason as the two constructors below: a caller that predates the table, and a test that
@@ -111,7 +212,6 @@ public record SessionBundle(
             UUID playerId,
             Optional<PlayerState> accountState,
             List<PlayerCharacter> characters,
-            List<ItemInstance> items,
             List<CharacterResources> resources,
             List<CharacterProgress> progress,
             List<ClassProgress> classProgress,
@@ -120,7 +220,6 @@ public record SessionBundle(
                 playerId,
                 accountState,
                 characters,
-                items,
                 resources,
                 progress,
                 classProgress,
@@ -133,11 +232,43 @@ public record SessionBundle(
             UUID playerId,
             Optional<PlayerState> accountState,
             List<PlayerCharacter> characters,
-            List<ItemInstance> items,
             List<CharacterResources> resources,
             List<CharacterProgress> progress,
             List<ClassProgress> classProgress) {
-        this(playerId, accountState, characters, items, resources, progress, classProgress, List.of());
+        this(playerId, accountState, characters, resources, progress, classProgress, List.of());
+    }
+
+    /**
+     * Die gekauften Trimfarben einer Figur (B11/US6). Leer ist der Normalfall.
+     *
+     * <p>Hier geladen und nicht spaeter geholt, aus demselben Grund wie alles andere in diesem
+     * Buendel: die getragene Farbe bestimmt das Aussehen der Ausruestung, und die Ausruestung wird
+     * beim Eintritt angelegt. Eine Farbe, die einen Augenblick spaeter eintraefe, hiesse einen
+     * Spieler, der kurz in der Stufenfarbe dasteht und sich dann selbst korrigiert.
+     */
+    public List<CosmeticUnlock> cosmeticsOf(UUID characterId) {
+        return cosmetics.stream()
+                .filter(unlock -> unlock.characterId().equals(characterId))
+                .toList();
+    }
+
+    /**
+     * Der Verschleisszustand einer Figur (B11), oder leer, wenn nie einer geschrieben wurde.
+     *
+     * <p><b>Leer heisst voll, nicht kaputt.</b> Ein Charakter ohne Zeile hat noch nie gekaempft,
+     * und beide Leitern stehen auf 100. Die Alternative - einen Vorgabewert unter 100 anzunehmen -
+     * uebersetzte einen Ladefehler in eine stille Schwaechung, und niemand kaeme auf die Idee, dort
+     * zu suchen.
+     *
+     * <p>Hier geladen und nicht spaeter geholt, aus demselben Grund wie B07s Stufen: der Zustand
+     * multipliziert den Stufenbeitrag. Ein Charakter, dessen Zustand einen Augenblick nach der
+     * Freigabe eintraefe, stuende kurz mit vollen Werten da und korrigierte sich dann selbst - und
+     * genau in diesem Augenblick kaempft er schon.
+     */
+    public Optional<GearCondition> gearConditionOf(UUID characterId) {
+        return gearConditions.stream()
+                .filter(condition -> condition.characterId().equals(characterId))
+                .findFirst();
     }
 
     /** The stored contents of one character, or empty if it has never stored any. */
@@ -176,10 +307,9 @@ public record SessionBundle(
             UUID playerId,
             Optional<PlayerState> accountState,
             List<PlayerCharacter> characters,
-            List<ItemInstance> items,
             List<CharacterResources> resources,
             List<CharacterProgress> progress) {
-        this(playerId, accountState, characters, items, resources, progress, List.of());
+        this(playerId, accountState, characters, resources, progress, List.of());
     }
 
     /** A player connecting for the very first time: no record, no characters, no items. */
@@ -200,9 +330,15 @@ public record SessionBundle(
      * <p>Carried in this bundle rather than loaded separately because FR-019b needs a calculated
      * holder <em>before</em> the player is released, and this load runs in the pre-login event,
      * before a player object even exists. A second load afterwards would put someone into the world
-     * with the wrong health for at least a tick. The bundle already carries {@link ItemInstance},
-     * which belongs to B11, for exactly the same reason: it is the one load path, not B03's private
-     * property.
+     * with the wrong health for at least a tick.
+     *
+     * <p><b>Dieser Absatz nannte einmal {@code ItemInstance} als das Beispiel dafuer, dass der
+     * Bundle nicht B03s Privatbesitz ist.</b> Die Liste ist mit ADR-039 weggefallen: sie wurde bei
+     * jedem Sitzungsstart geladen, und niemand hat sie je gelesen. Ein Gegenstand lebt seit B11 im
+     * PersistentDataContainer innerhalb von {@code inventories} und braucht keine eigene Zeile
+     * (research.md R2, V11_1). Das Argument selbst gilt unveraendert - {@code resources},
+     * {@code progress}, {@code classProgress}, {@code abilities}, {@code balances} und
+     * {@code zoneStates} stehen alle aus diesem Grund hier.
      */
     public Optional<CharacterResources> resourcesOf(UUID characterId) {
         return resources.stream().filter(r -> r.characterId().equals(characterId)).findFirst();

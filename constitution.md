@@ -56,8 +56,10 @@ verlangt eine ausdrückliche, begründete Ausnahme im Entscheidungs-Log.
 1. Schemaänderungen ausschließlich über versionierte Migrationen.
 2. Solange ein Spieler online ist, ist der Speicher-Cache autoritativ.
 3. Persistierte Spielerdaten sind versioniert und besitzen einen Migrationspfad.
-4. Items speichern **Template-ID und Roll-Werte**, niemals berechnete Endwerte
-   oder gerendertes Lore.
+4. Items speichern **die Template-ID**, niemals berechnete Endwerte und niemals
+   gerendertes Lore. *(Der Zusatz „und Roll-Werte" ist mit ADR-027 entfallen —
+   jedes Item trägt feste Attributwerte. Die Zusage wird dadurch stärker: ohne
+   Roll ist die Vorlage die einzige Quelle.)*
 5. Kein Datenverlust über das Autosave-Intervall hinaus, auch bei Crash.
 
 ## V. Datengetriebenes Design
@@ -83,8 +85,16 @@ verlangt eine ausdrückliche, begründete Ausnahme im Entscheidungs-Log.
 1. Jede Formel und jede Regel der Domänenschicht hat Unit-Tests ohne Server.
 2. Persistenz wird gegen eine echte PostgreSQL-Instanz getestet (Testcontainers),
    nicht gegen Mocks.
-3. Performancekritische Blöcke (B05, B10) brauchen einen Lasttest-Nachweis, bevor
-   sie als fertig gelten.
+3. **Lasttests sind keine Bedingung dafür, dass ein Block fertig ist.** Sie laufen
+   gebündelt in einer eigenen Phase, wenn die inhaltlichen Blöcke stehen, und
+   gehören B15. Kein Block wird wegen eines fehlenden Lasttests offen gehalten.
+   *(Geändert 2026-08-23 — zuvor waren B05 und B10 namentlich lasttestpflichtig,
+   bevor sie als fertig gelten durften. Begründung in ADR-031.)*
+4. Ein Leistungsziel, das ein Block für sich benennt, braucht dennoch einen
+   Beleg — aber nur einen, der **ohne Volllast** zu erbringen ist: eine
+   wiederholbare Messung der eigenen Rechenarbeit. Was sich erst unter 150
+   Spielern und 800 Mobs zeigt, wird in der Lasttestphase geprüft, nicht vorher
+   behauptet.
 
 ## VIII. Sprache
 

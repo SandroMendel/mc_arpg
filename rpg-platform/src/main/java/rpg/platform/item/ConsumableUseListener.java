@@ -1,0 +1,275 @@
+package rpg.platform.item;
+
+import java.util.Objects;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.function.Function;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.ItemStack;
+
+import rpg.core.item.ConsumableBuffs;
+import rpg.core.item.ConsumableEffect;
+import rpg.core.item.ConsumableUse;
+import rpg.core.item.ItemMessageKeys;
+import rpg.core.item.ItemTemplate;
+import rpg.core.item.Items;
+import rpg.core.message.MessageKey;
+import rpg.core.message.Messages;
+import rpg.core.session.CharacterClass;
+
+/**
+ * Ein Spieler benutzt einen Trank (FR-033 bis FR-037).
+ *
+ * <p><b>Die Regel liegt in {@code rpg-core}</b> — {@link ConsumableUse} entscheidet, ob es geht und
+ * warum nicht. Diese Klasse macht daraus einen Rechtsklick, einen verbrauchten Stapel und eine
+ * Meldung.
+ *
+ * <p><b>Der Vanilla-Trinkvorgang wird abgebrochen.</b> Ein B11-Trank ist ein Behälter mit einer
+ * Vorlagen-ID, kein Vanilla-Trank; ihn von Minecraft trinken zu lassen brächte Vanilla-Effekte
+ * obendrauf und eine leere Flasche, die niemand bestellt hat. Abbrechen, prüfen, anwenden,
+ * verbrauchen — in dieser Reihenfolge.
+ *
+ * <p><b>Verbraucht wird nur, was gewirkt hat.</b> Jede Ablehnung lässt den Stapel unangetastet
+ * (FR-036) und sagt dem Spieler, woran es lag (FR-037) — „geht nicht" ist keine Antwort.
+ */
+public final class ConsumableUseListener implements Listener {
+
+    private final Items items;
+    private final ConsumableUse rule;
+    private final ConsumableBuffs buffs;
+    private final Resources resources;
+    private final Function<UUID, Optional<UUID>> characterOf;
+    private final Function<UUID, Optional<UUID>> holderOf;
+    private final Function<UUID, Integer> levelOf;
+    private final Function<UUID, Optional<CharacterClass>> classOf;
+    private final Messages messages;
+    private final Logger logger;
+
+    /**
+     * Die drei Fragen an B04 — als Naht, nicht als Abhängigkeit auf die ganze {@code StatEngine}.
+     *
+     * <p>Dieselbe Überlegung wie bei {@link ConsumableBuffs.BuffSink}: die Engine hat neunzehn
+     * Methoden, gebraucht werden drei.
+     */
+    public interface Resources {
+
+        double currentHealth(UUID holderId);
+
+        double maxHealth(UUID holderId);
+
+        double currentMana(UUID holderId);
+
+        double maxMana(UUID holderId);
+
+        void changeHealth(UUID holderId, double delta);
+
+        void changeMana(UUID holderId, double delta);
+    }
+
+    public ConsumableUseListener(
+            Items items,
+            ConsumableUse rule,
+            ConsumableBuffs buffs,
+            Resources resources,
+            Function<UUID, Optional<UUID>> characterOf,
+            Function<UUID, Optional<UUID>> holderOf,
+            Function<UUID, Integer> levelOf,
+            Function<UUID, Optional<CharacterClass>> classOf,
+            Messages messages,
+            Logger logger) {
+        this.items = Objects.requireNonNull(items, "items");
+        this.rule = Objects.requireNonNull(rule, "rule");
+        this.buffs = Objects.requireNonNull(buffs, "buffs");
+        this.resources = Objects.requireNonNull(resources, "resources");
+        this.characterOf = Objects.requireNonNull(characterOf, "characterOf");
+        this.holderOf = Objects.requireNonNull(holderOf, "holderOf");
+        this.levelOf = Objects.requireNonNull(levelOf, "levelOf");
+        this.classOf = Objects.requireNonNull(classOf, "classOf");
+        this.messages = Objects.requireNonNull(messages, "messages");
+        this.logger = Objects.requireNonNull(logger, "logger");
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onUse(PlayerInteractEvent event) {
+        ItemStack stack = event.getItem();
+        if (stack == null || !ItemTag.isOurs(stack)) {
+            // Fast jeder Rechtsklick im Spiel. Nichts tun ist hier die richtige Antwort und der
+            // haeufigste Pfad.
+            return;
+        }
+        if (!event.getAction().isRightClick()) {
+            return;
+        }
+
+        if (ThrownConsumables.isThrown(items.template(ItemTag.templateOf(stack).orElse("")).orElse(null))) {
+            // Ein Wurftrank: Vanilla wirft ihn und verbraucht ihn selbst. Hier wird nur GEPRUEFT,
+            // ob er geworfen werden darf - und bei einer Ablehnung abgebrochen, damit der Spieler
+            // ihn nicht verliert. Was beim Aufschlag passiert, entscheidet PotionSplashListener.
+            //
+            // NICHT abbrechen im Erfolgsfall ist der ganze Punkt: der Wurf selbst ist Vanillas
+            // Arbeit, samt Flugbahn, Aufprall und Partikeln. Ihn nachzubauen waere eine zweite
+            // Fassung von etwas, das es schon gibt.
+            allowOrRefuseThrow(event, stack);
+            return;
+        }
+
+        // Ab hier gehoert der Vorgang uns: Vanilla soll ihn nicht auch noch anfassen.
+        event.setCancelled(true);
+
+        try {
+            apply(event.getPlayer(), stack);
+        } catch (RuntimeException failure) {
+            // Ein Fehler hier darf den Spieler nicht in einen kaputten Zustand bringen
+            // (Constitution VI).
+            logger.log(Level.WARNING, "[item] could not use a consumable", failure);
+        }
+    }
+
+    /**
+     * Lässt Vanilla werfen — oder bricht ab und sagt, warum nicht.
+     *
+     * <p><b>Geprüft wird vor dem Wurf, nicht danach.</b> Ein Trank, der auf halbem Flug für ungültig
+     * erklärt wird, ist ein verlorener Trank; ein abgebrochener Rechtsklick kostet nichts.
+     */
+    private void allowOrRefuseThrow(PlayerInteractEvent event, ItemStack stack) {
+        Player player = event.getPlayer();
+        Optional<UUID> characterId = characterOf.apply(player.getUniqueId());
+        if (characterId.isEmpty()) {
+            event.setCancelled(true);
+            return;
+        }
+        String templateKey = ItemTag.templateOf(stack).orElseThrow();
+        ConsumableUse.Result result =
+                rule.use(
+                        items.template(templateKey),
+                        characterId.get(),
+                        levelOf.apply(characterId.get()),
+                        classOf.apply(characterId.get()).orElse(null));
+        if (!result.isSuccess()) {
+            event.setCancelled(true);
+            tell(player, result);
+        }
+    }
+
+    private void apply(Player player, ItemStack stack) {
+        Optional<UUID> characterId = characterOf.apply(player.getUniqueId());
+        if (characterId.isEmpty()) {
+            return;
+        }
+        // Charakter -> Halter, und NICHT Spieler -> Halter. Hier stand die Spieler-ID, und der
+        // Trank tat daraufhin gar nichts: holderOf haelt einen Rueckwaertsindex ueber CHARAKTERE,
+        // fand nichts, und die Pruefung darunter brach still ab - keine Wirkung, keine Meldung,
+        // kein verbrauchter Trank.
+        //
+        // Es ist derselbe Fehler, den B08 schon einmal gemacht hat, und StatEngine.holderOf traegt
+        // seine Beschreibung im Javadoc: "no ability did anything and nobody healed". Zwei
+        // Bezeichner fuer dasselbe Wesen sind eine Gelegenheit, den falschen zu nehmen (ADR-011).
+        Optional<UUID> holderId = characterId.flatMap(holderOf);
+        if (holderId.isEmpty()) {
+            return;
+        }
+
+        String templateKey = ItemTag.templateOf(stack).orElseThrow();
+        Optional<ItemTemplate> template = items.template(templateKey);
+
+        ConsumableUse.Result result =
+                rule.use(
+                        template,
+                        characterId.get(),
+                        levelOf.apply(characterId.get()),
+                        classOf.apply(characterId.get()).orElse(null));
+
+        if (!result.isSuccess()) {
+            tell(player, result);
+            return;
+        }
+
+        ConsumableEffect effect = template.orElseThrow().effect();
+        effect.healAmount()
+                .ifPresent(amount -> resources.changeHealth(holderId.get(), amount));
+        effect.manaAmount().ifPresent(amount -> resources.changeMana(holderId.get(), amount));
+        if (effect.hasBuff()) {
+            buffs.apply(holderId.get(), templateKey, effect);
+        }
+
+        // Genau EIN Exemplar (FR-033) - und erst jetzt, nachdem gewirkt wurde.
+        stack.setAmount(stack.getAmount() - 1);
+    }
+
+    /** Sagt, woran es lag. „Geht nicht" ist keine Antwort (FR-037). */
+    private void tell(Player player, ConsumableUse.Result result) {
+        MessageKey key =
+                switch (result.outcome()) {
+                    case LEVEL_TOO_LOW -> ItemMessageKeys.REFUSED_LEVEL;
+                    case WRONG_CLASS -> ItemMessageKeys.REFUSED_CLASS;
+                    case ON_COOLDOWN -> ItemMessageKeys.REFUSED_COOLDOWN;
+                    case NO_EFFECT -> ItemMessageKeys.REFUSED_NO_EFFECT;
+                    case UNKNOWN_TEMPLATE -> ItemMessageKeys.REFUSED_UNKNOWN;
+                    case USED -> null;
+                };
+        if (key == null || !messages.contains(key)) {
+            return;
+        }
+        String text =
+                result.remaining() == null
+                        ? messages.get(key, java.util.Map.of())
+                        : messages.get(
+                                key,
+                                java.util.Map.of(
+                                        "seconds", String.valueOf(result.remaining().toSeconds())));
+        player.sendMessage(
+                net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer
+                        .legacyAmpersand()
+                        .deserialize(text));
+    }
+
+    /**
+     * Ob dieser Trank überhaupt etwas bewirken würde — die Naht, die {@link ConsumableUse} fragt.
+     *
+     * <p><b>Statisch, und das ist kein Stilentscheid.</b> Die Regel braucht diese Antwort, und der
+     * Zuhörer braucht die Regel; als Instanzmethode wäre das ein Ring, den die Verdrahtung nur mit
+     * einem halb gebauten Objekt aufbrechen könnte. So hängt beides an denselben zwei Nähten und an
+     * keinem Objekt.
+     */
+    public static ConsumableUse.WouldDoSomething wouldDoSomething(
+            Resources resources, Function<UUID, Optional<UUID>> holderOf) {
+        return (characterId, template) -> {
+            if (ThrownConsumables.isThrown(template)) {
+                // Ein Wurftrank wirkt auf den, der getroffen wird - nicht auf den Werfer.
+                // Ob er etwas bringt, steht erst beim Aufschlag fest, und bis dahin ist
+                // "nein" die falsche Antwort: sie hielte einen Spieler mit vollem Leben davon
+                // ab, einen verwundeten Mitspieler zu heilen.
+                return true;
+            }
+            ConsumableEffect effect = template.effect();
+            if (effect == null) {
+                return false;
+            }
+            Optional<UUID> holder = holderOf.apply(characterId);
+            if (holder.isEmpty()) {
+                return false;
+            }
+            UUID id = holder.get();
+            if (effect.hasBuff()) {
+                // Ein Buff wirkt immer - er ersetzt hoechstens sich selbst.
+                return true;
+            }
+            boolean healUseful =
+                    effect.healAmount()
+                            .map(amount -> resources.currentHealth(id) < resources.maxHealth(id))
+                            .orElse(false);
+            boolean manaUseful =
+                    effect.manaAmount()
+                            .map(amount -> resources.currentMana(id) < resources.maxMana(id))
+                            .orElse(false);
+            return healUseful || manaUseful;
+        };
+    }
+}

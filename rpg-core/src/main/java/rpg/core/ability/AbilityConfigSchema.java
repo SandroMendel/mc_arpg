@@ -100,6 +100,10 @@ public final class AbilityConfigSchema {
                 millis(block, "cooldown-ms", where + ".cooldown-ms"),
                 millis(block, "cast-time-ms", where + ".cast-time-ms"),
                 optionalBoolean(block, "sustained"),
+                // Voreinstellung TRUE, anders als bei jedem anderen Schalter hier. Wer
+                // `sustained` schreibt und sonst nichts, bekommt das Verhalten von vorher; nur wer
+                // ausdruecklich `exclusive: false` setzt, laesst den Spieler weiterspielen.
+                optionalBoolean(block, "exclusive", true),
                 optionalMillis(block, "duration-ms", where + ".duration-ms"),
                 (int) optionalDouble(block, "charges", where + ".charges", 1.0),
                 optionalMillis(block, "charge-window-ms", where + ".charge-window-ms"),
@@ -116,14 +120,6 @@ public final class AbilityConfigSchema {
                 readItems(block, where));
     }
 
-    /**
-     * Reads {@code trigger}, which may name one or several.
-     *
-     * <p><b>Both spellings are accepted on purpose.</b> Almost every passive fires on exactly one
-     * thing and writing a one-element list for it would be noise; the warrior's Rage genuinely needs
-     * two, and a single value could not say that. Insisting on the list everywhere would make
-     * seventeen definitions worse to read so that one could be written.
-     */
     /**
      * Reads {@code item}, which may name one or several - same two spellings as {@code trigger}.
      *
@@ -170,6 +166,14 @@ public final class AbilityConfigSchema {
         return cost;
     }
 
+    /**
+     * Reads {@code trigger}, which may name one or several.
+     *
+     * <p><b>Both spellings are accepted on purpose.</b> Almost every passive fires on exactly one
+     * thing and writing a one-element list for it would be noise; the warrior's Rage genuinely needs
+     * two, and a single value could not say that. Insisting on the list everywhere would make
+     * seventeen definitions worse to read so that one could be written.
+     */
     private static Set<AbilityTrigger> readTriggers(Map<?, ?> block, String where) {
         Object raw = block.get("trigger");
         if (raw == null) {
@@ -199,7 +203,8 @@ public final class AbilityConfigSchema {
                 // vergessene Zeile von einer Entscheidung ununterscheidbar machen.
                 (int) optionalDouble(block, "max-targets", where + ".max-targets", 0.0),
                 optionalBoxedDouble(block, "hop-range", where + ".hop-range"),
-                optionalBoxedDouble(block, "area-radius", where + ".area-radius"));
+                optionalBoxedDouble(block, "area-radius", where + ".area-radius"),
+                optionalBoxedDouble(block, "height", where + ".height"));
     }
 
     private static List<EffectSpec> readEffects(Map<?, ?> block, String where) {
@@ -231,7 +236,17 @@ public final class AbilityConfigSchema {
                 optionalBoxedDouble(block, "build-per-hit", at + ".build-per-hit"),
                 optionalMillis(block, "idle-before-ms", at + ".idle-before-ms"),
                 optionalBoxedDouble(block, "decay-per-second", at + ".decay-per-second"),
-                optionalBoolean(block, "as-fraction"));
+                optionalBoolean(block, "as-fraction"),
+                readPhase(block, at));
+    }
+
+    /** {@code when: cast | summon-end | landing}. Absent means at the cast. */
+    private static EffectPhase readPhase(Map<?, ?> block, String at) {
+        String key = optionalString(block, "when", at + ".when");
+        // Hyphens, because the rest of this file is written that way: `summon-end`, not SUMMON_END.
+        return key == null
+                ? EffectPhase.CAST
+                : readEnum(EffectPhase.class, key.replace('-', '_'));
     }
 
     private static Attribute readAttribute(Map<?, ?> block, String at) {
@@ -343,8 +358,13 @@ public final class AbilityConfigSchema {
     }
 
     private static boolean optionalBoolean(Map<?, ?> block, String key) {
+        return optionalBoolean(block, key, false);
+    }
+
+    /** The same with a chosen default - for a flag whose absence means yes. */
+    private static boolean optionalBoolean(Map<?, ?> block, String key, boolean fallback) {
         Object value = block.get(key);
-        return value instanceof Boolean flag && flag;
+        return value instanceof Boolean flag ? flag : fallback;
     }
 
     private static double optionalDouble(Map<?, ?> block, String key, String path, double fallback) {

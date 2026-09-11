@@ -79,9 +79,15 @@ Anschließend `/constitution` mit dem Inhalt von `constitution.md` ausführen.
 
 ## Empfohlener nächster Schritt
 
-*(Stand 2026-08-22)* B01 bis **B08b** sind implementiert und verdrahtet. Offen
-sind dort nur noch Validierungsläufe und Lasttests, die einen echten
-Paper-Server brauchen — kein Code.
+*(Stand 2026-08-23)* B01 bis **B09** sind implementiert und verdrahtet. Offen
+sind dort nur noch Validierungsläufe auf einem echten Paper-Server — kein Code.
+
+**Die Lasttests sind aus den Blöcken herausgelöst** *(ADR-031, 2026-08-23)*. Sie
+laufen gebündelt in **B15s Lasttestphase**, wenn die inhaltlichen Blöcke stehen,
+und sind keine Bedingung mehr dafür, dass ein Block fertig ist. Grund: ein
+Lasttest braucht Spieler, Mobs und Inhalt — also gerade das, was die späteren
+Blöcke erst liefern. Die alte Regel hätte B08b auf einen Nachweis warten lassen,
+den B10 erst möglich macht, und sie war für B05 faktisch schon gebrochen.
 
 **B08b hat zwei ausgelieferte Blöcke abgeschlossen**, und das war sein Zweck:
 B07 reichte `cost: { coins: 500 }` undurchsichtig durch, B08s Rangaufstieg
@@ -97,13 +103,71 @@ einem Schicht-1-Block, befristet bis B14 und B13) und **ADR-029** (Herauslösung
 des Anteilsrechners aus `XpDistributor`, damit Coins und Erfahrung denselben
 Kill nicht unterschiedlich bewerten).
 
-Als nächstes **`/specify` für B11 (Items, Loot & Ausrüstung)**. Der Neuzuschnitt
-ist mit ADR-027 abgeschlossen: keine offene Frage mehr im Steckbrief.
-Raritätsstufen bleiben als reines Etikett, der Roll-Mechanismus entfällt — jedes
-Item hat feste Attributwerte —, und der NPC-Händler gehört hierher. Die
-Buchungsgründe `VENDOR_SALE`, `VENDOR_PURCHASE` und `REPAIR` stehen in B08b
-bereits bereit; B11 muss dafür kein fremdes Enum anfassen.
+Als nächstes **`/specify` für B10 (Mobs & Hordenlogik)**. B09 ist seit dem
+2026-08-23 implementiert; B10 ist der Block, auf den es jetzt zuläuft, und es
+findet die benannten Spawn-Bereiche bereits vor.
+
+**Warum nicht B11:** die Abhängigkeitstabelle in `01-architecture.md` führt B11
+auf B04, **B09 und B10** zurück. B11 ist spezifikationsreif, aber nicht
+umsetzbar — Loot braucht Mobs, und Mobs brauchen Zonen. Ein `/specify` für B11
+wäre nicht falsch, es führte nur in eine Warteschleife.
+
+**Warum B09:** es ist der einzige noch offene Block der Schicht 2, der allein
+von B01 abhängt, und drei ausgelieferte Blöcke warten mit verdrahteten
+Schnittstellen auf ihn: `WorldCondition.isOpenWorld` (B08, FR-052b),
+`DamagePermission` samt der Zeile „B09 replaces this line with a per-zone rule"
+(B05, FR-042) und `XpSource.ZONE_OBJECTIVE` (B06). Alle drei tragen heute eine
+absichtlich freundliche Vorgabe — Regel 5 in der Praxis.
+
+Der Steckbrief `blocks/B09-zones-regions.md` ist seit dem 2026-08-23
+**vollständig beantwortet**: sechs benannte Regionen über die Levelbänder 1–60,
+Region als Zone mit Schutzkern, Quader-Geometrie mit Chunk-Index, Portale in den
+Safe-Zones, Warnung statt Sperre unter dem Levelband, PvP je Zone schaltbar mit
+Vorgabe aus, und der Kampf-Logout als Tod. Ein ADR ist dabei entstanden und
+bereits angenommen: **ADR-030** für `DeathCause.LOGOUT`, weil das ein
+ausgeliefertes Enum in B05 anfasst.
+
+
+### Was B09 eingelöst und was es benannt hat *(2026-08-23)*
+
+Vier ausgelieferte Blöcke hatten eine Schnittstelle auf B09 warten. **Zwei sind
+eingelöst**: `WorldCondition.isOpenWorld` (B08) beantwortet `ZoneWorldCondition`,
+und `DamagePermission` (B05) ist durch `ZoneDamagePermission` **ersetzt** statt
+kopiert — `SinglePermissionPointTest` und `DamagePermissionTest` sind dabei
+unverändert geblieben, nachweisbar per `git log`.
+
+**Zwei warten weiter, und das ist eine Aussage statt eines Versäumnisses:**
+`XpSource.ZONE_OBJECTIVE` (B06) braucht Ziele innerhalb einer Zone, also Inhalt
+statt Geometrie. `SourceKind` für zonengebundene Effekte (B04) brauchte den
+Schwierigkeitsmodifikator, den `/clarify` aus dem Umfang genommen hat. Sie zu
+füllen hiesse Werte zu erzeugen, die niemand liest.
+
+B09 hat seinerseits zwei Eingriffe in abgeschlossene Blöcke gemacht, beide vorab
+per ADR gedeckt: `DeathCause.LOGOUT` in B05 (ADR-030) und die Buchungsgründe
+`WAYPOINT_TRAVEL` und `WAYPOINT_REFUND` in B08b (ADR-032). Fenster und
+Rechtsklick liegen befristet in B09 und gehen an **B13**.
+
+**Was B10 vorfindet:** benannte Spawn-Bereiche je Region, abfragbar über
+`Zones.spawnAreasOf(zoneKey)` — Kennung und Geometrie, keine Rolle und keine
+Kreaturenliste. Ein Bossbereich unterscheidet sich geometrisch von keinem
+anderen; er unterscheidet sich in dem, was darin steht, und das gehört B10.
+
+**Danach B10, dann B11.** B11s Neuzuschnitt ist mit ADR-027 abgeschlossen und
+braucht keine Klärung mehr: Raritätsstufen bleiben als reines Etikett, der
+Roll-Mechanismus entfällt — jedes Item hat feste Attributwerte —, und der
+NPC-Händler gehört hierher. Die Buchungsgründe `VENDOR_SALE`,
+`VENDOR_PURCHASE` und `REPAIR` stehen in B08b bereits bereit; B11 muss dafür
+kein fremdes Enum anfassen. Seine Spezifikation kann jederzeit parallel zur
+Umsetzung von B09 entstehen — blockiert ist die Umsetzung, nicht die
+Beschreibung.
 
 **B09/B10 schulden B08 drei Verhaltensweisen** (Aggro auf den Klon, Mobs wenden
 sich von Unsichtbaren ab, Zonen für Zweites Leben). Die Schnittstellen stehen
 und werden gerufen; sie antworten heute mit „nichts passiert".
+
+*Nachtrag 2026-08-23:* Die dritte davon ist keine Schuld mehr, sondern eine
+Entscheidung. Weil die Bosse in ihrer Region stehen und es zum Start **keine
+Instanzen** gibt, bleibt `WorldCondition.isOpenWorld` überall bei ja — das
+Zweitleben des Rogue wirkt überall, und das ist so gewollt. Die Schnittstelle
+bleibt stehen, weil eine Instanzwelt nach ADR-006 jederzeit dazukommen kann.
+Offen bleiben damit zwei Verhaltensweisen, und beide gehören B10.

@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.bukkit.Location;
@@ -52,7 +53,11 @@ public final class PaperSummons implements SummonEffect.Placer, InvisibilityEffe
      */
     @Override
     public Optional<UUID> place(
-            UUID summonerId, StatSnapshot snapshot, double health, Duration lifetime) {
+            UUID summonerId,
+            StatSnapshot snapshot,
+            double health,
+            Duration lifetime,
+            Runnable farewell) {
         Entity summoner = server.getEntity(summonerId);
         if (summoner == null) {
             return Optional.empty();
@@ -77,6 +82,18 @@ public final class PaperSummons implements SummonEffect.Placer, InvisibilityEffe
                 lifetime,
                 () -> {
                     Entity still = server.getEntity(creatureId);
+                    // The farewell FIRST and the removal second, and the order is the whole thing:
+                    // what a clone leaves behind happens where it stood, and a removed entity has no
+                    // position left to ask for. Behind its own barrier, because a failure there must
+                    // not leave the armour stand standing forever.
+                    try {
+                        farewell.run();
+                    } catch (RuntimeException failure) {
+                        logger.log(
+                                Level.WARNING,
+                                "[abilities] the summon's farewell failed - removing it anyway",
+                                failure);
+                    }
                     if (still != null) {
                         still.remove();
                     }

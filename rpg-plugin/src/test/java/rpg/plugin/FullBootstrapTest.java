@@ -79,7 +79,12 @@ class FullBootstrapTest {
         // B02's tables and B03's, in one schema, applied by the plugin itself rather than by a test.
         assertThat(PostgresContainer.tableExists("player_state")).isTrue();
         assertThat(PostgresContainer.tableExists("character")).isTrue();
-        assertThat(PostgresContainer.tableExists("item_instance")).isTrue();
+        // Und der Rueckbau lief beim echten Start mit: item_instance ist mit V11_1 weg (ADR-039).
+        // Die Zusicherung wird umgedreht statt geloescht - sie beweist jetzt, dass eine
+        // RUECKBAUENDE Migration im Bootstrap genauso greift wie eine aufbauende, und das war
+        // vorher an keiner Stelle gezeigt.
+        assertThat(PostgresContainer.tableExists("item_instance")).isFalse();
+        assertThat(PostgresContainer.tableExists("character_inventory")).isTrue();
     }
 
     @Test
@@ -109,18 +114,35 @@ class FullBootstrapTest {
         assertThat(handlerCount(PlayerJoinEvent.getHandlerList())).isEqualTo(1);
         assertThat(handlerCount(PlayerQuitEvent.getHandlerList())).isEqualTo(1);
         assertThat(handlerCount(PlayerConnectionCloseEvent.getHandlerList())).isEqualTo(1);
-        // THREE, and every one is meant: B03 freezes a player while their session loads, B07 freezes
-        // one who has not chosen a class (ADR-020), and B08 hands the mage his second jump back on
-        // landing. Different reasons, different lifetimes - and none of them is a lifecycle entry, so
-        // the invariant this test protects is the assertions above.
+        // FOUR, and every one is meant: B03 freezes a player while their session loads, B07 freezes
+        // one who has not chosen a class (ADR-020), B08 hands the mage his second jump back on
+        // landing and interrupts a cast on movement. Different reasons, different lifetimes - and
+        // none of them is a lifecycle entry, so the invariant this test protects is the assertions
+        // above.
         //
         // What matters on the busiest event the server has is that each returns on field reads before
         // doing anything: a counter for the first two, ground state and a permission flag for B08.
+        //
+        // B09 is the fifth, and it holds to the same bargain: two integer comparisons on the block
+        // coordinates the event already carries, no Chunk object and no allocation, and only then a
+        // single table access - and only in the handful of chunks a border runs through
+        // (MovementGuard, research.md R4). A zone lookup on every step would have been the one
+        // addition this list should have refused.
+        //
+        // The sixth is B08's landing watcher, and it earns its place the same way: one int read says
+        // "nobody is mid-leap", which is true of every player almost all of the time. It exists
+        // because a leap's impact happens where the warrior comes down, and no timer can say when
+        // that is - a jump over a cliff takes as long as the cliff is deep (FR-045d).
+        // Der siebte ist B12s Aktivitaetszeitstempel (R7), und er ist der billigste von allen:
+        // MONITOR, eine Zuweisung in eine vorbelegte Map, keine Bedingung davor und keine
+        // Allokation. Genau deshalb ist er vertretbar - und genau deshalb zaehlt dieser Test mit,
+        // damit der achte es begruenden muss.
         assertThat(handlerCount(PlayerMoveEvent.getHandlerList()))
                 .as(
-                        "B03's safe-state hold, B07's no-character hold, B08's double jump and its"
-                                + " cast interruption")
-                .isEqualTo(4);
+                        "B03's safe-state hold, B07's no-character hold, B08's double jump, its cast"
+                                + " interruption and its landing watcher, B09's movement guard, and"
+                                + " B12's activity timestamp")
+                .isEqualTo(7);
     }
 
     @Test
@@ -260,16 +282,19 @@ class FullBootstrapTest {
                         "B05 prices the hit, B08 refuses it for an ability item and stops a cast on"
                                 + " it - B04 must not be here")
                 .isEqualTo(3);
-        // ProjectileLaunchEvent extends EntitySpawnEvent and declares no HandlerList of its own, so
-        // it SHARES one with CreatureSpawnEvent. The two cannot be counted separately - what this
-        // asserts is that exactly two handlers sit on that shared list: projectile pricing and mob
-        // equipping, one each.
+        // ProjectileLaunchEvent and CreatureSpawnEvent both extend EntitySpawnEvent and declare no
+        // HandlerList of their own, so all three share one list. They cannot be counted separately -
+        // what this asserts is that exactly three handlers sit on that shared list: projectile
+        // pricing, mob equipping, and B10's vanilla-spawn suppressor (research.md R1), one each.
         assertThat(handlerCount(org.bukkit.event.entity.EntitySpawnEvent.getHandlerList()))
-                .as("projectile pricing and mob equipping share one handler list")
-                .isEqualTo(2);
+                .as("projectile pricing, mob equipping and vanilla-spawn suppression share one handler list")
+                .isEqualTo(3);
         assertThat(handlerCount(org.bukkit.event.entity.EntityDeathEvent.getHandlerList()))
                 .as("vanilla loot and experience are suppressed here")
-                .isEqualTo(2); // the death listener plus the mob equipment release
+                // The death listener, the mob equipment release, and B10's HordeSweep - it sets a
+                // boss's respawn timer on the same event as every other creature's death, with no
+                // special handling of its own (T082).
+                .isEqualTo(3);
     }
 
     @Test
@@ -462,22 +487,38 @@ class FullBootstrapTest {
 
     @Test
     void everyClassEventHasItsHandler() {
-        // Three handlers sit on InventoryClickEvent, each with its own job: the equipment lock
+        // Six handlers sit on InventoryClickEvent, each with its own job: the equipment lock
         // refuses to move a bound item (ADR-018), the class selection refuses everything while its
         // menu is open, and B08b's currency window refuses everything while its own is - a ledger
-        // row is a fact, not an item somebody can pocket (ADR-028).
+        // row is a fact, not an item somebody can pocket (ADR-028). B09's waypoint window is the
+        // fourth, for the same reason and under the same temporary licence (ADR-032). B11's vendor
+        // is the fifth: a window where stacks can be moved is a window items can be taken from
+        // without paying (FR-060 to FR-064).
         //
         // Counted rather than merely "at least one": a handler that quietly disappears is how a
         // bound item becomes removable, and nobody notices until it has happened in play.
         assertThat(handlerCount(org.bukkit.event.inventory.InventoryClickEvent.getHandlerList()))
-                .as("the equipment lock, the class selection and the currency window")
-                .isEqualTo(3);
+                .as(
+                        "the equipment lock, the class selection, the currency, waypoint and vendor"
+                                + " windows, the repair-route lock, B12's activity timestamp,"
+                                + " B12's menu guard, and B13's character sheet")
+                // NEUN seit B13. Die Uebersicht ist zum Lesen da (FR-050): ohne ihren Waechter
+                // koennte ein Spieler die Attribute herausnehmen und behalten - ein Fenster ist in
+                // Vanilla ein Inventar, und ein Inventar gibt her, was man anklickt.
+                .isEqualTo(9);
         assertThat(handlerCount(org.bukkit.event.player.PlayerDropItemEvent.getHandlerList()))
                 .as("dropping is off for every item, bound or not (ADR-018)")
                 .isEqualTo(1);
         assertThat(handlerCount(org.bukkit.event.inventory.InventoryCloseEvent.getHandlerList()))
-                .as("the class selection reopens itself; the currency window just forgets its state")
-                .isEqualTo(2);
+                .as(
+                        "the class selection reopens itself; the currency, waypoint and vendor"
+                                + " windows, B12's leaderboard and B13's character sheet just"
+                                + " forget their state")
+                // SECHS seit B13. Die Uebersicht merkt sich nur, WER sie offen hat - der
+                // zwischengespeicherte Inhalt geht erst beim Sitzungsende weg, ueber den
+                // SessionObserver und NICHT ueber PlayerQuitEvent: B03 besitzt den Lebenszyklus
+                // und laesst dort genau einen Handler zu (FR-007).
+                .isEqualTo(6);
     }
 
     // --- character inventory (B07 groundwork for B11) ---------------------
@@ -521,13 +562,322 @@ class FullBootstrapTest {
                 .isPresent();
     }
 
+    // --- B13: UI, HUD und Texte -------------------------------------------
+
     @Test
-    void theCoinsCommandIsRegistered() {
-        // The one place B08b reaches outside its layer (ADR-028). If plugin.yml and the wiring ever
-        // disagree, the command silently does not exist - so it is asserted rather than assumed.
-        assertThat(plugin.getCommand("coins")).isNotNull();
-        assertThat(plugin.getCommand("coins").getExecutor())
-                .isInstanceOf(rpg.plugin.command.CoinsCommand.class);
+    void theUiModuleIsWiredAndItsConfigurationLoaded() {
+        // Modultests reichen nicht: das Modul muss verdrahtet sein und der Server damit starten.
+        // Genau hier faellt auf, wenn ui.yml nicht ausgeliefert wird oder die Startpruefung aus
+        // FR-032 gegen eine leere Faehigkeitsliste laeuft.
+        // Ueber die Startreihenfolge und nicht ueber einen Dienst: B13 REGISTRIERT KEINEN. Es
+        // zeichnet nur, und ein Block, den niemand aufruft, braucht keine Schnittstelle in der
+        // Registry - er ist der letzte der Kette (Blocksteckbrief: "Benoetigt von: -").
+        assertThat(plugin.registry().resolveStartOrder())
+                .as("UiModule ist verdrahtet und hat gestartet")
+                .contains("ui");
+    }
+
+    @Test
+    void theUiModuleStartsAfterTheAbilities() {
+        // Seine EINZIGE Abhaengigkeit, und sie ist verdient: die Startpruefung aus FR-032 liest
+        // B08s Verzeichnis. Ohne diese Reihenfolge liefe sie gegen eine leere Liste und pruefte
+        // still nichts - dieselbe Falle, die StatisticsModule bei den Belohnungsvorlagen abfaengt.
+        java.util.List<String> order = plugin.registry().resolveStartOrder();
+
+        assertThat(order.indexOf("ui")).isGreaterThan(order.indexOf("abilities"));
+    }
+
+    @Test
+    void theCharCommandIsDeclared() {
+        // Bis B14 stand hier getCommand("char") != null - der plugin.yml-Eintrag und die
+        // Verdrahtung mussten sich einig sein, und das war nachsehbar. Seit dem Umzug auf
+        // Brigadier (T034) gibt es keinen Eintrag mehr, und MockBukkit bildet den
+        // LifecycleEventManager nicht ab.
+        //
+        // WAS DIESER TEST NOCH BEWEIST: dass der Start /char angemeldet hat, mit seinem Recht und
+        // mit Spielerbezug. WAS ER NICHT MEHR BEWEIST: dass Brigadier daraus einen aufrufbaren
+        // Knoten macht. Das kann nur der echte Server (quickstart §5) - und genau deshalb gehoert
+        // der Serverlauf in diese Story und nicht ans Ende des Blocks.
+        assertThat(declared("char"))
+                .isPresent()
+                .get()
+                .satisfies(
+                        node -> {
+                            assertThat(node.permissionOrNone())
+                                    .contains(rpg.plugin.command.CharacterSheetCommand.PERMISSION);
+                            assertThat(node.requiresPlayer()).isTrue();
+                            assertThat(node.arguments()).isEmpty();
+                        });
+    }
+
+    /** Der angemeldete Knoten dieses Namens, falls es ihn gibt. */
+    private java.util.Optional<rpg.plugin.command.framework.RpgCommand> declared(String name) {
+        return plugin.declaredCommandsForTest().stream()
+                .filter(node -> node.name().equals(name))
+                .findFirst();
+    }
+
+    @Test
+    void thehudTickIsTheOnlyOneAndTheActionBarNoLongerRunsItsOwn() throws Exception {
+        // R1: B13 ERWEITERT den Takt aus StatusActionBar.startRefresh und legt keinen zweiten an.
+        // startRefresh ist deshalb ENTFALLEN - waere es noch da, liefen zwei Durchlaeufe je
+        // Sekunde, und welcher zuletzt sendet, haenge an der Registrierungsreihenfolge.
+        assertThat(rpg.platform.hud.StatusActionBar.class.getDeclaredMethods())
+                .as("startRefresh ist zu HudTick geworden")
+                .noneMatch(method -> method.getName().equals("startRefresh"));
+    }
+
+    @Test
+    void theuiBlockRegisteredNoSchema() {
+        // SC-011 im laufenden Bootstrap: B13 legt keine Tabelle an. UiPersistsNothingTest prueft
+        // die Quellen, dieser Test den echten Start - beides ist noetig, und nur das zweite faende
+        // eine Migration, die jemand ausserhalb des B13-Pakets abgelegt hat.
+        assertThat(PostgresContainer.tableExists("ui_settings")).isFalse();
+        assertThat(PostgresContainer.tableExists("player_hud")).isFalse();
+    }
+
+    @Test
+    void theCoinsCommandIsDeclared() {
+        // Der interessanteste der sechs: /coins hat Unterkommandos UND eigene Formen (T037). Die
+        // Regel aus T014 - „eine Verzweigung hat keine eigene Ausfuehrung" - musste dafuer
+        // nachgeben; sie war strenger als der Vertrag und strenger als Brigadier.
+        assertThat(declared("coins"))
+                .isPresent()
+                .get()
+                .satisfies(
+                        node -> {
+                            assertThat(node.permissionOrNone())
+                                    .as("die Wurzel traegt das GRUNDrecht, nicht das Admin-Recht")
+                                    .contains(rpg.plugin.command.CoinsCommand.PERMISSION_BALANCE);
+                            assertThat(node.isBranch()).isTrue();
+                            assertThat(node.action())
+                                    .as("und hat trotzdem eigene Formen: /coins und /coins <spieler>")
+                                    .isNotNull();
+                            assertThat(node.children())
+                                    .extracting(rpg.plugin.command.framework.RpgCommand::name)
+                                    .containsExactlyInAnyOrder("set", "add", "remove");
+                            assertThat(node.children())
+                                    .allSatisfy(
+                                            child ->
+                                                    assertThat(child.permissionOrNone())
+                                                            .as("jeder Eingriff braucht das Admin-Recht")
+                                                            .contains(
+                                                                    rpg.plugin.command.CoinsCommand
+                                                                            .PERMISSION_ADMIN));
+                            assertThat(node.children())
+                                    .allSatisfy(
+                                            child ->
+                                                    assertThat(child.requiresPlayer())
+                                                            .as("ein Eingriff geht von der Konsole")
+                                                            .isFalse());
+                        });
+    }
+
+    @Test
+    void theXpCommandIsDeclared() {
+        // Das letzte der sechs (T038). Eine reine Verzweigung: /xp allein tut nichts, jeder der
+        // drei Zweige tut etwas - und jeder laeuft von der Konsole, weil eine Korrektur genau
+        // dort gemacht wird.
+        assertThat(declared("xp"))
+                .isPresent()
+                .get()
+                .satisfies(
+                        node -> {
+                            assertThat(node.permissionOrNone())
+                                    .contains(rpg.plugin.command.XpCommand.PERMISSION);
+                            assertThat(node.isBranch()).isTrue();
+                            assertThat(node.action())
+                                    .as("/xp allein ist unvollstaendig, nicht wirkungslos")
+                                    .isNull();
+                            assertThat(node.children())
+                                    .extracting(rpg.plugin.command.framework.RpgCommand::name)
+                                    .containsExactlyInAnyOrder("give", "take", "set");
+                            assertThat(node.children())
+                                    .allSatisfy(
+                                            child ->
+                                                    assertThat(child.requiresPlayer()).isFalse());
+                        });
+    }
+
+    @Test
+    void allSixCommandsAreDeclared() {
+        // Der Sammelbeweis fuer FR-005: sechs Kommandos gingen hinein, sechs kommen heraus. Ein
+        // Umzug, der eines davon unterwegs verliert, faellt hier auf und nicht erst dem Spieler.
+        assertThat(plugin.declaredCommandsForTest())
+                .extracting(rpg.plugin.command.framework.RpgCommand::name)
+                .containsExactlyInAnyOrder("char", "coins", "stats", "top", "trash", "xp");
+    }
+
+    /**
+     * T044 — <b>die Syntax der sechs ist unveraendert</b> (FR-005, SC-008).
+     *
+     * <p>Die Sollwerte sind die {@code usage:}-Zeilen, die bis zum Umzug in {@code plugin.yml}
+     * standen; der Block ist geloescht (T040), also gaebe es sonst nichts mehr, woran sich
+     * „unveraendert" messen liesse. Sie stehen deshalb hier woertlich.
+     *
+     * <p><b>Der Test steht in dieser Klasse und nicht in einer eigenen</b>, weil er den ECHTEN
+     * Baum braucht. Ein erster Anlauf baute die Kommandos mit null-Mitarbeitern nach — die
+     * Konstruktoren pruefen ihre Mitarbeiter aber mit {@code requireNonNull}, und das zu Recht.
+     * Ein nachgebauter Baum haette ohnehin nur bewiesen, dass der Nachbau stimmt.
+     *
+     * <p>Er prueft die <em>Form</em>: welche Woerter, welche Argumente, welche davon Pflicht. Dass
+     * die <em>Ausgabe</em> dieselbe ist, koennen nur die Abnahmeschritte aus B08b, B11, B12 und
+     * B13 — und SC-008 sagt genau das: keiner von ihnen muss angepasst werden.
+     */
+    @Test
+    void thesixCommandsKeptTheirSyntax() {
+        // char   usage: '/char'
+        assertThat(declared("char").orElseThrow().arguments()).isEmpty();
+
+        // trash  usage: '/trash (again to confirm)'  - '(again to confirm)' war eine Erklaerung,
+        //        kein Argument: die Bestaetigung ist der zweite Aufruf.
+        assertThat(declared("trash").orElseThrow().arguments()).isEmpty();
+
+        // top    usage: '/top [board] [period]'
+        assertThat(argumentNames("top")).containsExactly("board", "period");
+        assertThat(declared("top").orElseThrow().arguments())
+                .allSatisfy(argument -> assertThat(argument.required()).isFalse());
+
+        // stats  usage: '/stats [period]'  - schon damals unvollstaendig: B12-FR-044 laesst auch
+        //        '/stats <spieler> [period]' zu, und der Code konnte es. Die Zeile beschrieb das
+        //        Kommando falsch; ein weiterer Grund, warum usage: nicht mitgezogen ist.
+        assertThat(argumentNames("stats")).containsExactly("target", "period");
+
+        // xp     usage: '/xp give|take <player> <amount> | /xp set <player> <level> [xp]'
+        assertThat(declared("xp").orElseThrow().arguments())
+                .as("/xp allein nimmt nichts - es verzweigt nur")
+                .isEmpty();
+        for (String verb : java.util.List.of("give", "take")) {
+            assertThat(childArgumentNames("xp", verb)).as(verb).containsExactly("player", "amount");
+            assertThat(child("xp", verb).arguments())
+                    .allSatisfy(argument -> assertThat(argument.required()).isTrue());
+        }
+        assertThat(childArgumentNames("xp", "set")).containsExactly("player", "level", "xp");
+        assertThat(child("xp", "set").arguments().get(2).required())
+                .as("[xp] stand in eckigen Klammern - also optional")
+                .isFalse();
+
+        // coins  usage: '/coins | /coins <player> | /coins set|add|remove <player> <class> <amount>'
+        assertThat(argumentNames("coins"))
+                .as("ein optionales Argument deckt /coins und /coins <spieler>")
+                .containsExactly("player");
+        assertThat(declared("coins").orElseThrow().arguments().get(0).required()).isFalse();
+        for (String verb : java.util.List.of("set", "add", "remove")) {
+            assertThat(childArgumentNames("coins", verb))
+                    .as(verb)
+                    .containsExactly("player", "class", "amount");
+        }
+    }
+
+    /**
+     * T054 — <b>jedes Recht am LEBENDEN Baum steht im Deskriptor</b> (FR-010, FR-035).
+     *
+     * <p>{@code DeclaredPermissionsGuardTest} prüft dasselbe über einen Quellscan. Dieser hier
+     * prüft es am fertig gebauten Baum, und das ist nicht dieselbe Frage: der Quellscan findet
+     * jedes Recht, das <em>irgendwo im Code steht</em>; dieser findet die, die ein Kommando
+     * <em>wirklich trägt</em> — auch wenn es sie zusammensetzt, statt sie hinzuschreiben.
+     *
+     * <p>Die Vollständigkeitsprüfung über <em>alle</em> Kommandos folgt in T116, wenn die
+     * Admin-Werkzeuge existieren.
+     */
+    @Test
+    void everyPermissionOnTheLiveTreeIsDeclared() {
+        java.util.Set<String> declared = permissionsFromDescriptor();
+        java.util.List<String> demanded = new java.util.ArrayList<>();
+        for (rpg.plugin.command.framework.RpgCommand root : plugin.declaredCommandsForTest()) {
+            collectPermissions(root, demanded);
+        }
+
+        assertThat(demanded).as("sechs Kommandos ohne ein einziges Recht waeren verdaechtig").isNotEmpty();
+        assertThat(declared)
+                .as("ein Recht, das kein plugin.yml-Eintrag deckt, wirkt je nach Server anders")
+                .containsAll(demanded);
+    }
+
+    private static void collectPermissions(
+            rpg.plugin.command.framework.RpgCommand node, java.util.List<String> into) {
+        node.permissionOrNone().ifPresent(into::add);
+        node.children().forEach(child -> collectPermissions(child, into));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static java.util.Set<String> permissionsFromDescriptor() {
+        try (java.io.InputStream stream = FullBootstrapTest.class.getResourceAsStream("/plugin.yml")) {
+            java.util.Map<String, Object> descriptor =
+                    new org.yaml.snakeyaml.Yaml()
+                            .load(
+                                    new String(
+                                            stream.readAllBytes(),
+                                            java.nio.charset.StandardCharsets.UTF_8));
+            return ((java.util.Map<String, Object>) descriptor.get("permissions")).keySet();
+        } catch (java.io.IOException unreadable) {
+            throw new IllegalStateException(unreadable);
+        }
+    }
+
+    private java.util.List<String> argumentNames(String command) {
+        return declared(command).orElseThrow().arguments().stream()
+                .map(rpg.plugin.command.framework.Argument::name)
+                .toList();
+    }
+
+    private rpg.plugin.command.framework.RpgCommand child(String parent, String name) {
+        return declared(parent).orElseThrow().children().stream()
+                .filter(node -> node.name().equals(name))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("kein Unterkommando " + parent + " " + name));
+    }
+
+    private java.util.List<String> childArgumentNames(String parent, String name) {
+        return child(parent, name).arguments().stream()
+                .map(rpg.plugin.command.framework.Argument::name)
+                .toList();
+    }
+
+    @Test
+    void theTopCommandIsDeclared() {
+        // Wie bei /char und /stats: die plugin.yml-Pruefung ist mit dem Umzug weggefallen (T036).
+        // Die Berechtigung steht weiter auf default: true - ein Recht, das erst vergeben werden
+        // muss, waere auf jedem frisch aufgesetzten Server eine stumme Funktion.
+        assertThat(declared("top"))
+                .isPresent()
+                .get()
+                .satisfies(
+                        node -> {
+                            assertThat(node.permissionOrNone())
+                                    .contains(rpg.plugin.command.TopCommand.PERMISSION);
+                            assertThat(node.requiresPlayer()).isTrue();
+                            assertThat(node.arguments())
+                                    .as("/top [tafel|score] [zeitraum]")
+                                    .hasSize(2);
+                            assertThat(node.rateLimitOrNone())
+                                    .as("FR-032: /top fragt die Datenbank")
+                                    .isPresent();
+                        });
+    }
+
+    @Test
+    void theStatisticsCommandIsDeclared() {
+        // Wie bei /char: die plugin.yml-Pruefung ist mit dem Umzug weggefallen (T035). Was hier
+        // NEU dazukommt und vorher nicht pruefbar war: die beiden Argumente und die Sperrzeit.
+        assertThat(declared("stats"))
+                .isPresent()
+                .get()
+                .satisfies(
+                        node -> {
+                            assertThat(node.permissionOrNone())
+                                    .contains(rpg.plugin.command.StatisticsCommand.PERMISSION);
+                            assertThat(node.requiresPlayer()).isTrue();
+                            assertThat(node.arguments())
+                                    .as("/stats [zeitraum|spieler] [zeitraum] - beide optional")
+                                    .hasSize(2)
+                                    .allSatisfy(
+                                            argument ->
+                                                    assertThat(argument.required()).isFalse());
+                            assertThat(node.rateLimitOrNone())
+                                    .as("FR-032: /stats fragt die Datenbank")
+                                    .isPresent();
+                        });
     }
 
     @Test
@@ -659,6 +1009,171 @@ class FullBootstrapTest {
             }
         }
         return null;
+    }
+
+    // --- B09: zones and regions ---
+
+    @Test
+    void bothZoneTablesExistBecauseTheirMigrationRan() {
+        assertThat(PostgresContainer.tableExists("character_zone_state")).isTrue();
+        assertThat(PostgresContainer.tableExists("character_waypoints")).isTrue();
+    }
+
+    @Test
+    void theZoneConfigurationIsWrittenOutLikeEveryOther() {
+        // Without this line in DEFAULT_CONFIG_FILES the block starts against a file that is not
+        // there. It cost 35 red tests once; it is asserted now rather than remembered.
+        assertThat(plugin.getDataFolder().toPath().resolve("zones.yml")).exists();
+    }
+
+    // --- B11: items, equipment and loot ---
+
+    @Test
+    void theItemConfigurationIsWrittenOutLikeEveryOther() {
+        // Dieselbe Falle wie bei zones.yml, und sie kostet dasselbe: ohne die Zeile in
+        // DEFAULT_CONFIG_FILES startet der Block gegen eine Datei, die es nicht gibt.
+        assertThat(plugin.getDataFolder().toPath().resolve("items.yml")).exists();
+    }
+
+    @Test
+    void theItemModuleIsWiredAndItsFacadeAnswers() {
+        // Ein Modul, dessen Modultests gruen sind, ist nicht fertig. Fertig ist es, wenn es im
+        // Plugin verdrahtet ist und der Start gruen bleibt - das ist die Lehre aus B10.
+        rpg.core.item.Items items = plugin.items();
+
+        assertThat(items).as("B11 haengt im Bootstrap").isNotNull();
+        assertThat(items.templateKeys())
+                .as("die ausgelieferten Vorlagen sind geladen")
+                .isNotEmpty();
+        assertThat(items.wear().perDeath())
+                .as("die Verschleisskurve steht - und der Tod wiegt schwerer als der Alltag")
+                .isGreaterThan(items.wear().perDamageTaken());
+    }
+
+    @Test
+    void anUnknownItemTemplateAnswersEmptyRatherThanThrowing() {
+        // Die Zusage aus contracts/item-api.md: nichts wirft, nichts antwortet mit null. Eine
+        // Vorlage kann zwischen zwei Reloads verschwinden, waehrend ein Exemplar davon noch in
+        // einem Inventar liegt (FR-007).
+        assertThat(plugin.items().template("potion.does-not-exist")).isEmpty();
+        assertThat(plugin.items().sellPriceOf("potion.does-not-exist")).isEmpty();
+    }
+
+    @Test
+    void everyItemListenerAndTableIsThere() {
+        // T139: ein Modul, dessen Modultests gruen sind, ist nicht fertig. Was hier geprueft wird,
+        // faellt in keinem Modultest auf - ein Zuhoerer, der nie registriert wurde, und eine
+        // Migration, die nie lief, sehen von innen aus wie ein Block, der einfach nichts tut.
+        assertThat(PostgresContainer.tableExists("character_gear_condition"))
+                .as("US5: ohne die Tabelle waere jeder Charakter nach jedem Neustart wieder neu")
+                .isTrue();
+        assertThat(PostgresContainer.tableExists("character_cosmetic"))
+                .as("US6: dito fuer die gekauften Trimfarben")
+                .isTrue();
+
+        assertThat(handlerCount(org.bukkit.event.player.PlayerInteractEntityEvent.getHandlerList()))
+                .as("US4: der Rechtsklick auf den Haendler - ohne ihn oeffnet sein Fenster nie")
+                .isEqualTo(1);
+    }
+
+    @Test
+    void theItemAggregatesAreRegisteredWithTheFlush() {
+        // ADR-015 Punkt 7, die dritte Registrierung. Sie zu vergessen faellt NICHT laut auf: die
+        // Markierungen zaehlen bei jedem Durchlauf als gescheitert, geschrieben wird nie, und das
+        // sieht aus wie ein Datenbankfehler. Genau das ist bei CHARACTER_COSMETIC einmal passiert -
+        // gefunden von NoDatabaseAccessPerGameEventTest, nicht von einem Menschen.
+        assertThat(plugin.registry().findService(rpg.core.item.Items.class))
+                .as("die Fassade haengt an der Registry, wie jede andere auch")
+                .isNotNull();
+    }
+
+    @Test
+    void thewearSeamIsClosedWithSomethingOtherThanNone() {
+        // Die Abnahmebedingung des Eingriffs aus dem Complexity Tracking. B07 verhaelt sich mit
+        // GearConditionFactor.NONE exakt wie vorher - und genau deshalb waere eine vergessene
+        // Verdrahtung unsichtbar: alles bliebe gruen, und der Verschleiss erreichte nie einen Wert.
+        java.util.UUID unknown = java.util.UUID.randomUUID();
+
+        assertThat(plugin.items()).isNotNull();
+        // Ein unbekannter Charakter traegt volle Werte - das ist die sichere Richtung (FR-047).
+        // Geprueft wird hier, dass ueberhaupt jemand antwortet, statt dass NONE stehengeblieben ist.
+        assertThat(plugin.gearConditions())
+                .as("ohne diese Naht waere der ganze Verschleiss gebaut und wirkungslos")
+                .isNotNull();
+        assertThat(plugin.gearConditions().factorOf(unknown, rpg.core.classes.LadderSlot.ARMOR))
+                .isEqualTo(1.0);
+    }
+
+    @Test
+    void everyZoneListenerIsRegistered() {
+        // FOUR listeners, not the six the task list expected. Two of them - the join and the quit -
+        // do not exist: B03 owns the session lifecycle and permits exactly one handler on each
+        // (FR-007), so B09 hangs on its SessionObserver instead. NoCompetingSessionListenersTest
+        // said so, and the right answer was to move rather than to argue.
+        //
+        // The movement guard is counted with the other four movement handlers further up.
+        assertThat(handlerCount(org.bukkit.event.player.PlayerTeleportEvent.getHandlerList()))
+                .as("a teleport is a zone change like any other (FR-017)")
+                .isEqualTo(1);
+        assertThat(handlerCount(org.bukkit.event.player.PlayerRespawnEvent.getHandlerList()))
+                .as("B05 refills at MONITOR, B09 sets the place at NORMAL - two, and the order matters")
+                .isEqualTo(2);
+        assertThat(handlerCount(PlayerInteractEvent.getHandlerList()))
+                .as(
+                        "B08s Faehigkeitsausloeser, B09s Kristall, seit B11 der Trank - und seit"
+                                + " B12 der Aktivitaetszeitstempel. Vier Bloecke auf einem"
+                                + " Ereignis, jeder auf seiner Prioritaet: der Trank sitzt auf"
+                                + " HIGH und bricht ab, sobald der Gegenstand einen B11-Vermerk"
+                                + " traegt, damit Vanilla ihn nicht auch noch trinkt; B12 sitzt"
+                                + " auf MONITOR und entscheidet nichts")
+                .isEqualTo(4);
+    }
+
+    @Test
+    void nothingHurtsAPlayerStandingInASafeCore() {
+        // This test was written to prove setPermission had run, and it proved something else: the
+        // permission is never consulted on the environment path at all. Lava, fire, drowning and a
+        // fall went through a safe core untouched while ZoneDamagePermission claimed otherwise
+        // (FR-028, SC-002). SafeCoreDamageGuard now closes that path, and this is the assertion that
+        // would have caught it on day one.
+        PlayerMock player = enterWarrior();
+
+        // A fresh character is placed at the start region's respawn point, which lies in its safe
+        // core - so this is the ordinary state of somebody who just logged in for the first time.
+        assertThat(plugin.zoneTracker().inSafeCore(player.getUniqueId()))
+                .as("the placement chain ran: session, character, teleport, tracker")
+                .isTrue();
+        rpg.core.combat.DamageResult result =
+                plugin.combatPipeline()
+                        .environmentDamage(
+                                player.getUniqueId(), rpg.core.combat.EnvironmentSource.LAVA);
+
+        assertThat(result.applied())
+                .as("standing in the safe core, nothing may hurt them")
+                .isFalse();
+        assertThat(result.reason())
+                .as("cancelled by the guard, not refused by the permission - two rules, two reasons")
+                .isEqualTo(rpg.core.combat.RejectReason.CANCELLED);
+    }
+
+    @Test
+    void aReloadRebuildsTheZoneIndex() {
+        // applyReloadedConfig has to be called from the plugin's reload path, next to B04's. Without
+        // it a changed zones.yml is read, validated, accepted - and ignored, which is the worst of
+        // the three possible outcomes because it looks like success (FR-057a).
+        assertThat(plugin.reloadConfiguration())
+                .as("the shipped configuration reloads cleanly")
+                .isTrue();
+
+        PlayerMock player = enterWarrior();
+        assertThat(
+                        plugin.combatPipeline()
+                                .environmentDamage(
+                                        player.getUniqueId(),
+                                        rpg.core.combat.EnvironmentSource.LAVA)
+                                .applied())
+                .as("and the rule still holds afterwards - the swapped index is wired up again")
+                .isFalse();
     }
 
     // --- fixtures ---

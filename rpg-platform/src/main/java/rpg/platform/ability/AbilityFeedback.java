@@ -37,6 +37,14 @@ public final class AbilityFeedback {
     private final org.bukkit.Server server;
     private final Logger logger;
 
+    /**
+     * Wer gerade eine Haltung haelt, die keine gedrueckte Maustaste mehr braucht.
+     *
+     * <p>Nebenlaeufig, weil das Eintragen aus dem Faehigkeits-Runtime kommt und das Nachfragen aus
+     * einem Bukkit-Ereignis - beide auf dem Servertakt, aber nicht durch dieselbe Naht.
+     */
+    private final java.util.Set<UUID> raised = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
     public AbilityFeedback(org.bukkit.Server server, Logger logger) {
         this.server = Objects.requireNonNull(server, "server");
         this.logger = Objects.requireNonNull(logger, "logger");
@@ -83,6 +91,13 @@ public final class AbilityFeedback {
      *
      * <p>Das ist auch der Grund, warum der Magier waehrenddessen weiterzaubern kann und der Warrior
      * nicht - der eine haelt etwas, der andere nicht.
+     *
+     * <p><b>Der Spieler merkt sich hier, nicht nur der Server.</b> Vanilla haelt einen Schild nur
+     * so lange oben, wie die rechte Maustaste gedrueckt ist: laesst der Spieler los, schickt sein
+     * Client ein Loslassen, und der Server nimmt die Haltung herunter - nach etwa einem
+     * Wimpernschlag, waehrend die Faehigkeit noch acht Sekunden laeuft. Wer hier steht, ist
+     * deshalb vermerkt, damit {@link #shouldStayRaised} dieses eine Loslassen erkennen und die
+     * Haltung wieder aufnehmen kann.
      */
     public void holdPose(Player player, Ability ability) {
         Objects.requireNonNull(player, "player");
@@ -90,13 +105,10 @@ public final class AbilityFeedback {
         if (!canBeHeld(ability)) {
             return;
         }
-        try {
-            // Die Pose folgt dem, was in der Hand ist. Der Slot der Faehigkeit ist die Haupthand,
-            // weil der Klick von dort kam.
-            player.startUsingItem(org.bukkit.inventory.EquipmentSlot.HAND);
-        } catch (RuntimeException failure) {
-            logger.warning(() -> "[abilities] could not raise the guard for " + ability.id() + ": " + failure);
-        }
+        // Vor dem Heben eingetragen: das Heben selbst kann bereits ein Loslassen ausloesen, und ein
+        // Eintrag danach kaeme fuer dieses Ereignis zu spaet.
+        raised.add(player.getUniqueId());
+        raise(player, ability.id());
     }
 
     /** Nimmt sie wieder herunter - nach Ablauf der Dauer oder beim zweiten Rechtsklick. */
@@ -106,10 +118,59 @@ public final class AbilityFeedback {
         if (!canBeHeld(ability)) {
             return;
         }
+        // Erst austragen, dann herunternehmen. Umgekehrt loeste das Herunternehmen dasselbe
+        // Loslassen aus wie die Maustaste, und die Haltung ginge sofort wieder hoch - eine
+        // Faehigkeit, die nie endet, weil das Ende sie neu startet.
+        raised.remove(player.getUniqueId());
         try {
             player.clearActiveItem();
         } catch (RuntimeException failure) {
             logger.warning(() -> "[abilities] could not lower the guard for " + ability.id() + ": " + failure);
+        }
+    }
+
+    /**
+     * Ob dieses Loslassen die Haltung beenden darf.
+     *
+     * <p>Nein, solange die Faehigkeit laeuft: dann kam es von der Maustaste, und die Maustaste
+     * gedrueckt zu halten war genau das, was hier nicht mehr noetig sein soll. Ja fuer jeden
+     * anderen - wer einen Bogen spannt oder isst, hat mit dem Block nichts zu tun, und ein
+     * pauschales Nein wuerde beides festhalten.
+     */
+    public boolean shouldStayRaised(UUID playerId) {
+        Objects.requireNonNull(playerId, "playerId");
+        return raised.contains(playerId);
+    }
+
+    /** Hebt sie erneut, nachdem der Client sie hat fallen lassen. */
+    public void raiseAgain(Player player) {
+        Objects.requireNonNull(player, "player");
+        if (!raised.contains(player.getUniqueId())) {
+            return;
+        }
+        raise(player, "sustained");
+    }
+
+    /**
+     * Vergisst einen Spieler.
+     *
+     * <p>Ein Vermerk je gehaltener Faehigkeit, und die Karte schrumpft von allein nur, wenn die
+     * Faehigkeit ordentlich endet. Ein Tod oder ein Abmelden mittendrin ist kein ordentliches Ende,
+     * und ohne diese Zeile bliebe die Id fuer die Laufzeit des Servers stehen.
+     */
+    public void forget(UUID playerId) {
+        if (playerId != null) {
+            raised.remove(playerId);
+        }
+    }
+
+    private void raise(Player player, String abilityId) {
+        try {
+            // Die Pose folgt dem, was in der Hand ist. Der Slot der Faehigkeit ist die Haupthand,
+            // weil der Klick von dort kam.
+            player.startUsingItem(org.bukkit.inventory.EquipmentSlot.HAND);
+        } catch (RuntimeException failure) {
+            logger.warning(() -> "[abilities] could not raise the guard for " + abilityId + ": " + failure);
         }
     }
 

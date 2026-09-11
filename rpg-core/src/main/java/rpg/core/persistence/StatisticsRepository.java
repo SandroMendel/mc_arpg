@@ -25,6 +25,26 @@ public interface StatisticsRepository {
      */
     void increment(UUID playerId, String metric, long delta);
 
+    /**
+     * Reports {@code value} for a maximum metric: today's stored value becomes the larger of the
+     * two (B12, ADR-040).
+     *
+     * <p><b>This path does not read either, and for the same reason as {@link #increment}.</b>
+     * {@code GREATEST(value, excluded.value)} is the same kind of statement about the stored value
+     * as {@code value + excluded.value} - an instruction the database carries out on the row it
+     * already holds, not a decision the caller makes after fetching it. Only the operator differs.
+     *
+     * <p>Reading first would be the obvious implementation and the wrong one. It costs a query per
+     * event on the hot path, which is exactly what FR-002 forbids; and between the read and the
+     * write another thread can store a higher value that the write then silently pushes back down.
+     *
+     * <p>In memory the pending entry holds the <b>running maximum</b> rather than a delta, so a
+     * thousand hits still cost one row write.
+     *
+     * <p>Safe to call from the tick.
+     */
+    void reportMax(UUID playerId, String metric, long value);
+
     /** Sum of one metric for one player over an inclusive date range (FR-016b). */
     CompletableFuture<Long> sum(UUID playerId, String metric, LocalDate from, LocalDate to);
 

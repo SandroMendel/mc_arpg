@@ -12,6 +12,7 @@ import rpg.core.combat.CombatMessageKeys;
 import rpg.core.message.MapMessages;
 import rpg.core.message.MessageKey;
 import rpg.core.message.Messages;
+import rpg.core.progression.ProgressView;
 import rpg.core.scheduler.EntityRef;
 import rpg.core.scheduler.Scheduler;
 import rpg.core.scheduler.TaskHandle;
@@ -63,6 +64,34 @@ final class HudFixture {
                 double defense,
                 double meter) {
             byHolder.put(holderId, new Status(health, maxHealth, mana, maxMana, defense, meter));
+        }
+
+        /** Ein Spieler MIT Fortschritt - Stufe, Erfahrung darin und die Schwelle der naechsten. */
+        void giveWithProgress(
+                UUID holderId,
+                double health,
+                double maxHealth,
+                double mana,
+                double maxMana,
+                double defense,
+                ProgressView progress) {
+            byHolder.put(
+                    holderId, new Status(health, maxHealth, mana, maxMana, defense, 0.0, progress));
+        }
+
+        /** Ein Spieler mit Zaehler UND Fortschritt - der Berserker im Kampf. */
+        void giveWithMeterAndProgress(
+                UUID holderId,
+                double health,
+                double maxHealth,
+                double mana,
+                double maxMana,
+                double defense,
+                double meter,
+                ProgressView progress) {
+            byHolder.put(
+                    holderId,
+                    new Status(health, maxHealth, mana, maxMana, defense, meter, progress));
         }
 
         @Override
@@ -142,6 +171,9 @@ final class HudFixture {
         for (MessageKey key : CombatMessageKeys.all()) {
             texts.put(key.value(), key.value());
         }
+        // SEIT B13 OHNE {progress}: Level und Erfahrung stehen auf der Sidebar (FR-002a). Die
+        // Vorlagen folgen der ausgelieferten messages.yml, die den Platzhalter ebenfalls verloren
+        // hat - eine Fixtur, die ihn behielte, pruefte eine Zeile, die es nicht mehr gibt.
         texts.put(
                 CombatMessageKeys.STATUS_ACTION_BAR.value(),
                 "{health}/{max} HP ({percent}%) {mana}/{maxMana} MP DEF {defense}");
@@ -151,6 +183,11 @@ final class HudFixture {
         texts.put(
                 CombatMessageKeys.STATUS_ACTION_BAR_WITH_METER.value(),
                 "{health}/{max} HP ({percent}%) {mana}/{maxMana} MP DEF {defense} RAGE {meter}");
+        // Die zwei Fortschrittstexte bleiben in der Fixtur, obwohl die Actionbar sie nicht mehr
+        // einsetzt: sie gehoeren CombatMessageKeys und damit B05/B06, und ein Block raeumt keine
+        // fremden Schluessel weg. CombatMessageKeys.all() meldet sie weiterhin an.
+        texts.put(CombatMessageKeys.STATUS_PROGRESS.value(), "LV {level} XP {xp}/{xpNext}");
+        texts.put(CombatMessageKeys.STATUS_PROGRESS_MAX.value(), "LV {level} XP {xp} MAX");
         return new MapMessages(texts);
     }
 }

@@ -1,0 +1,144 @@
+# =============================================================================
+# B12 - Statistiken & Ranglisten
+# =============================================================================
+#
+# Alle Zahlen dieses Blocks stehen hier, keine im Code (Prinzip V). Beim Start
+# wird gegen contracts/stats-config.md geprueft; ein Fehler bricht den Start ab
+# und nennt Datei, Schluessel und Grund.
+#
+# Was hier bewusst NICHT steht:
+#
+#   - Welche Ranglisten es gibt. Sie entstehen aus dem Verzeichnis mal den vier
+#     Zeitraeumen (FR-032a). Eine kuratierte Liste waere eine Pflegeaufgabe, die
+#     niemand pflegt.
+#   - Metrikschluessel als Text. Das Verzeichnis steht im Code, weil zu jeder
+#     Metrik ein Erfassungspunkt gehoert; diese Datei verweist nur darauf.
+#
+# Dauern stehen als Zahl mit Einheit im Schluessel (-seconds), wie in jeder
+# anderen Konfiguration dieses Projekts.
+
+
+
+# --- Erfassung -------------------------------------------------------------
+capture:
+
+  # Anteil am Schaden, ab dem ein Kill zaehlt (FR-007, FR-007d).
+  #
+  # ECHT zwischen 0 und 1, sonst startet der Server nicht - und das ist keine
+  # Formalie: bei 0 bekaeme jeder Streiftreffer einen Bosskill gutgeschrieben,
+  # ab 1 griffe die Schwelle nie und keine Party zaehlte mehr.
+  #
+  # 5 % heisst: wer an einem Boss mit 200.000 Leben 10.000 Schaden austeilt,
+  # hat ihn erlegt. Wer 9.000 austeilt, nicht.
+  kill-credit-share: 0.05
+
+  # Nach dieser Dauer ohne Aktivitaet steht die AKTIVE Uhr (FR-014b).
+  # Die Onlinezeit laeuft weiter - es sind zwei Uhren (ADR-043).
+  #
+  # 5 Minuten: kurz genug, dass ein Nachmittag im AFK-Becken keine
+  # Spielzeit-Rangliste gewinnt; lang genug, dass Sortieren im Inventar oder
+  # ein Gespraech im Chat nicht als Untaetigkeit zaehlt.
+  idle-after-seconds: 300
+
+# --- Ranglisten ------------------------------------------------------------
+leaderboards:
+
+  # Wie oft die Materialized Views aufgefrischt werden (FR-032).
+  #
+  # Das Oeffnen eines Fensters loest KEINE Abfrage aus (FR-030) - gelesen wird
+  # aus dem Speicher-Cache, der bei dieser Auffrischung gefuellt wird. Kuerzer
+  # heisst nicht aktueller fuer den Spieler, sondern nur mehr Last: fuenf
+  # Minuten sind bei einer Rangliste die Zeitspanne, in der sich ohnehin
+  # nichts Sichtbares aendert.
+  refresh-interval-seconds: 300
+
+  # Wie viele Plaetze eine Liste zeigt (FR-033).
+  places: 10
+
+# --- Saisons ---------------------------------------------------------------
+# Lueckenlos und ueberschneidungsfrei, sonst bricht der Start ab (FR-049).
+#
+# Eine Luecke liesse die Ereignisse dieser Tage aus jeder Saisonwertung
+# verschwinden, waehrend sie in der Allzeitwertung stehen bleiben; eine
+# Ueberschneidung zaehlte denselben Kill zweimal. Beides ergibt PLAUSIBLE
+# Zahlen - deshalb Abbruch statt Warnung.
+#
+# Laenge: ein Quartal. Lang genug, dass drei Monate Arbeit zaehlen, kurz
+# genug, dass ein spaeter Einstieg nicht aussichtslos ist.
+seasons:
+  - key: 2026-q3
+    from: 2026-07-01
+    to:   2026-09-30
+  - key: 2026-q4
+    from: 2026-10-01
+    to:   2026-12-31
+  - key: 2027-q1
+    from: 2027-01-01
+    to:   2027-03-31
+  - key: 2027-q2
+    from: 2027-04-01
+    to:   2027-06-30
+
+# --- Gesamtwertung (ADR-046) ----------------------------------------------
+# Punkte je Einheit. Mindestens ein Eintrag, sonst bricht der Start ab
+# (FR-050d) - ohne Gewichtung haette jedes Konto null Punkte und die Saison
+# kuerte den Erstbesten.
+#
+# Die Schluessel sind RANGLISTEN, keine Speicherschluessel: boss_kills hat
+# nach FR-009 bewusst keinen eigenen Zaehler, sondern ist die Summe ueber die
+# Arten MIT Boss-Kennzeichen, waehrend mob_kills ueber die OHNE summiert
+# (FR-009a). Ein Bosskill kommt damit genau einmal in die Punktzahl.
+#
+# Zustandswerte (Level, XP, Coins) koennen hier gar nicht stehen: sie haben
+# keine Aggregation. Sie truegen den Fortschritt vergangener Saisons in die
+# laufende, und eine Saison hoerte auf, ein Neuanfang zu sein.
+score:
+  weights:
+    mob_kills:       1
+    boss_kills:      50
+    playtime_active: 2      # je angefangener Stunde
+
+    # damage_max ist ein Maximum, kein Zaehler: sein Beitrag waechst nicht mit
+    # der Spielzeit, sondern springt einmal. Vorgabe 0 - wer ihn gewichtet,
+    # sollte wissen, dass ein einziger Treffer die Wertung tragen kann.
+    damage_max:      0
+
+    # Die SUMME der Tode ist oeffentlich (FR-037); privat ist nur die
+    # Aufschluesselung nach Verursacher. Gewicht 0, weil Sterben keine
+    # Leistung ist - der Eintrag steht hier, damit sichtbar ist, dass die
+    # Entscheidung getroffen wurde und nicht vergessen.
+    deaths:          0
+
+# --- Belohnungen -----------------------------------------------------------
+# Je Platz der GESAMTWERTUNG, nicht je Rangliste (FR-051). Die uebrigen
+# Ranglisten bleiben bestehen und sind Ehre ohne Preis.
+#
+# Ein Anspruch VERFAELLT NICHT (FR-053a, ADR-045): wer waehrend des
+# Saisonendes nicht online war, findet ihn beim naechsten Anmelden vor.
+rewards:
+  1:
+    coins: 5000
+    items:
+      - template: trim.ember
+        amount: 1
+  2:
+    coins: 2500
+  3:
+    coins: 1000
+
+# --- Hologramm -------------------------------------------------------------
+# Der ganze Abschnitt ist freiwillig. Fehlt er, entfaellt die Anzeige; ist die
+# Stelle nicht ladbar, entfaellt sie mit einer WARNUNG und der Start laeuft
+# trotzdem (FR-064) - eine Zierde haelt keinen Server auf.
+#
+# Standardmaessig auskommentiert: die Koordinaten unten sind geraten, und ein
+# Hologramm an der falschen Stelle ist aergerlicher als keines.
+#
+# hologram:
+#   world: world
+#   x: 0.5
+#   y: 65.0
+#   z: 0.5
+#   board: mob_kills
+#   period: season
+#   places: 10

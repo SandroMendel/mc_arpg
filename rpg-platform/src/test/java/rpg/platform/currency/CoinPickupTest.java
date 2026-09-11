@@ -37,6 +37,7 @@ import rpg.core.session.CharacterClass;
 import rpg.core.session.PlayerCharacter;
 import rpg.core.session.PlayerSession;
 import rpg.core.session.SessionRegistry;
+import rpg.platform.drop.OwnedDropPlatform;
 
 /**
  * T060, T061 - das Aufheben bucht, und wer keinen Anspruch hat, hebt nicht auf.
@@ -313,7 +314,7 @@ class CoinPickupTest {
     }
 
     /** Diese Tests handeln nicht von Sichtbarkeit - die Anzeige tut hier nichts. */
-    private static final class NoDisplay implements CoinPile.PilePlatform {
+    private static final class NoDisplay implements OwnedDropPlatform {
 
         @Override
         public void hideFromEveryone(org.bukkit.entity.Item pile) {}

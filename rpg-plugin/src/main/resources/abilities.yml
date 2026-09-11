@@ -130,17 +130,19 @@ abilities:
     description-key: 'ability.warrior.leap.description'
     item: 'FEATHER'
     mana-cost: 25.0
-    # Fortbewegung, mit 600 ms Wirkzeit ohnehin selbstbegrenzt.
+    # Fortbewegung. Die Abklingzeit begrenzt sie; eine Wirkzeit tat es zusaetzlich und war das
+    # Falsche - ein Sprung, der eine halbe Sekunde nach dem Klick losgeht, kommt immer zu spaet.
     cooldown-ms: 600
-    cast-time-ms: 600
+    cast-time-ms: 0
     interrupt-on-move: false
     max-rank: 5
     rank-cost: { coins: 1 }
+    # RADIUS um den LANDEPUNKT, nicht LINE vom Absprung aus. Was ein Sprung anrichtet, richtet er
+    # dort an, wo er aufkommt - eine Linie in Blickrichtung beschrieb den Weg dorthin, und der Weg
+    # ist nicht der Aufprall (FR-045d).
     target:
-      # LINE, not LOOK_DIRECTION: the leap goes where you look, but the landing hits everything
-      # along it, and LOOK_DIRECTION returns exactly one target by definition.
-      mode: LINE
-      range: 12.0
+      mode: RADIUS
+      range: 4.0
       max-targets: 6
     effects:
       # Der Schub in Blickrichtung. 1.4 war ein Schritt, kein Sprung - der Warrior kam kaum weiter
@@ -148,11 +150,15 @@ abilities:
       - type: DASH
         amount: 2.6
         per-rank: 0.2
+      # Beide erst beim Aufkommen. Vorher trafen sie, was VOR dem Sprung vor ihm stand, und der
+      # Rueckstoss drueckte vom Absprungpunkt weg - beides sichtbar falsch, sobald man weit springt.
       - type: DAMAGE
+        when: landing
         damage-type: PHYSICAL
         amount: 1.1
         per-rank: 0.15
       - type: KNOCKBACK
+        when: landing
         amount: 0.7
 
   # Lifesteal. A share of the damage that ACTUALLY landed, which is why it hangs on APPLICATION and
@@ -189,10 +195,18 @@ abilities:
     duration-ms: 5000
     max-rank: 5
     rank-cost: { coins: 1 }
+    # Ein ZYLINDER, keine Kugel. Bei einer Kugel schrumpft die seitliche Reichweite mit jedem Block
+    # Hoehe - 4.5 zu Fuessen, 3.3 bei einem Mob drei Bloecke hoeher -, und am Hang liest sich das
+    # als "mal trifft er, mal nicht". Ein Zylinder sagt etwas, das man sich merken kann: alles im
+    # Umkreis, auf deiner Hoehe und ein Stueck darueber und darunter.
+    #
+    # BALANCING: 6.0 statt 4.5 waagerecht - fast die doppelte Flaeche. Die Obergrenze von zehn
+    # Zielen bleibt die harte Grenze fuers Tickbudget, nicht der Radius.
     target:
       mode: RADIUS
-      range: 4.5
-      max-targets: 8
+      range: 6.0
+      height: 3.0
+      max-targets: 10
     effects:
       - type: DAMAGE
         damage-type: PHYSICAL
@@ -213,6 +227,9 @@ abilities:
     cooldown-ms: 1000
     cast-time-ms: 0
     sustained: true
+    # NICHT exklusiv. Der Ruf ist ein Kampfschrei, kein Zustand, in dem der Warrior feststeckt -
+    # zwoelf Sekunden ohne jede andere Faehigkeit waeren keine Ultimative, sondern eine Strafe.
+    exclusive: false
     duration-ms: 12000
     max-rank: 5
     rank-cost: { coins: 1 }
@@ -348,12 +365,28 @@ abilities:
     cast-time-ms: 0
     max-rank: 5
     rank-cost: { coins: 1 }
-    target: { mode: SELF }
+    # Der Klon steht bei ihm, die Explosion trifft um IHN herum - deshalb eine Flaeche und nicht
+    # SELF. Beim Wirken waehlt sie niemanden aus: der SUMMON-Effekt braucht kein Ziel, und der
+    # Schaden wartet auf das Ende (FR-016c).
+    target:
+      mode: RADIUS
+      range: 4.0
+      max-targets: 8
     effects:
       - type: SUMMON
         amount: 60.0
         per-rank: 20.0
         duration-ms: 10000
+      # Der Knall am Ende. `when: summon-end` heisst: nicht jetzt, sondern wenn der Klon geht, und
+      # dort, wo er dann steht.
+      - type: DAMAGE
+        when: summon-end
+        damage-type: MAGIC
+        amount: 1.6
+        per-rank: 0.25
+      - type: KNOCKBACK
+        when: summon-end
+        amount: 0.9
 
   # Second Life, the unique. Passive, and that is the whole reason ADR-022 let the unique be passive:
   # forcing it active would have meant a button for "do not die", which is not the ability.
@@ -373,9 +406,11 @@ abilities:
     rank-cost: { coins: 1 }
     target: { mode: SELF }
     effects:
+      # Rang 1 haelt die Haelfte, Rang 5 die volle Leiste. Vorher 35 bis 55 Prozent - eine
+      # Wiederbelebung, nach der man beim naechsten Schlag wieder liegt, ist keine.
       - type: HEAL
-        amount: 0.35
-        per-rank: 0.05
+        amount: 0.50
+        per-rank: 0.125
         as-fraction: true
 
   # ============================== MAGE - mana, magic damage, area ==================================
@@ -425,8 +460,10 @@ abilities:
     display-name-key: 'ability.mage.lightning.name'
     description-key: 'ability.mage.lightning.description'
     item: 'BLAZE_ROD'
-    mana-cost: 30.0
-    # Der Grundangriff des Magiers - das Untergrenze des Bandes.
+    # Der Grundangriff des Magiers, und Grundangriffe muessen bezahlbar sein: mit 30 Mana waren die
+    # Vorraete nach vier Blitzen leer und der Magier stand ohne alles da.
+    mana-cost: 5.0
+    # Die Untergrenze des Abklingbandes.
     cooldown-ms: 500
     cast-time-ms: 0
     max-rank: 5
@@ -461,9 +498,15 @@ abilities:
     # acht Sekunden anhaelt, waehrend er weiterzaubert. Solange das hier true stand, wies ihm jede
     # weitere Faehigkeit ein "Beende erst Magieschild" ab.
     #
-    # Die acht Sekunden stehen deshalb NUR noch am Effekt: dort gehoeren sie hin, denn was acht
-    # Sekunden haelt, ist der Vorrat, nicht der Spieler.
-    sustained: false
+    # Beides zusammen ist die Antwort: die Faehigkeit LAEUFT acht Sekunden, damit ein zweiter
+    # Rechtsklick sie abbrechen kann und der Spieler sieht, dass sie laeuft - aber sie BELEGT ihn
+    # nicht. Solange nur `sustained: true` stand, wies ihm jede weitere Faehigkeit ein "Beende erst
+    # Magieschild" ab; solange nur `sustained: false` stand, gab es nichts zum Abbrechen.
+    sustained: true
+    exclusive: false
+    # Die acht Sekunden stehen jetzt an BEIDEN Stellen, und das ist kein Doppel: hier sagen sie,
+    # wie lange die Faehigkeit laeuft und abbrechbar ist, am Effekt, wie lange der Vorrat haelt.
+    duration-ms: 8000
     max-rank: 5
     rank-cost: { coins: 1 }
     target: { mode: SELF }
@@ -532,9 +575,9 @@ abilities:
     kind: PASSIVE
     display-name-key: 'ability.mage.rise-and-fall.name'
     description-key: 'ability.mage.rise-and-fall.description'
-    # Two markers for one ability: the Wind Charge is the jump, the potion is the fall. With a
-    # three-way toggle - on, off, jump without slow fall - those two are what the player reads.
-    item: ['WIND_CHARGE', 'POTION']
+    # EIN Marker, nicht zwei. Der Wind Charge ist der Sprung; der Trank daneben belegte einen
+    # zweiten Platz in der Leiste fuer dieselbe Faehigkeit, und Plaetze sind knapp.
+    item: 'WIND_CHARGE'
     trigger: ALWAYS
     player-toggle: true
     cooldown-ms: 6000
@@ -542,9 +585,10 @@ abilities:
     rank-cost: { coins: 1 }
     target: { mode: SELF }
     effects:
+      # Hoeher als vorher (0.8): der Doppelsprung war ein Huepfer und keine Fortbewegung.
       - type: DOUBLE_JUMP
-        amount: 0.8
-        per-rank: 0.04
+        amount: 1.15
+        per-rank: 0.06
       - type: STATUS_EFFECT
         status-effect: 'SLOW_FALLING'
         amount: 0.0

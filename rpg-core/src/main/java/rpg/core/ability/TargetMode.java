@@ -66,4 +66,16 @@ public enum TargetMode {
     public boolean needsRange() {
         return this != SELF;
     }
+
+    /**
+     * Whether this mode picks a <b>place</b> rather than creatures around the caster.
+     *
+     * <p>The difference only becomes visible over time. A cone resolves once and is finished; an
+     * anchored area outlives its own resolution, and what lasts is the patch of ground - not
+     * whoever stood on it at the moment of the cast. Anything periodic on an anchored mode is
+     * therefore re-resolved at the anchor on every tick, and everything else is not.
+     */
+    public boolean anchored() {
+        return this == GROUND_AREA;
+    }
 }

@@ -44,7 +44,29 @@ public final class StateVersionMigrator {
         return this;
     }
 
-    /** Migrates every character in the bundle that needs it. */
+    /**
+     * Migrates every character in the bundle that needs it.
+     *
+     * <p><b>Und reicht alles andere unveraendert durch.</b> Das ist keine Selbstverstaendlichkeit:
+     * bis ADR-039 baute diese Stelle den Bundle mit dem kurzen Bequemlichkeitskonstruktor neu und
+     * liess damit <em>classProgress, inventories, abilities, balances und zoneStates</em> fallen -
+     * sie wurden zu {@code List.of()}.
+     *
+     * <p><b>Ausgeloest hat das nie etwas, und genau das ist das Unangenehme daran.</b> Solange
+     * {@code CURRENT_DATA_VERSION} auf 1 steht, kann kein Datensatz migrationsbeduerftig sein; der
+     * Zweig unten ist unerreichbar, und der frueher-Rueckgabepfad gibt den Bundle unveraendert
+     * zurueck. Die Zeile war also kein Fehler im Betrieb, sondern eine <em>Falle fuer den Tag, an
+     * dem Version 2 eingefuehrt wird</em> - und an dem Tag haette ein Spieler mit altem Datensatz
+     * seine Ausruestungsstufe, sein Inventar, seine Faehigkeiten, seine Coins und seinen
+     * Zonenzustand fuer die ganze Sitzung als leer gesehen, weil
+     * {@code DefaultSessionLifecycle} den migrierten Bundle behaelt ({@code loaded.put}) und an
+     * jedes {@code SessionAttachment} reicht. Gesucht haette man den Fehler in der Migration.
+     *
+     * <p>Aufgefallen beim Rueckbau von {@code item_instance}, weil diese Methode die einzige Stelle
+     * ausserhalb der Persistenz ist, die den Bundle von Hand zusammensetzt. Die Zeile ist jetzt der
+     * vollstaendige Konstruktor, und {@code StateVersionMigratorTest} haelt das fest - ein Feld,
+     * das ein spaeterer Block hinzufuegt, muss hier mitgenommen werden.
+     */
     public SessionBundle migrate(SessionBundle bundle) {
         Objects.requireNonNull(bundle, "bundle");
         if (bundle.characters().stream().noneMatch(PlayerCharacter::needsMigration)) {
@@ -58,9 +80,15 @@ public final class StateVersionMigrator {
                 bundle.playerId(),
                 bundle.accountState(),
                 migrated,
-                bundle.items(),
                 bundle.resources(),
-                bundle.progress());
+                bundle.progress(),
+                bundle.classProgress(),
+                bundle.inventories(),
+                bundle.abilities(),
+                bundle.balances(),
+                bundle.zoneStates(),
+                bundle.gearConditions(),
+                bundle.cosmetics());
     }
 
     /** Whether migrating changed anything - the caller then writes the new format back (FR-026). */

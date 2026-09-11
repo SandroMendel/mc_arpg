@@ -223,6 +223,26 @@ final class AbilityFixture {
         return fixture;
     }
 
+    /**
+     * Eine haltende Faehigkeit, die den Spieler NICHT belegt - das Magieschild im Kleinen.
+     *
+     * <p>Acht Sekunden Dauer und {@code exclusive: false}. Daneben liegt {@code probe.strike}, damit
+     * ein Test zeigen kann, dass der Spieler weiterspielt, waehrend sie laeuft.
+     */
+    static AbilityFixture withHeld() throws Exception {
+        Map<String, Object> document = AbilityConfigFixture.valid();
+        Map<String, Object> ability = AbilityConfigFixture.activeAbility();
+        ability.put("display-name-key", "ability.probe.ward.name");
+        ability.put("item", "AMETHYST_SHARD");
+        ability.put("sustained", true);
+        ability.put("exclusive", false);
+        ability.put("duration-ms", 8000);
+        AbilityConfigFixture.abilities(document).put("probe.ward", ability);
+        AbilityFixture fixture = unlocked(document, "probe.ward");
+        fixture.unlocked.add("probe.strike");
+        return fixture;
+    }
+
     /** Zwei Ladungen mit zehn Sekunden Nachfuellfenster - Rogues Teleport im Kleinen. */
     static AbilityFixture withCharges() throws Exception {
         Map<String, Object> document = AbilityConfigFixture.valid();

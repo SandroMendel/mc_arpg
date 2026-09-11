@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Schicht** | 1 — Regel-Engine |
-| **Status** | **Implementiert** *(2026-08-22)* — 150 Aufgaben, davon 145 erledigt; **1609 Tests** im Projekt, 0 Fehler, 0 übersprungen (188 davon neu). Offen allein: der Durchlauf auf einem echten Paper-Server und der Lasttest, der B10 braucht. Spec unter `specs/008b-currency-account/` |
+| **Status** | **Implementiert** *(2026-08-22)* — 150 Aufgaben, davon 145 erledigt; **1609 Tests** im Projekt, 0 Fehler, 0 übersprungen (188 davon neu). Offen allein: der Durchlauf auf einem echten Paper-Server (T132). Der Lastnachweis für SC-006 ist seit ADR-031 an B15s Lasttestphase übergeben und hält den Block nicht mehr offen. Spec unter `specs/008b-currency-account/` |
 | **Abhängig von** | B02, B03, B06 |
 | **Benötigt von** | B07, B08, B11, B12 |
 
@@ -102,6 +102,30 @@ B14/B13) und **ADR-029** (Herauslösung des Anteilsrechners aus `XpDistributor`,
   Abschnitt 3, 22 Schritte). Grüne Tests sagen nichts über Papers `libraries:`-Klassenlader, und zwei
   Paper-Aufrufe — `Item.setOwner` und `Entity.setVisibleByDefault` — kann MockBukkit gar nicht
   ausführen. Was serverfrei geprüft ist: **dass und wem gegenüber** wir sie verlangen.
-- **Der Lasttest** für SC-006 braucht B10s Horden. Ob dieser Block überhaupt lasttestpflichtig wird,
-  ist die offene Frage aus `research.md` R8 — Prinzip VII nennt B05 und B10, und mit einem Entity je
-  Kill gehört B08b der Grössenordnung nach dazu.
+- **Der Lasttest** für SC-006 braucht B10s Horden — **hält diesen Block aber nicht mehr offen.**
+  *(Geklärt am 2026-08-23, ADR-031.)* Die Frage aus `research.md` R8 ist beantwortet, nur anders als
+  dort erwartet: nicht „B08b kommt in die Liste", sondern die Liste entfällt. Lasttests sind keine
+  Bedingung mehr dafür, dass ein Block fertig ist; sie laufen gebündelt in **B15s Lasttestphase**, wenn
+  die inhaltlichen Blöcke stehen. Der Coin-Haufen ist dort namentlich mitzumessen.
+
+  **Damit ist der Durchlauf auf dem Paper-Server die letzte offene Aufgabe dieses Blocks.**
+
+## Nachträglich verändert durch B09 *(2026-08-23)*
+
+**`BookingReason` hat zwei weitere Werte** (ADR-032), und es mussten zwei sein:
+
+- `WAYPOINT_TRAVEL` (DEBIT) — eine Reise zwischen zwei Wegpunkt-Kristallen. Der
+  einzige Weg im Spiel, der Coins nimmt und keinen Gegenstand dafür gibt, also
+  auch der einzige, dessen Verlaufseintrag einen eigenen Namen braucht.
+- `WAYPOINT_REFUND` (CREDIT) — die Rückbuchung einer gescheiterten Reise. B09
+  nimmt den Fahrpreis, **bevor** es jemanden versetzt, weil dieser Block eine
+  Reservierung ausdrücklich verweigert; scheitert das Versetzen, kommt der Betrag
+  im selben Tick zurück. Als gewöhnliche Gutschrift gebucht sähe diese Rückgabe im
+  Verlauf aus wie ein Geschenk, und das Paar, das beweist, dass nichts verloren
+  ging, wäre nicht mehr als Paar erkennbar.
+
+Die Alternative wäre gewesen, dass B09 seinen eigenen Nachweis über Reisen führt
+— also genau das zweite Buch, das dieser Block verhindert.
+
+`WaypointBookingReasonTest` liegt bei B08b, weil das Enum B08b gehört: wer die
+zwei Werte wieder entfernt, fällt hier auf und nicht erst im Zonenblock.

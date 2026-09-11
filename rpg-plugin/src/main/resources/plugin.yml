@@ -5,7 +5,26 @@ api-version: '26.2'
 description: 'B01 Core & Platform, B02 Persistence, B03 Player Session - module registry, event bus, scheduler abstraction, configuration, PostgreSQL persistence and the player session lifecycle.'
 author: Vuntex
 website: https://github.com/vuntex/vuntex-rpg
-load: STARTUP
+
+# POSTWORLD, und das ist keine Formalie: der Start haengt daran.
+#
+# Hier stand STARTUP, seit dem ersten Commit, als dieses Plugin nur B01 bis B03 war und keine Welt
+# brauchte. STARTUP heisst: onEnable laeuft, BEVOR Paper die Welten laedt - getWorlds() ist dann leer
+# und Bukkit.getWorld("world") gibt null. B09 hat mit zones.yml eine harte Abhaengigkeit davon
+# eingefuehrt: WorldResolver loest jeden `world:`-Namen beim Binden der Konfiguration auf und
+# verweigert den Start bei einer unbekannten Welt (FR-002a). Unter STARTUP ist JEDE Welt unbekannt,
+# also verweigerte der Zonenblock den Start immer - mit einer Meldung, die auf die Konfiguration
+# zeigte, waehrend der Fehler in dieser Zeile stand.
+#
+# Warum es kein Test gefunden hat: FullBootstrapTest legt die Welt an, BEVOR es das Plugin laedt -
+# ausdruecklich, weil B04s Regenerationssperre eine geladene Welt braucht. Genau diese Reihenfolge
+# gibt es auf dem echten Server unter STARTUP nicht. Die Ladeordnung stand in keinem Test, weil sie
+# in keinem Test vorkam. PluginDescriptorTest prueft sie jetzt.
+#
+# Zwei Stellen werden davon still mitgeheilt, die unter STARTUP nie etwas taten: die Schleife, die
+# schon geladene Kreaturen ausstattet, und die Regelsetzung auf schon geladene Welten. Beide
+# iterierten ueber eine leere Liste.
+load: POSTWORLD
 
 # Resolved by Paper from Maven Central at startup into an isolated classloader (ADR-010).
 # Keeping them out of the jar preserves the property established in B01 that the shipped
@@ -16,21 +35,116 @@ libraries:
   - org.flywaydb:flyway-core:13.3.0
   - org.flywaydb:flyway-database-postgresql:13.3.0
 
-# The first commands block in this project (ADR-028). Commands belong to B14 - layer 3, and it
-# depends on every other block, which makes it the last one, not the next. B08b needs an operator
-# to be able to correct a balance now, and an interface with no way to call it is present and
-# unusable. B14 replaces the shell and leaves the interface standing (FR-046).
-commands:
-  coins:
-    description: 'Open the coin window, or change a balance.'
-    usage: '/coins | /coins <player> | /coins set|add|remove <player> <class> <amount>'
-    permission: rpg.currency.balance
+# KEIN commands:-BLOCK MEHR (B14, T040).
+#
+# Hier standen sechs Eintraege - char, coins, trash, xp, top, stats -, jeder mit description,
+# usage und permission. Alle sechs sind auf Brigadier umgezogen und werden ueber den
+# LifecycleEventManager registriert.
+#
+# WARUM DER BLOCK NICHT NUR UEBERFLUESSIG, SONDERN IRREFUEHREND WAERE: am 2026-09-05 auf dem
+# echten Server gemessen (research.md §1) - bei Namensgleichheit gewinnt Brigadier, und die
+# plugin.yml-Fassung wird NIE erreicht. Sie war verdrahtet und lief trotzdem nicht. Ein Eintrag,
+# der beschreibt, was er nicht bedient, ist schlimmer als keiner: wer die usage-Zeile hier
+# aendert, aendert nichts und merkt es nicht.
+#
+# WO DIE DREI ANGABEN GEBLIEBEN SIND:
+#   permission:  -> requires(...) am Brigadier-Knoten, aus RpgCommand.permission
+#   description: -> messages.yml unter command.<name>.description (Prinzip V)
+#   usage:       -> entfaellt. Das Geruest nennt das fehlende Argument und seinen Bereich
+#                   (FR-004); eine Nutzungszeile zu wiederholen war die schlechtere Antwort.
+#
+# DER RECHTEBAUM BLEIBT HIER. Bukkit erwartet ihn unter permissions:, und nur dort bedient ihn
+# jedes Rechte-Plugin ohne neue Abhaengigkeit (FR-010, FR-011).
 
 permissions:
+  rpg.statistics.own:
+    description: 'Open your own record.'
+    # Fuer alle: die eigenen Zahlen anzusehen ist kein administrativer Akt.
+    default: true
+  rpg.statistics.top:
+    description: 'Open a leaderboard.'
+    # Fuer alle: eine Rangliste ist zum Ansehen da, und ein Recht, das erst vergeben werden muss,
+    # waere eine stumme Funktion auf jedem frisch aufgesetzten Server.
+    default: true
+  rpg.ui.character:
+    description: 'Open your own character sheet.'
+    # Fuer jeden: die eigenen Werte anzusehen ist nichts, wofuer ein Betreiber erst
+    # etwas freischalten sollte - dieselbe Ueberlegung wie bei rpg.currency.balance.
+    default: true
   rpg.currency.balance:
     description: 'Open your own coin window.'
     # For everyone: seeing your own balance is not an administrative act.
     default: true
   rpg.currency.admin:
     description: "Open another player's window, and change a balance."
+    default: op
+  rpg.item.trash:
+    description: "Destroy an item you are holding. Class equipment is refused."
+    # Fuer alle: ADR-018 schaltet das Fallenlassen ab, also ist das der einzige Weg, etwas
+    # Unverkaeufliches loszuwerden. Es einzuschraenken hiesse, ein volles Inventar zur Sackgasse
+    # zu machen.
+    default: true
+  rpg.progression.admin:
+    description: "Change a character's experience or level. Every change is audited."
+    default: op
+  rpg.admin.no-class:
+    description: 'Enter the world without choosing a class, in Creative. For moderating.'
+    # Not for everyone, obviously - it is a way into the world that plays no character at all.
+    default: op
+
+  # ===========================================================================================
+  # B14 (T047-T050). Der Baum in contracts/permissions.md, vollstaendig eingetragen.
+  #
+  # DREI STUFEN, UND SIE SIND MENGEN VON KNOTEN - KEIN ROLLENMODELL. Bukkit kennt als
+  # Voreinstellung nur "alle" oder "Operator"; alles dazwischen vergibt der Betreiber mit dem
+  # Werkzeug seiner Wahl. Der Baum steht deshalb hier und nirgends sonst: so bedient ihn JEDES
+  # Rechte-Plugin, das Bukkit-Rechte kennt - LuckPerms automatisch mit, ohne dass wir eine
+  # Abhaengigkeit aufnehmen und einen zweiten Klassenlader-Blindfleck riskieren (FR-011).
+  #
+  # ZUR NAMENSREGEL: rpg.<bereich>.<sache>, und bei einem Eingriff rpg.admin.<bereich>.<sache>.
+  # Die zwei vorhandenen Knoten rpg.currency.admin und rpg.progression.admin tragen das "admin"
+  # HINTEN und weichen damit ab. SIE BLEIBEN, WIE SIE SIND (T050): sie stehen in ausgelieferten
+  # Konfigurationen und in Abnahmeschritten, und sie umzubenennen wuerde bei jedem Betreiber, der
+  # sie vergeben hat, STILL ein Recht entziehen. Die Regel gilt fuer Neues, nicht rueckwirkend -
+  # und dieser Absatz steht hier, damit die Abweichung als entschieden erkennbar ist und nicht
+  # als Schlamperei.
+  # ===========================================================================================
+
+  # --- Moderator: rein LESEND ----------------------------------------------------------------
+  #
+  # default: op, aber ausdruecklich zum Weitergeben gedacht. Wer diese Menge bekommt, kann Support
+  # leisten und nichts kaputt machen - das ist der Punkt, an dem die Trennung ihren Wert hat.
+
+  rpg.admin.inspect.sheet:
+    description: "Look at another player's character sheet. Read-only."
+    default: op
+  rpg.admin.inspect.statistics:
+    description: "Look at another player's statistics. Read-only."
+    default: op
+  rpg.admin.inspect.inventory:
+    description: "Look at another player's inventory. Read-only."
+    default: op
+  rpg.admin.inspect.session:
+    description: "Look at another player's session state. Read-only."
+    default: op
+
+  # --- Admin: VERAENDERT Daten ---------------------------------------------------------------
+  #
+  # Jede Ausfuehrung steht im Audit-Log (FR-028). Das ist die Gegenleistung dafuer, dass es diese
+  # Rechte ueberhaupt gibt.
+
+  rpg.admin.item.give:
+    description: 'Create an item from a template and give it to a player. Audited.'
+    default: op
+  rpg.admin.mob.spawn:
+    description: 'Place a creature of a configured kind. Counts against its own cap, not the zone budget. Audited.'
+    default: op
+  rpg.admin.set.class:
+    description: "Change a character's class. Audited."
+    default: op
+  rpg.admin.reload:
+    description: 'Reload the configuration without restarting. Rejected as a whole if any file is invalid.'
+    default: op
+  rpg.admin.audit:
+    description: 'Read the audit log. The log itself stays append-only.'
     default: op

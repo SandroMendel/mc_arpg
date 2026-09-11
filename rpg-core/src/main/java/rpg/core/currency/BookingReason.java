@@ -12,6 +12,12 @@ package rpg.core.currency;
  * <p><b>Three values are for B11, which does not exist yet.</b> They cost nothing standing here and
  * spare B11 an edit to an enum it does not own - the same courtesy B04 and B06 extended to their
  * successors. A value nobody produces is not dead code; it is a named place to put something.
+ *
+ * <p><b>Two values were written by B09, which does not own this enum</b> (ADR-032). Travel is the
+ * only path in the game that takes coins and gives no item back, so it is also the only one whose
+ * ledger entry has to carry its own name - and its refund a second one. The alternative was for B09
+ * to keep its own record of journeys, which would have been the second ledger this block exists to
+ * prevent.
  */
 public enum BookingReason {
 
@@ -44,6 +50,33 @@ public enum BookingReason {
     /** An ability rank was paid for. */
     ABILITY_RANK(Direction.DEBIT),
 
+    /**
+     * A journey between two waypoint crystals was paid for (B09/FR-050c).
+     *
+     * <p><b>Written by B09, which does not own this enum.</b> ADR-032 permits the two lines; the
+     * alternative was a reason called {@code OTHER}, and the first thing an operator does with a
+     * complaint about missing coins is read the ledger. A journey that showed up as "other" would
+     * have made this block's one promise - the ledger answers where coins went - false for the one
+     * path that takes coins without an item in return.
+     *
+     * <p>The price is not here. It stands with the crystal that demands it (ADR-027).
+     */
+    WAYPOINT_TRAVEL(Direction.DEBIT),
+
+    /**
+     * A journey was paid for and then did not happen, so the fare came back (B09/FR-050d).
+     *
+     * <p><b>A second reason rather than a plain credit, and that is the whole point.</b> B09 takes
+     * the fare before it moves anybody, because there is no way to reserve coins - {@link Currency}
+     * refuses to offer one on purpose. When the move then fails, the coins are returned in the same
+     * tick. Booked as an ordinary credit, that refund would read like a gift in the ledger, and the
+     * pair of entries that proves nothing was lost would be unrecognisable as a pair.
+     *
+     * <p>Nobody should ever see one of these. Seeing them means the server could not move a player,
+     * and the count is worth watching for that reason alone.
+     */
+    WAYPOINT_REFUND(Direction.CREDIT),
+
     /** Sold to an NPC vendor. Reserved for B11. */
     VENDOR_SALE(Direction.CREDIT),
 
@@ -60,7 +93,17 @@ public enum BookingReason {
     ADMIN_ADD(Direction.CREDIT),
 
     /** An operator removed coins. */
-    ADMIN_REMOVE(Direction.DEBIT);
+    ADMIN_REMOVE(Direction.DEBIT),
+
+    /**
+     * A season reward was claimed. B12.
+     *
+     * <p>Its own reason rather than reusing {@link #ADMIN_ADD}: the ledger is the record of where
+     * a balance came from, and "an operator added coins" would simply be false here — nobody did.
+     * FR-056 requires every claim to be logged, and this is the entry that makes that log
+     * readable a year later.
+     */
+    SEASON_REWARD(Direction.CREDIT);
 
     /**
      * Which way a reason can move a balance.

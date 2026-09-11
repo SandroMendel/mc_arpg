@@ -43,7 +43,9 @@ class CharacterMigrationTest {
             // B02's tables are untouched.
             assertThat(tableExists("player_state")).isTrue();
             assertThat(tableExists("player_statistic_daily")).isTrue();
-            assertThat(tableExists("item_instance")).isTrue();
+            // item_instance stand hier bis ADR-039 und ist mit V11_1 zurueckgebaut - sie wurde bei
+            // jedem Sitzungsstart geladen und nie geschrieben (research.md R2).
+            assertThat(tableExists("item_instance")).isFalse();
             assertThat(tableExists("audit_log")).isTrue();
         }
     }
@@ -54,7 +56,14 @@ class CharacterMigrationTest {
             MigrationOutcome first = new SchemaMigrator(pools.writePool(), QUIET).migrateToLatest();
             MigrationOutcome second = new SchemaMigrator(pools.writePool(), QUIET).migrateToLatest();
 
-            assertThat(first.applied()).isEqualTo(10); // V1, V3_1, V3_2, V4_1, V6_1, V7_1, V7_2, V8_1, V8_2, V8_3
+            // V1, V3_1, V3_2, V4_1, V6_1, V7_1, V7_2, V8_1, V8_2, V8_3, V9_1, V11_1, V11_2, V11_3,
+            // V12_1 (drei Ranglisten-Sichten; die vierte gibt es nicht, ADR-049), V12_2
+            // (eingefrorener Saisonendstand), V12_3 (Belohnungsanspruch)
+            //
+            // V11_1 ist die erste RUECKBAUENDE Migration des Projekts: sie entfernt item_instance
+            // (ADR-039). Sie zaehlt hier wie jede andere - eine angewandte Migration ist eine
+            // angewandte Migration, ob sie etwas anlegt oder wegnimmt.
+            assertThat(first.applied()).isEqualTo(17);
             assertThat(second.applied()).isZero();
         }
     }

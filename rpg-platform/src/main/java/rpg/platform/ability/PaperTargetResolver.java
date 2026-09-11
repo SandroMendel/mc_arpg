@@ -171,9 +171,24 @@ public final class PaperTargetResolver implements TargetResolver {
      * called down. {@code range} is how far the anchor may be, {@code areaRadius} how wide it is.
      */
     private List<UUID> groundArea(UUID casterId, TargetSpec spec) {
+        return anchorFor(casterId, spec)
+                .map(anchor -> resolveAt(casterId, anchor, spec))
+                .orElseGet(List::of);
+    }
+
+    /**
+     * Where the crosshair puts the anchor - and the only place that decides it.
+     *
+     * <p>Separate from the resolution so the same point can be asked for once and then <b>kept</b>:
+     * Lightning Storm rains on the spot for six seconds, and every tick after the first has to look
+     * at the same ground rather than at wherever the mage is pointing now.
+     */
+    @Override
+    public java.util.Optional<rpg.core.scheduler.WorldPosition> anchorFor(
+            UUID casterId, TargetSpec spec) {
         Entity caster = server.getEntity(casterId);
         if (caster == null) {
-            return List.of();
+            return java.util.Optional.empty();
         }
         Location eye =
                 caster instanceof LivingEntity living ? living.getEyeLocation() : caster.getLocation();
@@ -198,13 +213,60 @@ public final class PaperTargetResolver implements TargetResolver {
                         // Freie Sicht: das Ende der Reichweite, so wie bisher.
                         ? eye.clone().add(direction.clone().multiply(spec.range()))
                         : hit.getHitPosition().toLocation(caster.getWorld());
-        return pick(casterId, anchor, withRadius(spec), candidate -> true);
+        return java.util.Optional.of(
+                new rpg.core.scheduler.WorldPosition(
+                        anchor.getWorld().getUID(), anchor.getX(), anchor.getY(), anchor.getZ()));
+    }
+
+    /**
+     * Who stands around a remembered place right now.
+     *
+     * <p>No caster is involved and none is excluded: by the time this is asked the mage may be two
+     * regions away, and a storm does not spare him for having called it.
+     */
+    @Override
+    public List<UUID> resolveAt(
+            UUID casterId, rpg.core.scheduler.WorldPosition anchor, TargetSpec spec) {
+        org.bukkit.World world = server.getWorld(anchor.worldId());
+        if (world == null) {
+            // The world was unloaded under the storm. It stops; nothing else to do.
+            return List.of();
+        }
+        Location at = new Location(world, anchor.x(), anchor.y(), anchor.z());
+        // Only a GROUND_AREA spec needs its area-radius turned into a reach - that is the one shape
+        // whose "how wide" does not already live in range() (research.md, Lightning Storm). Every
+        // other caller of this method (a leap's landing, a clone's farewell) hands in a spec that is
+        // already RADIUS-shaped and whose range() is the pick radius as-is; withRadius() would read
+        // an areaRadius() that TargetSpec's own invariant guarantees is null for those modes.
+        TargetSpec effective = spec.mode() == TargetMode.GROUND_AREA ? withRadius(spec) : spec;
+        return pick(null, at, effective, candidate -> true);
+    }
+
+    /** Where this entity is, for remembering a spot it stood on. */
+    @Override
+    public java.util.Optional<rpg.core.scheduler.WorldPosition> positionOf(UUID entityId) {
+        Entity entity = server.getEntity(entityId);
+        if (entity == null) {
+            return java.util.Optional.empty();
+        }
+        Location at = entity.getLocation();
+        return java.util.Optional.of(
+                new rpg.core.scheduler.WorldPosition(
+                        at.getWorld().getUID(), at.getX(), at.getY(), at.getZ()));
     }
 
     /** The same spec seen from the anchor: the area radius becomes the reach. */
     private static TargetSpec withRadius(TargetSpec spec) {
         return new TargetSpec(
-                TargetMode.RADIUS, spec.areaRadius(), null, spec.maxTargets(), null, null);
+                TargetMode.RADIUS,
+                spec.areaRadius(),
+                null,
+                spec.maxTargets(),
+                null,
+                null,
+                // Die Hoehe reist mit: eine verankerte Flaeche mit Hoehe ist ein stehender Zylinder
+                // auf dem Boden, kein Ball, der zur Haelfte im Gestein steckt.
+                spec.height());
     }
 
     private UUID nearestFrom(UUID casterId, Location origin, double reach, Set<UUID> exclude) {
@@ -235,21 +297,42 @@ public final class PaperTargetResolver implements TargetResolver {
      * <p>Extracted because getting any one of those four wrong is invisible until a fight goes
      * strangely, and four copies would be four chances to.
      */
+    /**
+     * Sphere or cylinder, depending on whether the spec names a height.
+     *
+     * <p>Without one, nothing changes: the distance in all three axes has to be within the range,
+     * which is a sphere. With one, the two questions are asked separately - as far sideways as the
+     * range allows, no matter how high, and only as high as the height allows.
+     */
+    private static boolean inShape(
+            Location at, Location origin, TargetSpec spec, double rangeSquared, double vertical) {
+        if (spec.height() == null) {
+            return at.distanceSquared(origin) <= rangeSquared;
+        }
+        double dx = at.getX() - origin.getX();
+        double dz = at.getZ() - origin.getZ();
+        return dx * dx + dz * dz <= rangeSquared && Math.abs(at.getY() - origin.getY()) <= vertical;
+    }
+
     private List<UUID> pick(
             UUID casterId,
             Location origin,
             TargetSpec spec,
             java.util.function.Predicate<Entity> extra) {
         double range = spec.range();
+        // With a height the shape is a cylinder, and the box has to be as flat as the cylinder is -
+        // asking for a range-tall box and filtering afterwards would walk chunk sections that cannot
+        // contain a target.
+        double vertical = spec.height() == null ? range : spec.height();
         List<Entity> candidates =
-                new ArrayList<>(origin.getWorld().getNearbyEntities(origin, range, range, range));
+                new ArrayList<>(origin.getWorld().getNearbyEntities(origin, range, vertical, range));
 
         double rangeSquared = range * range;
         List<Entity> eligible = new ArrayList<>(candidates.size());
         for (Entity candidate : candidates) {
             if (candidate.getUniqueId().equals(casterId)
                     || !(candidate instanceof LivingEntity)
-                    || candidate.getLocation().distanceSquared(origin) > rangeSquared
+                    || !inShape(candidate.getLocation(), origin, spec, rangeSquared, vertical)
                     || !mayAttack.test(casterId, candidate.getUniqueId())
                     || !extra.test(candidate)) {
                 continue;

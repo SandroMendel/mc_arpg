@@ -187,14 +187,16 @@ class ShippedAbilityConfigTest {
     class Hotbar {
 
         @Test
-        @DisplayName("Warrior sieben belegte Slots, Rogue sieben, Mage acht")
+        @DisplayName("Warrior sieben belegte Slots, Rogue sieben, Mage sieben")
         void theOccupiedSlotsFollowFromTheLoadout() throws Exception {
             // Waffe + aktive Fähigkeiten + Marker passiver Fähigkeiten. Seit JEDE Passive einen
             // Marker trägt, sind das mehr als vorher: ein Spieler soll seinen Fähigkeiten ansehen
             // können, dass er sie hat - auch denen, die er nie anklickt.
             assertThat(occupiedSlots(CharacterClass.WARRIOR)).isEqualTo(7);
             assertThat(occupiedSlots(CharacterClass.ROGUE)).isEqualTo(7);
-            assertThat(occupiedSlots(CharacterClass.MAGE)).isEqualTo(8);
+            // Sieben statt acht, seit Aufstieg & Fall nur noch den Wind Charge traegt: zwei Plaetze
+            // fuer eine Faehigkeit waren in einer achtstelligen Leiste nicht zu rechtfertigen.
+            assertThat(occupiedSlots(CharacterClass.MAGE)).isEqualTo(7);
         }
 
         @Test

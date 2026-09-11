@@ -37,6 +37,8 @@ import rpg.core.scheduler.Scheduler;
 import rpg.core.session.SessionMessageKeys;
 import rpg.core.stats.StatConfig;
 import rpg.core.stats.StatEngine;
+import rpg.core.zone.ZoneMessageKeys;
+import rpg.core.zone.ZoneModule;
 import rpg.persistence.PersistenceMessageKeys;
 import rpg.persistence.PersistenceModule;
 import rpg.persistence.ability.AbilityModule;
@@ -80,6 +82,7 @@ import rpg.platform.session.SessionPreLoadListener;
 import rpg.platform.session.SessionQuitListener;
 import rpg.platform.stats.PaperVanillaAttributeBridge;
 import rpg.platform.stats.VanillaRegenerationGuard;
+import rpg.platform.zone.BukkitPositions;
 
 /**
  * Plugin entry point: wires the five modules together and hands control to
@@ -123,7 +126,24 @@ public class RpgPlugin extends JavaPlugin {
                     "progression.yml",
                     "classes.yml",
                     "abilities.yml",
-                    "currency.yml");
+                    "currency.yml",
+                    "zones.yml",
+                    "mobs.yml",
+                    "items.yml",
+                    "statistics.yml",
+                    "ui.yml",
+                    "commands.yml");
+
+    /**
+     * Was am Ende von {@code onEnable} als <b>ein</b> Baum registriert wird (B14, T033/T039).
+     *
+     * <p>Gesammelt statt sofort registriert, weil die Kommandos über den ganzen Start verteilt
+     * entstehen — jedes bei seinem Block —, der {@code LifecycleEventManager} den Handler aber nur
+     * einmal und nur aus {@code onEnable} entgegennimmt. Eine Liste ist die einzige Stelle, an der
+     * beides zusammenkommt.
+     */
+    private final List<rpg.plugin.command.framework.RpgCommand> declaredCommands =
+            new ArrayList<>();
 
     private final BootstrapState bootstrapState = new BootstrapState();
 
@@ -154,6 +174,146 @@ public class RpgPlugin extends JavaPlugin {
     private CombatModule combatModule;
     private ProgressionModule progressionModule;
     private CurrencyModule currencyModule;
+    private ZoneModule zoneModule;
+    private rpg.core.mob.MobModule mobModule;
+    private rpg.core.item.ItemModule itemModule;
+    private rpg.core.statistics.StatisticsModule statisticsModule;
+    private rpg.core.ui.UiModule uiModule;
+
+    /**
+     * Was B13 je Spieler hält und beim Sitzungsende loswerden muss (FR-004c).
+     *
+     * <p>Als Liste von Aufräumern statt als vier Felder: sie entstehen an zwei verschiedenen
+     * Stellen der Verdrahtung (der HUD in der Kampfschicht, das Fenster nach der Item-Schicht), und
+     * eine Liste lässt beide dieselbe Zusage erfüllen, ohne dass {@code onSessionEnded} von der
+     * Reihenfolge wüsste.
+     *
+     * <p><b>Kein {@code PlayerQuitEvent}-Handler in B13</b>: B03 besitzt den Lebenszyklus und lässt
+     * genau einen zu (FR-007). Der vorgesehene Weg hinein ist der {@code SessionObserver}.
+     */
+    private final List<java.util.function.Consumer<java.util.UUID>> uiForgetters =
+            new java.util.ArrayList<>();
+
+    /**
+     * Was B13 beim Betreten einer Sitzung wiederherstellen muss.
+     *
+     * <p>Heute genau eines: die <b>verbleibende</b> Cooldown-Anzeige (FR-033). Über den
+     * {@code SessionObserver} und nicht über {@code PlayerJoinEvent} — B03 lässt dort genau einen
+     * Handler zu (FR-007), und der Beitritt allein reichte ohnehin nicht: erst mit der fertigen
+     * Sitzung steht fest, welcher Charakter gespielt wird.
+     */
+    private final List<java.util.function.Consumer<java.util.UUID>> uiOnJoin =
+            new java.util.ArrayList<>();
+
+    /**
+     * Was B13 tun muss, wenn eine Fähigkeit <b>erfolgreich</b> ausgelöst wurde.
+     *
+     * <p>Heute genau eines: das Cooldown-Overlay über den Slot legen (FR-030). B08 veröffentlicht
+     * dafür kein Ereignis — {@code AbilityRuntime.startCooldown} ist privat —, und die
+     * Trigger-Stelle im Plugin ist die einzige, die vom Erfolg weiß.
+     *
+     * <p><b>Nicht über den HUD-Takt</b>: ein Cooldown, der erst beim nächsten Durchlauf grau wird,
+     * ist bis zu eine Sekunde zu spät. Genau in dieser Sekunde drückt ein Spieler ein zweites Mal
+     * und hält die Ablehnung für einen Fehler des Servers.
+     */
+    private final List<
+                    java.util.function.BiConsumer<java.util.UUID, rpg.core.ability.Ability>>
+            uiOnAbilityUsed = new java.util.ArrayList<>();
+    private rpg.platform.statistics.PlaytimeAccrual playtimeAccrual;
+    private rpg.core.statistics.LeaderboardCache leaderboardCache;
+    private rpg.persistence.statistics.LeaderboardFill leaderboardFill;
+
+    /** B12s Saisonabschluss — beim Start nachgeholt und im Auffrischungstakt mitgeführt (FR-058). */
+    private rpg.persistence.statistics.SeasonClosingJob seasonClosing;
+
+    /** B12s Anzeige im Hub, sofern eine konfiguriert und ihre Welt geladen ist (FR-064). */
+    private rpg.platform.statistics.LeaderboardHologram leaderboardHologram;
+
+    /**
+     * Wo die Anzeige steht — gebraucht, um sie auf ihrem <b>eigenen</b> Tick neu zu beschriften.
+     *
+     * <p>Der Auffrischungstakt läuft asynchron; eine Entität von dort aus anzufassen ist der
+     * Fehler, der auf Folia gar nicht und auf Paper nur meistens auffällt.
+     */
+    private rpg.core.scheduler.WorldPosition hologramAt;
+
+    private rpg.platform.statistics.StatisticsMenuListener statisticsMenus;
+
+    /**
+     * B11s Vermerk über liegende Beute — gesetzt in {@link #assembleItemLayer()}.
+     *
+     * <p>Gebraucht wird er im Rückruf für den Charaktereintritt, der weiter oben in der
+     * Zusammenstellung sitzt. Deshalb ein Feld und keine lokale Variable; {@code null} heißt
+     * schlicht, dass B11 noch nicht verdrahtet ist.
+     */
+    private rpg.platform.drop.OwnedDropRegistry itemDropVisibility;
+
+    /**
+     * B11s zeitliche Trankwirkungen — gesetzt in {@link #wireConsumables}.
+     *
+     * <p>Feld, weil der Durchlauf, der sie ablaufen lässt, weiter oben sitzt: es ist <b>derselbe</b>,
+     * der B08s Buffs ablaufen lässt, und genau das ist die Zusage aus FR-034.
+     */
+    private rpg.core.item.ConsumableBuffs consumableBuffs;
+
+    /**
+     * Das Cooldown-Overlay (B13 US3) — ein Feld, weil es in <b>zwei</b> Schritten fertig wird.
+     *
+     * <p>{@code wireUi} baut es und hängt es in den Takt; die Trankschicht kommt erst in
+     * {@code wireConsumables}, weit später im Start. Ein lokales Ding wäre bis dahin weg.
+     */
+    private rpg.platform.ui.AbilityCooldownOverlay cooldownOverlay;
+
+    /** Wer gerade ein Klon ist — B10s Liste, von B11 mitgelesen (FR-041a). */
+    private rpg.platform.mob.CloneAggroListener cloneRegistry;
+
+    /** B07s Warnung bei vollem Inventar — mit B11s konfigurierbarer Ruhezeit (US7). */
+    private InventoryFullNoticeListener inventoryFullNotice;
+
+    /** B11s Anzeige des Verschleisses — Balken und Lore auf der getragenen Ausruestung (US5). */
+    private rpg.platform.item.GearConditionDisplay gearDisplay;
+
+    /** B11s Mülleimer — der dritte Entsorgungsweg (US7). */
+    private rpg.plugin.command.TrashCommand trashCommand;
+
+    /** B11s Trimfarben — Datenbankseite und Sitzungsgrenzen (US6). */
+    private rpg.persistence.item.CosmeticModule cosmeticModule;
+
+    /** B11s Verschleisszustand — Datenbankseite und Sitzungsgrenzen (US5). */
+    private rpg.persistence.item.GearConditionModule gearConditionModule;
+
+    /** B11s Händler — der Zuhörer und die gesetzten NPCs (US4). */
+    private rpg.platform.item.VendorListener vendorListener;
+
+    private rpg.platform.item.VendorNpc vendorNpcs;
+
+    /**
+     * Wie weit neben dem Ankunftspunkt der Händler steht.
+     *
+     * <p>Zwei Blöcke: nah genug, um ihn beim Ankommen zu sehen, weit genug, um nicht in ihm zu
+     * stehen.
+     */
+    private static final double VENDOR_OFFSET = 2.0;
+    /** Der selbst neu eingeplante Durchlauf je bevoelkerter Zone (B10, US2/US3). */
+    private rpg.platform.mob.HordeSweep mobSweep;
+    private rpg.persistence.zone.ZonePersistenceModule zonePersistenceModule;
+    private rpg.core.zone.ZoneTracker zoneTracker;
+    /** Moves a player. Held because US6 travel needs the same one the respawn path uses. */
+    private rpg.core.zone.Teleporter zoneTeleporter;
+    private rpg.core.zone.RespawnRouting zoneRespawnRouting;
+    private rpg.core.zone.CombatLogoutRule zoneCombatLogout;
+    /** Haelt B10 die Tuer offen, um den Klon-Aggro-Umlenker einzuhaengen (B10, US7). */
+    private rpg.core.ability.effect.SummonEffect summonEffect;
+    /** Cleans up after a character that left - the level-band guard's repeat block. */
+    private java.util.function.Consumer<java.util.UUID> zoneForget = characterId -> {};
+
+    private rpg.core.zone.Travel zoneTravel;
+
+    /** Wer gerade in der Luft ist und beim Aufkommen noch etwas ausloest (FR-045d). */
+    private rpg.platform.ability.LandingWatcher abilityLandings;
+
+    /** The same for the two player-keyed maps of US6: the click cooldown and the open window. */
+    private java.util.function.Consumer<java.util.UUID> zoneForgetPlayer = playerId -> {};
     private ClassesModule classesModule;
     private AbilityModule abilityModule;
     private rpg.core.ability.AbilityRuntime abilityRuntime;
@@ -215,16 +375,33 @@ public class RpgPlugin extends JavaPlugin {
 
         // Before the session listeners, because it produces the observer they carry: B07 has to hear
         // about a ready session, and B03 allows exactly one join handler (FR-007).
+        // Before the class layer, because its session observer places characters into their zone and
+        // therefore needs the tracker to exist. B09 may not listen for a join itself: B03 owns the
+        // session lifecycle and allows exactly one handler (FR-007), and
+        // NoCompetingSessionListenersTest enforces it. The observer is the sanctioned way in.
+        assembleZoneLayer();
         SessionObserver classes = assembleClassLayer();
         registerSessionListeners(classes);
         assembleStatLayer();
         assembleCombatLayer();
         assembleProgressionLayer();
+        assembleMobLayer();
+        // B11 nach B10, und das ist keine Formalie: die Beutetabellen nennen Arten und Regionen,
+        // und ohne sie waere die Zuordnung ins Leere gelaufen.
+        assembleItemLayer();
+        // B12 zuletzt: es beobachtet alle vorigen Bloecke und wird von keinem gebraucht.
+        wireStatistics();
+        // B13s Fenster nach B11: die Charakteruebersicht liest Ausruestung und Zustand, und beides
+        // entsteht erst in der Item-Schicht. Der HUD-Takt haengt dagegen schon in der Kampfschicht -
+        // er braucht nur, was B04, B05 und B06 fuehren.
+        wireCharacterSheet();
 
         // Same cadence as B02's autosave, and for the same reason: a crash should cost one interval,
         // not a whole session's loot. The quit path captures on its own; this is only for the case
         // where there is no quit path.
         startInventorySweep(INVENTORY_SWEEP);
+
+        registerDeclaredCommands();
 
         Duration took = Duration.ofNanos(System.nanoTime() - startedAt);
         if (took.compareTo(BOOTSTRAP_BUDGET) > 0) {
@@ -251,6 +428,25 @@ public class RpgPlugin extends JavaPlugin {
         if (bootstrap == null) {
             return; // enable never got far enough to build one
         }
+        // Vor dem Modul-Shutdown: die Plattformschicht raeumt die Entitaeten selbst weg, bevor
+        // MobModule.stop() nur noch den Bestand leert (FR-023). Synchron, weil onDisable schon im
+        // Tick laeuft - kein weiterer Umweg ueber den Scheduler noetig.
+        if (mobSweep != null) {
+            mobSweep.shutdown();
+        }
+        // Die offenen Haendlerfenster vergessen. Es haengt kein Vorgang daran - genau das ist die
+        // Zusage aus FR-065 -, also ist das Vergessen alles, was zu tun ist.
+        if (vendorListener != null) {
+            vendorListener.clear();
+        }
+        if (vendorNpcs != null) {
+            vendorNpcs.clear();
+        }
+        // Vergessen, nicht entfernen: die Anzeige ist persistent und soll es bleiben. Aufgeraeumt
+        // wird beim naechsten Setzen (FR-061) - ein Absturz hat kein Herunterfahren.
+        if (leaderboardHologram != null) {
+            leaderboardHologram.clear();
+        }
         // Bounded by 10s per module inside ModuleBootstrap (FR-012, SC-007): a module that hangs is
         // abandoned on a daemon thread instead of blocking the server's shutdown indefinitely.
         bootstrap.shutdown();
@@ -276,6 +472,12 @@ public class RpgPlugin extends JavaPlugin {
             if (statsModule != null) {
                 statsModule.applyReloadedConfig();
             }
+            // B09 holds a chunk index derived from zones.yml, so it has to be told as well: the
+            // index is rebuilt and everyone present is re-evaluated once (FR-014, research.md R6).
+            // One pass is not a recurring task - this block registers nothing with the scheduler.
+            if (zoneModule != null) {
+                zoneModule.applyReloadedConfig();
+            }
             getLogger().info("[config] phase=RELOAD state=APPLIED - all modules reloaded");
             return true;
         } catch (ConfigValidationException rejected) {
@@ -290,6 +492,65 @@ public class RpgPlugin extends JavaPlugin {
         }
     }
 
+    /** Nimmt ein Kommando in den Baum auf, der am Ende von {@code onEnable} registriert wird. */
+    private void registerCommand(rpg.plugin.command.framework.RpgCommand command) {
+        declaredCommands.add(command);
+    }
+
+    /**
+     * Was dieser Start deklariert hat — <b>für Tests, und mit einer ausdrücklichen Grenze</b>.
+     *
+     * <p>Vor B14 prüfte {@code FullBootstrapTest} die Registrierung über
+     * {@code getCommand("char") != null}: der {@code plugin.yml}-Eintrag und die Verdrahtung mussten
+     * sich einig sein, und das konnte man nachsehen. Seit dem Umzug auf Brigadier gibt es keinen
+     * Eintrag mehr, und <b>MockBukkit bildet den {@code LifecycleEventManager} nicht ab</b>.
+     *
+     * <p>Diese Liste beweist deshalb genau eine Sache: dass der Start das Kommando <em>angemeldet
+     * hat</em>. Ob Brigadier daraus einen aufrufbaren Knoten macht, beweist sie <b>nicht</b> — das
+     * kann nur der echte Server, und dafür gibt es quickstart §5.
+     */
+    java.util.List<rpg.plugin.command.framework.RpgCommand> declaredCommandsForTest() {
+        return List.copyOf(declaredCommands);
+    }
+
+    /**
+     * Meldet alle gesammelten Kommandos in <b>einem</b> Zug an (T039).
+     *
+     * <p>Vor B14 standen hier acht {@code getCommand(...).setExecutor(...)} plus ebenso viele
+     * {@code setTabCompleter(...)}, verteilt über den ganzen Start, jedes mit seiner eigenen
+     * Null-Prüfung gegen einen {@code plugin.yml}-Eintrag. Der Baum braucht davon nichts: die
+     * Registrierung läuft über den Lebenszyklus, und ein Eintrag desselben Namens würde ohnehin nie
+     * erreicht (research.md §1).
+     *
+     * <p><b>Die Wurzel {@code /rpg} kommt nur mit, wenn etwas darunter hängt.</b> Solange keine
+     * Betreibergeschichte gebaut ist, gäbe es sonst ein Kommando, das auf jede Eingabe
+     * „unvollständig" antwortet.
+     */
+    private void registerDeclaredCommands() {
+        List<rpg.plugin.command.framework.RpgCommand> all = new ArrayList<>(declaredCommands);
+        rpg.plugin.command.admin.RpgRootCommand.of(List.of()).ifPresent(all::add);
+
+        if (all.isEmpty()) {
+            return;
+        }
+
+        new rpg.plugin.command.framework.CommandTree(
+                        new rpg.plugin.command.framework.CommandErrors(messages),
+                        new rpg.plugin.command.framework.RateLimits(Clock.systemUTC()),
+                        messages)
+                .register(this, all);
+
+        getLogger()
+                .info(
+                        "[command] "
+                                + all.size()
+                                + " registriert ueber Brigadier: "
+                                + all.stream()
+                                        .map(rpg.plugin.command.framework.RpgCommand::name)
+                                        .sorted()
+                                        .toList());
+    }
+
     /**
      * Loads {@code messages.yml} and verifies every declared key has a text.
      *
@@ -297,11 +558,33 @@ public class RpgPlugin extends JavaPlugin {
      * instead of having to guess the keys.
      */
     private Messages loadMessages(YamlConfigLoader loader) throws ConfigValidationException {
-        Path file = getDataFolder().toPath().resolve(MESSAGES_FILE);
-        if (!Files.exists(file)) {
+        // Die ausgelieferte englische Datei liegt immer da - auch wenn eine andere Sprache gilt.
+        // Ein Betreiber, der uebersetzt, braucht sie als Vorlage, und ohne sie muesste er die
+        // Schluessel raten.
+        Path shipped = getDataFolder().toPath().resolve(MESSAGES_FILE);
+        if (!Files.exists(shipped)) {
             saveResource(MESSAGES_FILE, false);
         }
-        Messages loaded = MapMessages.fromNested(loader.readDocument(Path.of(MESSAGES_FILE)));
+
+        // WELCHE Datei gelesen wird, entscheidet ui.yml (FR-016, FR-017). Sie wird hier DIREKT
+        // gelesen und nicht ueber UiModule: die Texte muessen stehen, bevor irgendein Modul
+        // startet - der Pre-Login-Guard braucht sie, und ein fehlender Text soll den Start
+        // abbrechen statt spaeter als leerer Kick-Bildschirm aufzutauchen.
+        //
+        // Das ist der EINZIGE Griff dieses Blocks an eine Konfiguration ausserhalb seines Moduls,
+        // und er ist so klein wie moeglich gehalten: ein Feld, kein Schema.
+        rpg.core.ui.LanguageSet language = configuredLanguage(loader);
+        Path languageFile = getDataFolder().toPath().resolve(language.file());
+        if (!Files.exists(languageFile)) {
+            throw new IllegalStateException(
+                    "ui.yml: language ist '"
+                            + language.code()
+                            + "', aber "
+                            + language.file()
+                            + " gibt es nicht im Plugin-Ordner. Lege die Datei an oder stelle"
+                            + " language auf 'en' zurueck (FR-018)");
+        }
+        Messages loaded = MapMessages.fromNested(loader.readDocument(Path.of(language.file())));
 
         // Collect the keys every module can ask for. A block that adds player-facing text adds its
         // keys here, and the check below then covers it too.
@@ -313,10 +596,69 @@ public class RpgPlugin extends JavaPlugin {
         declared.addAll(CombatMessageKeys.all());
         declared.addAll(AbilityMessageKeys.all());
         declared.addAll(CurrencyMessageKeys.all());
+        // B09s per-zone name keys are NOT listed here: the zone keys are only known once
+        // zones.yml has been read, so ZoneModule.start verifies them itself (FR-003c).
+        declared.addAll(ZoneMessageKeys.all(List.of()));
+        // Dieselbe Bauart fuer B10: die Artnamen sind erst nach mobs.yml bekannt, und
+        // MobModule.start prueft sie selbst (verifyNamesExist). Hier steht nur der feste
+        // Schluessel NAMEPLATE, damit auch er in der allgemeinen Liste steht.
+        declared.addAll(rpg.core.mob.MobMessageKeys.all(List.of()));
+        // B12 braucht die Ausnahme von B09 und B10 NICHT: seine Schluessel haengen an zwei
+        // Verzeichnissen im Code (Aggregation, Period) und nicht an einer Konfigurationsdatei.
+        // Sie stehen also schon vor dem ersten Lesen einer YAML fest und koennen hier vollstaendig
+        // geprueft werden.
+        declared.addAll(rpg.core.statistics.StatisticsMessageKeys.all());
+        // B13 wie B12 und nicht wie B09/B10: seine Schluessel haengen an einer Aufzaehlung im Code
+        // (Attribute aus B04) und nicht an einer Konfigurationsdatei, stehen also schon vor dem
+        // ersten Lesen einer YAML fest.
+        //
+        // Ab hier ist diese Pruefung zugleich die Pruefung des SPRACHSATZES (FR-018): wer eine
+        // zweite Sprache anlegt, bekommt beim Start die vollstaendige Liste dessen, was ihm fehlt -
+        // MessageKeyValidator meldet ALLE Luecken auf einmal und nicht die erste. Genau das macht
+        // eine Uebersetzung ueberhaupt machbar; bei einer Meldung je Startversuch gaebe man nach
+        // dem zwanzigsten auf.
+        declared.addAll(rpg.core.ui.UiMessageKeys.all());
+        // B14: die Meldungen des Kommandogeruests (T041). Ab hier prueft der Start auch sie.
+        declared.addAll(rpg.plugin.command.CommandMessageKeys.all());
         MessageKeyValidator.verifyAllPresent(loaded, declared);
 
-        getLogger().info("[messages] " + declared.size() + " declared key(s) resolved");
+        getLogger()
+                .info(
+                        "[messages] "
+                                + declared.size()
+                                + " declared key(s) resolved from "
+                                + language.file());
         return loaded;
+    }
+
+    /**
+     * Welche Sprache in {@code ui.yml} steht — gelesen, bevor irgendein Modul startet.
+     *
+     * <p><b>Ohne Schema und ohne {@code UiModule}</b>, und das ist Absicht: die Texte müssen vor der
+     * ersten Anmeldung stehen, die Module kommen später. Ein halbes Schema hier wäre eine zweite
+     * Vorstellung davon, was {@code ui.yml} ist — {@code UiConfigSchema} bleibt die einzige, die die
+     * Datei wirklich prüft, und sie tut es beim Start des Moduls.
+     *
+     * <p>Fehlt die Datei oder das Feld, gilt Englisch. Das ist kein Fehler: beim allerersten Start
+     * ist {@code ui.yml} gerade erst geschrieben worden, und der ausgelieferte Wert <em>ist</em>
+     * {@code en}.
+     */
+    private rpg.core.ui.LanguageSet configuredLanguage(YamlConfigLoader loader) {
+        try {
+            Object hud = loader.readDocument(Path.of("ui.yml")).get("language");
+            return hud == null
+                    ? rpg.core.ui.LanguageSet.defaultSet()
+                    : new rpg.core.ui.LanguageSet(String.valueOf(hud));
+        } catch (RuntimeException | ConfigValidationException unreadable) {
+            // Eine kaputte ui.yml bricht den Start ohnehin ab - aber in UiModule, mit der Meldung,
+            // die Datei, Schluessel und Grund nennt. Hier waere eine zweite, schlechtere Meldung.
+            getLogger()
+                    .warning(
+                            "[messages] ui.yml is not readable yet - falling back to English;"
+                                    + " UiModule will report why: "
+                                    + unreadable.getMessage());
+            return rpg.core.ui.LanguageSet.defaultSet();
+        }
     }
 
     /**
@@ -336,6 +678,33 @@ public class RpgPlugin extends JavaPlugin {
         progressionModule =
                 new ProgressionModule(
                         persistenceModule, sessionModule, getLogger(), Clock.systemUTC());
+        // B11 US6. Eigenes Modul neben dem Verschleiss, weil es ein eigenes Aggregat ist - ein
+        // Aggregat, ein Modul, ein Platz in der Schreibreihenfolge (ADR-015).
+        cosmeticModule =
+                new rpg.persistence.item.CosmeticModule(
+                        persistenceModule,
+                        sessionModule,
+                        // Ein Lambda und KEINE Methodenreferenz: itemModule wird weiter unten
+                        // gebaut, und itemModule::config wuerde hier sofort auf null binden.
+                        () -> itemModule.config(),
+                        // Ob die Hoechststufe erreicht ist, weiss B07 - eine zweite Antwort hier
+                        // waere eine zweite Wahrheit (FR-079).
+                        this::isAtTopTier,
+                        eventBus,
+                        getLogger(),
+                        Clock.systemUTC());
+        // B11s Verschleiss haengt VOR B07 ein (Complexity Tracking, research.md R1). Als Funktion
+        // und nicht als Modul: die Antwort wird beim Aufruf aufgeloest, und die Startreihenfolge
+        // bleibt frei. Solange B11 nicht laeuft, ist es GearConditionFactor.NONE - und B07
+        // verhaelt sich exakt wie vorher.
+        gearConditionModule =
+                new rpg.persistence.item.GearConditionModule(
+                        persistenceModule,
+                        sessionModule,
+                        () -> itemModule.wear(),
+                        eventBus,
+                        getLogger(),
+                        Clock.systemUTC());
         classesModule =
                 new ClassesModule(
                         persistenceModule,
@@ -343,7 +712,8 @@ public class RpgPlugin extends JavaPlugin {
                         statsModule,
                         progressionModule,
                         getLogger(),
-                        Clock.systemUTC());
+                        Clock.systemUTC(),
+                        this::gearFactorOf);
         inventoryModule =
                 new InventoryModule(
                         persistenceModule, sessionModule, getLogger(), Clock.systemUTC());
@@ -361,6 +731,51 @@ public class RpgPlugin extends JavaPlugin {
         // B07 and B08 instead of queueing behind them.
         currencyModule =
                 new CurrencyModule(persistenceModule, sessionModule, getLogger(), Clock.systemUTC());
+        // B09. Layer 2, and it depends on nothing but B01 - the world resolver is the only thing it
+        // needs from Paper, and it gets it as a function so `rpg-core` never sees a World
+        // (Constitution III.1, FR-002a).
+        zonePersistenceModule =
+                new rpg.persistence.zone.ZonePersistenceModule(
+                        persistenceModule, sessionModule, getLogger(), Clock.systemUTC());
+        zoneModule = new ZoneModule(getLogger(), BukkitPositions.resolver(), messages);
+        // B10. Nach B09, und das ist keine Formalie: die Spawn-Bereiche muessen stehen, bevor
+        // dieser Block sie fuellt - und seine Startpruefung, dass jeder in mobs.yml genannte
+        // Bereich wirklich existiert, ginge sonst ins Leere. Die Abhaengigkeit steht auch in
+        // MobModule.dependencies(); die Reihenfolge hier ist die zweite Absicherung.
+        mobModule = new rpg.core.mob.MobModule(getLogger(), messages, () -> zoneModule.zones());
+        // B11. Nach B09 UND B10, aus demselben Grund wie B10 nach B09: die Beutetabellen nennen
+        // Regionen und Arten, und die Startpruefung, dass es beide wirklich gibt, ginge sonst ins
+        // Leere. Eine Art mit Tippfehler waere eine still leere Beutetabelle - und das sieht aus
+        // wie kaputte Beute statt wie ein kaputter Buchstabe.
+        itemModule =
+                new rpg.core.item.ItemModule(
+                        getLogger(),
+                        messages,
+                        () -> zoneModule.zones(),
+                        () -> mobModule.kindKeys());
+        // B12. Nach B11, weil die Belohnungen einer Saison Vorlagen-IDs nennen und die
+        // Startpruefung sonst gegen eine leere Liste liefe - dieselbe Ueberlegung, aus der B11
+        // nach B09 und B10 kommt. Eine Vorlage mit Tippfehler waere ein Anspruch, der erst am
+        // Saisonende ins Leere greift, beim Spieler, der drei Monate dafuer gespielt hat.
+        statisticsModule =
+                new rpg.core.statistics.StatisticsModule(
+                        getLogger(), () -> itemModule.config().templates().keySet());
+        // B13. Der letzte der Kette: er liest zehn Bloecke und wird von keinem gebraucht. Er
+        // deklariert trotzdem KEINE Abhaengigkeiten - was er liest, holt er zur Laufzeit ueber
+        // deren oeffentliche Naehte, und seine eigene Konfiguration braucht beim Laden keinen
+        // anderen Block. Eine Abhaengigkeit, die nur "spaeter mal" bedeutet, verengt die
+        // Startreihenfolge ohne Gegenwert.
+        uiModule =
+                new rpg.core.ui.UiModule(
+                        getLogger(),
+                        // Ein Lambda und KEINE Methodenreferenz: abilityModule ist an dieser
+                        // Stelle noch nicht gebaut, und eine Referenz wuerde sofort auf null
+                        // binden. Dieselbe Falle, die CosmeticModule oben schon benennt.
+                        () ->
+                                characterClass ->
+                                        abilityModule.registry().abilitiesOf(characterClass).stream()
+                                                .map(rpg.core.ui.MaterialUniqueness.SlotUse::of)
+                                                .toList());
         return List.of(
                 persistenceModule,
                 sessionModule,
@@ -370,7 +785,15 @@ public class RpgPlugin extends JavaPlugin {
                 classesModule,
                 inventoryModule,
                 abilityModule,
-                currencyModule);
+                currencyModule,
+                zonePersistenceModule,
+                zoneModule,
+                mobModule,
+                itemModule,
+                gearConditionModule,
+                cosmeticModule,
+                statisticsModule,
+                uiModule);
     }
 
     /**
@@ -434,6 +857,156 @@ public class RpgPlugin extends JavaPlugin {
     }
 
     /**
+     * Assembles the Paper-facing half of B09 (ADR-012).
+     *
+     * <p>Two listeners for now - movement and the session edges. The rest arrives with its own user
+     * story: the damage rule with US3, death with US4, the combat logout with US5, and the waypoint
+     * crystals with US6.
+     *
+     * <p><b>The reload pass is wired here and nowhere else.</b> {@code ZoneModule} rebuilds the index
+     * and then tells whoever asked; the one thing that needs telling is the tracker, and it needs the
+     * list of who is present - which only this layer can produce. One pass over the online players is
+     * not a recurring task, and this block registers nothing with the scheduler at all
+     * (Constitution II, research.md R6).
+     */
+    private void assembleZoneLayer() {
+        zoneTracker =
+                new rpg.core.zone.ZoneTracker(zoneModule::zones, eventBus, getLogger());
+        java.util.function.Function<org.bukkit.entity.Player, java.util.UUID> characters =
+                player -> characterIdOf(player).orElse(null);
+
+        getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new rpg.platform.zone.ZoneMovementListener(
+                                zoneModule::zones, zoneTracker, characters),
+                        this);
+
+        // US2: the warning under the level band. It hears the zone change on B01's bus rather than
+        // being called by the tracker - the tracker announces what happened, it does not decide what
+        // anybody makes of it (FR-021).
+        rpg.core.zone.LevelBandGuard levelBandGuard =
+                new rpg.core.zone.LevelBandGuard(
+                        zoneModule::zones,
+                        characterId -> progressionModule.progression().levelOf(characterId),
+                        (characterId, key, placeholders) -> {
+                            org.bukkit.entity.Player target = playerOfCharacter(characterId);
+                            if (target != null) {
+                                target.sendMessage(messages.get(key, placeholders));
+                            }
+                        },
+                        Clock.systemUTC(),
+                        () -> zoneModule.config().warningCooldown());
+        eventBus.subscribe(rpg.core.zone.ZoneChangedEvent.class, levelBandGuard::onZoneChanged);
+        zoneForget = levelBandGuard::forget;
+
+        // US3: the damage permission becomes a zone rule (FR-026). This is the line B05 was built
+        // for - it laid the decision out at one place and guards it with SinglePermissionPointTest,
+        // so this REPLACES the rule rather than adding a second copy of it. The shipped
+        // configuration has every region on pvp: false, so nothing about the game changes here; what
+        // changes is that a PvP region is now one line of configuration away (SC-008, FR-031).
+        combatModule
+                .pipeline()
+                .setPermission(
+                        new rpg.core.zone.ZoneDamagePermission(zoneTracker, zoneModule::zones));
+        // And the other half of the same promise. The permission is only consulted where there is an
+        // attacker; environment damage - lava, fire, drowning, a fall - never reaches it, so a safe
+        // core would have been safe from players and mobs and from nothing else (FR-028, SC-002).
+        // The bootstrap test found that, which is the whole reason it exists (ADR-012).
+        combatModule
+                .pipeline()
+                .registerInterceptor(new rpg.core.zone.SafeCoreDamageGuard(zoneTracker));
+
+        // US4: a death goes back to the safe core of the region it happened in (FR-033). NORMAL
+        // priority, because B05 already listens on this event at MONITOR to refill health and mana -
+        // and MONITOR means look, do not touch, so the location has to be set before it runs. The two
+        // answer different questions and neither reads the other's answer.
+        zoneTeleporter = new rpg.platform.zone.BukkitTeleporter(getServer(), getLogger());
+        zoneRespawnRouting = new rpg.core.zone.RespawnRouting(zoneTracker, zoneModule::zones);
+        rpg.core.zone.RespawnRouting respawnRouting = zoneRespawnRouting;
+
+        // US5: leaving in combat is a death (ADR-030). Applied from the session observer and NOT
+        // from PlayerQuitEvent - B03 owns the session lifecycle and allows exactly one handler
+        // (FR-007), which NoCompetingSessionListenersTest enforces and which the first draft of this
+        // block learned the hard way.
+        zoneCombatLogout =
+                new rpg.core.zone.CombatLogoutRule(
+                        () -> zoneModule.config().combatLogoutIsDeath(),
+                        holderId -> combatModule.pipeline().isInCombat(holderId),
+                        zoneTracker,
+                        zonePersistenceModule.store(),
+                        eventBus);
+        getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new rpg.platform.zone.ZoneRespawnListener(
+                                respawnRouting,
+                                (player, key) -> player.sendMessage(messages.get(key))),
+                        this);
+
+        // US6: waypoint crystals (ADR-032). The travel sequence is domain logic and stays here; the
+        // right-click and the window are the two pieces the ADR marks as temporary and hands to B13.
+        zoneTravel =
+                new rpg.core.zone.DefaultTravel(
+                        zoneModule::zones,
+                        zonePersistenceModule.store(),
+                        holderId -> combatModule.pipeline().isInCombat(holderId),
+                        currencyModule.currency(),
+                        zoneTeleporter);
+        java.util.function.Function<java.util.UUID, java.util.Optional<java.util.UUID>>
+                characterOfPlayer =
+                        playerId -> {
+                            org.bukkit.entity.Player online = getServer().getPlayer(playerId);
+                            return online == null
+                                    ? java.util.Optional.empty()
+                                    : characterIdOf(online);
+                        };
+        rpg.platform.ui.WaypointMenuListener waypointMenu =
+                new rpg.platform.ui.WaypointMenuListener(
+                        new rpg.platform.ui.WaypointMenu(messages, uiMenuFrame()),
+                        zoneModule::zones,
+                        zonePersistenceModule.store(),
+                        zoneTravel,
+                        characterOfPlayer,
+                        messages);
+        rpg.platform.ui.CrystalInteractListener crystalInteract =
+                new rpg.platform.ui.CrystalInteractListener(
+                        zoneModule::zones,
+                        zonePersistenceModule.store(),
+                        characterOfPlayer,
+                        waypointMenu::open,
+                        messages,
+                        System::currentTimeMillis);
+        getServer().getPluginManager().registerEvents(waypointMenu, this);
+        getServer().getPluginManager().registerEvents(crystalInteract, this);
+        // Both keep a small map per player - a cooldown stamp and an open window. Neither would ever
+        // shrink on its own, so the session end clears them, the same way the warning's repeat block
+        // is cleared.
+        zoneForgetPlayer =
+                playerId -> {
+                    crystalInteract.forget(playerId);
+                    waypointMenu.forget(playerId);
+                };
+
+        zoneModule.onReload(
+                () -> {
+                    java.util.List<rpg.core.zone.ZoneTracker.Presence> present =
+                            new java.util.ArrayList<>();
+                    for (org.bukkit.entity.Player player : getServer().getOnlinePlayers()) {
+                        java.util.UUID characterId = characters.apply(player);
+                        if (characterId != null) {
+                            present.add(
+                                    new rpg.core.zone.ZoneTracker.Presence(
+                                            characterId,
+                                            rpg.platform.zone.BukkitPositions.of(
+                                                    player.getLocation())));
+                        }
+                    }
+                    zoneTracker.reevaluateAll(present);
+                });
+    }
+
+    /**
      * Assembles the Paper-facing half of B04.
      *
      * <p>Same introduction the session layer needs, for the same reason: the mirror lives in
@@ -470,9 +1043,33 @@ public class RpgPlugin extends JavaPlugin {
         ProjectileDamageTag.initialise(this);
         pipeline.registerFeedback(new PaperDamageFeedback(getServer(), scheduler, getLogger()));
 
-        PaperMobStatProvider mobStats =
+        // B10 loest die aelteste offene Zusage dieses Projekts ein. B05s Uebergangsanbieter aus
+        // combat.yml bleibt als Rueckfall dahinter stehen - er ist das, was eine Kreatur ohne Art
+        // bekommt (FR-009), und genau dafuer war er immer gedacht.
+        //
+        // Die Schnittstelle ist dieselbe geblieben; was sich geaendert hat, ist die Bedeutung des
+        // Schluessels. MobKindTag.kindKeyOf macht die Umrechnung an genau einer Stelle.
+        // Ob ein `base` wirklich ein Entity-Typ dieses Servers ist, weiss nur Bukkit - also nicht
+        // das Schema in rpg-core. Geprueft wird es trotzdem beim Start und nicht beim ersten Spawn:
+        // ein Tippfehler waere sonst eine Art, die nie erscheint, und das sieht aus wie ein kaputter
+        // Spawn statt wie ein kaputter Buchstabe (FR-002).
+        rpg.platform.mob.PaperMobPlacer.verifyBasesExist(mobModule.config().kinds().values());
+
+        PaperMobStatProvider fallback =
                 new PaperMobStatProvider(combatModule.config(), StatConfig.defaults());
+        rpg.core.combat.MobStatProvider fromKinds =
+                rpg.core.mob.MobProviders.stats(mobModule::config, StatConfig.defaults());
+        rpg.core.combat.MobStatProvider mobStats =
+                kindKey -> {
+                    java.util.Optional<rpg.core.stats.ModifierSet> own = fromKinds.statsFor(kindKey);
+                    return own.isPresent() ? own : fallback.statsFor(kindKey);
+                };
         pipeline.setMobStatProvider(mobStats);
+
+        // Dieselbe Ablösung fuer Erfahrung und Coins. Ein leeres Ergebnis heisst weiterhin "kein
+        // eigener Eintrag" und niemals Null - die beiden Bloecke fallen dann auf ihren eigenen
+        // konfigurierten Standardwert zurueck, wie sie es immer getan haben (FR-007).
+        progressionModule.progression().setMobXpProvider(rpg.core.mob.MobProviders.xp(mobModule::config));
 
         MobEquipmentListener mobEquipment =
                 new MobEquipmentListener(stats, pipeline, mobStats, getLogger());
@@ -522,20 +1119,31 @@ public class RpgPlugin extends JavaPlugin {
                                                     resources.currentMana(),
                                                     resources.maxMana(),
                                                     snapshot.get(rpg.core.stats.Attribute.DEFENSE),
-                                                    meterOf(holderId));
+                                                    meterOf(holderId),
+                                                    progressOf(holderId));
                                         });
 
         StatusActionBar actionBar =
                 new StatusActionBar(getServer(), statusSource, scheduler, messages, getLogger());
         actionBar.subscribeTo(eventBus);
-        // The list comes from B03's registry, which is the authority on who is playing - not from
-        // whichever module happens to keep a map of them.
-        actionBar.startRefresh(this::playersInPlay);
+        // startRefresh(...) stand hier bis B13. Der Takt ist UMGEZOGEN: wireUi() unten baut daraus
+        // den einen HUD-Takt, der alle drei Flaechen bedient (R1, FR-010). Es bleibt bei EINEM -
+        // wer hier den alten wiederherstellt, hat zwei Durchlaeufe je Sekunde, und welcher zuletzt
+        // sendet, haengt an der Registrierungsreihenfolge.
+        wireUi(actionBar, statusSource, scheduler);
 
         // Und die dritte Anzeige: was eine Kreatur ist und wie viel von ihr uebrig ist, ueber ihrem
-        // Kopf. Ebenfalls nur bis B13. Eine Zeile, kein zweiter Entitaetstyp je Mob (Prinzip II).
+        // Kopf. B13 hat sie NICHT uebernommen: ein Namensschild steht ueber einer Kreatur und ist
+        // keine der drei Flaechen (FR-001). Eine Zeile, kein zweiter Entitaetstyp je Mob
+        // (Prinzip II).
         new rpg.platform.hud.MobNameplate(
-                        getServer(), stats, statusSource, scheduler, messages, getLogger())
+                        getServer(),
+                        stats,
+                        statusSource,
+                        scheduler,
+                        messages,
+                        mobModule.kinds(),
+                        getLogger())
                 .subscribeTo(eventBus);
 
         // KEINE Zielzeile im Chat mehr. Sie sagte dasselbe wie das Namensschild ueber der Kreatur,
@@ -560,6 +1168,349 @@ public class RpgPlugin extends JavaPlugin {
             return;
         }
         regeneration.settleAll(charactersInPlay());
+    }
+
+    /**
+     * B13: die drei Flächen unter einem Takt.
+     *
+     * <p><b>Der Takt ist die Erweiterung von {@code StatusActionBar.startRefresh}</b>, nicht ein
+     * zweiter daneben (R1, FR-010). Er war schon eine Sekunde lang und plante sich schon selbst neu
+     * ein; B13 gibt ihm die zwei anderen Flächen dazu.
+     *
+     * <p><b>Und die Ereignispfade.</b> Der Takt allein erfüllt FR-009 nicht: „unmittelbar" und „bis
+     * zu eine Sekunde später" sind zwei verschiedene Zusagen. Ein Aufstieg, der eine Sekunde
+     * braucht, bis er auf der Sidebar steht, sieht aus, als hätte der Server ihn verschluckt.
+     *
+     * <p><b>Der Coin-Stand bekommt hier bewusst nichts</b> (FR-009a): {@code rpg.core.currency}
+     * führt keinen Ereignistyp, nur {@code CoinLedger} und {@code BookingResult}. Die Zeile folgt
+     * dem Takt. Nachgerüstet wird nichts — ein Ereignis in B08b wäre der Eingriff in einen fremden
+     * Block, den dieser Block an drei anderen Stellen ablehnt.
+     */
+    private void wireUi(
+            StatusActionBar actionBar,
+            rpg.platform.hud.CombatStatusSource statusSource,
+            rpg.core.scheduler.Scheduler scheduler) {
+        rpg.platform.ui.PaperBossBar bossBar =
+                new rpg.platform.ui.PaperBossBar(getServer(), messages);
+        rpg.platform.ui.PaperSidebar sidebar =
+                new rpg.platform.ui.PaperSidebar(getServer(), messages);
+        rpg.platform.ui.PaperHudRenderer renderer =
+                new rpg.platform.ui.PaperHudRenderer(
+                        getServer(), scheduler, messages, bossBar, sidebar, getLogger());
+
+        java.util.function.Function<java.util.UUID, java.util.Optional<java.util.UUID>>
+                characterOfPlayer =
+                        playerId ->
+                                sessionModule.registry().all().stream()
+                                        .filter(s -> s.playerId().equals(playerId))
+                                        .findFirst()
+                                        .flatMap(rpg.core.session.PlayerSession::activeCharacter)
+                                        .map(rpg.core.session.PlayerCharacter::characterId);
+        java.util.function.Function<java.util.UUID, java.util.Optional<java.util.UUID>>
+                playerOfCharacter =
+                        characterId ->
+                                sessionModule.registry().all().stream()
+                                        .filter(
+                                                s ->
+                                                        s.activeCharacter()
+                                                                .map(
+                                                                        c ->
+                                                                                c.characterId()
+                                                                                        .equals(
+                                                                                                characterId))
+                                                                .orElse(false))
+                                        .findFirst()
+                                        .map(rpg.core.session.PlayerSession::playerId);
+
+        rpg.platform.ui.ZoneNoticeSource zoneNotice =
+                new rpg.platform.ui.ZoneNoticeSource(
+                        () -> uiModule.config(), playerOfCharacter, java.time.Clock.systemUTC());
+        rpg.platform.ui.BossFightSource bossFight =
+                new rpg.platform.ui.BossFightSource(
+                        mobModule.kinds(), statusSource, java.time.Clock.systemUTC());
+        rpg.platform.ui.ChannellingSource channelling =
+                new rpg.platform.ui.ChannellingSource(
+                        abilityRuntime,
+                        abilityModule.registry(),
+                        characterOfPlayer,
+                        java.time.Clock.systemUTC());
+        zoneNotice.subscribeTo(eventBus);
+        bossFight.subscribeTo(eventBus);
+        // ChannellingSource abonniert NICHTS: sie rechnet gegen die Uhr aus RunningAbility, und der
+        // Takt fragt ohnehin jede Sekunde (R4). Die einzige der drei ohne eigenen Zustand.
+
+        rpg.platform.ui.HudRefresh refresh =
+                new rpg.platform.ui.HudRefresh(
+                        renderer,
+                        () -> uiModule.config(),
+                        actionBar::show,
+                        playerId -> sidebarLinesFor(playerId, characterOfPlayer),
+                        new rpg.platform.ui.BossBarOccasions(channelling, bossFight, zoneNotice),
+                        getLogger());
+
+        // Die Ereignispfade der Sidebar (FR-009). Sie sind aus StatusActionBar HIERHER umgezogen -
+        // dort zeichneten sie nur die Actionbar, hier den ganzen HUD.
+        eventBus.subscribe(
+                rpg.core.progression.ProgressChangedEvent.class,
+                event -> refresh.refresh(event.playerId()));
+        eventBus.subscribe(
+                rpg.core.progression.LevelUpEvent.class,
+                event -> refresh.refresh(event.playerId()));
+        eventBus.subscribe(
+                rpg.core.zone.ZoneChangedEvent.class,
+                event ->
+                        playerOfCharacter
+                                .apply(event.characterId())
+                                .ifPresent(refresh::refresh));
+
+        // B13 US3: das Cooldown-Overlay. Es setzt auf dem Material auf, das AbilityHotbar bereits
+        // gelegt hat - die Leiste selbst wird NICHT angefasst (FR-024). VOR dem Takt gebaut, weil
+        // der Takt es mitlaufen laesst.
+        cooldownOverlay =
+                new rpg.platform.ui.AbilityCooldownOverlay(
+                        getServer(),
+                        scheduler,
+                        abilityModule.registry(),
+                        characterOfPlayer,
+                        java.time.Clock.systemUTC());
+
+        rpg.platform.ui.HudTick tick =
+                new rpg.platform.ui.HudTick(
+                        scheduler,
+                        () -> uiModule.config(),
+                        // Die Liste kommt aus B03s Registry, die die Autoritaet darueber ist, wer
+                        // spielt - nicht aus irgendeinem Modul, das zufaellig eine Map davon haelt.
+                        this::playersInPlay,
+                        refresh,
+                        getLogger());
+        // Der Sekundenabgleich des Cooldown-Overlays. Er faengt, was der Ausloesepfad nicht sieht:
+        // anhaltende Faehigkeiten starten ihren Cooldown beim ENDEN, Ladungsfaehigkeiten erst bei
+        // der letzten. Beim Krieger wurde deshalb ausschliesslich Leap grau - die einzige seiner
+        // aktiven ohne sustained.
+        //
+        // Kein zweiter Takt (FR-010): er laeuft in DIESEM mit.
+        tick.alsoPerPlayer(cooldownOverlay::refresh);
+        tick.start();
+
+        // Was der HUD je Spieler haelt, geht mit der Sitzung (FR-004c). Vier Dinge, und jedes
+        // einzeln vergessen zu koennen ist der Punkt: eine entfernte Bossbar, deren Eintrag stehen
+        // bleibt, ist ein Leck, das erst nach Stunden auffaellt.
+        // Beim Anmelden die VERBLEIBENDE Restzeit wiederherstellen (FR-033). B08 fuehrt den
+        // Cooldown ueber Zeitstempel, er ueberlebt die Abmeldung also von selbst - was fehlt, ist
+        // nur die Anzeige. Ohne diese Zeile saehe der Spieler ein bereites Item, drueckte es, und
+        // nichts geschaehe.
+        uiOnJoin.add(cooldownOverlay::restore);
+        // Und beim AUSLOESEN - das ist der Normalfall, den der erste Entwurf vergessen hatte:
+        // verdrahtet war nur der Anmeldepfad, also erschien das Overlay ausschliesslich nach einem
+        // Relog. Gefunden beim Spielen, Schritt 8.
+        uiOnAbilityUsed.add(
+                (playerId, ability) -> {
+                    java.util.Optional<java.util.UUID> characterId =
+                            characterOfPlayer.apply(playerId);
+                    if (characterId.isEmpty()) {
+                        return;
+                    }
+                    // Die Restzeit kommt aus B08 und wird NICHT zweitgerechnet (FR-031). Direkt
+                    // nach dem Ausloesen steht sie bereits - startCooldown lief im selben Aufruf.
+                    abilityModule
+                            .registry()
+                            .remainingCooldown(characterId.get(), ability.id())
+                            .ifPresent(
+                                    remaining ->
+                                            cooldownOverlay.apply(playerId, ability, remaining));
+                });
+
+        // B13 US4: die Schadenszahlen. Sie haengen am EventBus und NICHT am HUD-Takt - und das ist
+        // der Punkt: DamageDealtEvent kommt aus dem Tick, nicht aus dem asynchronen Durchlauf.
+        // Damit ist die Falle aus T112 gar nicht erst betreten (R2), statt nur umgangen.
+        new rpg.platform.ui.DamageNumbers(
+                        this,
+                        getServer(),
+                        scheduler,
+                        messages,
+                        () -> uiModule.config(),
+                        // Wo das Ziel steht: B05 nennt im Ereignis nur seine Kennung.
+                        entityId -> {
+                            org.bukkit.entity.Entity entity = getServer().getEntity(entityId);
+                            return entity == null
+                                    ? java.util.Optional.empty()
+                                    : java.util.Optional.of(
+                                            BukkitPositions.of(entity.getLocation()));
+                        },
+                        java.time.Clock.systemUTC(),
+                        getLogger())
+                .subscribeTo(eventBus);
+
+        uiForgetters.add(refresh::forget);
+        uiForgetters.add(cooldownOverlay::forget);
+        uiForgetters.add(renderer::forget);
+        uiForgetters.add(zoneNotice::forget);
+        uiForgetters.add(bossFight::forget);
+        // wireCharacterSheet steht NICHT hier, obwohl es zu B13 gehoert: es braucht gearDisplay und
+        // itemModule, und beide entstehen erst in der Item-Schicht. Hier gerufen waere es ein
+        // NullPointerException beim Start - und zwar erst nach der Haelfte der Verdrahtung, also an
+        // der unuebersichtlichsten Stelle. Es laeuft nach assembleItemLayer().
+    }
+
+    /**
+     * B13 US2: die Charakterübersicht — das einzige wirklich <em>fehlende</em> Fenster.
+     *
+     * <p>Vier Blöcke haben Daten, die nirgendwo zusammen zu sehen sind: B04 die Attribute, B07 die
+     * Klasse, B08b die Coins, B11 die Ausrüstung und ihren Zustand. Hier werden sie zusammengeführt
+     * — <b>gelesen, nicht gespiegelt</b> (FR-074).
+     */
+    /**
+     * Der gemeinsame Rahmen der <b>drei</b> Fenster in B13s Hand (T122).
+     *
+     * <p>Die Charakterübersicht, das Reisefenster und das Kontofenster. <b>Nicht</b>
+     * {@code ClassSelectionMenu} aus B07 und <b>nicht</b> B12s Fenster (FR-070, FR-071) — die laufen,
+     * sind abgenommen und keine ist befristet.
+     *
+     * <p>Neu erzeugt statt als Feld gehalten: {@code MenuFrame} ist zustandslos (nur die Texte), und
+     * die drei Aufrufstellen liegen in drei verschiedenen Schichten der Verdrahtung. Ein Feld
+     * quer durch alle drei wäre mehr Kopplung für dasselbe Objekt.
+     */
+    private rpg.platform.ui.MenuFrame uiMenuFrame() {
+        return new rpg.platform.ui.MenuFrame(messages);
+    }
+
+    private void wireCharacterSheet() {
+        java.util.function.Function<java.util.UUID, java.util.Optional<java.util.UUID>>
+                characterOfPlayer =
+                        playerId ->
+                                sessionModule.registry().all().stream()
+                                        .filter(s -> s.playerId().equals(playerId))
+                                        .findFirst()
+                                        .flatMap(rpg.core.session.PlayerSession::activeCharacter)
+                                        .map(rpg.core.session.PlayerCharacter::characterId);
+        rpg.core.ui.CharacterSheets sheets =
+                new rpg.core.ui.CharacterSheets(
+                        characterId ->
+                                statsModule
+                                        .engine()
+                                        .holderOf(characterId)
+                                        .map(holderId -> statsModule.engine().snapshot(holderId)),
+                        new rpg.core.ui.CharacterSheets.EquipmentSource() {
+
+                            @Override
+                            public java.util.Optional<String> tagOf(
+                                    java.util.UUID characterId, rpg.core.classes.LadderSlot slot) {
+                                return classesModule.boundEquipment().expectedTag(characterId, slot);
+                            }
+
+                            @Override
+                            public java.util.Map<
+                                            rpg.core.classes.LadderSlot,
+                                            rpg.core.classes.TierAppearance>
+                                    equipmentOf(java.util.UUID characterId) {
+                                // B07 fuehrt, WAS ein Charakter traegt - als gebundene Ausruestung
+                                // mit einem Aussehen je Platz. NICHT B11: dessen items.yml kennt
+                                // nur Traenke und Trims, keine Ruestung (ItemCategory hat genau
+                                // CONSUMABLE und COSMETIC).
+                                //
+                                // Das Aussehen geht UNVERAENDERT durch. Ein erster Entwurf hat hier
+                                // appearance.material() genommen und damit Farbe und Trim
+                                // weggeworfen - und vor allem eine FAMILIE ("IRON") an eine Stelle
+                                // gegeben, die ein Material erwartete. Beim Magier ging es, weil
+                                // seine Leiter durchgehend LEATHER ist und das zufaellig auch ein
+                                // Material; bei Krieger und Schurke blieb der Platz leer.
+                                return classesModule
+                                        .boundEquipment()
+                                        .expectedFor(characterId)
+                                        .orElseGet(java.util.Map::of);
+                            }
+
+                            @Override
+                            public double conditionOf(
+                                    java.util.UUID characterId, rpg.core.classes.LadderSlot slot) {
+                                // WearCurve.FULL und nicht 1.0: B11 fuehrt den Zustand als PROZENT.
+                                return itemModule == null
+                                        ? rpg.core.item.WearCurve.FULL
+                                        : gearConditionModule
+                                                .conditions()
+                                                .conditionOf(characterId, slot);
+                            }
+                        },
+                        characterId -> abilityModule.registry().classOf(characterId),
+                        characterId ->
+                                progressionModule
+                                        .progression()
+                                        .progressOf(characterId)
+                                        .map(rpg.core.progression.ProgressView::level)
+                                        .orElse(1),
+                        characterId -> currencyModule.currency().balanceOrZero(characterId));
+
+        rpg.platform.ui.MenuFrame frame = uiMenuFrame();
+        // Eine eigene Factory und kein geteiltes Feld: sie ist zustandslos (Vorlagen plus Texte),
+        // und ein Feld quer durch die Verdrahtung zu reichen waere mehr Kopplung fuer denselben
+        // Gegenstand. B11s Verhalten kommt trotzdem unveraendert heraus - das ist der Punkt von
+        // FR-021a.
+        rpg.platform.ui.PaperItemRenderer itemRenderer =
+                new rpg.platform.ui.PaperItemRenderer(
+                        new rpg.platform.item.ItemStackFactory(itemModule, messages),
+                        // B07s Factory: sie setzt Familie, Platz, Farbe und Trim zu einem Teil
+                        // zusammen. Genau das, was ein zusammengebastelter Materialname verloren
+                        // hatte.
+                        new BoundItemFactory(messages),
+                        gearDisplay);
+        rpg.platform.ui.CharacterSheetMenu sheetMenu =
+                new rpg.platform.ui.CharacterSheetMenu(frame, itemRenderer);
+        rpg.platform.ui.CharacterSheetListener sheetListener =
+                new rpg.platform.ui.CharacterSheetListener(sheetMenu);
+        getServer().getPluginManager().registerEvents(sheetListener, this);
+
+        rpg.plugin.command.CharacterSheetCommand sheetCommand =
+                new rpg.plugin.command.CharacterSheetCommand(
+                        characterOfPlayer, sheets, sheetMenu, sheetListener, messages);
+        // Seit B14 (T034) im Kommandobaum. Hier stand eine Null-Pruefung gegen den
+        // plugin.yml-Eintrag, die bei Nichtübereinstimmung mit `return` abbrach - und damit auch
+        // das uiForgetters.add() darunter uebersprungen haette. Ein fehlender Eintrag haette so
+        // nicht nur das Kommando gekostet, sondern eine Aufraeumzusage. Beides ist weg: es gibt
+        // keinen Eintrag mehr, mit dem diese Stelle sich einig sein muesste.
+        registerCommand(sheetCommand.definition());
+
+        uiForgetters.add(sheetListener::sessionEnded);
+    }
+
+    /**
+     * Die vier Sidebar-Zeilen eines Spielers, oder leer, wenn er keinen Charakter hat.
+     *
+     * <p><b>Leer heißt „kein Charakter"</b> (FR-008), nicht „keine Zeilen": Nullen, die wie echte
+     * Werte aussehen, sind schlimmer als nichts.
+     */
+    private java.util.Optional<List<rpg.core.ui.SidebarLines.Line>> sidebarLinesFor(
+            java.util.UUID playerId,
+            java.util.function.Function<java.util.UUID, java.util.Optional<java.util.UUID>>
+                    characterOfPlayer) {
+        java.util.Optional<java.util.UUID> characterId = characterOfPlayer.apply(playerId);
+        if (characterId.isEmpty()) {
+            return java.util.Optional.empty();
+        }
+        rpg.core.progression.ProgressView progress =
+                progressionModule.progression().progressOf(characterId.get()).orElse(null);
+        if (progress == null) {
+            return java.util.Optional.empty();
+        }
+        // balanceOf und NICHT balanceOrZero: der Unterschied zwischen "nicht geladen" und "pleite"
+        // ist genau der, um den es bei FR-008 geht. Eine Null, die wie ein echter Wert aussieht,
+        // ist schlimmer als keine Zeile.
+        java.util.OptionalLong coins = currencyModule.currency().balanceOf(characterId.get());
+        if (coins.isEmpty()) {
+            return java.util.Optional.empty();
+        }
+        // Der Zonenname ist selbst ein Schluessel (ZoneMessageKeys.nameOf) - eine Region heisst,
+        // was die Sprachdatei sagt, und nicht, wie ihr Konfigurationsschluessel lautet. Der Umweg
+        // ueber den Tracker nimmt die HALTERkennung, nicht die des Charakters.
+        String zoneKey = zoneTracker.zoneKeyOf(playerId);
+        java.util.Optional<String> zoneName =
+                zoneKey == null
+                        ? java.util.Optional.empty()
+                        : java.util.Optional.of(
+                                messages.get(
+                                        rpg.core.zone.ZoneMessageKeys.nameOf(zoneKey),
+                                        java.util.Map.of()));
+        return java.util.Optional.of(
+                rpg.core.ui.SidebarLines.of(progress, coins.getAsLong(), zoneName));
     }
 
     /** Every character currently being played. */
@@ -623,6 +1574,12 @@ public class RpgPlugin extends JavaPlugin {
                 () -> {
                     intervals.sweep();
                     buffs.expire();
+                    // B11s Trankwirkungen laufen auf DEMSELBEN Durchlauf ab (FR-034). Ein eigener
+                    // waere eine zweite Taktung fuer dieselbe Frage - und hundert Traenke waeren
+                    // hundert Aufgaben.
+                    if (consumableBuffs != null) {
+                        consumableBuffs.expire();
+                    }
                     projectiles.sweep();
                     // Regeneration belongs here for the same reason the three above do: it is
                     // "something that happens later". It was originally settled only when somebody
@@ -635,19 +1592,6 @@ public class RpgPlugin extends JavaPlugin {
                 });
     }
 
-    /**
-     * Assembles the Paper-facing half of B07, and hands back the seam B03 drives it through.
-     *
-     * <p>Four listeners and one observer. The observer is why this runs before
-     * {@link #registerSessionListeners}: B07 has to act the moment a session is ready - open the
-     * selection, or put the class equipment back on - and B03 permits exactly one join handler
-     * (FR-007). So the class layer does not listen for joins; it is told about them.
-     *
-     * <p>{@link ClassSelectionListener} gets a {@link rpg.platform.classes.CharacterEntry} that is the
-     * only path from "class chosen" to "in the game state": activating the character on the session runs
-     * every attachment - B04's holder, B06's level, B07's tiers - and the equipment goes on afterwards,
-     * because it is built from those tiers.
-     */
     /**
      * Assembles the Paper-facing half of B08 (T056).
      *
@@ -715,9 +1659,23 @@ public class RpgPlugin extends JavaPlugin {
         // silently absent.
         rpg.platform.ability.PaperSummons summons =
                 new rpg.platform.ability.PaperSummons(getServer(), scheduler, getLogger());
-        effects.register(
-                rpg.core.ability.EffectType.SUMMON,
-                new rpg.core.ability.effect.SummonEffect(summons));
+        summonEffect = new rpg.core.ability.effect.SummonEffect(summons);
+        // Was der Klon hinterlaesst, wenn er geht (FR-016c). Aufgeloest wird um IHN herum, nicht um
+        // den Rogue: dass die beiden auseinanderstehen, ist der ganze Zweck der Faehigkeit.
+        summonEffect.setFarewell(
+                (ability, summonerId, creatureId, rank, snapshot) ->
+                        resolver.positionOf(creatureId)
+                                .ifPresent(
+                                        where ->
+                                                effects.runAt(
+                                                        ability,
+                                                        rpg.core.ability.EffectPhase.SUMMON_END,
+                                                        summonerId,
+                                                        resolver.resolveAt(
+                                                                summonerId, where, ability.target()),
+                                                        rank,
+                                                        snapshot)));
+        effects.register(rpg.core.ability.EffectType.SUMMON, summonEffect);
         effects.register(
                 rpg.core.ability.EffectType.INVISIBILITY,
                 new rpg.core.ability.effect.InvisibilityEffect(summons));
@@ -731,6 +1689,27 @@ public class RpgPlugin extends JavaPlugin {
 
         rpg.platform.ability.PaperMovementEffects movement =
                 new rpg.platform.ability.PaperMovementEffects(getServer(), getLogger());
+        // Was ein Sprung anrichtet, richtet er beim Aufkommen an (FR-045d). Der Waechter reitet auf
+        // PlayerMoveEvent mit und kostet einen int-Vergleich, solange niemand in der Luft ist - eine
+        // Aufgabe je Sprung waere die wiederkehrende Aufgabe, die Prinzip II ausschliesst.
+        abilityLandings =
+                new rpg.platform.ability.LandingWatcher(
+                        (ability, holderId, rank, snapshot) ->
+                                resolver.positionOf(holderId)
+                                        .ifPresent(
+                                                where ->
+                                                        effects.runAt(
+                                                                ability,
+                                                                rpg.core.ability.EffectPhase.LANDING,
+                                                                holderId,
+                                                                resolver.resolveAt(
+                                                                        holderId,
+                                                                        where,
+                                                                        ability.target()),
+                                                                rank,
+                                                                snapshot)));
+        movement.setLandingWatcher(abilityLandings);
+        getServer().getPluginManager().registerEvents(abilityLandings, this);
         effects.register(rpg.core.ability.EffectType.DASH, movement.dash());
         effects.register(rpg.core.ability.EffectType.KNOCKBACK, movement.knockback());
         effects.register(rpg.core.ability.EffectType.TELEPORT, movement.teleport());
@@ -743,6 +1722,10 @@ public class RpgPlugin extends JavaPlugin {
         // Both directions: the dispatcher hands periodic effects TO the runner, and the runner hands
         // each due application back THROUGH the dispatcher, so it stays behind the same error barrier.
         effects.setIntervalRunner(intervals);
+        // Und die Zielsuche, die eine verankerte Flaeche braucht: der Blitzsturm fragt bei JEDEM Tick
+        // neu, wer auf der Stelle steht. Ohne das merkte er sich die Mobs statt den Ort - wer
+        // hinauslief, brannte weiter, und wer hineinlief, blieb trocken (FR-019b).
+        intervals.setTargets(resolver);
         // Und der Beobachter, der zeichnet, was gelandet ist. Er haengt hier und nicht in den
         // Primitiven: die leben in rpg-core und koennen einen Partikel gar nicht sehen.
         effects.setObserver(
@@ -794,6 +1777,13 @@ public class RpgPlugin extends JavaPlugin {
                         withPlayer(characterId, player -> abilityFeedback.releasePose(player, ability));
                     }
                 });
+        // Und das, was die Haltung bisher nach einem Wimpernschlag wieder fallen liess: Vanilla haelt
+        // einen Schild nur, solange die Maustaste gedrueckt ist. Der Zuhoerer nimmt genau dieses eine
+        // Loslassen zurueck - ein Ereignis je Block, kein Taktgeber je Spieler.
+        getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new rpg.platform.ability.HeldPoseListener(abilityFeedback, scheduler), this);
 
         // The passive triggers, hung on the three hooks B05 already has (research.md R6). Which stage
         // each one uses is not interchangeable - see PassiveInterceptors.
@@ -809,9 +1799,11 @@ public class RpgPlugin extends JavaPlugin {
         rpg.platform.ability.PaperPassiveHooks hooks =
                 new rpg.platform.ability.PaperPassiveHooks(getServer(), messages, getLogger());
         passives.setBehindTargetCheck(hooks.behindTarget());
-        // No setWorldCondition: B09 owns that distinction and does not exist. The default lets
-        // everything through, which makes Second Life work inside an instance too - wrong, visible,
-        // and better than the opposite default, where the unique would silently do nothing (ADR-025).
+        // B09's answer, and it replaces the default rather than agreeing with it by accident
+        // (FR-052). Both say yes everywhere; the difference is that this one was decided - the
+        // release ships no instances, so there is nowhere that is not the open world. When an
+        // instance world arrives, one method body changes and this line stays (ADR-006, ADR-025).
+        passives.setWorldCondition(new rpg.core.zone.ZoneWorldCondition());
         effects.register(
                 rpg.core.ability.EffectType.STATUS_EFFECT,
                 new rpg.core.ability.effect.StatusEffectEffect(hooks.statusEffects()));
@@ -820,7 +1812,25 @@ public class RpgPlugin extends JavaPlugin {
         // pipeline, it is what the pipeline concludes, and B05 announces it.
         new rpg.core.ability.OnKillSubscriber(passives).subscribeTo(eventBus);
 
-        pipeline.registerInterceptor(rpg.core.ability.PassiveInterceptors.damageTaken(passives));
+        // Mit der Rueckmeldung, was eine Milderung wirklich abgefangen hat. Magisches Leben nimmt
+        // zehn bis zwanzig Prozent und lehnt nie einen Schlag ab - ohne diese Zeile ist es von
+        // einem Mob, der niedrig wuerfelt, nicht zu unterscheiden, und genau deshalb galt es als
+        // kaputt, waehrend es lief.
+        pipeline.registerInterceptor(
+                rpg.core.ability.PassiveInterceptors.damageTaken(
+                        passives,
+                        (holderId, before, after) -> {
+                            org.bukkit.entity.Player hurt = getServer().getPlayer(holderId);
+                            if (hurt == null) {
+                                return;
+                            }
+                            hurt.sendMessage(
+                                    messages.get(
+                                            rpg.core.ability.AbilityMessageKeys.MITIGATED,
+                                            java.util.Map.of(
+                                                    "absorbed", oneDecimal(before - after),
+                                                    "left", oneDecimal(after))));
+                        }));
         pipeline.registerInterceptor(rpg.core.ability.PassiveInterceptors.damageDealt(passives));
         pipeline.registerInterceptor(
                 rpg.core.ability.PassiveInterceptors.lethalBlow(
@@ -843,8 +1853,30 @@ public class RpgPlugin extends JavaPlugin {
                                         // eine Fähigkeit, die gewirkt hat.
                                         abilities.find(abilityId)
                                                 .ifPresent(
-                                                        ability ->
-                                                                abilityFeedback.show(player, ability));
+                                                        ability -> {
+                                                            abilityFeedback.show(player, ability);
+                                                            // B13: das graue Sweep ueber dem Slot
+                                                            // (FR-030). HIER und nicht am HUD-Takt:
+                                                            // ein Cooldown, der erst beim naechsten
+                                                            // Durchlauf grau wird, ist bis zu eine
+                                                            // Sekunde zu spaet - und genau die
+                                                            // Sekunde druecken Spieler ein zweites
+                                                            // Mal.
+                                                            //
+                                                            // B08 veroeffentlicht kein
+                                                            // Cooldown-Ereignis, an das man sich
+                                                            // haengen koennte; startCooldown ist
+                                                            // privat. Diese Stelle ist die einzige
+                                                            // im Plugin, die vom ERFOLG einer
+                                                            // Ausloesung weiss - und sie gehoert
+                                                            // bereits der Verdrahtung, nicht B08.
+                                                            uiOnAbilityUsed.forEach(
+                                                                    hook ->
+                                                                            hook.accept(
+                                                                                    player
+                                                                                            .getUniqueId(),
+                                                                                    ability));
+                                                        });
                                     }
                                     // Asked straight after the trigger, while the state that caused
                                     // the refusal is still the state: the cooldown still running, the
@@ -932,6 +1964,25 @@ public class RpgPlugin extends JavaPlugin {
                                         characterId, rpg.core.ability.EffectType.DOUBLE_JUMP));
     }
 
+    /**
+     * The player currently playing this character, or {@code null}.
+     *
+     * <p>The counterpart of {@link #characterIdOf}, and it goes through {@code StatEngine.holderOf}
+     * rather than scanning the online players: the engine owns that relation and keeps a reverse
+     * index for it. B08 once handed character ids to methods expecting holder ids and the result was
+     * a server on which nothing worked - the translation belongs at the one place that owns it.
+     */
+    private org.bukkit.entity.Player playerOfCharacter(java.util.UUID characterId) {
+        if (statsModule == null) {
+            return null;
+        }
+        return statsModule
+                .engine()
+                .holderOf(characterId)
+                .map(getServer()::getPlayer)
+                .orElse(null);
+    }
+
     /** The character a player is currently playing, for the trigger path. */
     private java.util.Optional<java.util.UUID> characterIdOf(org.bukkit.entity.Player player) {
         return sessionModule
@@ -941,6 +1992,19 @@ public class RpgPlugin extends JavaPlugin {
                 .map(rpg.core.session.PlayerCharacter::characterId);
     }
 
+    /**
+     * Assembles the Paper-facing half of B07, and hands back the seam B03 drives it through.
+     *
+     * <p>Four listeners and one observer. The observer is why this runs before
+     * {@link #registerSessionListeners}: B07 has to act the moment a session is ready - open the
+     * selection, or put the class equipment back on - and B03 permits exactly one join handler
+     * (FR-007). So the class layer does not listen for joins; it is told about them.
+     *
+     * <p>{@link ClassSelectionListener} gets a {@link rpg.platform.classes.CharacterEntry} that is the
+     * only path from "class chosen" to "in the game state": activating the character on the session runs
+     * every attachment - B04's holder, B06's level, B07's tiers - and the equipment goes on afterwards,
+     * because it is built from those tiers.
+     */
     private SessionObserver assembleClassLayer() {
         ClassRegistry classes = classesModule.registry();
         NoCharacterGuardListener guard = new NoCharacterGuardListener(getLogger());
@@ -967,9 +2031,41 @@ public class RpgPlugin extends JavaPlugin {
                 });
         ClassEquipmentApplier equipment =
                 new ClassEquipmentApplier(
-                        classesModule.boundEquipment(), new BoundItemFactory(messages), getLogger());
+                        classesModule.boundEquipment(),
+                        new BoundItemFactory(messages),
+                        // B11s gekaufte Trimfarbe. Ob sie ueberhaupt getragen werden darf, ist
+                        // in CosmeticApplication entschieden - hier wird nur eingesetzt, was
+                        // dort freigegeben wurde (FR-069, FR-070).
+                        new rpg.platform.item.CosmeticOverride(cosmeticModule.cosmetics()),
+                        getLogger());
 
         characterEntry = (player, character) -> enterGameState(player, character, equipment);
+
+        // EIN Aufstieg, EIN neuer Satz Ausruestung - und zwar sofort.
+        //
+        // Bis hierher hoerte auf dieses Ereignis nur B07s Werteberechnung. Die Zahlen stiegen also
+        // beim Kauf, die getragenen STUECKE aber nicht: sie werden ausschliesslich in
+        // enterGameState gebaut, und das laeuft beim Eintritt. Wer eine Stufe kaufte, sah seine
+        // neue Ruestung erst nach dem naechsten Einloggen - mit den neuen Werten daran, was den
+        // Fehler noch schwerer erkennbar machte.
+        //
+        // Auf dem Entity-Scheduler, weil hier Inventarslots geschrieben werden (ADR-007), und
+        // hinter einer Barriere, weil ein Fehler beim Anziehen keinen Kauf zurueckdrehen darf, der
+        // bereits gebucht ist (Prinzip VI).
+        eventBus.subscribe(
+                rpg.core.classes.TierAdvancedEvent.class,
+                event ->
+                        onlinePlayerOfCharacter(event.characterId())
+                                .ifPresent(
+                                        player ->
+                                                scheduler.runSyncOnEntity(
+                                                        new rpg.core.scheduler.EntityRef(
+                                                                player.getUniqueId()),
+                                                        () ->
+                                                                reapplyEquipment(
+                                                                        equipment,
+                                                                        player,
+                                                                        event.characterId()))));
 
         ClassSelectionListener selection =
                 new ClassSelectionListener(
@@ -983,6 +2079,11 @@ public class RpgPlugin extends JavaPlugin {
                         classesModule::slotsFor,
                         new SelectionTimeout(getServer(), scheduler, messages),
                         scheduler,
+                        // Der Betreiber-Zugang. Die Berechtigung wird HIER geprueft und nicht im
+                        // Listener: eine Berechtigung ist Paper-Sache, und der Listener soll die
+                        // Antwort bekommen, nicht die Frage stellen muessen.
+                        player -> player.hasPermission("rpg.admin.no-class"),
+                        messages,
                         getLogger());
 
         getServer().getPluginManager().registerEvents(guard, this);
@@ -991,8 +2092,14 @@ public class RpgPlugin extends JavaPlugin {
         getServer()
                 .getPluginManager()
                 .registerEvents(
-                        new InventoryFullNoticeListener(
-                                new PaperClassNotice(getServer(), messages), Clock.systemUTC()),
+                        inventoryFullNotice =
+                                new InventoryFullNoticeListener(
+                                        new PaperClassNotice(getServer(), messages),
+                                        Clock.systemUTC(),
+                                        // FR-076: die Ruhezeit steht in items.yml. Als Funktion,
+                                        // damit ein Nachladen sie wirklich aendert - ein hier
+                                        // gezogener Wert bliebe bis zum Neustart der alte.
+                                        () -> itemModule.config().inventoryFullCooldown()),
                         this);
 
         getLogger()
@@ -1015,12 +2122,103 @@ public class RpgPlugin extends JavaPlugin {
                 selection.openIfNeeded(player);
                 classesModule
                         .characterOf(player.getUniqueId())
-                        .ifPresent(characterId -> equipment.apply(player, characterId));
+                        .ifPresent(
+                                characterId -> {
+                                    equipment.apply(player, characterId);
+                                    // Die Ausruestung ist gerade frisch gebaut und weiss nichts
+                                    // von einem Zustand. Ohne diese Zeile saehe ein Spieler seine
+                                    // Ruestung bis zum ersten Treffer als unbeschaedigt - und das
+                                    // ist genau der Moment, in dem er entscheidet, ob er zum
+                                    // Haendler geht (FR-050).
+                                    refreshGearDisplay(player, characterId);
+                                    // B13: die VERBLEIBENDE Cooldown-Anzeige (FR-033). Erst hier,
+                                    // nachdem der Charakter feststeht - vorher gaebe es keine
+                                    // Faehigkeiten, ueber die man etwas legen koennte.
+                                    for (java.util.function.Consumer<java.util.UUID> restore :
+                                            uiOnJoin) {
+                                        restore.accept(player.getUniqueId());
+                                    }
+                                });
+                // B09: place the character in their region. This is the sanctioned way in - B03 owns
+                // the session lifecycle and allows exactly one join handler (FR-007), so the zone
+                // block observes rather than listens. Without this a player would be in no zone
+                // until their first step, because the movement guard is built to do nothing while
+                // somebody stands still.
+                if (playtimeAccrual != null) {
+                    // VOR placeInZone: das Platzieren veroeffentlicht ein ZoneChangedEvent, und
+                    // das schliesst den ersten Abschnitt und oeffnet ihn mit der richtigen Zone
+                    // neu. Andersherum begaenne die Zeitrechnung erst NACH dem Wechsel, und die
+                    // Sekunden davor gehoerten niemandem.
+                    playtimeAccrual.begin(player.getUniqueId(), null);
+                }
+                placeInZone(player);
             }
 
             @Override
             public void onSessionEnded(java.util.UUID playerId) {
+                // B13 zuerst, und ueber den Observer statt ueber PlayerQuitEvent: B03 besitzt den
+                // Lebenszyklus und laesst dort genau einen Handler zu (FR-007). Was der HUD und die
+                // Uebersicht je Spieler halten - Bossbar, Scoreboard, Zonenhinweis, Bosskampf und
+                // das zwischengespeicherte Fenster -, geht hier weg (FR-004c). Beim naechsten
+                // Anmelden steht dann keine alte Leiste.
+                for (java.util.function.Consumer<java.util.UUID> forget : uiForgetters) {
+                    forget.accept(playerId);
+                }
                 selection.onSessionEnded(playerId);
+                // Und die Merkliste des Betreiber-Zugangs. Sie waechst sonst die ganze
+                // Serverlaufzeit lang, und ein Wiedereinstieg soll ohnehin frisch entscheiden.
+                selection.forget(playerId);
+                // The tracker keys on the character, but a session ends with a player id - it keeps
+                // the last translation itself for exactly this moment, and hands it back so the
+                // warning's repeat block can be cleared too. Without that, the block's map would grow
+                // for the whole uptime of the server.
+                // ADR-030 first, and before anything is forgotten: the combat state and the
+                // placement are both keyed by the holder and both go away with the session.
+                characterIdOf(getServer().getPlayer(playerId))
+                        .ifPresent(
+                                characterId ->
+                                        zoneCombatLogout.onSessionEnding(playerId, characterId));
+                zoneTracker.forgetHolder(playerId).ifPresent(zoneForget::accept);
+                zoneForgetPlayer.accept(playerId);
+                if (trashCommand != null) {
+                    // Eine offene Bestaetigung ueberlebt die Sitzung nicht. Sie tut es auch
+                    // sonst nicht - die Frist laeuft nach dreissig Sekunden ab -, aber der
+                    // Eintrag laege bis zum Neustart herum.
+                    trashCommand.forget(playerId);
+                }
+                if (inventoryFullNotice != null) {
+                    inventoryFullNotice.forget(playerId);
+                }
+                if (vendorListener != null) {
+                    // Dieselbe Stelle und derselbe Grund: eine Karte je Spieler, die sonst bis zum
+                    // Neustart waechst. Und ein eigener Quit-Zuhoerer waere ein zweiter Weg in den
+                    // Sitzungslebenszyklus, den B01s Waechter zu Recht verbietet.
+                    vendorListener.forget(playerId);
+                }
+                if (abilityLandings != null) {
+                    // Wer mitten im Sprung geht, kommt beim naechsten Login auf dem Boden an - und
+                    // ein Aufprall mitten in einen Login hinein ist nicht, was die Faehigkeit meint.
+                    abilityLandings.forget(playerId);
+                }
+                if (abilityFeedback != null) {
+                    // Und wer mitten im Block geht: die Haltung endet mit ihm, aber der Vermerk
+                    // darueber laege sonst bis zum Neustart des Servers herum.
+                    abilityFeedback.forget(playerId);
+                }
+                if (statisticsMenus != null) {
+                    // Dieselbe Stelle und derselbe Grund wie beim Haendlerfenster: eine Karte je
+                    // Spieler, die sonst bis zum Neustart waechst.
+                    statisticsMenus.forget(playerId);
+                }
+                if (playtimeAccrual != null) {
+                    // B12: der letzte Zeitabschnitt wird HIER geschlossen und nicht in einem
+                    // eigenen PlayerQuitEvent-Handler. B11 hat fuer genau diesen zweiten
+                    // Ausstiegspfad eine architektonische Zusicherung eingefuehrt - zwei Tueren
+                    // heissen, dass eine von beiden irgendwann vergessen wird. Und der
+                    // Aktivitaetszeitstempel faellt gleich mit, sonst wuechse seine Karte die
+                    // ganze Serverlaufzeit lang.
+                    playtimeAccrual.end(playerId);
+                }
                 // Before B03 starts the unload: the player is still here, so their inventory can still
                 // be read - and this is the last moment that is true. The observer runs on the quit
                 // event, which is the player's own tick.
@@ -1032,24 +2230,6 @@ public class RpgPlugin extends JavaPlugin {
         };
     }
 
-    /**
-     * Takes a freshly chosen character into play.
-     *
-     * <p>Activation first, equipment second, and the order is the whole point: the items are built from
-     * the tiers, and the tiers only exist once the session activated the character.
-     *
-     * <p>A failure to put the equipment on is <b>not</b> a failure to enter. The character exists, has
-     * stats and a level, and can play; the applier logs what it could not place, and the next login
-     * applies it again. Refusing the entry over it would leave a stored character no session can reach.
-     */
-    /**
-     * Puts this character's ability items into the hotbar (T123, T124).
-     *
-     * <p><b>Laid out from the reached level, never patched from an event.</b> Called on entry and
-     * again on every level-up, and both calls do the same complete thing - so a level-up that was
-     * missed, or one that happened while the ability layer was still starting, cannot leave a slot
-     * empty for the rest of the session. There is no state here to get out of step.
-     */
     /**
      * Tells the player which abilities the new level opened (FR-060).
      *
@@ -1147,6 +2327,32 @@ public class RpgPlugin extends JavaPlugin {
     }
 
     /**
+     * Stufe und Erfahrung des Charakters hinter diesem Traeger, oder null, wenn es keinen gibt.
+     *
+     * <p>Denselben Weg wie {@link #meterOf}: der Halter ist die Id, unter der ein Spieler
+     * adressierbar ist, der Fortschritt gehoert dem Charakter (ADR-011), und B04 kennt die
+     * Zuordnung ohnehin schon.
+     *
+     * <p>Null fuer einen Mob und fuer einen Betreiber, der ohne Klasse in der Welt steht. Die
+     * Actionbar laesst den Teil dann weg - eine Stufe 1 mit 0 Erfahrung anzuzeigen, wo es keinen
+     * Charakter gibt, waere eine Zahl, die etwas behauptet.
+     *
+     * <p>{@code progressOf} rechnet nichts: B06 haelt den Stand im Speicher und beantwortet ihn
+     * ohne Datenbankzugriff (FR-026, FR-028). Das ist die Voraussetzung dafuer, dass diese Zeile
+     * einmal je Sekunde je Spieler gezeichnet werden darf.
+     */
+    private rpg.core.progression.ProgressView progressOf(java.util.UUID holderId) {
+        if (progressionModule == null) {
+            return null;
+        }
+        java.util.UUID characterId = statsModule.engine().characterIdOf(holderId).orElse(null);
+        if (characterId == null) {
+            return null;
+        }
+        return progressionModule.progression().progressOf(characterId).orElse(null);
+    }
+
+    /**
      * Fuehrt etwas am Spieler hinter einem Charakter aus, wenn er da ist.
      *
      * <p>Ueber den Halter, denn das ist die Id, unter der ein Spieler adressierbar ist - und die
@@ -1161,6 +2367,14 @@ public class RpgPlugin extends JavaPlugin {
                 .ifPresent(action);
     }
 
+    /**
+     * Puts this character's ability items into the hotbar (T123, T124).
+     *
+     * <p><b>Laid out from the reached level, never patched from an event.</b> Called on entry and
+     * again on every level-up, and both calls do the same complete thing - so a level-up that was
+     * missed, or one that happened while the ability layer was still starting, cannot leave a slot
+     * empty for the rest of the session. There is no state here to get out of step.
+     */
     private void layOutAbilities(org.bukkit.entity.Player player, java.util.UUID characterId) {
         if (abilityHotbar == null || abilityModule == null) {
             return;
@@ -1168,6 +2382,16 @@ public class RpgPlugin extends JavaPlugin {
         abilityHotbar.layOut(player, abilityModule.registry().unlockedFor(characterId));
     }
 
+    /**
+     * Takes a freshly chosen character into play.
+     *
+     * <p>Activation first, equipment second, and the order is the whole point: the items are built from
+     * the tiers, and the tiers only exist once the session activated the character.
+     *
+     * <p>A failure to put the equipment on is <b>not</b> a failure to enter. The character exists, has
+     * stats and a level, and can play; the applier logs what it could not place, and the next login
+     * applies it again. Refusing the entry over it would leave a stored character no session can reach.
+     */
     private boolean enterGameState(
             org.bukkit.entity.Player player,
             rpg.core.session.PlayerCharacter character,
@@ -1197,6 +2421,8 @@ public class RpgPlugin extends JavaPlugin {
                         });
         // Class equipment last, so it always wins the slots it owns.
         equipment.apply(player, characterId);
+        // Und der Zustand darauf, aus demselben Grund wie oben.
+        refreshGearDisplay(player, characterId);
         // And the ability items on top of it, because they sit in the hotbar slots the weapon does not
         // own. Laid out from the reached level rather than patched from events (T124): a missed
         // level-up would otherwise leave a slot empty for the rest of the session, and nothing would
@@ -1211,6 +2437,14 @@ public class RpgPlugin extends JavaPlugin {
                         view ->
                                 experienceBar.show(
                                         player.getUniqueId(), view.level(), view.fraction()));
+        // B09/B10: the real entry point a player takes - through the selection menu - never called
+        // this before. onSessionReady calls placeInZone too, but always too early for a session that
+        // still needs a class chosen: no character is active there yet, so it silently does nothing.
+        // Without this, a returning player's holder-to-character mapping in ZoneTracker never gets
+        // established at all, which is invisible everywhere that only reads the character-keyed zone
+        // (walking still updates it), but breaks anything reading it by holder id - including B10's
+        // player count per zone.
+        placeInZone(player);
         return true;
     }
 
@@ -1285,6 +2519,340 @@ public class RpgPlugin extends JavaPlugin {
      * deliberately so (ADR-007). Each capture hops onto the owning player's tick; the waiting happens
      * off it.
      */
+    /**
+     * Verdrahtet B12 — die Erfassung, mehr nicht.
+     *
+     * <p>Vier Nähte von außen, und keine davon ist neu: B05s Kampfereignisse, B09s Zonenwechsel,
+     * B04s {@code holderOf} und B06s Party. Dieser Block hört zu; er greift nirgends ein.
+     *
+     * <p><b>Keine eigene wiederkehrende Aufgabe</b> (Prinzip II, R6): die Fortschreibung der
+     * Spielzeit hängt sich an {@link #startInventorySweep}, der ohnehin im Autosave-Takt über
+     * genau die richtige Spielerliste läuft. {@code PlaytimeRidesTheExistingSweepTest} hält das
+     * mechanisch fest.
+     */
+    private void wireStatistics() {
+        rpg.core.persistence.StatisticsRepository repository =
+                registry.getService(rpg.core.persistence.StatisticsRepository.class);
+        rpg.core.statistics.Statistics statistics =
+                new rpg.core.statistics.RecordedStatistics(repository, getLogger());
+
+        rpg.core.statistics.AccountLookup accounts =
+                rpg.core.statistics.AccountLookup.backedBy(registry.getService(StatEngine.class));
+        rpg.core.statistics.ActivityClock activity = new rpg.core.statistics.ActivityClock();
+
+        playtimeAccrual =
+                new rpg.platform.statistics.PlaytimeAccrual(
+                        statistics,
+                        new rpg.core.statistics.Playtime(),
+                        activity,
+                        () -> statisticsModule.config().capture().idleAfter(),
+                        Clock.systemUTC());
+
+        // Dieselbe Party, dieselbe Reichweitenpruefung, dieselbe Zahl wie bei Erfahrung und Coins
+        // (FR-007b). Eine eigene Reichweite in statistics.yml waere ein zweiter Begriff von
+        // "dabei gewesen" - und niemand hielte ihn fuer eine Einstellung.
+        rpg.platform.statistics.PaperPartyInRange partyInRange =
+                new rpg.platform.statistics.PaperPartyInRange(
+                        getServer(),
+                        registry.getService(PartyRegistry.class),
+                        new rpg.platform.progression.PaperProximityCheck(getServer()),
+                        () -> progressionModule.config().partyRange(),
+                        () -> progressionModule.config().partyMaxSize());
+
+        new rpg.platform.statistics.KillStatListener(
+                        statistics,
+                        mobModule.kinds(),
+                        accounts,
+                        partyInRange,
+                        () -> statisticsModule.config().capture().killCreditShare())
+                .subscribeTo(eventBus);
+
+        // Der Klon leistet fuer den Spieler (ADR-047). B08s Beschwoerung fuehrt die Zuordnung
+        // bereits; eine zweite hier waere eine zweite Wahrheit ueber dieselbe Kreatur.
+        new rpg.platform.statistics.DamageStatListener(
+                        statistics,
+                        entityId ->
+                                cloneRegistry == null
+                                        ? java.util.Optional.empty()
+                                        : cloneRegistry.summonerOf(entityId))
+                .subscribeTo(eventBus);
+
+        new rpg.platform.statistics.ZoneTimeListener(playtimeAccrual, accounts)
+                .subscribeTo(eventBus);
+
+        getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new rpg.platform.statistics.ActivityListener(activity, Clock.systemUTC()),
+                        this);
+
+        wireLeaderboards();
+
+        getLogger().info("[statistics] capture wired - kills, deaths, damage, two clocks");
+    }
+
+    /**
+     * Die Ranglisten: Speicherstand, Auffrischungstakt, Fenster und {@code /top}.
+     *
+     * <p><b>Ein Takt für alle Sichten und beide Quellen.</b> Zwei Takte hätten zwei Alter ergeben,
+     * und das Fenster müsste erklären, welches gemeint ist.
+     */
+    private void wireLeaderboards() {
+        leaderboardCache = rpg.core.statistics.LeaderboardCache.empty();
+        rpg.core.statistics.Leaderboards leaderboards =
+                rpg.core.statistics.Leaderboards.backedBy(leaderboardCache);
+
+        // Die DataSource bleibt in rpg-persistence: NoDirectDatabaseAccessTest haelt seit B02
+        // fest, dass java.sql nur dort vorkommt, und ein Pool, den sich das Plugin selbst holt,
+        // waere der erste Schritt daran vorbei. Nach aussen geht eine fertige Auffrischung.
+        rpg.persistence.statistics.StatisticsPersistenceModule statisticsPersistence =
+                new rpg.persistence.statistics.StatisticsPersistenceModule(
+                        persistenceModule,
+                        leaderboardCache,
+                        // Welche Art ein Boss ist, weiss B10 - eine zweite Antwort hier
+                        // waere eine zweite Wahrheit (FR-009a).
+                        kindKey ->
+                                mobModule
+                                        .kinds()
+                                        .find(kindKey)
+                                        .map(rpg.core.mob.MobKind::boss)
+                                        .orElse(false),
+                        () -> statisticsModule.config(),
+                        // Namensaufloesung beim FUELLEN, ausserhalb des Ticks (FR-040).
+                        playerId -> getServer().getOfflinePlayer(playerId).getName(),
+                        getLogger(),
+                        Clock.systemUTC());
+        leaderboardFill = statisticsPersistence.fill();
+        seasonClosing = statisticsPersistence.closing();
+
+        statisticsMenus =
+                new rpg.platform.statistics.StatisticsMenuListener(
+                        new rpg.platform.statistics.LeaderboardMenu(leaderboards, messages),
+                        Clock.systemUTC());
+        getServer().getPluginManager().registerEvents(statisticsMenus, this);
+
+        rpg.plugin.command.TopCommand top = new rpg.plugin.command.TopCommand(statisticsMenus);
+        // Seit B14 (T036) im Kommandobaum, mit Sperrzeit aus commands.yml (T042).
+        registerCommand(top.definition(rateLimits().forCommand("top")));
+
+        wireOwnProfile(leaderboards);
+
+        // Faellige Saisonabschluesse NACHHOLEN, und zwar sofort (FR-058). Ein Quartalsende faellt
+        // selten auf einen Moment, in dem der Server gerade laeuft - die Nachholung beim Start ist
+        // der Normalfall, nicht die Ausnahme. Asynchron, weil hier abgefragt und geschrieben wird;
+        // ein Spieler, der in derselben Sekunde hereinkommt, hat damit nichts zu tun.
+        scheduler.runAsync(this::closeDueSeasons);
+
+        // Die Welten sind zu diesem Zeitpunkt geladen - dieselbe Stelle im Start, an der auch die
+        // Haendler gesetzt werden. Frueher gaebe es keine Welt, spaeter stuende die Anzeige erst
+        // da, wenn die ersten Spieler schon durch den Hub gelaufen sind.
+        placeLeaderboardHologram(leaderboards);
+
+        startLeaderboardRefresh(statisticsModule.config().leaderboards().refreshInterval());
+    }
+
+    /**
+     * Setzt die Anzeige im Hub, sofern eine konfiguriert ist (FR-060 bis FR-064).
+     *
+     * <p><b>Keine Anzeige ist ein gültiger Zustand</b>, und eine unerreichbare Welt ebenfalls: der
+     * Server startet in beiden Fällen. Ein Tippfehler in {@code statistics.yml} darf niemanden vom
+     * Spielen abhalten — die Anzeige ist Zierde, nicht Spielmechanik.
+     */
+    private void placeLeaderboardHologram(rpg.core.statistics.Leaderboards leaderboards) {
+        java.util.Optional<rpg.core.statistics.StatisticsConfig.Hologram> settings =
+                statisticsModule.config().hologram();
+        if (settings.isEmpty()) {
+            getLogger()
+                    .info("[statistics] phase=START state=HOLOGRAM_SKIPPED - none configured");
+            return;
+        }
+
+        rpg.platform.statistics.LeaderboardHologram hologram =
+                new rpg.platform.statistics.LeaderboardHologram(leaderboards, messages, getLogger());
+        if (hologram.place(settings.get(), Clock.systemUTC().instant()).isEmpty()) {
+            // Die Warnung steht schon im Log, samt dem Namen der Welt. Hier bleibt nur, sie nicht
+            // in den Auffrischungstakt zu haengen (FR-064).
+            return;
+        }
+
+        org.bukkit.World world = getServer().getWorld(settings.get().world());
+        leaderboardHologram = hologram;
+        hologramAt =
+                new rpg.core.scheduler.WorldPosition(
+                        world.getUID(), settings.get().x(), settings.get().y(), settings.get().z());
+
+        getLogger()
+                .info(
+                        "[statistics] phase=START state=HOLOGRAM_PLACED board="
+                                + settings.get().board().key()
+                                + " period="
+                                + settings.get().period()
+                                + " - reading the same cache as the windows, counted against no mob"
+                                + " budget (FR-060, FR-062)");
+    }
+
+    /**
+     * Beschriftet die Anzeige neu — im Auffrischungstakt, aber auf <b>ihrem</b> Tick.
+     *
+     * <p>Der Takt läuft asynchron; eine Entität von dort aus anzufassen ist der Fehler, der auf
+     * Folia gar nicht und auf Paper nur meistens auffällt. Der Sprung geht über die Position und
+     * nicht über die Entität: {@code runSyncOnEntity} aus einem Hintergrundfaden scheitert still.
+     */
+    private void refreshLeaderboardHologram() {
+        if (leaderboardHologram == null || hologramAt == null) {
+            return;
+        }
+        scheduler.runSyncAtLocation(
+                hologramAt, () -> leaderboardHologram.refresh(Clock.systemUTC().instant()));
+    }
+
+    /**
+     * Faellige Saisonabschlüsse — beim Start und in jedem Auffrischungstakt (FR-058).
+     *
+     * <p>Zweimal zu laufen kostet nichts: der Beleg für „abgeschlossen" sind die Zeilen im
+     * Endstand, und ein zweiter Durchlauf findet sie und tut nichts. Deshalb braucht das hier
+     * keinen Zeitplan, der sich merkt, wann er zuletzt lief.
+     */
+    private void closeDueSeasons() {
+        if (seasonClosing == null) {
+            return;
+        }
+        try {
+            seasonClosing.closeDueSeasons();
+        } catch (RuntimeException failure) {
+            // Ein gescheiterter Abschluss darf weder den Start noch den Auffrischungstakt
+            // mitnehmen: die Ranglisten funktionieren ohne ihn weiter, und der naechste Takt
+            // versucht es erneut.
+            getLogger()
+                    .log(java.util.logging.Level.WARNING, "[statistics] season closing failed", failure);
+        }
+    }
+
+    /**
+     * Das eigene Profil: Lesefassade, Lader, Fenster und {@code /stats}.
+     *
+     * <p><b>Kein Cache</b> — anders als bei den Ranglisten. Das Profil fragt nach <em>einem</em>
+     * Konto, und der Fragende ist der, dessen Zahlen es sind; ein Speicherstand zeigte ausgerechnet
+     * ihm veraltete Werte, direkt nachdem er etwas getan hat.
+     */
+    private void wireOwnProfile(rpg.core.statistics.Leaderboards leaderboards) {
+        rpg.core.statistics.StatisticsView statisticsView =
+                new rpg.core.statistics.StatisticsView(
+                        // Die DataSource bleibt hinter der Modulgrenze; hier kommt eine fertige
+                        // rohe Sicht heraus (NoDirectDatabaseAccessTest).
+                        rpg.persistence.statistics.StatisticsPersistenceModule.rawView(
+                                persistenceModule, scheduler),
+                        () -> statisticsModule.config().seasons(),
+                        Clock.systemUTC());
+
+        rpg.platform.statistics.ProfileLoader loader =
+                new rpg.platform.statistics.ProfileLoader(
+                        statisticsView,
+                        leaderboards,
+                        kindKey ->
+                                mobModule
+                                        .kinds()
+                                        .find(kindKey)
+                                        .map(rpg.core.mob.MobKind::boss)
+                                        .orElse(false));
+
+        rpg.platform.statistics.StatisticsMenu profileMenu =
+                new rpg.platform.statistics.StatisticsMenu(messages);
+
+        rpg.plugin.command.StatisticsCommand stats =
+                new rpg.plugin.command.StatisticsCommand(
+                        loader,
+                        (player, profile) ->
+                                // Das Laden lief asynchron; ein Inventar darf nur auf dem Tick
+                                // geoeffnet werden - und zwar auf dem des Spielers.
+                                scheduler.runSyncOnEntity(
+                                        new rpg.core.scheduler.EntityRef(player.getUniqueId()),
+                                        () ->
+                                                statisticsMenus.openProfile(
+                                                        player, profileMenu, profile, player.getName())),
+                        // Name -> Konto. getOfflinePlayer(String) fragt den Namens-Cache des
+                        // Servers; hasPlayedBefore() trennt einen echten Namen von einem
+                        // Tippfehler, der sonst als leeres Profil durchginge.
+                        name -> {
+                            org.bukkit.OfflinePlayer found = getServer().getOfflinePlayer(name);
+                            return found.hasPlayedBefore() || found.isOnline()
+                                    ? java.util.Optional.of(found.getUniqueId())
+                                    : java.util.Optional.empty();
+                        },
+                        // Das fremde Profil ist bereits fertig - es kommt aus dem Speicherstand.
+                        (player, profile) ->
+                                statisticsMenus.openProfile(
+                                        player,
+                                        profileMenu,
+                                        profile,
+                                        java.util.Optional.ofNullable(
+                                                        getServer()
+                                                                .getOfflinePlayer(profile.account())
+                                                                .getName())
+                                                .orElse(profile.account().toString())),
+                        (player, name) ->
+                                player.sendMessage(
+                                        messages.get(
+                                                rpg.core.statistics.StatisticsMessageKeys
+                                                        .UNKNOWN_PLAYER,
+                                                java.util.Map.of("player", name))));
+
+        // Seit B14 (T035) im Kommandobaum, mit Sperrzeit aus commands.yml (T042): /stats fragt
+        // die Datenbank.
+        registerCommand(stats.definition(getServer(), rateLimits().forCommand("stats")));
+    }
+
+    /**
+     * Die Sperrzeiten aus {@code commands.yml} — bei jedem Aufruf gelesen.
+     *
+     * <p>Nicht gemerkt, weil die Kommandos über den ganzen Start verteilt entstehen und ein
+     * gemerkter Wert die Reihenfolge zu einer Abhängigkeit machte. Es ist ein Lesen aus einer schon
+     * geladenen Datei, kein Dateizugriff.
+     */
+    private rpg.plugin.command.framework.RateLimitConfig rateLimits() {
+        try {
+            return rpg.plugin.command.framework.RateLimitConfig.from(
+                    ((YamlConfigLoader) configLoader).readDocument(Path.of("commands.yml")));
+        } catch (RuntimeException | ConfigValidationException unreadable) {
+            // Eine Sperrzeit ist eine Bremse. Eine fehlende Bremse darf keinen Start verhindern -
+            // aber sie darf auch nicht still fehlen.
+            getLogger()
+                    .warning(
+                            "[command] commands.yml ist nicht lesbar - es gelten die"
+                                    + " Voreinstellungen: "
+                                    + unreadable.getMessage());
+            return rpg.plugin.command.framework.RateLimitConfig.defaults();
+        }
+    }
+
+    /**
+     * Der Auffrischungstakt — nach dem Muster der vorhandenen Sweeps.
+     *
+     * <p>Asynchron: {@code REFRESH MATERIALIZED VIEW} rechnet, und der Tick hat damit nichts zu
+     * tun (FR-031). Der erste Durchlauf ist ebenfalls verzögert — bis dahin sagt jedes Fenster,
+     * dass der Stand noch aufgebaut wird (FR-035), statt eine Ersatzabfrage zu stellen.
+     */
+    private void startLeaderboardRefresh(Duration interval) {
+        scheduler.runAsyncDelayed(
+                interval,
+                () -> {
+                    if (leaderboardFill != null) {
+                        leaderboardFill.refreshNow();
+                    }
+                    // Im SELBEN Takt und im selben Faden: ein Server, der ueber den Jahreswechsel
+                    // durchlaeuft, wuerde sonst nie abschliessen. Eine eigene Aufgabe waere ein
+                    // zweiter Takt fuer dieselbe Sache (R6, Prinzip II).
+                    closeDueSeasons();
+                    // Und die Anzeige im Hub bekommt denselben Stand wie die Fenster - im selben
+                    // Takt, damit niemand erklaeren muss, welches der beiden Alter gemeint ist.
+                    refreshLeaderboardHologram();
+                    if (isEnabled()) {
+                        startLeaderboardRefresh(
+                                statisticsModule.config().leaderboards().refreshInterval());
+                    }
+                });
+    }
+
     private void startInventorySweep(Duration interval) {
         scheduler.runAsyncDelayed(
                 interval,
@@ -1299,6 +2867,13 @@ public class RpgPlugin extends JavaPlugin {
                                     org.bukkit.entity.Player player = getServer().getPlayer(playerId);
                                     if (player != null) {
                                         captureInventory(player);
+                                        if (playtimeAccrual != null) {
+                                            // B12 reitet hier mit und legt KEINE eigene Aufgabe an
+                                            // (R6, Prinzip II). Derselbe Takt, dieselbe Liste -
+                                            // und ein Absturz kostet ein Autosave-Intervall, wie
+                                            // Prinzip IV es ohnehin zusagt.
+                                            playtimeAccrual.accrue(playerId);
+                                        }
                                     }
                                 });
                     }
@@ -1355,6 +2930,23 @@ public class RpgPlugin extends JavaPlugin {
     }
 
     /**
+     * B10s Coins, und dahinter B08bs eigene Konfiguration.
+     *
+     * <p>Kein zweiter Anbieter neben dem ersten, sondern eine Kette: die Art antwortet, und wenn es
+     * keine gibt, antwortet das, was vorher schon antwortete. Ein leeres Ergebnis heisst weiterhin
+     * "kein eigener Eintrag" und niemals Null (FR-007).
+     */
+    private rpg.core.currency.MobCoinProvider coinsFromKindsOr(
+            rpg.core.currency.MobCoinProvider fallback) {
+        rpg.core.currency.MobCoinProvider fromKinds =
+                rpg.core.mob.MobProviders.coins(mobModule::config);
+        return kindKey -> {
+            java.util.OptionalLong own = fromKinds.coinsFor(kindKey);
+            return own.isPresent() ? own : fallback.coinsFor(kindKey);
+        };
+    }
+
+    /**
      * The Paper-facing half of B08b: coin piles fall, and picking one up books it.
      *
      * <p>Wired after B06's, and from its pieces: the entitlement rule is
@@ -1369,7 +2961,9 @@ public class RpgPlugin extends JavaPlugin {
         rpg.core.currency.CoinDropPlanner planner =
                 new rpg.core.currency.CoinDropPlanner(
                         distributor.shareCalculator(),
-                        new rpg.core.currency.ConfigMobCoinProvider(config, getLogger()),
+                        // B10 zuerst, B08bs eigene Konfiguration als Rueckfall dahinter. Eine
+                        // Kreatur ohne Art bekommt weiterhin, was in currency.yml steht (FR-009).
+                        coinsFromKindsOr(new rpg.core.currency.ConfigMobCoinProvider(config, getLogger())),
                         config,
                         // The one question this block asks B04, as a one-method interface rather
                         // than a dependency on the whole engine.
@@ -1388,7 +2982,10 @@ public class RpgPlugin extends JavaPlugin {
                                         .isSuccess(),
                         Clock.systemUTC(),
                         getLogger(),
-                        rpg.platform.currency.CoinPile.PilePlatform.vanilla(this));
+                        // Seit ADR-039 geteilt mit B11: die Mechanik fuer liegende Gegenstaende,
+                        // die genau einem Charakter gehoeren, liegt in rpg.platform.drop und
+                        // gehoert keinem Block allein (research.md R5).
+                        rpg.platform.drop.OwnedDropPlatform.vanilla(this));
 
         rpg.platform.currency.CoinPile piles =
                 new rpg.platform.currency.CoinPile(
@@ -1402,6 +2999,16 @@ public class RpgPlugin extends JavaPlugin {
                     org.bukkit.entity.Player player = getServer().getPlayer(playerId);
                     if (player != null) {
                         pileRegistry.showPilesTo(player, characterId);
+                        // Und B11s Beute gleich mit. Dieselbe Falle, derselbe Moment - beide
+                        // Mechanismen haengen an showEntity, und das ist Zustand der VERBINDUNG.
+                        //
+                        // Der Haken gehoert B08b, aber diese Zeile steht im Plugin, und das
+                        // Plugin ist der Kompositionswurzel: es darf beide Bloecke kennen. B11
+                        // haengt dadurch NICHT an B08b - es haengt an einem Rueckruf, den die
+                        // Verdrahtung setzt.
+                        if (itemDropVisibility != null) {
+                            itemDropVisibility.showTo(player, characterId);
+                        }
                     }
                 });
 
@@ -1427,6 +3034,638 @@ public class RpgPlugin extends JavaPlugin {
                                 + "s, at most "
                                 + config.maxPiles()
                                 + " at once");
+    }
+
+    /**
+     * B10s zweite Haelfte: Horden entstehen in B09s Bereichen, und Vanillas eigenes Spawnen ist aus
+     * (US2, US2b).
+     *
+     * <p>Nach {@link #assembleCombatLayer()} und {@link #assembleProgressionLayer()}, weil die drei
+     * uebernommenen Anbieter (Werte, Erfahrung, Coins) dort schon aus {@code mobs.yml} bedient
+     * werden - eine gesetzte Kreatur soll sofort die richtigen Zahlen tragen.
+     *
+     * <p>{@code VanillaSpawnSuppressor.applyTo} laeuft VOR {@code HordeSweep.ensureScheduledForPopulatedZones}:
+     * die Spielregeln sollen greifen, bevor dieser Block anfaengt, selbst zu setzen.
+     */
+    private void assembleMobLayer() {
+        rpg.platform.mob.VanillaSpawnSuppressor suppressor =
+                new rpg.platform.mob.VanillaSpawnSuppressor(getLogger());
+        suppressor.applyTo(getServer());
+        getServer().getPluginManager().registerEvents(suppressor, this);
+
+        getServer()
+                .getPluginManager()
+                .registerEvents(new rpg.platform.mob.DaylightBurnSuppressor(), this);
+
+        rpg.platform.mob.PaperMobPlacer placer = new rpg.platform.mob.PaperMobPlacer(getLogger());
+        CombatPipeline mobCombatPipeline = registry.getService(CombatPipeline.class);
+        mobSweep =
+                new rpg.platform.mob.HordeSweep(
+                        getServer(),
+                        scheduler,
+                        zoneModule::zones,
+                        zoneTracker,
+                        mobModule::config,
+                        mobModule.registry(),
+                        mobModule.bosses(),
+                        // B05 rechnet den Kampfzustand ohnehin lazy aus Zeitstempeln - eine zweite
+                        // Buchfuehrung waere eine zweite Wahrheit (FR-022, research.md).
+                        mobCombatPipeline::isInCombat,
+                        placer,
+                        Clock.systemUTC(),
+                        getLogger());
+        mobSweep.subscribeTo(eventBus);
+        getServer().getPluginManager().registerEvents(mobSweep, this);
+        // Fuer Zonen, die beim Start schon Spieler haben - fuer die feuert kein ZoneChangedEvent
+        // mehr, das dieser Zuhoerer sehen koennte (etwa nach einem /rpg reload waehrend Betrieb
+        // waere das nicht noetig, aber beim allerersten Start schon).
+        mobSweep.ensureScheduledForPopulatedZones();
+
+        // US7: die letzte offene Zusage aus B08 - solange ein Klon steht, ziehen eigene
+        // Kreaturen ihn an statt des Rogue (FR-039 bis FR-041, research.md R9). Nach
+        // assembleAbilityLayer(), das summonEffect erst anlegt.
+        rpg.platform.mob.CloneAggroListener cloneAggro =
+                new rpg.platform.mob.CloneAggroListener(
+                        getServer(), mobModule::config, Clock.systemUTC());
+        getServer().getPluginManager().registerEvents(cloneAggro, this);
+        summonEffect.setAggressionRedirect(cloneAggro::registerClone);
+        // Und B11 fragt dieselbe Liste: ein Klon nutzt weder Waffe noch Ruestung seines
+        // Beschwoerers ab (FR-041a). Eine zweite Liste dafuer waere eine zweite Wahrheit.
+        this.cloneRegistry = cloneAggro;
+
+        getLogger()
+                .info(
+                        "[mob] phase=START state=SWEEP_ARMED - the budget is now the only source of"
+                                + " living creatures (FR-018c)");
+    }
+
+    /**
+     * B11s Beute: was ein Tod hinterlässt, und wem es gehört (US2).
+     *
+     * <p><b>Nach B10</b>, weil die Beutetabellen Arten und Regionen nennen — und nach B06, weil die
+     * Party mitentscheidet, wer den nächsten Gegenstand bekommt.
+     *
+     * <p><b>Zwei Dinge werden hier geteilt statt gebaut.</b> Die Eigentumsmechanik für liegende
+     * Gegenstände kommt aus {@code rpg.platform.drop} und ist dieselbe, die B08b für Coin-Haufen
+     * benutzt (ADR-039). Und wer worauf Anspruch hat, entscheidet {@code LootPlanner} in
+     * {@code rpg-core} — bukkit-frei, wie {@code CoinDropPlanner}.
+     */
+    private void assembleItemLayer() {
+        rpg.platform.item.ItemStackFactory itemFactory =
+                new rpg.platform.item.ItemStackFactory(itemModule, messages);
+
+        rpg.platform.drop.OwnedDropPlatform dropPlatform =
+                rpg.platform.drop.OwnedDropPlatform.vanilla(this);
+        rpg.platform.drop.OwnedDropRegistry dropRegistry =
+                new rpg.platform.drop.OwnedDropRegistry(dropPlatform);
+        // Vorgealtert wie ein Coin-Haufen: es gibt keinen Setter fuer die Verfallszeit, und Beute
+        // soll nicht laenger liegen als Coins.
+        rpg.platform.drop.OwnedDrops drops =
+                new rpg.platform.drop.OwnedDrops(dropPlatform, dropRegistry, 0);
+
+        PartyRegistry parties = registry.getService(PartyRegistry.class);
+        StatEngine stats = registry.getService(StatEngine.class);
+
+        rpg.core.item.LootPlanner lootPlanner =
+                new rpg.core.item.LootPlanner(
+                        itemModule::config,
+                        parties,
+                        // Dieselbe Reichweitenpruefung, die B06 fuer Erfahrung benutzt.
+                        () -> new PaperProximityCheck(getServer()),
+                        // Und dieselbe Zahl aus progression.yml. Eine zweite in items.yml waere
+                        // eine zu viel: niemand koennte erklaeren, warum Erfahrung und Beute
+                        // unterschiedlich weit reichen.
+                        () -> progressionModule.config().partyRange(),
+                        stats::characterIdOf,
+                        new rpg.core.item.PartyLootRotation(),
+                        new java.util.Random());
+
+        rpg.platform.item.LootDropListener lootDrops =
+                new rpg.platform.item.LootDropListener(
+                        getServer(),
+                        lootPlanner,
+                        itemFactory,
+                        drops,
+                        this::onlinePlayerOfCharacter,
+                        this::isBossKind,
+                        eventBus,
+                        getLogger());
+        lootDrops.subscribeTo(eventBus);
+
+        // Das zweite Schloss. Unsichtbarkeit ist Darstellung, und Darstellung ist niemals die
+        // Autoritaet (Constitution VI) - hier wird der CHARAKTER geprueft, den Vanillas setOwner
+        // nicht kennt (ADR-011).
+        getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new rpg.platform.drop.OwnedDropPickupListener(
+                                dropRegistry, this::activeCharacterOf),
+                        this);
+
+        // showEntity haengt an der VERBINDUNG. Ohne diese Zeile bliebe Beute nach einem Relogin
+        // unsichtbar, waehrend beide Schloesser weiter passen - unsichtbar aber aufsammelbar ist
+        // das Schlechteste von beidem. Dieselbe Falle, die B08b fuer Coin-Haufen gefunden hat.
+        itemDropVisibility = dropRegistry;
+
+        wireConsumables(stats, itemFactory);
+        wireVendors(itemFactory);
+        wireWear(stats);
+
+        getLogger()
+                .info(
+                        "[item] phase=START state=LOOT_ARMED - loot belongs to one character,"
+                                + " and in a party it rotates (FR-026b)");
+    }
+
+    /**
+     * Verschleiß: Ausrüstung wird schwächer statt kaputt, und der Tod kostet ein Vielfaches (US5).
+     *
+     * <p><b>Zwei Anknüpfungen, und die erste ist nicht die aus dem Aufgabenzettel.</b> Der laufende
+     * Verschleiß hängt an B05s {@code DamageInterceptor} und nicht an {@code DamageDealtEvent}: das
+     * aggregierte Ereignis trägt keine {@code DamageOrigin}, also ließe sich ein Autoattack nicht von
+     * einer Fähigkeit unterscheiden (FR-041), und es trägt den Schaden nach der Abwehr, wo FR-040a
+     * den davor verlangt. Der Tod dagegen hängt am Ereignis, weil er nichts davon braucht.
+     */
+    private void wireWear(StatEngine stats) {
+        rpg.core.item.DefaultGearConditions conditions = gearConditionModule.conditions();
+
+        rpg.core.combat.CombatPipeline pipeline =
+                registry.getService(rpg.core.combat.CombatPipeline.class);
+        pipeline.registerInterceptor(
+                new rpg.platform.item.WearInterceptor(
+                        conditions,
+                        stats::characterIdOf,
+                        holderId -> cloneRegistry != null && cloneRegistry.isClone(holderId)));
+
+        new rpg.platform.item.WearListener(conditions, getLogger()).subscribeTo(eventBus);
+
+        // Die Warnung an den Spieler. Die Entscheidung "jetzt sagen" steckt schon im Ereignis
+        // (FR-051) - sie hier ein zweites Mal zu treffen waere die zuverlaessigste Art, zwei
+        // Meldungen fuer einen Treffer zu erzeugen.
+gearDisplay =
+                new rpg.platform.item.GearConditionDisplay(
+                        messages,
+                        conditions,
+                        this::onlinePlayerOfCharacter,
+                        // Welcher getragene Gegenstand zu welcher Leiter gehoert, sagt B07 - der
+                        // Vermerk hat ein Format, und es gehoert dort hin (FR-079).
+                        classesModule.boundEquipment()::expectedTag);
+        gearDisplay.subscribeTo(eventBus);
+
+        // FR-056: der bezahlte Weg beim Haendler ist die EINZIGE Instandsetzung. Ein offener Amboss
+        // waere der billigere, und niemand ginge je zum Haendler - die Coin-Senke aus ADR-017 haette
+        // dann kein Wasser.
+        getServer()
+                .getPluginManager()
+                .registerEvents(new rpg.platform.item.RepairRouteLockListener(messages), this);
+
+        getLogger()
+                .info(
+                        "[item] phase=START state=WEAR_ARMED - gear gets weaker, never broken"
+                                + " (FR-038), and a death costs a multiple of a fight (FR-043)");
+    }
+
+    /**
+     * Der Händler: einer je Region, und beide Kaufwege gehen durch die vorhandenen Routen (US4).
+     *
+     * <p><b>Er ist kein Mob.</b> Er wird nie in B10s {@code HordeRegistry} eingetragen und zählt
+     * deshalb nicht gegen das Budget (FR-059) — das folgt daraus, dass B10 nur zählt, was B10 selbst
+     * gesetzt hat, und ist keine Ausnahme, die jemand pflegen muss.
+     *
+     * <p><b>Zwei Nähte, beide auf vorhandene Blöcke gerichtet</b> (FR-079): der Stufenaufstieg ist
+     * B08bs {@code EquipmentPurchase::buyNext}, die Bindungsfrage ist B07s
+     * {@code BoundEquipment::isBound}. Beide werden hier verknüpft und nirgends nachgebaut.
+     */
+    private void wireVendors(rpg.platform.item.ItemStackFactory itemFactory) {
+        rpg.core.currency.Currency currency = registry.getService(rpg.core.currency.Currency.class);
+        rpg.core.classes.BoundEquipment boundEquipment =
+                classesModule.boundEquipment();
+        rpg.core.currency.EquipmentPurchase tierPurchase =
+                new rpg.core.currency.EquipmentPurchase(
+                        classesModule.tierAdvance(),
+                        currency,
+                        this::classOfCharacter,
+                        classesModule::progressOf,
+                        getLogger());
+
+        rpg.core.item.VendorTransaction transactions =
+                new rpg.core.item.VendorTransaction(
+                        itemModule::config,
+                        currency,
+                        // Platz im Inventar - gefragt VOR der Buchung (FR-064). Ohne Spieler online
+                        // gibt es kein Inventar, und dann kommt der Kauf ohnehin nicht zustande.
+                        (characterId, templateKey, amount) ->
+                                onlinePlayerOfCharacter(characterId)
+                                        .map(player -> player.getInventory().firstEmpty() >= 0)
+                                        .orElse(false));
+
+        vendorListener =
+                new rpg.platform.item.VendorListener(
+                        itemModule::config,
+                        new rpg.platform.item.VendorMenu(itemFactory, messages),
+                        transactions,
+                        tierPurchase::buyNext,
+                        // Was der naechste Aufstieg kostet und ab welchem Level er geht - damit
+                        // der Knopf es SAGT, statt dass ein Klick es herausfindet.
+                        (characterId, slot) -> upgradeOfferFor(tierPurchase, characterId, slot),
+                        new rpg.core.item.GearRepair(
+                                itemModule::config,
+                                gearConditionModule.conditions(),
+                                // Welche Stufe erreicht ist, weiss B07 - eine zweite Antwort hier
+                                // waere eine zweite Wahrheit (FR-079).
+                                (characterId, slot) ->
+                                        classesModule
+                                                .progressOf(characterId)
+                                                .map(progress -> progress.tierOf(slot))
+                                                .orElse(rpg.core.classes.ClassProgress.INITIAL_TIER),
+                                currency),
+                        gearConditionModule.conditions(),
+                        cosmeticModule.cosmetics(),
+                        boundEquipment::isBound,
+                        currency,
+                        itemFactory,
+                        this::activeCharacterOf,
+                        messages,
+                        getLogger());
+        getServer().getPluginManager().registerEvents(vendorListener, this);
+
+        // Seit B14 (T033) haengt /trash im Kommandobaum und nicht mehr an einem plugin.yml-Eintrag.
+        // Die Pruefung auf getCommand(...) == null ist damit weggefallen: es gibt keinen Eintrag
+        // mehr, mit dem diese Stelle sich einig sein muesste.
+        trashCommand =
+                new rpg.plugin.command.TrashCommand(
+                        messages, Clock.systemUTC(), boundEquipment::isBound);
+        registerCommand(trashCommand.definition());
+
+        vendorNpcs = new rpg.platform.item.VendorNpc(getLogger());
+        placeVendors();
+    }
+
+    /**
+     * Setzt je Region mit Safe-Core einen Händler, ein paar Schritte neben dem Ankunftspunkt.
+     *
+     * <p><b>Neben, nicht auf.</b> Wer nach einer Reise ankommt, soll nicht in einem Dorfbewohner
+     * stehen — und der Ankunftspunkt ist der einzige Ort, den B09 je Region kennt.
+     */
+    private void placeVendors() {
+        int placed = 0;
+        for (rpg.core.zone.Zone zone : zoneModule.zones().all()) {
+            java.util.Optional<rpg.core.scheduler.WorldPosition> point =
+                    zoneModule.zones().respawnPointOf(zone.key());
+            if (point.isEmpty()) {
+                continue;
+            }
+            org.bukkit.World world = getServer().getWorld(point.get().worldId());
+            if (world == null) {
+                getLogger()
+                        .warning(
+                                "[item] vendor: the world of "
+                                        + zone.key()
+                                        + " is not loaded - no merchant there this session");
+                continue;
+            }
+            org.bukkit.Location where =
+                    new org.bukkit.Location(
+                            world, point.get().x() + VENDOR_OFFSET, point.get().y(), point.get().z());
+            if (vendorNpcs.place(where, zone.key()).isPresent()) {
+                placed++;
+            }
+        }
+        getLogger()
+                .info(
+                        "[item] phase=START state=VENDORS_PLACED count="
+                                + placed
+                                + " - one per region, none of them counted against the mob budget"
+                                + " (FR-057, FR-059)");
+    }
+
+    /**
+     * Verbrauchbares: Tränke wirken, sind danach verbraucht, und ein zweiter direkt hinterher ist
+     * nicht der Weg (US3).
+     *
+     * <p><b>Der zeitliche Beitrag reitet auf B08s Durchlauf</b>, nicht auf einem eigenen — das ist
+     * es, was hundert Tränke davon abhält, hundert Aufgaben zu werden (FR-034, Prinzip II).
+     */
+    private void wireConsumables(StatEngine stats, rpg.platform.item.ItemStackFactory itemFactory) {
+        rpg.core.item.ConsumableCooldown cooldowns =
+                new rpg.core.item.ConsumableCooldown(Clock.systemUTC());
+
+        // Zwei Fragen an B04, nicht die ganze Engine - dieselbe Ueberlegung wie bei B08bs
+        // CharacterLookup.
+        consumableBuffs =
+                new rpg.core.item.ConsumableBuffs(
+                        new rpg.core.item.ConsumableBuffs.BuffSink() {
+                            @Override
+                            public void apply(
+                                    java.util.UUID holderId, rpg.core.stats.ModifierSet set) {
+                                stats.apply(holderId, set);
+                            }
+
+                            @Override
+                            public void remove(
+                                    java.util.UUID holderId, rpg.core.stats.SourceId source) {
+                                stats.remove(holderId, source);
+                            }
+                        },
+                        Clock.systemUTC());
+
+        rpg.platform.item.ConsumableUseListener.Resources resources =
+                new rpg.platform.item.ConsumableUseListener.Resources() {
+                    @Override
+                    public double currentHealth(java.util.UUID holderId) {
+                        return stats.resources(holderId).currentHealth();
+                    }
+
+                    @Override
+                    public double maxHealth(java.util.UUID holderId) {
+                        return stats.resources(holderId).maxHealth();
+                    }
+
+                    @Override
+                    public double currentMana(java.util.UUID holderId) {
+                        return stats.resources(holderId).currentMana();
+                    }
+
+                    @Override
+                    public double maxMana(java.util.UUID holderId) {
+                        return stats.resources(holderId).maxMana();
+                    }
+
+                    @Override
+                    public void changeHealth(java.util.UUID holderId, double delta) {
+                        stats.changeHealth(holderId, delta);
+                    }
+
+                    @Override
+                    public void changeMana(java.util.UUID holderId, double delta) {
+                        stats.changeMana(holderId, delta);
+                    }
+                };
+
+        java.util.function.Function<java.util.UUID, java.util.Optional<java.util.UUID>> holderOf =
+                stats::holderOf;
+
+        rpg.core.item.ConsumableUse rule =
+                new rpg.core.item.ConsumableUse(
+                        cooldowns,
+                        rpg.platform.item.ConsumableUseListener.wouldDoSomething(resources, holderOf));
+
+        getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new rpg.platform.item.ConsumableUseListener(
+                                itemModule,
+                                rule,
+                                consumableBuffs,
+                                resources,
+                                this::activeCharacterOf,
+                                holderOf,
+                                this::levelOfCharacter,
+                                this::classOfCharacter,
+                                messages,
+                                getLogger()),
+                        this);
+
+        // Der Aufschlag eines geworfenen Tranks. Vanilla wirft und verbraucht; hier wirkt es -
+        // auf JEDEN Getroffenen, nicht nur auf den Werfer.
+        getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new rpg.platform.item.PotionSplashListener(
+                                itemModule,
+                                consumableBuffs,
+                                resources,
+                                stats::characterIdOf,
+                                messages,
+                                getLogger()),
+                        this);
+
+        showConsumableCooldowns(cooldowns);
+    }
+
+    /**
+     * Hängt die Trank-Abklingzeiten an das Cooldown-Overlay (B13 US3, Erweiterung von FR-030).
+     *
+     * <p><b>Warum überhaupt hier und nicht in {@code wireUi}</b>: {@code ConsumableCooldown} entsteht
+     * erst in der Gegenstandsschicht, lange nach dem HUD. Das Overlay wartet als Feld darauf — und
+     * bis dahin zeigt es die Fähigkeiten, was der ältere und wichtigere Teil ist.
+     *
+     * <p><b>Nur Vorlagen mit einer Abklingzeit.</b> {@code items.yml} gibt sie nicht jedem Trank; wer
+     * keine hat, kühlt nie ab, und ihn jede Sekunde zu fragen wäre Arbeit für eine Antwort, die
+     * immer null lautet.
+     */
+    private void showConsumableCooldowns(rpg.core.item.ConsumableCooldown cooldowns) {
+        if (cooldownOverlay == null) {
+            // Kann nicht vorkommen - wireUi laeuft vor der Gegenstandsschicht. Falls doch, ist die
+            // Trankanzeige das Falsche, um daran den Start scheitern zu lassen.
+            getLogger()
+                    .warning(
+                            "[ui] phase=START state=CONSUMABLE_OVERLAY_SKIPPED"
+                                    + " - the overlay was not built, potions will not grey out");
+            return;
+        }
+        cooldownOverlay.alsoShow(
+                new rpg.platform.ui.AbilityCooldownOverlay.ConsumableCooldowns() {
+
+                    @Override
+                    public java.util.Map<String, java.time.Duration> remainingFor(
+                            java.util.UUID characterId) {
+                        java.util.Map<String, java.time.Duration> cooling =
+                                new java.util.LinkedHashMap<>();
+                        for (java.util.Map.Entry<String, rpg.core.item.ItemTemplate> entry :
+                                itemModule.templates().entrySet()) {
+                            rpg.core.item.ItemTemplate template = entry.getValue();
+                            if (template.category() != rpg.core.item.ItemCategory.CONSUMABLE
+                                    || template.effect() == null
+                                    || template.effect().cooldown() == null) {
+                                continue;
+                            }
+                            // Die Restzeit kommt aus B11 - dieselbe Methode, die auch entscheidet,
+                            // ob ein zweiter Schluck abgelehnt wird. Eine zweite Rechnung hier
+                            // waere eine zweite Wahrheit darueber, wann der Trank bereit ist.
+                            java.time.Duration left =
+                                    cooldowns.remaining(
+                                            characterId, entry.getKey(), template.effect().cooldown());
+                            if (!left.isZero() && !left.isNegative()) {
+                                cooling.put(entry.getKey(), left);
+                            }
+                        }
+                        return cooling;
+                    }
+
+                    @Override
+                    public java.util.Optional<String> materialOf(String templateKey) {
+                        return itemModule.template(templateKey).map(rpg.core.item.ItemTemplate::material);
+                    }
+                });
+    }
+
+    /** Das Level eines Charakters — B06 besitzt die Antwort. */
+    private int levelOfCharacter(java.util.UUID characterId) {
+        return progressionModule.progression().levelOf(characterId).orElse(1);
+    }
+
+    /** Die Klasse eines Charakters — B07 besitzt die Antwort. */
+    private java.util.Optional<rpg.core.session.CharacterClass> classOfCharacter(
+            java.util.UUID characterId) {
+        return abilityModule.registry().classOf(characterId);
+    }
+
+    /**
+     * Baut die getragene Ausrüstung neu — nach einem Stufenaufstieg.
+     *
+     * <p><b>Dieselbe Reihenfolge wie beim Eintritt</b>: erst die Stücke, dann der Zustand darauf.
+     * Andersherum stünde die Zustandszeile auf Stücken, die gleich überschrieben werden.
+     *
+     * <p>Hinter einer Barriere: der Kauf ist zu diesem Zeitpunkt gebucht und die Stufe vergeben.
+     * Ein Fehler beim Anziehen darf daran nichts ändern — der Spieler sieht dann seine alte
+     * Rüstung, was beim nächsten Eintritt von selbst richtig wird (Prinzip VI).
+     */
+    private void reapplyEquipment(
+            ClassEquipmentApplier equipment, org.bukkit.entity.Player player, java.util.UUID characterId) {
+        try {
+            equipment.apply(player, characterId);
+            refreshGearDisplay(player, characterId);
+        } catch (RuntimeException failure) {
+            getLogger()
+                    .warning(
+                            "[classes] could not re-apply equipment after a tier advance for "
+                                    + characterId
+                                    + ": "
+                                    + failure);
+        }
+    }
+
+    /**
+     * Zeichnet Haltbarkeitsbalken und Zustandszeile auf die getragene Ausrüstung.
+     *
+     * <p>Still, solange B11 nicht verdrahtet ist — dieselbe Richtung wie beim Verschleißfaktor:
+     * eine fehlende Anzeige ist unschön, eine Ausnahme im Eintrittspfad wäre ein Spieler, der
+     * nicht in die Welt kommt.
+     */
+    private void refreshGearDisplay(org.bukkit.entity.Player player, java.util.UUID characterId) {
+        if (gearDisplay == null) {
+            return;
+        }
+        try {
+            gearDisplay.refresh(player, characterId);
+        } catch (RuntimeException failure) {
+            getLogger()
+                    .warning(
+                            "[item] could not draw the gear condition of "
+                                    + characterId
+                                    + ": "
+                                    + failure);
+        }
+    }
+
+    /**
+     * Was der nächste Stufenaufstieg dieser Leiter kostet — für die Beschreibung am Knopf.
+     *
+     * <p>Leer heißt „Höchststufe": {@code costOfNext} antwortet dort leer, weil es keine nächste
+     * Stufe zu bepreisen gibt. Das ist kein Fehler, sondern die Auskunft, die der Knopf braucht.
+     */
+    private rpg.platform.item.VendorMenu.UpgradeOffer upgradeOfferFor(
+            rpg.core.currency.EquipmentPurchase tiers,
+            java.util.UUID characterId,
+            rpg.core.classes.LadderSlot slot) {
+        java.util.Optional<rpg.core.currency.CostSpec> cost = tiers.costOfNext(characterId, slot);
+        if (cost.isEmpty()) {
+            return rpg.platform.item.VendorMenu.UpgradeOffer.atTop();
+        }
+        int nextTier =
+                classesModule
+                                .progressOf(characterId)
+                                .map(progress -> progress.tierOf(slot))
+                                .orElse(rpg.core.classes.ClassProgress.INITIAL_TIER)
+                        + 1;
+        java.util.OptionalInt requiredLevel =
+                classesModule
+                        .classOf(characterId)
+                        .map(
+                                characterClass ->
+                                        java.util.OptionalInt.of(
+                                                classesModule
+                                                        .tierAdvance()
+                                                        .requiredLevelFor(
+                                                                characterClass, slot, nextTier)))
+                        .orElseGet(java.util.OptionalInt::empty);
+        return new rpg.platform.item.VendorMenu.UpgradeOffer(
+                java.util.OptionalLong.of(cost.get().coins()),
+                requiredLevel,
+                java.util.OptionalInt.of(nextTier));
+    }
+
+    /**
+     * Ob dieser Charakter in dieser Leiter die Hoechststufe traegt — B07s Antwort.
+     *
+     * <p>Falsch fuer einen Charakter ohne Klasse und fuer einen, der nicht geladen ist. Das ist die
+     * sichere Richtung: eine Kosmetik nicht anwenden zu koennen ist eine Auskunft, sie faelschlich
+     * anzuwenden waere ein ueberschriebener Stufentrim (B07/FR-016).
+     */
+    private boolean isAtTopTier(java.util.UUID characterId, rpg.core.classes.LadderSlot slot) {
+        return classesModule
+                .classOf(characterId)
+                .flatMap(
+                        characterClass ->
+                                classesModule
+                                        .progressOf(characterId)
+                                        .map(
+                                                progress ->
+                                                        classesModule
+                                                                .config()
+                                                                .definition(characterClass)
+                                                                .ladder(slot)
+                                                                .isTop(progress.tierOf(slot))))
+                .orElse(false);
+    }
+
+    /**
+     * Der Verschleissfaktor einer Leiter — B07s Naht, aufgeloest beim Aufruf.
+     *
+     * <p>Vor dem Start des Moduls und fuer einen unbekannten Charakter ist es {@code 1.0}: volle
+     * Werte. Die Alternative — einen Faktor unter eins anzunehmen, solange nichts geladen ist —
+     * uebersetzte einen Ladefehler in eine stille Schwaechung, und niemand kaeme auf die Idee, dort
+     * zu suchen.
+     */
+    private double gearFactorOf(java.util.UUID characterId, rpg.core.classes.LadderSlot slot) {
+        if (gearConditionModule == null || gearConditionModule.conditions() == null) {
+            return 1.0;
+        }
+        return gearConditionModule.conditions().factorOf(characterId, slot);
+    }
+
+    /** Der Charakter, den dieser Spieler gerade spielt — B03 besitzt die Antwort. */
+    private java.util.Optional<java.util.UUID> activeCharacterOf(java.util.UUID playerId) {
+        org.bukkit.entity.Player player = getServer().getPlayer(playerId);
+        return player == null ? java.util.Optional.empty() : characterIdOf(player);
+    }
+
+    /** Der Spieler, der diesen Charakter gerade spielt — leer, wenn er offline ist. */
+    private java.util.Optional<org.bukkit.entity.Player> onlinePlayerOfCharacter(
+            java.util.UUID characterId) {
+        for (org.bukkit.entity.Player online : getServer().getOnlinePlayers()) {
+            if (characterIdOf(online).filter(characterId::equals).isPresent()) {
+                return java.util.Optional.of(online);
+            }
+        }
+        return java.util.Optional.empty();
+    }
+
+    /**
+     * Ob diese Artkennung zu einem Boss gehört.
+     *
+     * <p>B10 führt die Bosse in {@code mobs.yml} unter {@code hordes.<zone>.boss.kind}, nicht über
+     * ein Kennzeichen an der Art — die Antwort kommt deshalb von dort und nicht aus einer zweiten
+     * Liste.
+     */
+    private boolean isBossKind(String kindKey) {
+        for (rpg.core.mob.HordeSpec horde : mobModule.config().hordes().values()) {
+            if (horde.boss() != null && horde.boss().kindKey().equals(kindKey)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -1461,10 +3700,11 @@ public class RpgPlugin extends JavaPlugin {
      */
     private void registerCurrencyWindow(
             rpg.core.currency.CurrencyConfig config, rpg.core.currency.DefaultCurrency currency) {
-        rpg.platform.currency.CurrencyMenu menu =
-                new rpg.platform.currency.CurrencyMenu(messages, config.historyPageSize());
-        rpg.platform.currency.CurrencyMenuListener menuListener =
-                new rpg.platform.currency.CurrencyMenuListener(
+        rpg.platform.ui.CurrencyMenu menu =
+                new rpg.platform.ui.CurrencyMenu(
+                        messages, uiMenuFrame(), config.historyPageSize());
+        rpg.platform.ui.CurrencyMenuListener menuListener =
+                new rpg.platform.ui.CurrencyMenuListener(
                         menu, currencyModule.ledger(), scheduler, getLogger());
         getServer().getPluginManager().registerEvents(menuListener, this);
 
@@ -1487,15 +3727,36 @@ public class RpgPlugin extends JavaPlugin {
                                         .map(rpg.core.currency.CharacterBalance::balance)
                                         .orElse(0L));
 
-        var command = getCommand("coins");
-        if (command == null) {
-            // plugin.yml and this method have to agree; if they do not, saying so beats a command
-            // that silently does not exist.
-            getLogger().severe("[currency] /coins is not declared in plugin.yml - not registered");
+        // Seit B14 (T037) im Kommandobaum. Auch hier stand eine Null-Pruefung mit `return`, die
+        // bei fehlendem plugin.yml-Eintrag registerXpCommand() darunter mit uebersprungen haette -
+        // dasselbe Muster wie bei /char.
+        registerCommand(coins.definition(getServer()));
+
+        registerXpCommand();
+    }
+
+    /**
+     * {@code /xp} - befristet hier, wie {@code /coins} (ADR-028).
+     *
+     * <p>Eine Korrektur, die nur mit einem Datenbankwerkzeug moeglich ist, macht niemand. Geben laeuft
+     * ueber den gewoehnlichen Weg mit {@code XpSource.ADMIN}; Nehmen kann das nicht, weil B06 einen
+     * negativen Betrag ausdruecklich abweist - dafuer gibt es {@code setProgress}, und das schreibt
+     * mit, wer es war (FR-024b).
+     */
+    private void registerXpCommand() {
+        if (progressionModule == null) {
             return;
         }
-        command.setExecutor(coins);
-        command.setTabCompleter(coins);
+        rpg.plugin.command.XpCommand xp =
+                new rpg.plugin.command.XpCommand(
+                        getServer(),
+                        sessionModule.registry(),
+                        progressionModule.progression(),
+                        progressionModule.config().curve(),
+                        messages);
+        // Seit B14 (T038) im Kommandobaum - das letzte der sechs. Damit ist der commands:-Block
+        // in plugin.yml leer und entfaellt (T040).
+        registerCommand(xp.definition(getServer()));
     }
 
     /**
@@ -1590,6 +3851,58 @@ public class RpgPlugin extends JavaPlugin {
     }
 
     /**
+     * Eine Nachkommastelle, mit Punkt statt Komma.
+     *
+     * <p>Ganze Zahlen wären hier falsch: eine Milderung von zehn Prozent auf einen Schlag von vier
+     * Herzen ist 0,4 — gerundet null, und die Meldung sagte dann, es sei nichts abgefangen worden.
+     * {@code Locale.ROOT}, weil ein deutsches Komma in einer englischen Zeile falsch aussieht.
+     */
+    private static String oneDecimal(double value) {
+        return String.format(java.util.Locale.ROOT, "%.1f", value);
+    }
+
+    /**
+     * B09's placement, for the bootstrap test.
+     *
+     * <p>Same reason as {@link #statEngine()} and {@link #combatPipeline()}: what needs asserting is
+     * that a fully wired server actually knows where a player stands. That is not part of the
+     * {@code Zones} contract other blocks use, and without it the only observable consequence of the
+     * whole placement chain would be a damage refusal - which fails for half a dozen unrelated
+     * reasons and would send the next reader hunting in the wrong block.
+     */
+    public rpg.core.zone.ZoneTracker zoneTracker() {
+        return zoneTracker;
+    }
+
+    /**
+     * B11s Fassade, wie sie verdrahtet wurde — für den Bootstrap-Test.
+     *
+     * <p>Aus demselben Grund wie {@link #zones()}: dass die Modultests von B11 grün sind, sagt
+     * nichts darüber, ob {@code items.yml} beim echten Start gelesen wird und die Fassade danach
+     * antwortet. Genau diese Lücke hat B10 zweimal Rot gekostet.
+     */
+    public rpg.core.item.Items items() {
+        return itemModule;
+    }
+
+    /**
+     * B11s Verschleißzustand, für den Bootstrap-Test.
+     *
+     * <p><b>Warum gerade der eine Zugriff nach außen ist.</b> Die Naht aus dem Complexity Tracking
+     * ist so gebaut, dass B07 sich mit {@code GearConditionFactor.NONE} <em>bitgenau</em> wie vorher
+     * verhält — was heißt, dass eine vergessene Verdrahtung nichts rot macht. Der ganze Verschleiß
+     * wäre gebaut und wirkungslos, und kein Test außer diesem würde es merken.
+     */
+    public rpg.core.item.GearConditions gearConditions() {
+        return gearConditionModule == null ? null : gearConditionModule.conditions();
+    }
+
+    /** The zone query as it was assembled, for the bootstrap test. */
+    public rpg.core.zone.Zones zones() {
+        return zoneModule == null ? null : zoneModule.zones();
+    }
+
+    /**
      * Puts a character into play exactly as choosing one in the menu does, for the bootstrap test.
      *
      * <p><b>Not a shortcut, the real path</b> - session activation, inventory, class equipment,
@@ -1599,7 +3912,58 @@ public class RpgPlugin extends JavaPlugin {
      */
     public boolean enterCharacter(
             org.bukkit.entity.Player player, rpg.core.session.PlayerCharacter character) {
+        // The zone placement (FR-017) lives inside enterGameState itself now, so it happens the same
+        // way here and through the real selection menu - not as a second step only this method knew
+        // to take.
         return characterEntry != null && characterEntry.enter(player, character);
+    }
+
+    /**
+     * Places whoever this player is currently playing into their region (FR-017).
+     *
+     * <p>Called from the session observer and from {@code enterGameState} - the two moments a
+     * holder's character can change. The first finds nobody to place for a session that still needs
+     * a class chosen: no character is active yet at that point, so this silently does nothing and
+     * the second call - once a character actually enters play - is what places them for real.
+     */
+    private void placeInZone(org.bukkit.entity.Player player) {
+        if (zoneTracker == null) {
+            return;
+        }
+        characterIdOf(player)
+                .ifPresent(
+                        characterId -> {
+                            rpg.core.zone.ZoneStateStore store = zonePersistenceModule.store();
+                            // A character this block has never placed starts in the start region
+                            // (FR-037b). Absence of a row is the signal - the same inference B08b
+                            // makes from a missing balance row.
+                            if (store.isNewCharacter(characterId)) {
+                                zoneTeleporter.teleport(
+                                        player.getUniqueId(), zoneModule.zones().startPoint());
+                                store.markSeen(characterId);
+                            } else {
+                                // A combat logout owes them a trip home (ADR-030, FR-041). Applied
+                                // here rather than at the logout, because a teleport in that moment
+                                // is not reliable on Paper.
+                                store.pendingRespawnOf(characterId)
+                                        .ifPresent(
+                                                zoneKey -> {
+                                                    zoneTeleporter.teleport(
+                                                            player.getUniqueId(),
+                                                            zoneRespawnRouting.respawnForZone(
+                                                                    zoneKey));
+                                                    store.clearPendingRespawn(characterId);
+                                                    player.sendMessage(
+                                                            messages.get(
+                                                                    rpg.core.zone.ZoneMessageKeys
+                                                                            .DIED_LOGOUT));
+                                                });
+                            }
+                            zoneTracker.place(
+                                    player.getUniqueId(),
+                                    characterId,
+                                    rpg.platform.zone.BukkitPositions.of(player.getLocation()));
+                        });
     }
 
     /** The bootstrap phase, which decides whether the server accepts player sessions (FR-013). */

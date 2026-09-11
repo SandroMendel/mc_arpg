@@ -42,6 +42,7 @@ public final class ClassStatContributor implements BaseStatContributor {
     private final Function<UUID, Optional<CharacterClass>> classOf;
     private final ToIntFunction<UUID> levelOf;
     private final Function<UUID, Optional<ClassProgress>> progressOf;
+    private final GearConditionFactor gearCondition;
 
     /**
      * @param classOf which class a character has - B03 owns that column
@@ -54,10 +55,27 @@ public final class ClassStatContributor implements BaseStatContributor {
             Function<UUID, Optional<CharacterClass>> classOf,
             ToIntFunction<UUID> levelOf,
             Function<UUID, Optional<ClassProgress>> progressOf) {
+        this(config, classOf, levelOf, progressOf, GearConditionFactor.NONE);
+    }
+
+    /**
+     * Wie oben, mit B11s Verschleiß.
+     *
+     * @param gearCondition wie viel vom Stufenwert eines Slots noch ankommt;
+     *     {@link GearConditionFactor#NONE} heißt: alles, und dann verhält sich dieser Beitragende
+     *     bitgenau wie vor B11 (research.md R1)
+     */
+    public ClassStatContributor(
+            ClassConfig config,
+            Function<UUID, Optional<CharacterClass>> classOf,
+            ToIntFunction<UUID> levelOf,
+            Function<UUID, Optional<ClassProgress>> progressOf,
+            GearConditionFactor gearCondition) {
         this.config = Objects.requireNonNull(config, "config");
         this.classOf = Objects.requireNonNull(classOf, "classOf");
         this.levelOf = Objects.requireNonNull(levelOf, "levelOf");
         this.progressOf = Objects.requireNonNull(progressOf, "progressOf");
+        this.gearCondition = Objects.requireNonNull(gearCondition, "gearCondition");
     }
 
     @Override
@@ -85,8 +103,8 @@ public final class ClassStatContributor implements BaseStatContributor {
         definition.growth().contributeTo(levelOf.applyAsInt(id), sink);
 
         ClassProgress progress = progressOf.apply(id).orElseGet(() -> ClassProgress.initial(id));
-        contributeTier(definition, LadderSlot.ARMOR, progress.armorTier(), sink);
-        contributeTier(definition, LadderSlot.WEAPON, progress.weaponTier(), sink);
+        contributeTier(definition, LadderSlot.ARMOR, progress.armorTier(), sink, id);
+        contributeTier(definition, LadderSlot.WEAPON, progress.weaponTier(), sink, id);
     }
 
     /**
@@ -98,9 +116,16 @@ public final class ClassStatContributor implements BaseStatContributor {
      * others with it.
      */
     private void contributeTier(
-            CharacterClassDefinition definition, LadderSlot slot, int tier, BaseStatSink sink) {
+            CharacterClassDefinition definition,
+            LadderSlot slot,
+            int tier,
+            BaseStatSink sink,
+            UUID characterId) {
         EquipmentLadder ladder = definition.ladder(slot);
         int effective = Math.min(Math.max(tier, 1), ladder.length());
-        ladder.contributeTo(effective, sink);
+        // B11s Verschleiss, je Slot. Ohne B11 ist das 1.0 und die Zeile ist eine Multiplikation
+        // mit eins - siehe GearConditionFactor, warum es hier steht und nicht als Modifikator in
+        // B04 (research.md R1).
+        ladder.contributeTo(effective, sink, gearCondition.factorFor(characterId, slot));
     }
 }

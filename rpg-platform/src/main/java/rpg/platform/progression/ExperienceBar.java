@@ -25,6 +25,20 @@ import rpg.core.scheduler.Scheduler;
  * beside the one that is designed, balanced and persisted.
  *
  * <p>Every call touches Bukkit and hops to the owning player's tick first.
+ *
+ * <h2>Sie ist die EINE benannte Ausnahme von B13s Flächenzuordnung</h2>
+ *
+ * <p>FR-001 sagt: jeder Wert gehört genau einer der drei Flächen — Actionbar, Bossbar, Scoreboard.
+ * Diese Leiste zeigt Level und Erfahrung ein <b>zweites</b> Mal, obwohl die Sidebar sie trägt.
+ *
+ * <p><b>Das ist zugelassen</b> (FR-001a) und der einzige zugelassene Fall (FR-001b): sie ist keine
+ * Zuordnungsentscheidung von B13, sondern eine Vanilla-Fläche, die B06 seit jeher bespielt und die
+ * ein Spieler ohnehin am unteren Bildrand sieht. Sie abzuschalten wäre ein Eingriff in einen fremden
+ * Block ohne Gewinn.
+ *
+ * <p>B13 hat diese Klasse deshalb <b>nicht angefasst</b>. Wer sie als vierten Wert in
+ * {@code DisplayedValue} nachträgt, macht {@code HudSurfaceAssignmentTest} rot — und findet dort die
+ * Begründung.
  */
 public final class ExperienceBar {
 

@@ -70,6 +70,9 @@ public final class ClassesModule implements Module {
     private final Logger logger;
     private final Clock clock;
 
+    /** B11s Verschleiss - als Funktion, damit die Startreihenfolge frei bleibt (research.md R1). */
+    private final rpg.core.classes.GearConditionFactor gearCondition;
+
     /**
      * The tier state of every character currently online, keyed by character (Constitution IV).
      *
@@ -106,12 +109,44 @@ public final class ClassesModule implements Module {
             ProgressionModule progression,
             Logger logger,
             Clock clock) {
+        this(
+                persistence,
+                sessions,
+                stats,
+                progression,
+                logger,
+                clock,
+                rpg.core.classes.GearConditionFactor.NONE);
+    }
+
+    /**
+     * As above, plus B11's wear.
+     *
+     * <p><b>Additive, and deliberately so.</b> The factor scales the tier contribution and nothing
+     * else (research.md R1); with {@code GearConditionFactor.NONE} this module behaves exactly as it
+     * did before B11 existed, which is what {@code ClassContributionIsUnchangedWithoutB11Test}
+     * holds on to.
+     *
+     * <p><b>Why a lambda and not the module.</b> The gear condition is loaded per session and its
+     * module starts after this one; asked as a function, the answer is resolved at call time and the
+     * start order stays free. A constructor argument that had to be a started module would put the
+     * two into a fixed order for no reason other than the wiring.
+     */
+    public ClassesModule(
+            PersistenceModule persistence,
+            SessionModule sessions,
+            StatsModule stats,
+            ProgressionModule progression,
+            Logger logger,
+            Clock clock,
+            rpg.core.classes.GearConditionFactor gearCondition) {
         this.persistence = Objects.requireNonNull(persistence, "persistence");
         this.sessions = Objects.requireNonNull(sessions, "sessions");
         this.stats = Objects.requireNonNull(stats, "stats");
         this.progression = Objects.requireNonNull(progression, "progression");
         this.logger = Objects.requireNonNull(logger, "logger");
         this.clock = Objects.requireNonNull(clock, "clock");
+        this.gearCondition = Objects.requireNonNull(gearCondition, "gearCondition");
     }
 
     @Override
@@ -195,7 +230,11 @@ public final class ClassesModule implements Module {
         // power a band anchored to tier 1 would be far too narrow at the top.
         engine.registerBaseStatContributor(
                 new ClassStatContributor(
-                        config, this::classOf, progression.progression()::levelOrZero, this::progressOf));
+                        config,
+                        this::classOf,
+                        progression.progression()::levelOrZero,
+                        this::progressOf,
+                        gearCondition));
 
         // One advance, one recalculation (SC-009). TierAdvance knows characters, not holders, so the
         // module is what turns its event into the recalculation.
@@ -292,7 +331,14 @@ public final class ClassesModule implements Module {
         return Optional.ofNullable(live.get(characterId)).map(Live::characterClass);
     }
 
-    Optional<ClassProgress> progressOf(UUID characterId) {
+    /**
+     * The reached tiers of a character currently online, or empty.
+     *
+     * <p>Public since B11, and for the same reason {@link #classOf} became public in B08: the vendor
+     * builds {@code EquipmentPurchase} - B08b's tier-buying route - and that route needs this read.
+     * Still a read of live session state, not a query.
+     */
+    public Optional<ClassProgress> progressOf(UUID characterId) {
         return Optional.ofNullable(live.get(characterId)).map(Live::progress);
     }
 

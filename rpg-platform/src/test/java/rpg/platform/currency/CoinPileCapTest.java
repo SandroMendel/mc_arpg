@@ -26,6 +26,7 @@ import org.mockbukkit.mockbukkit.ServerMock;
 
 import rpg.core.currency.BookingReason;
 import rpg.core.currency.CurrencyConfig;
+import rpg.platform.drop.OwnedDropPlatform;
 
 /**
  * T063 - die Deckelung raeumt ab und schreibt dabei gut (US2 Szenario 7a, FR-030a bis FR-030d).
@@ -278,7 +279,7 @@ class CoinPileCapTest {
     }
 
     /** Diese Tests handeln nicht von Sichtbarkeit - die Anzeige tut hier nichts. */
-    private static final class NoDisplay implements CoinPile.PilePlatform {
+    private static final class NoDisplay implements OwnedDropPlatform {
 
         @Override
         public void hideFromEveryone(org.bukkit.entity.Item pile) {}

@@ -19,6 +19,9 @@ import rpg.core.combat.CombatMessageKeys;
 import rpg.core.event.EventBus;
 import rpg.core.message.MessageKey;
 import rpg.core.message.Messages;
+import rpg.core.progression.LevelUpEvent;
+import rpg.core.progression.ProgressChangedEvent;
+import rpg.core.progression.ProgressView;
 import rpg.core.scheduler.EntityRef;
 import rpg.core.scheduler.Scheduler;
 import rpg.core.stats.ResourceChangedEvent;
@@ -26,7 +29,7 @@ import rpg.core.stats.ResourceKind;
 import rpg.core.stats.StatsRecalculatedEvent;
 
 /**
- * The player's own health, mana and defence, on the action bar.
+ * The player's own health, mana, defence and progress, on the action bar.
  *
  * <p>Named for what it is rather than {@code HudRenderer}: Constitution III reserves that name for
  * B13, which will own bossbars, scoreboards and the layout of all of it. This is one line, and taking
@@ -70,7 +73,7 @@ public final class StatusActionBar {
         this.logger = Objects.requireNonNull(logger, "logger");
     }
 
-    /** Redraws on every health change and every recalculation. */
+    /** Redraws on every health change, every recalculation and every step of progress. */
     public void subscribeTo(EventBus eventBus) {
         Objects.requireNonNull(eventBus, "eventBus");
         // Both resources, not just health: mana is on the line now, and filtering it out would let a
@@ -83,24 +86,24 @@ public final class StatusActionBar {
         eventBus.subscribe(ResourceChangedEvent.class, event -> show(event.holderId()));
         // Defence and maximum health only move on a recalculation - a tier advance, a level, a buff.
         eventBus.subscribe(StatsRecalculatedEvent.class, event -> show(event.holderId()));
+        // ProgressChangedEvent und LevelUpEvent standen hier bis B13 und sind UMGEZOGEN, nicht
+        // entfallen (T050b): sie haengen jetzt an rpg.platform.ui.HudRefresh und zeichnen dort den
+        // GANZEN HUD des Spielers, nicht mehr nur seine Actionbar. Der Grund ist FR-002a - Level
+        // und Erfahrung stehen auf der Sidebar, und ein Aufstieg muss dort ankommen.
+        //
+        // VERSCHOBEN und nicht kopiert: zwei Abonnements auf dasselbe Ereignis hiessen zweimal
+        // zeichnen, und welcher Aufruf zuletzt kommt, haengt an der Registrierungsreihenfolge.
     }
 
-    /**
-     * Starts the refresh that keeps the line on screen.
-     *
-     * <p>Re-schedules itself rather than using a repeating task, because the scheduler has none by
-     * design (ADR-007). It stops on its own when the plugin is disabled: the scheduler then returns a
-     * cancelled handle and never runs the body that would schedule the next pass.
-     */
-    public void startRefresh(Supplier<List<UUID>> players) {
-        Objects.requireNonNull(players, "players");
-        scheduler.runAsyncDelayed(
-                REFRESH,
-                () -> {
-                    players.get().forEach(this::show);
-                    startRefresh(players);
-                });
-    }
+    // startRefresh(Supplier<List<UUID>>) stand hier bis B13 und ist ENTFALLEN (T049).
+    //
+    // Der Takt ist umgezogen, die Zeichnung ist geblieben: rpg.platform.ui.HudTick ist die
+    // ERWEITERUNG genau dieses Takts und kein zweiter daneben (R1, FR-010). Er war schon eine
+    // Sekunde lang, aus genau dem Grund, den FR-011 nennt, und plante sich schon nach ADR-007
+    // selbst neu ein - B13 hat ihm nur die zwei anderen Flaechen dazugegeben.
+    //
+    // Es bleibt bei EINEM Takt. Wer hier einen zweiten wiederherstellt, hat zwei Durchlaeufe je
+    // Sekunde, und welcher zuletzt sendet, haengt an der Registrierungsreihenfolge.
 
     /**
      * Draws the line for one holder, if it is a player with values.
@@ -155,6 +158,18 @@ public final class StatusActionBar {
         if (current.hasMeter()) {
             values.put("meter", whole(current.meter()));
         }
+        // Immer gesetzt, auch wenn nichts dahintersteht: ein Platzhalter, der in den Werten fehlt,
+        // bleibt nach dem Vertrag von Messages als {progress} stehen - sichtbar, und genau das ist
+        // dort gewollt. Auf einer Zeile, die jede Sekunde neu gesendet wird, waere es kein Hinweis
+        // mehr, sondern eine Ruine, die ein Betreiber ohne Klasse dauerhaft vor sich haette.
+        // KEIN Fortschritt mehr (FR-002a). Bis B13 stand hier progressText(...) und damit Level,
+        // Erfahrung und Schwelle - genau die zwei Zeilen, die die Sidebar traegt. Dieselben Zahlen
+        // auf zwei Flaechen sind kein Layout, sondern eine doppelte Wahrheit auf dem Bildschirm.
+        //
+        // Der Platzhalter wird auch nicht mehr leer gesetzt: er ist aus den Actionbar-Texten in
+        // messages.yml verschwunden, und ein Wert ohne Platzhalter waere nur noch Ballast.
+        // ProgressView.atMaxLevel() ist dabei nicht verlorengegangen, sondern nach SidebarLines
+        // gewandert - dieselbe Unterscheidung, eine Flaeche weiter.
         // Drei Zeilen, nicht eine mit Luecken. Welche gilt, folgt aus dem Traeger und nicht aus einem
         // Schalter, den jemand zu setzen vergessen kann.
         MessageKey key;
@@ -167,6 +182,17 @@ public final class StatusActionBar {
         }
         return Component.text(messages.get(key, values)).color(colourFor(percent));
     }
+
+    // progressText(ProgressView) stand hier bis B13 und ist ENTFALLEN (FR-002a, T050a).
+    //
+    // Es rendert Level, Erfahrung und Schwelle - genau die zwei Zeilen, die seit B13 die Sidebar
+    // traegt. Die Unterscheidung "am Hoechstlevel keine Schwelle" ist dabei nicht verlorengegangen,
+    // sondern nach rpg.core.ui.SidebarLines gewandert: ProgressView.atMaxLevel() beantwortet sie
+    // dort weiterhin als eigenes Feld und nicht als abgeleitete Regel.
+    //
+    // Die Schluessel CombatMessageKeys.STATUS_PROGRESS und STATUS_PROGRESS_MAX bleiben stehen. Sie
+    // gehoeren B05/B06, nicht B13, und ein Block raeumt keine fremden Schluessel weg - das waere
+    // genau der Uebergriff, den FR-024 und FR-070/FR-071 an anderer Stelle untersagen.
 
     /**
      * Colour by how much is left - the part a player reads before the numbers.

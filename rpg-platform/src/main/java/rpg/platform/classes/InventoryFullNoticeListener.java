@@ -36,13 +36,32 @@ public final class InventoryFullNoticeListener implements Listener {
     /** Long enough that a pile of loot produces one warning, short enough to still be a warning. */
     static final Duration COOLDOWN = Duration.ofSeconds(15);
 
+    /**
+     * Where the cooldown comes from - asked, not held (FR-076).
+     *
+     * <p>B11 made this number configurable in {@code items.yml}. A {@code Supplier} rather than a
+     * value because the configuration can be reloaded: a copy taken at construction would keep the
+     * old number for the rest of the session, and the operator would see a reload that did nothing.
+     *
+     * <p>The constructor without one keeps {@link #COOLDOWN} - the shape before B11, and the reason
+     * this class was extended rather than duplicated.
+     */
+    private final java.util.function.Supplier<Duration> cooldown;
+
     private final ClassNotice notice;
     private final Clock clock;
     private final Map<UUID, Long> lastWarned = new ConcurrentHashMap<>();
 
     public InventoryFullNoticeListener(ClassNotice notice, Clock clock) {
+        this(notice, clock, () -> COOLDOWN);
+    }
+
+    /** As above, with B11's configurable cooldown (FR-076). */
+    public InventoryFullNoticeListener(
+            ClassNotice notice, Clock clock, java.util.function.Supplier<Duration> cooldown) {
         this.notice = Objects.requireNonNull(notice, "notice");
         this.clock = Objects.requireNonNull(clock, "clock");
+        this.cooldown = Objects.requireNonNull(cooldown, "cooldown");
     }
 
     /**
@@ -74,7 +93,7 @@ public final class InventoryFullNoticeListener implements Listener {
     private boolean due(UUID playerId) {
         long now = clock.millis();
         Long previous = lastWarned.get(playerId);
-        if (previous != null && now - previous < COOLDOWN.toMillis()) {
+        if (previous != null && now - previous < cooldown.get().toMillis()) {
             return false;
         }
         lastWarned.put(playerId, now);

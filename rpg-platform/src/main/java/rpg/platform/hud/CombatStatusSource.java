@@ -3,6 +3,8 @@ package rpg.platform.hud;
 import java.util.Optional;
 import java.util.UUID;
 
+import rpg.core.progression.ProgressView;
+
 /**
  * The numbers a readout needs about a holder.
  *
@@ -26,6 +28,12 @@ public interface CombatStatusSource {
      * @param maxMana what that is measured against, from the same calculation round
      * @param defense the mitigation attribute, shown as a number rather than a percentage because it
      *     is the value a player compares between two pieces of equipment
+     * @param meter the class counter, zero for everyone who has none
+     * @param progress Stufe und Erfahrung des Charakters hinter dem Traeger, oder {@code null} fuer
+     *     jeden, der keinen hat - ein Mob, und ein Betreiber ohne Klasse. B06s eigener Lesetyp und
+     *     kein zweiter daneben: er ist genau dafuer gebaut, dass ein Anzeiger nichts mehr rechnen
+     *     muss (FR-028), und eine Kopie hier haette dieselben vier Felder mit einer zweiten
+     *     Antwort auf die Hoechststufe
      */
     record Status(
             double health,
@@ -33,12 +41,35 @@ public interface CombatStatusSource {
             double mana,
             double maxMana,
             double defense,
-            double meter) {
+            double meter,
+            ProgressView progress) {
+
+        /** Ohne Fortschritt - ein Mob, oder ein Traeger, dessen Charakter gerade nicht bekannt ist. */
+        public Status(
+                double health,
+                double maxHealth,
+                double mana,
+                double maxMana,
+                double defense,
+                double meter) {
+            this(health, maxHealth, mana, maxMana, defense, meter, null);
+        }
 
         /** Ohne Zaehler - Mobs, Magier und Rogues. */
         public Status(
                 double health, double maxHealth, double mana, double maxMana, double defense) {
-            this(health, maxHealth, mana, maxMana, defense, 0.0);
+            this(health, maxHealth, mana, maxMana, defense, 0.0, null);
+        }
+
+        /**
+         * Ob fuer diesen Traeger ein Fortschritt zu zeigen ist.
+         *
+         * <p>Ein Feld, das fehlen darf, statt einer Stufe 0 als Zeichen: die Stufe ist eine Zahl,
+         * die B06 vergibt, und ihr nebenbei eine zweite Bedeutung zu geben hiesse, dass eine
+         * kuenftige Stufe 0 diese Zeile stillschweigend leerte.
+         */
+        public boolean hasProgress() {
+            return progress != null;
         }
 
         /**

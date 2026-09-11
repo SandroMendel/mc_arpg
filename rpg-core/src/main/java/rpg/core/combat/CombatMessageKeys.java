@@ -61,6 +61,35 @@ public final class CombatMessageKeys {
     public static final MessageKey STATUS_ACTION_BAR_WITH_METER =
             MessageKey.of("combat.status.action-bar-with-meter");
 
+    /**
+     * Der Fortschrittsteil derselben Zeile: Stufe und Erfahrung.
+     *
+     * <p><b>Ein eigener Text, der in die Spielerzeile eingesetzt wird</b>, statt vier weiterer
+     * Vollzeilen. Mana, Zaehler und Hoechststufe sind drei voneinander unabhaengige Ja/Nein - als
+     * Vollzeilen-Schluessel waeren das acht Texte, von denen ein Betreiber sieben gleich zu
+     * formatieren haette und beim achten einen Tippfehler. Der Fortschritt steht deshalb einmal
+     * hier und wird als {@code progress} in {@link #STATUS_ACTION_BAR} und
+     * {@link #STATUS_ACTION_BAR_WITH_METER} eingesetzt. Wortlaut und Layout bleiben dabei
+     * vollstaendig in {@code messages.yml} (Prinzip V) - der Code waehlt nur aus, welcher der
+     * beiden Texte gilt, genau wie er es bei den Vollzeilen schon tut.
+     *
+     * <p>Platzhalter: {@code level}, {@code xp}, {@code xpNext}.
+     */
+    public static final MessageKey STATUS_PROGRESS = MessageKey.of("combat.status.progress");
+
+    /**
+     * Derselbe Teil fuer einen Charakter auf der Hoechststufe.
+     *
+     * <p>Dort ist die Schwelle der naechsten Stufe 0, und {@code 4120/0} saehe aus wie ein Fehler.
+     * FR-051 will einen Charakter am Maximum als fertig gemeldet sehen und nicht als "0 % zur
+     * naechsten Stufe"; {@code ProgressView.atMaxLevel()} ist genau dafuer ein eigenes Feld, und
+     * hier steht der Text dazu.
+     *
+     * <p>Platzhalter: {@code level}, {@code xp}.
+     */
+    public static final MessageKey STATUS_PROGRESS_MAX =
+            MessageKey.of("combat.status.progress-max");
+
     private CombatMessageKeys() {}
 
     /** Every key this block can emit, for the resolution test in the plugin module. */
@@ -69,6 +98,8 @@ public final class CombatMessageKeys {
                 STATUS_ACTION_BAR,
                 STATUS_ACTION_BAR_NO_MANA,
                 MOB_NAMEPLATE,
-                STATUS_ACTION_BAR_WITH_METER);
+                STATUS_ACTION_BAR_WITH_METER,
+                STATUS_PROGRESS,
+                STATUS_PROGRESS_MAX);
     }
 }

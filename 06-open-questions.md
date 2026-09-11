@@ -154,23 +154,116 @@ Bei zwei /clarify-Runden zusätzlich geklärt (siehe ADR-014):
       die ein späterer Block nicht mehr übernehmen könnte (Regel 5). `RankResult`
       kennt bewusst kein `NOT_ENOUGH_COINS`. *(2026-08-22)*
 
-## B09/B10 (Welt & Mobs) — abgeschlossen, Details offen
+## B09 (Zonen & Regionen) — geschlossen und umgesetzt *(2026-08-23)*
+
+Alle Punkte beantwortet, der Block ist **implementiert**: 143 Aufgaben, 1899
+Tests, 0 Fehler, 0 übersprungen. Offen ist nur noch der Durchlauf auf einem
+echten Paper-Server (quickstart.md Abschnitt 3) — kein Code. Die Begründungen
+stehen im Steckbrief `minecraft-rpg-spec/minecraft-rpg-spec/blocks/B09-zones-regions.md`,
+die Befunde der Umsetzung dort unter „Umsetzung".
 
 - [x] **ADR-006 bestätigt**: eine handgebaute Kontinent-Welt für offene Zonen,
       separate Instanzwelten nur für Dungeons/Bossräume/Tutorial
-- [x] Anzahl Zonen zum Start: 4–5 Zonen, aufsteigend gestaffelt
 - [x] Kartenbau: handgebaut
+- [x] **Anzahl Zonen zum Start: sechs** benannte Regionen mit den Levelbändern
+      1–10 *The Greenfields*, 11–20 *The Dustlands*, 21–30 *The Safari Plains*,
+      31–40 *The Terracotta Canyons*, 41–50 *The Darkforest*, 51–60 *The Pale
+      Wilds*. Sie decken 1–60 lückenlos ab, also genau den Bereich, den
+      `progression.yml` aufspannt. Weitere Regionen folgen per Konfiguration.
+      *(2026-08-23; ersetzt „4–5 Zonen" vom 2026-08-19)*
+- [x] **Safe/Danger**: jede Region ist **eine** Zone mit einem Schutzkern um den
+      Spawn; darin kein Mob-Spawn und kein PvP. Der Kern ist keine eigene Zone,
+      damit `zoneAt()` immer die Region liefert und der Zonenwechsel sechsmal
+      feuert statt zwölfmal. *(2026-08-23)*
+- [x] **Zonengeometrie**: Quader-Mengen mit Chunk-Index — zwei Ecken je Quader,
+      beim Laden zu einer Abbildung `Chunk → Zone` verdichtet. Dieselbe Form
+      trägt Region, Schutzkern, Spawn-Bereich und Kristall-Auslösebereich. *(2026-08-23)*
+- [x] **Reisesystem**: **Wegpunkt-Kristalle.** Der erste Rechtsklick schaltet
+      einen Kristall für diesen Charakter frei; ein weiterer öffnet ein Fenster
+      mit allen Kristallen — wählbar nur die freigeschalteten, die übrigen
+      sichtbar und gesperrt. Eine Reise kostet Coins; der Preis steht in der
+      Zonenkonfiguration (ADR-027), die Freischaltungen hängen am Charakter
+      (ADR-011). Kostet vier Eingriffe über die Blockgrenze — Eingabe und
+      Fenster (B13, befristet), Persistenz (B02) und einen neuen Buchungsgrund
+      (B08b): **ADR-032**. *(2026-08-23, bei `/clarify`)*
+
+      *Überholt, nicht gelöscht:* am Morgen desselben Tages waren kostenlose
+      Portale als Konfigurationsquader beschlossen — ein Quader mit
+      Zielkoordinate, ohne Bedienoberfläche. Diese Fassung hielt B09 in seiner
+      Schicht und ist an den Kristallen gescheitert, nicht an einem Fehler.
+- [x] **Spieler unterhalb des Levelbereichs**: nicht blockiert, nur gewarnt —
+      die Mobs setzen die Staffelung selbst durch. *(2026-08-23)*
+- [x] **PvP**: je Zone schaltbar, Vorgabe **aus**, im Schutzkern immer aus. B09
+      tauscht damit `DamagePermission` aus und löst FR-042 ein.
+      *(2026-08-23)*
 - [x] Zonenschwierigkeit skaliert mit Spieleranzahl vor Ort: mehr Spieler →
       höhere Mob-Spawnrate + schnelleres Respawn (Dichte/Respawn, nicht Stärke)
 - [x] Respawn-Regeln und Todesstrafe: kein XP-/Item-Verlust, aber
       Ausrüstungsschaden (Durability-Verlust) — Reparatur-Mechanik (vermutlich
-      Coins) folgt bei `/specify` B11
-- [ ] Zielwert für gleichzeitig aktive Mobs (serverweit und je Zone)
-- [ ] Welche Vanilla-Entities dienen als Basis?
-- [ ] Wellenlogik: kontinuierlicher Nachschub oder abgegrenzte Wellen?
-- [ ] Elite-/Boss-Mobs mit eigenen Mechaniken? Respawn-Timer?
-- [ ] Zonengeometrie: Quader, Polygon oder Chunk-Menge?
-- [ ] Reisesystem: Laufen, Portale, Wegpunkte, Teleport-Kosten?
+      Coins) folgt bei `/specify` B11. Der Respawn führt in die **Safe-Zone der
+      Region**, in der gestorben wurde, mit Nachricht. *(2026-08-23)*
+- [x] **Kampf-Logout wird wie ein Tod behandelt**: wer innerhalb der acht
+      Kampfsekunden (`combat-timeout-seconds`) den Server verlässt, stirbt und
+      steht beim nächsten Login in der Safe-Zone, mit Nachricht. Der Gewinn des
+      Weglaufens ist, dem Tod zu entgehen — bringt Weglaufen genau den Tod, ist
+      der Gewinn null. Eine härtere Strafe wäre verkehrt herum, weil der Tod
+      hier bewusst wenig kostet. Braucht `DeathCause.LOGOUT` und damit
+      **ADR-030** (angenommen 2026-08-23), weil ein ausgeliefertes Enum in B05
+      angefasst wird. *(2026-08-23)*
+- [x] **Instanzen: keine zum Start**, die Bosse stehen in ihrer Region. Damit
+      bleibt `WorldCondition.isOpenWorld` überall bei ja und das Zweitleben des
+      Rogue wirkt überall (FR-052b) — bisher eine benannte Lücke, jetzt eine
+      Entscheidung. Separate Welten bleiben nach ADR-006 vorgesehen und sind
+      über einen Kristall anschliessbar. *(2026-08-23)*
+
+## B10 (Mobs & Horden-Spawning) — Details offen
+
+- [x] **Acht Mob-Arten je Region**, dazu **ein Boss je Region** mit höheren
+      Attributen. *(2026-08-23)*
+- [x] Attribute, Level und Art jedes Mobs sind konfigurationsdefiniert und
+      später ohne Codeänderung austauschbar (Prinzip V). *(2026-08-23)*
+- [x] Gespawnt wird an ausgewählten Stellen der Gefahrenzone; die **Bereiche**
+      liefert B09 benannt, die **Horden** füllt B10. *(2026-08-23)*
+      **Sie stehen jetzt bereit** *(2026-08-23)*: `Zones.spawnAreasOf(zoneKey)`
+      gibt je Region mehrere Bereiche mit Kennung und Geometrie heraus — und
+      sonst nichts. Keine Rolle, keine Art, keine Kreaturenliste, kein
+      Boss-Kennzeichen: ein Bossbereich unterscheidet sich geometrisch von keinem
+      anderen. Eine unbekannte Region antwortet mit einer leeren Liste statt mit
+      einer Ausnahme, weil B10 diese Abfrage aus einem Spawn-Ereignis heraus
+      stellen wird und „ausserhalb jeder Region" dort ein normaler Zustand ist
+- [x] **Vanilla-Mobs werden vollständig unterdrückt.** Das natürliche Spawning
+      ist aus — überall, auch nachts, auch in Höhlen. Damit ist B10s Budget die
+      einzige Quelle lebender Kreaturen und die harte Grenze gilt für alles, was
+      in der Welt steht; ohne das wäre sie eine Buchhaltung über einen Teil der
+      Last. Absichtlich gesetzte Kreaturen (Spawn-Ei, Betreiber-Kommando)
+      bleiben möglich und bekommen die Standardwerte. **Folge, benannt statt
+      übergangen**: Wolle, Leder und Fleisch aus natürlichem Tier-Spawning
+      entfallen — woher ein Spieler sie bekommt, ist eine Inhaltsfrage für B11
+      und B16. *(2026-08-24)*
+- [x] **Kontinuierlicher Nachschub, keine Wellen.** Getötete Kreaturen werden
+      laufend ersetzt, die Dichte pendelt sich um den Zielwert ein. Eine Region
+      fühlt sich damit immer gleich an, und es gibt keinen Zonenzustand „Welle
+      läuft / geräumt / Pause" mit der Anschlussfrage, was mit einer Welle
+      passiert, die niemand zu Ende räumt. *(2026-08-24)*
+- [x] **Ein Boss ist eine Mob-Art mit deutlich höheren Attributen und einem
+      Respawn-Timer — mehr nicht.** Keine eigenen Fähigkeiten, keine Phasen; er
+      entsteht rein aus Konfiguration. **Der eigentliche Bosskampf kommt später
+      als Dungeon-Boss** mit Instanzen und Fähigkeiten und gehört nicht zu B10.
+      *(2026-08-24)*
+- [x] **Welche Vanilla-Entities als Basis dienen, ist Inhalt und keine Spec.**
+      Die Wahl steht je Mob-Art in der Konfiguration und kann sich ändern, ohne
+      dass die Spec sich ändert. Verlangt wird nur, dass sie konfigurierbar ist —
+      und dass mehrere Arten auf demselben Vanilla-Entity unterscheidbar bleiben.
+      *(2026-08-24)*
+- [x] **Zielwert für gleichzeitig aktive Mobs: 800 serverweit, 130 je Zone.**
+      Genau die Ausgangswerte aus der Frage, jetzt ausgeliefert in `mobs.yml`
+      und von `ServerWideBudgetHoldsTest` gegen genau die Situation abgesichert,
+      in der sie heute noch nie greift — sechs Zonen zu je 130 sind 780 und
+      bleiben darunter. Dazu zwei weitere Grenzen, die die Frage nicht nannte,
+      aber ohne die 800 keinen Sinn ergäbe: 12 je Chunk (keine Horde steht
+      sichtbar ineinander) und 25 je anwesendem Spieler (was eine
+      Hack'n'Slash-Runde noch überblickt). Alle vier bleiben konfigurierbar.
+      *(2026-08-26)*
 
 ## B08b (Währung & Konto) — neu durch ADR-027 *(2026-08-22)*
 
@@ -186,9 +279,57 @@ könnte weder verkaufen noch reparieren.
       Rangkosten in `abilities.yml`, Reparatur in B11. Kein zentraler Katalog.
 - [ ] Startguthaben bei Charaktererstellung: null oder ein Betrag?
 - [ ] Verlieren Coins beim Tod? ADR-017 sagt nichts dazu.
-- [ ] Wieviel wirft ein Mob ab? Content, bei `/specify` B10 oder B11.
+- [x] **Wieviel wirft ein Mob ab?** Beantwortet und gebaut. Die Form: Tabelle je Art, sonst die
+      der Region, Boss mit eigener; ein Eintrag trägt Wahrscheinlichkeit und Stückzahlspanne
+      (FR-018 bis FR-021). Der Inhalt steht seit dem 2026-08-29 in `items.yml` — zehn Vorlagen
+      und Tabellen entlang der sechs Levelbänder.
 
-## B11 (Items) — neu zugeschnitten durch ADR-027, keine offene Frage mehr
+      **Ab hier ist das keine offene Blockfrage mehr, sondern Balancing für B16.** Welcher Trank
+      in welcher Region wie oft fällt, ändert eine Zahl in `items.yml` und keine Zeile Java —
+      genau dafür ist die ganze Bauweise da (SC-001, SC-002). Eine Frage, die durch Bearbeiten
+      einer Konfigurationsdatei beantwortet wird, gehört nicht in eine Liste offener
+      Architekturfragen; sie stünde dort für immer. *(2026-08-28, geschlossen 2026-08-29)*
+
+## B11 (Items) — neu zugeschnitten durch ADR-027, ausspezifiziert am 2026-08-28
+
+Die Klärungssitzung vom 2026-08-28 hat sieben weitere Fragen beantwortet; alles davon steht in
+**ADR-039** und in `specs/011-items-loot-equipment/spec.md`.
+
+- [x] **Verschleiß statt Haltbarkeit.** Klassenausrüstung zerbricht nie — B07 hat sie ausdrücklich
+      unzerstörbar gemacht. Der Verschleiß ist ein Wert **am Charakter**, je Slot einer, und mindert
+      nur den Ausrüstungsbeitrag: bis zu 80 % bei Zustand null. Rüstung nutzt sich durch erlittenen
+      Schaden ab, die Waffe durch Autoattacks, beide durch den Tod — und der Tod wiegt ein
+      Vielfaches. *(2026-08-28, ADR-039)*
+- [x] **Wem gehört gefallene Beute?** Dem **größten Beitragenden**
+      (`CombatDeathEvent.lootRecipient()`), am Charakter hängend. Nur er sieht sie, nur er hebt sie
+      auf. Bewusst **anders als Erfahrung und Coins**, die sich nach Anteil teilen: ein Gegenstand
+      teilt sich nicht. *(2026-08-28, ADR-039)*
+- [x] **Kosmetik**: Trimfarben gegen Coins, ohne eigene Levelhürde, aber **erst auf der Höchststufe
+      anwendbar** — sonst wären Schurken- und Kriegerstufen optisch ununterscheidbar.
+      *(2026-08-28, ADR-039)*
+- [x] **Aufstiegsmaterial entfällt.** Der Aufstieg kostet Level und Coins; beides ist in B07 und
+      B08b bereits gebaut. Es bleiben zwei Kategorien: Verbrauchbares und Kosmetik.
+      *(2026-08-28, ADR-039)*
+- [x] **Ein NPC je Region**, sechs insgesamt, im Safe-Core, mit eigenem Bestand je Region.
+      *(2026-08-28, ADR-039)*
+
+### Was die Umsetzung zusätzlich beantwortet hat (2026-08-29)
+
+- [x] **Woran hängt der Verschleiß?** Nicht an `DamageDealtEvent`, wie der Aufgabenzettel
+      annahm: das aggregierte Ereignis trägt keine `DamageOrigin` (ein Autoattack ließe sich
+      nicht von einer Fähigkeit unterscheiden, FR-041) und den Schaden **nach** der Abwehr, wo
+      FR-040a den davor verlangt. Er hängt an B05s `DamageInterceptor` auf Stufe `MODIFIERS` —
+      der Naht, die B05 ausdrücklich für B08 und B11 gebaut hat. Nur der Tod hängt am Ereignis.
+- [x] **Wie viele Ruhezeiten braucht die Warnung bei vollem Inventar?** Eine, und sie steht in
+      `items.yml` (FR-076). B07 hatte die Zahl fest im Quelltext; der Zuhörer wurde erweitert,
+      nicht verdoppelt — ein zweiter für dieselbe Bedingung hätte zwei Warnungen für einen
+      Aufsammelversuch erzeugt.
+- [x] **Wo wird „höchstens eine Trimfarbe" erzwungen?** An beiden Stellen, und das ist Absicht:
+      in `CosmeticApplication`, damit der Spieler eine Antwort bekommt, und als partieller
+      `UNIQUE`-Index in `V11_3`, damit es auch stimmt, wenn ein Betreiberbefehl schreibt.
+- [ ] **Boss-Respawn steht weiterhin auf dem Testwert.** `mobs.yml` führt
+      `respawn-minutes: 5`; gemeint sind 30. Kein B11-Thema, aber es steht seit B10 offen und
+      geht sonst unter.
 
 - [x] Ausrüstungsslots: nur Vanilla-Armor + Waffe
 - [x] Raritätsstufen (8, mit Farben): Common (Weiß) → Uncommon (Hellgrün) →

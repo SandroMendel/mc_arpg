@@ -13,7 +13,6 @@ import rpg.persistence.FlushCycle;
 import rpg.persistence.OutageState;
 import rpg.persistence.SchemaMigrator;
 import rpg.persistence.jdbc.JdbcAuditLogRepository;
-import rpg.persistence.jdbc.JdbcItemInstanceRepository;
 import rpg.persistence.jdbc.JdbcPlayerStateRepository;
 import rpg.persistence.jdbc.JdbcStatisticsRepository;
 
@@ -32,7 +31,6 @@ public final class PersistenceHarness implements AutoCloseable {
     public final FlushCycle flushCycle;
     public final JdbcPlayerStateRepository playerStates;
     public final rpg.persistence.jdbc.JdbcCharacterRepository characters;
-    public final JdbcItemInstanceRepository itemInstances;
     public final JdbcStatisticsRepository statistics;
     public final JdbcAuditLogRepository auditLog;
     public final DirectScheduler scheduler;
@@ -72,13 +70,11 @@ public final class PersistenceHarness implements AutoCloseable {
         characters =
                 new rpg.persistence.jdbc.JdbcCharacterRepository(
                         pools.loginPool(), scheduler, flushCycle, clock);
-        itemInstances = new JdbcItemInstanceRepository(pools.loginPool(), scheduler, flushCycle);
         statistics = new JdbcStatisticsRepository(pools.loginPool(), scheduler, flushCycle, clock);
         auditLog = new JdbcAuditLogRepository(pools.loginPool(), scheduler, flushCycle);
 
         flushCycle.register(AggregateType.PLAYER_STATE, playerStates);
         flushCycle.register(AggregateType.CHARACTER, characters);
-        flushCycle.register(AggregateType.ITEM_INSTANCE, itemInstances);
         flushCycle.register(AggregateType.STATISTICS, statistics);
         flushCycle.register(AggregateType.AUDIT_LOG, auditLog);
         // Interval cycle deliberately NOT started: the tests trigger flushes explicitly, so a

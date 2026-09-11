@@ -76,6 +76,9 @@ class ClassSelectionEntryTest {
                         PlatformClassFixture.emptySlots(),
                         new SelectionTimeout(server, scheduler, PlatformClassFixture.messages()),
                         scheduler,
+                        // Kein Betreiber in diesen Tests: der Zugang hat einen eigenen.
+                        player -> false,
+                        PlatformClassFixture.messages(),
                         QUIET);
     }
 

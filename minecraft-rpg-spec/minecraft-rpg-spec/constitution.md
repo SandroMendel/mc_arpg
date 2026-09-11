@@ -56,8 +56,10 @@ verlangt eine ausdrückliche, begründete Ausnahme im Entscheidungs-Log.
 1. Schemaänderungen ausschließlich über versionierte Migrationen.
 2. Solange ein Spieler online ist, ist der Speicher-Cache autoritativ.
 3. Persistierte Spielerdaten sind versioniert und besitzen einen Migrationspfad.
-4. Items speichern **Template-ID und Roll-Werte**, niemals berechnete Endwerte
-   oder gerendertes Lore.
+4. Items speichern **die Template-ID**, niemals berechnete Endwerte und niemals
+   gerendertes Lore. *(Der Zusatz „und Roll-Werte" ist mit ADR-027 entfallen —
+   jedes Item trägt feste Attributwerte. Die Zusage wird dadurch stärker: ohne
+   Roll ist die Vorlage die einzige Quelle.)*
 5. Kein Datenverlust über das Autosave-Intervall hinaus, auch bei Crash.
 
 ## V. Datengetriebenes Design

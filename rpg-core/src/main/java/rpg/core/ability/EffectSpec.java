@@ -53,7 +53,8 @@ public record EffectSpec(
         Double buildPerHit,
         Duration idleBefore,
         Double decayPerSecond,
-        boolean asFraction) {
+        boolean asFraction,
+        EffectPhase phase) {
 
     /** The counter runs from 0 to this - the warrior's Rage is spoken of in percent. */
     public static final double METER_MAXIMUM = 100.0;
@@ -75,6 +76,9 @@ public record EffectSpec(
         // Copied, not adopted - the same rule the ability's own lists follow. A caller that keeps its
         // set and adds to it afterwards must not be able to widen a filter that is already in play.
         origins = origins == null ? Set.of() : Set.copyOf(origins);
+        // Absent means CAST. Every definition written before phases existed says nothing and keeps
+        // doing exactly what it did.
+        phase = phase == null ? EffectPhase.CAST : phase;
         requireNonNegative(type, "duration", duration);
         requireNonNegative(type, "interval", interval);
         requireNonNegative(type, "idle-before", idleBefore);

@@ -5,6 +5,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
+import rpg.core.ability.Ability;
 import rpg.core.stats.StatSnapshot;
 
 /**
@@ -35,14 +36,21 @@ public final class SummonEffect implements AbilityEffect {
          * @param snapshot the summoner's values at the moment of the call - the creature keeps these
          * @param health how much it can take before it is gone
          * @param lifetime how long it stands if nothing kills it
+         * @param farewell run once when the creature goes, on the tick that owns it and <b>before</b>
+         *     it is removed - because what happens then happens where it stood, and a removed entity
+         *     has no position left to ask for
          * @return the creature, or empty if it could not be placed
          */
         Optional<UUID> place(
-                UUID summonerId, StatSnapshot snapshot, double health, Duration lifetime);
+                UUID summonerId,
+                StatSnapshot snapshot,
+                double health,
+                Duration lifetime,
+                Runnable farewell);
 
         /** Places nothing. The default until the platform installs one. */
         static Placer none() {
-            return (summonerId, snapshot, health, lifetime) -> Optional.empty();
+            return (summonerId, snapshot, health, lifetime, farewell) -> Optional.empty();
         }
     }
 
@@ -74,13 +82,58 @@ public final class SummonEffect implements AbilityEffect {
         this.redirect = Objects.requireNonNull(redirect, "redirect");
     }
 
+    /**
+     * What the creature leaves behind when it goes (FR-016c).
+     *
+     * <p>Installed once at startup and given the creature that is about to vanish. The block knows
+     * <em>that</em> the clone goes off; where and onto whom is a lookup, and a lookup needs Paper.
+     */
+    @FunctionalInterface
+    public interface Farewell {
+
+        /**
+         * @param ability the ability that summoned it, so its {@code summon-end} effects can be found
+         * @param creatureId the creature, still in the world - asked for its position and then gone
+         */
+        void ended(Ability ability, UUID summonerId, UUID creatureId, int rank, StatSnapshot snapshot);
+
+        /** Leaves nothing behind. The default, and the state of things before the explosion. */
+        static Farewell none() {
+            return (ability, summonerId, creatureId, rank, snapshot) -> {};
+        }
+    }
+
+    private volatile Farewell farewell = Farewell.none();
+
+    /** Installs what the creature leaves behind. At startup, not during play. */
+    public void setFarewell(Farewell farewell) {
+        this.farewell = Objects.requireNonNull(farewell, "farewell");
+    }
+
     @Override
     public void apply(EffectContext context) {
         Duration lifetime = context.spec().duration();
         if (lifetime == null || lifetime.isZero()) {
             return;
         }
-        placer.place(context.casterId(), context.snapshot(), context.value(), lifetime)
-                .ifPresent(creature -> redirect.redirect(context.casterId(), creature));
+        // The creature's id is not known until place() returns, and the farewell needs it - so it is
+        // held in one slot and filled in the moment it exists. One placement, one array, no map that
+        // outlives the clone.
+        UUID[] placed = new UUID[1];
+        Runnable goodbye =
+                () ->
+                        farewell.ended(
+                                context.ability(),
+                                context.casterId(),
+                                placed[0],
+                                context.rank(),
+                                context.snapshot());
+
+        placer.place(context.casterId(), context.snapshot(), context.value(), lifetime, goodbye)
+                .ifPresent(
+                        creature -> {
+                            placed[0] = creature;
+                            redirect.redirect(context.casterId(), creature);
+                        });
     }
 }

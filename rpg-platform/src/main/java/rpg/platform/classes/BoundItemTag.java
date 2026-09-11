@@ -66,4 +66,16 @@ public final class BoundItemTag {
     public static boolean isTagged(ItemStack item) {
         return read(item).isPresent();
     }
+
+    /**
+     * The binding tag itself, for callers that must ask {@code BoundEquipment} about it.
+     *
+     * <p>Added for B11's vendor: every disposal route - selling, the ender chest, the bin - has to
+     * refuse class equipment (FR-063), and the answer has to come from {@code
+     * BoundEquipment.isBoundTo} rather than from a second check of this package's own (FR-079). That
+     * needs the string, not just its presence.
+     */
+    public static Optional<String> tagOf(ItemStack item) {
+        return read(item);
+    }
 }

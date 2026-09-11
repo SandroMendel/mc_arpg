@@ -16,7 +16,7 @@ import org.bukkit.persistence.PersistentDataType;
  * <p><b>Data container, not lore.</b> The same choice B07 made for {@code BoundItemTag}, and for the
  * same reason: lore is display, and display is something a client can be made to lie about.
  *
- * <p>Three values, and each is load-bearing:
+ * <p>Five values, and each is load-bearing:
  *
  * <ul>
  *   <li><b>amount</b> - what the pile is worth. Never the stack size; see below.
@@ -30,6 +30,11 @@ import org.bukkit.persistence.PersistentDataType;
  *       containers match, so a unique id makes them permanently dissimilar.
  *   <li><b>created</b> - when it appeared, which is how "the oldest pile" is decided when the cap
  *       bites (FR-030a).
+ *   <li><b>drops</b> - how many kills went into it. Purely what the pile <em>looks</em> like: the
+ *       stack shows one nugget per kill, so a heap reads as several creatures instead of one. Not
+ *       derived from the amount, because the amount depends on what an operator configured a
+ *       creature to be worth - a tenfold drop value would make every single kill look like a
+ *       massacre.
  * </ul>
  */
 public final class CoinPileTag {
@@ -47,9 +52,12 @@ public final class CoinPileTag {
     static final NamespacedKey CREATED =
             Objects.requireNonNull(NamespacedKey.fromString("rpg:coin_created"));
 
+    static final NamespacedKey DROPS =
+            Objects.requireNonNull(NamespacedKey.fromString("rpg:coin_drops"));
+
     private CoinPileTag() {}
 
-    /** Writes all four values. Called only while building a pile; nothing else may create one. */
+    /** Writes all five values. Called only while building a pile; nothing else may create one. */
     static void write(ItemMeta meta, long amount, UUID characterId, long createdAtMillis) {
         Objects.requireNonNull(meta, "meta");
         Objects.requireNonNull(characterId, "characterId");
@@ -57,6 +65,8 @@ public final class CoinPileTag {
         container.set(AMOUNT, PersistentDataType.LONG, amount);
         container.set(CHARACTER, PersistentDataType.STRING, characterId.toString());
         container.set(CREATED, PersistentDataType.LONG, createdAtMillis);
+        // Ein neuer Haufen ist ein Kill. Der Zaehler steigt erst, wenn ein zweiter dazukommt.
+        container.set(DROPS, PersistentDataType.INTEGER, 1);
         // Unique per pile, so no two piles are ever isSimilar and vanilla never merges them.
         container.set(PILE, PersistentDataType.STRING, UUID.randomUUID().toString());
     }
@@ -65,6 +75,18 @@ public final class CoinPileTag {
     static void writeAmount(ItemMeta meta, long amount) {
         Objects.requireNonNull(meta, "meta");
         meta.getPersistentDataContainer().set(AMOUNT, PersistentDataType.LONG, amount);
+    }
+
+    /** Traegt einen weiteren Kill ein und gibt den neuen Stand zurueck - ebenfalls der Merge-Pfad. */
+    static int addDrop(ItemMeta meta) {
+        Objects.requireNonNull(meta, "meta");
+        PersistentDataContainer container = meta.getPersistentDataContainer();
+        // Fehlt der Zaehler, lag der Haufen schon vor dieser Aenderung da. Dann ist er genau ein
+        // Kill gewesen, denn mehr konnte er damals nicht zeigen - und der zweite ist der hier.
+        Integer current = container.get(DROPS, PersistentDataType.INTEGER);
+        int next = (current == null ? 1 : current) + 1;
+        container.set(DROPS, PersistentDataType.INTEGER, next);
+        return next;
     }
 
     /**
@@ -86,6 +108,11 @@ public final class CoinPileTag {
     /** When this pile appeared, in epoch millis, if it is one of ours. */
     public static Optional<Long> createdAtOf(ItemStack stack) {
         return read(stack, CREATED, PersistentDataType.LONG);
+    }
+
+    /** Wie viele Kills in diesem Haufen liegen, if it is one of ours. */
+    public static Optional<Integer> dropsOf(ItemStack stack) {
+        return read(stack, DROPS, PersistentDataType.INTEGER);
     }
 
     /** Whether this stack is a coin pile at all. */

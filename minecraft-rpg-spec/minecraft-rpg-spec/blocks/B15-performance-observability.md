@@ -36,7 +36,19 @@ Macht die Performanceziele messbar und durchsetzbar, statt sie zu behaupten.
   werden geloggt und sind im Betrieb sichtbar.
 - Die Messung selbst darf im Normalbetrieb keine messbaren Kosten erzeugen und
   ist abschaltbar.
-- Lasttests sind Teil der Definition of Done für B05 und B10.
+- **Die Lasttestphase gehört diesem Block** *(ADR-031, 2026-08-23)*. Lasttests sind
+  keine Bedingung dafür, dass ein einzelner Block fertig ist — sie laufen
+  gebündelt hier, wenn die inhaltlichen Blöcke stehen. Zuvor waren B05 und B10
+  namentlich lasttestpflichtig, bevor sie als fertig gelten durften; das war nicht
+  einlösbar, weil ein Lasttest Spieler, Mobs und Inhalt braucht, also gerade das,
+  was die späteren Blöcke erst liefern.
+- Die Phase prüft die Zielwerte oben **im Zusammenspiel**, nicht ein Subsystem in
+  einer künstlich leeren Welt. Mitzumessen sind namentlich: B05s Schadenspfad,
+  B08bs Coin-Haufen (ein Entity je Kill, SC-006 dort), B09s Zonenzuordnung unter
+  Bewegungslast und B10s Horden.
+- Ein blockeigenes Leistungsziel, das **ohne** Volllast zu belegen ist, bleibt beim
+  Block selbst — als wiederholbare Messung. Diese Phase übernimmt nur, was sich
+  erst unter 150 Spielern und 800 Mobs zeigt.
 
 ## Offene Fragen
 

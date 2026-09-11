@@ -58,6 +58,14 @@ public final class AbilityMessageKeys {
             MessageKey.of("ability.second-life.subtitle");
 
     /**
+     * A passive took a share off an incoming hit (FR-016a).
+     *
+     * <p>Only ever said when something really came off. A mitigation is invisible by nature: it makes
+     * a number smaller, and a smaller number among other numbers looks like nothing at all.
+     */
+    public static final MessageKey MITIGATED = MessageKey.of("ability.mitigated");
+
+    /**
      * Every key this block can say, for the test that checks the shipped file carries them all.
      *
      * <p>Listed by hand rather than read by reflection: a key that somebody adds and forgets to list
@@ -81,7 +89,8 @@ public final class AbilityMessageKeys {
                 RANK_NOT_ENOUGH_COINS,
                 TOGGLE_CHANGED,
                 SECOND_LIFE_TITLE,
-                SECOND_LIFE_SUBTITLE);
+                SECOND_LIFE_SUBTITLE,
+                MITIGATED);
     }
 
     private AbilityMessageKeys() {}

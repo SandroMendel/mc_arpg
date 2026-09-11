@@ -52,14 +52,46 @@ public final class ClassEquipmentApplier {
      */
     public static final int WEAPON_SLOT = 0;
 
+    /**
+     * How a tier is allowed to look after B11 has had its say.
+     *
+     * <p><b>Additive, like B11's other seam into this block.</b> With {@link #UNCHANGED} this class
+     * behaves exactly as it did before B11 existed - the appearance that goes in is the appearance
+     * that comes out. B11 uses it to swap the trim of a character who bought a colour and reached the
+     * top of both ladders (FR-069, FR-070).
+     *
+     * <p><b>Why here and not in {@code BoundEquipment}.</b> The colour is B11's data and lives in
+     * B11's table; the ladder is B07's. Asking the question at the moment the item is built keeps the
+     * two apart - and keeps this block free of a dependency on the one above it.
+     */
+    @FunctionalInterface
+    public interface AppearanceOverride {
+
+        /** Leaves every appearance as the ladder defined it - the shape before B11. */
+        AppearanceOverride UNCHANGED = (characterId, slot, appearance) -> appearance;
+
+        TierAppearance apply(UUID characterId, LadderSlot slot, TierAppearance appearance);
+    }
+
     private final BoundEquipment bound;
     private final BoundItemFactory factory;
+    private final AppearanceOverride override;
     private final Logger logger;
 
     public ClassEquipmentApplier(
             BoundEquipment bound, BoundItemFactory factory, Logger logger) {
+        this(bound, factory, AppearanceOverride.UNCHANGED, logger);
+    }
+
+    /** As above, plus B11's cosmetic override. */
+    public ClassEquipmentApplier(
+            BoundEquipment bound,
+            BoundItemFactory factory,
+            AppearanceOverride override,
+            Logger logger) {
         this.bound = Objects.requireNonNull(bound, "bound");
         this.factory = Objects.requireNonNull(factory, "factory");
+        this.override = Objects.requireNonNull(override, "override");
         this.logger = Objects.requireNonNull(logger, "logger");
     }
 
@@ -85,8 +117,14 @@ public final class ClassEquipmentApplier {
         }
         try {
             PlayerInventory inventory = player.getInventory();
-            applyArmor(inventory, characterId, expected.get().get(LadderSlot.ARMOR));
-            return applyWeapon(inventory, characterId, expected.get().get(LadderSlot.WEAPON));
+            applyArmor(
+                    inventory,
+                    characterId,
+                    shown(characterId, LadderSlot.ARMOR, expected.get().get(LadderSlot.ARMOR)));
+            return applyWeapon(
+                    inventory,
+                    characterId,
+                    shown(characterId, LadderSlot.WEAPON, expected.get().get(LadderSlot.WEAPON)));
         } catch (RuntimeException failure) {
             // One character's broken configuration must not take the others with it
             // (Constitution VI). The player ends up without class equipment, which is visible and
@@ -97,6 +135,17 @@ public final class ClassEquipmentApplier {
                     failure);
             return false;
         }
+    }
+
+    /**
+     * The appearance as it will actually be worn.
+     *
+     * <p>One call, in one place. Asking the override at each of the five build sites would be
+     * five chances for one of them to be forgotten - and a helmet in the tier trim next to a
+     * chestplate in the bought one is the kind of wrong nobody reports as a bug.
+     */
+    private TierAppearance shown(UUID characterId, LadderSlot slot, TierAppearance ladder) {
+        return override.apply(characterId, slot, ladder);
     }
 
     private void applyArmor(

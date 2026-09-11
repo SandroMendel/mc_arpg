@@ -7,6 +7,7 @@ import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.bukkit.GameMode;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -16,6 +17,7 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.inventory.Inventory;
 
+import rpg.core.classes.ClassMessageKeys;
 import rpg.core.classes.ClassSelection;
 import rpg.core.classes.ClassSelectionResult;
 import rpg.core.scheduler.EntityRef;
@@ -52,6 +54,16 @@ public final class ClassSelectionListener implements Listener {
     private final Scheduler scheduler;
     private final Logger logger;
 
+    /** Der Text zum Betreiber-Zugang - denselben Weg, den SelectionTimeout auch nimmt. */
+    private final rpg.core.message.Messages messages;
+
+    /** Whether this player may take the operator entry. The permission itself lives in the wiring. */
+    private final java.util.function.Predicate<Player> mayEnterWithoutClass;
+
+    /** Who is in the world without a character because of that entry, and therefore in Creative. */
+    private final java.util.Set<UUID> inCreativeWithoutClass =
+            java.util.concurrent.ConcurrentHashMap.newKeySet();
+
     public ClassSelectionListener(
             ClassSelection selection,
             ClassSelectionMenu menu,
@@ -61,6 +73,8 @@ public final class ClassSelectionListener implements Listener {
             ClassSlotSource slots,
             SelectionTimeout timeout,
             Scheduler scheduler,
+            java.util.function.Predicate<Player> mayEnterWithoutClass,
+            rpg.core.message.Messages messages,
             Logger logger) {
         this.selection = Objects.requireNonNull(selection, "selection");
         this.menu = Objects.requireNonNull(menu, "menu");
@@ -70,6 +84,9 @@ public final class ClassSelectionListener implements Listener {
         this.slots = Objects.requireNonNull(slots, "slots");
         this.timeout = Objects.requireNonNull(timeout, "timeout");
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
+        this.mayEnterWithoutClass =
+                Objects.requireNonNull(mayEnterWithoutClass, "mayEnterWithoutClass");
+        this.messages = Objects.requireNonNull(messages, "messages");
         this.logger = Objects.requireNonNull(logger, "logger");
     }
 
@@ -106,7 +123,8 @@ public final class ClassSelectionListener implements Listener {
             return;
         }
         guard.hold(player);
-        player.openInventory(menu.build(slots.slotsFor(session.get())));
+        player.openInventory(
+                menu.build(slots.slotsFor(session.get()), mayEnterWithoutClass.test(player)));
         // After the menu is up, and idempotent: reopening on every close must not push the limit out.
         timeout.start(player);
     }
@@ -154,12 +172,54 @@ public final class ClassSelectionListener implements Listener {
         if (clicked == null || clicked.equals(player.getInventory())) {
             return;
         }
+        if (ClassSelectionMenu.isAdminEntry(event.getSlot()) && mayEnterWithoutClass.test(player)) {
+            enterWithoutClass(player);
+            return;
+        }
         Optional<CharacterClass> chosen =
                 menu.classAt(slots.slotsFor(session.get()), event.getSlot());
         if (chosen.isEmpty()) {
             return;
         }
         choose(player, session.get(), chosen.get());
+    }
+
+    /**
+     * Lets an operator into the world with no character at all.
+     *
+     * <p><b>The state already existed and was unreachable.</b> A session without an active character
+     * is what everybody is between joining and choosing (ADR-020); the only reason nobody could stay
+     * in it is that {@code NoCharacterGuardListener} holds them there. Releasing the hold is
+     * therefore the whole mechanism - no new state, no stat holder, no character row.
+     *
+     * <p><b>Creative, and not merely permitted to walk.</b> Someone with no stats cannot be hurt
+     * anyway - the pipeline refuses them with {@code NO_HOLDER} - but they also cannot fly, cannot
+     * build and would starve. Creative says all of that at once, in a way every operator already
+     * understands.
+     *
+     * <p><b>Remembered, so the way back is possible.</b> Choosing a real class later must return them
+     * to Survival, and only the players this put into Creative may be moved out of it: an operator who
+     * was in Creative for their own reasons keeps it.
+     */
+    void enterWithoutClass(Player player) {
+        UUID playerId = player.getUniqueId();
+        inCreativeWithoutClass.add(playerId);
+        player.setGameMode(GameMode.CREATIVE);
+        timeout.cancel(playerId);
+        guard.release(playerId);
+        player.closeInventory();
+        player.sendMessage(messages.get(ClassMessageKeys.SELECTION_ADMIN_ENTERED));
+        logger.info("[class] " + player.getName() + " entered without a class (operator)");
+    }
+
+    /** Whether this player is in the world without a character because of the operator entry. */
+    public boolean isWithoutClass(UUID playerId) {
+        return inCreativeWithoutClass.contains(playerId);
+    }
+
+    /** Forgets a player who left. Called by the session observer. */
+    public void forget(UUID playerId) {
+        inCreativeWithoutClass.remove(playerId);
     }
 
     /**
@@ -219,6 +279,13 @@ public final class ClassSelectionListener implements Listener {
         timeout.cancel(player.getUniqueId());
         guard.release(player.getUniqueId());
         player.closeInventory();
+        // Zurueck aus dem Creative, falls dieser Spieler ueber den Betreiber-Zugang hereingekommen
+        // ist und sich nun doch fuer eine Klasse entscheidet. Ein Creative-Charakter mit Coins und
+        // Ausruestung waere die teuerste Luecke, die dieser Zugang aufmachen koennte - und nur wer
+        // durch ihn hereinkam, wird zurueckgesetzt: wer aus eigenem Grund im Creative war, bleibt es.
+        if (inCreativeWithoutClass.remove(player.getUniqueId())) {
+            player.setGameMode(GameMode.SURVIVAL);
+        }
     }
 
     /** Entering must not throw into the selection flow (Constitution VI, FR-031). */

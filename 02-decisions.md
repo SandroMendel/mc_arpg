@@ -1318,6 +1318,19 @@ B08b ist umgesetzt, und damit ist eingelöst, was oben als offen benannt war:
 
 **Status:** Angenommen · **Datum:** 2026-08-22 · **Blöcke:** B08b, später B14 und B13
 
+> **Zur Hälfte eingelöst am 2026-08-30 durch B13.** Das **Fenster** ist umgezogen: `CurrencyMenu` und
+> `CurrencyMenuListener` liegen jetzt in `rpg.platform.ui`. In `rpg.platform.currency` liegt kein
+> Anzeigecode mehr — `NoDisplayCodeLeftTest` hält das fest.
+>
+> **Das Kommando nicht.** `/coins` bleibt in `rpg.plugin.command` und wartet weiter auf **B14**:
+> dieses ADR weist Kommandos ausdrücklich dorthin zu, und B13 sammelt keine ein — es legt nur das
+> eine an, das sein eigenes Fenster braucht (`/char`, FR-057). Der Unterschied zu ADR-032, wo Fenster
+> *und* Eingabe wanderten: eine Rechtsklick-Geste ist Präsentation, ein Kommando mit Rechtebaum und
+> Tab-Completion ist es nicht.
+>
+> **Offen bleibt** damit genau die Kommandoschale. Was hier stand — „Anzeige gehört B13" — ist
+> erledigt.
+
 **Kontext.** B08b braucht einen Aufrufweg für den Admin-Eingriff (FR-039 bis FR-046) und eine Anzeige
 für Stand und Verlauf (FR-046a, FR-046b, FR-056). Kommandos, Rechtebaum und Tab-Completion gehören
 B14, Anzeige gehört B13 — beide Schicht 3, beide hängen von allen anderen Blöcken ab. Im Projekt
@@ -1405,3 +1418,1338 @@ Stelle gewesen, an der zwei Regeln denselben Kill unterschiedlich bewerten.
 **Auswirkung.** `XpDistributor` bietet `shareCalculator()` als Zugang. Der Rechner wird **im
 Konstruktor gebaut, nicht hereingereicht**: wer eine andere Fassung übergeben könnte, könnte Coins
 und Erfahrung wieder auseinanderlaufen lassen — genau das, was die Herauslösung verhindern soll.
+
+---
+
+## ADR-030: Ein Logout im Kampf wird wie ein Tod behandelt
+
+**Status:** Angenommen · **Datum:** 2026-08-23 · **Blöcke:** B09 (Eigentümer), B05 (Eingriff)
+
+**Kontext.** Wer mitten im Kampf den Server verlässt, entgeht dem Tod. Ohne Regel ist das die
+verlässlichste Fluchtmöglichkeit im Spiel, und sie kostet nichts. Der Kampfzustand ist dafür schon
+vorhanden: `CombatState` gilt acht Sekunden nach dem letzten gegebenen oder genommenen Treffer
+(`combat-timeout-seconds` in `combat.yml`).
+
+**Entscheidung.** Der Charakter stirbt. Beim nächsten Login steht er in der Safe-Zone seiner Region
+und liest, warum. Der Todesgrund wird unterscheidbar: `DeathCause.LOGOUT`.
+
+*Warum nicht härter.* Der Tod kostet in diesem Spiel bewusst wenig — kein XP-Verlust, kein
+Item-Verlust, nur Ausrüstungsschaden. Wer fürs Fliehen mehr zahlt als fürs Sterben, bleibt stehen
+und stirbt; die Strafe hätte dann das Gegenteil dessen bewirkt, wofür sie da ist. Gleichstand ist die
+richtige Höhe: der Gewinn des Weglaufens ist, dem Tod zu entgehen — bringt Weglaufen genau den Tod,
+ist der Gewinn null, und mehr braucht Abschreckung nicht.
+
+*Warum kein Platzhalter-Wesen, das stehen bleibt und totgeschlagen werden kann.* Gegenüber dem Mob
+wäre das am fairsten, verlangt aber ein Ersatzwesen, Schadenszuordnung an einen Charakter, der nicht
+mehr da ist, und eine Kampfpipeline, die mit Offline-Haltern rechnet. Viel Maschinerie für einen
+Randfall.
+
+*Warum keine Coin-Strafe.* Sie bräuchte einen neuen Buchungsgrund in B08b — eine Änderung an einem
+fertigen Block — und trifft ungleich: einen reichen Spieler kostet sie nichts, einen frischen alles.
+
+*Warum kein Debuff beim nächsten Login.* Er erfindet befristete Zustände über Sitzungsgrenzen hinweg
+und bestraft zu einem Zeitpunkt, an dem der Spieler den Zusammenhang nicht mehr sieht.
+
+**Warum das überhaupt ein ADR ist.** `DeathCause` ist ausgeliefert und liegt in B05. Sein Javadoc
+begründet ausdrücklich, dass die Aufzählung grob bleibt: B06, B11 und B12 brauchen den Grund, um
+Fälle zu *unterscheiden*, nicht um etwas zu berechnen. Ein vierter Wert ist mit dieser Begründung
+vereinbar — B12 will „gestorben" und „abgehauen" trennen können —, aber die Erweiterung eines
+ausgelieferten Enums durch einen späteren Block ist genau der Vorgang, den ADR-027 für
+ADR-pflichtig erklärt hat.
+
+**Auswirkung.**
+
+- `DeathCause` erhält `LOGOUT`. Wo heute über die Werte verzweigt wird, kommt ein vierter Fall dazu;
+  der Compiler zeigt die Stellen.
+- Die Regel steht als `combat-logout: death | none` in der Konfiguration und ist abschaltbar, ohne
+  dass Code angefasst wird (Prinzip V).
+- **Bis B11 existiert, ist die Strafe allein der Teleport in die Safe-Zone.** Der Ausrüstungsschaden,
+  der einen normalen Tod ausmacht, braucht B11 — bis dahin bleibt die Regel spürbar mild, und das ist
+  eine benannte Lücke (Regel 5), keine stille.
+- Die acht Sekunden gehören B05. B09 **liest** sie und legt keine zweite Zahl daneben.
+
+---
+
+## ADR-031: Lasttests sind eine Phase am Ende, keine Bedingung je Block
+
+**Status:** Angenommen · **Datum:** 2026-08-23 · **Blöcke:** alle (Constitution Prinzip VII), B15
+(Eigentümer der Phase) · **Constitution:** 1.0.0 → 1.1.0 (MINOR)
+
+**Kontext.** Prinzip VII nannte zwei Blöcke namentlich lasttestpflichtig — B05 und B10 —, und zwar
+*bevor sie als fertig gelten*. Die Regel geriet gleich dreifach unter Druck:
+
+- **B05 ist ausgeliefert, ohne Lasttest.** Nach dem Buchstaben der alten Regel hätte er nicht als
+  fertig gelten dürfen. Die Abweichung war nie beschlossen, sie ist einfach passiert.
+- **B08b setzt seit der Entscheidung „Coins fallen" ein Entity je Kill in die Welt.** Damit stand die
+  Frage im Raum, ob er in die Liste gehört (T122, `research.md` R8 dort) — und mit ihr die Frage, wer
+  die Liste künftig pflegt.
+- **B09 benennt ein Leistungsziel** (Zonenzuordnung für 200 Spieler unter 0,5 ms), das mit einem
+  Lasttest gar nichts zu tun hat: es ist mit einer Messung zu belegen, nicht mit 150 Spielern.
+
+Die eigentliche Schwäche lag tiefer als die Liste. Ein Lasttest braucht Spieler, Mobs und Inhalt —
+also genau das, was die *späteren* Blöcke erst liefern. Eine Regel, die einen Block auf einen Nachweis
+warten lässt, den ein anderer Block erst möglich macht, ist nicht erfüllbar. Genau das hielt T133 für
+B08b schon fest: der Nachweis für SC-006 braucht B10s Horden und ist bis dahin nicht zu erbringen.
+
+**Entscheidung.** Lasttests sind **keine Bedingung dafür, dass ein Block fertig ist**. Sie laufen
+gebündelt in einer eigenen Phase, wenn die inhaltlichen Blöcke stehen, und gehören **B15**, der den
+Lasttest-Aufbau mit simulierten Spielern ohnehin besitzt. Kein Block wird wegen eines fehlenden
+Lasttests offen gehalten.
+
+Ein Leistungsziel, das ein Block für sich benennt, braucht dennoch einen Beleg — aber nur einen, der
+**ohne Volllast** zu erbringen ist: eine wiederholbare Messung der eigenen Rechenarbeit. Was sich erst
+unter 150 Spielern und 800 Mobs zeigt, wird in der Lasttestphase geprüft und vorher nicht behauptet.
+
+*Warum nicht die Liste erweitern:* sie hätte bei jedem neuen Block wieder angefasst werden müssen,
+ohne dass irgendwo stünde, woran man die Zugehörigkeit erkennt. Beim dritten Mal wäre die Frage
+dieselbe gewesen wie beim ersten.
+
+*Warum nicht die Liste durch ein Kriterium ersetzen:* das war der naheliegende Gegenvorschlag und
+hätte die Pflege gelöst, aber nicht das eigentliche Problem — dass ein früher Block auf einen späteren
+wartet. Ein Kriterium hätte B08b korrekt eingeordnet und ihn genauso lange offen gehalten.
+
+*Warum nicht ganz darauf verzichten:* die Zielwerte in B15 bleiben verbindlich. Aufgegeben wird der
+Zeitpunkt des Nachweises, nicht der Nachweis.
+
+**Der Preis ist benannt und angenommen.** Ein Leistungsfehler zeigt sich später, und je später er
+auffällt, desto teurer ist die Umkehr — vor allem, wenn er in einer Architekturentscheidung steckt.
+Was dagegen steht, ist Prinzip II: Tickbudget, kein Datenbankzugriff je Spielereignis, keine
+wiederkehrende Aufgabe je Spieler oder Entity, räumlicher Index statt linearer Suche. Diese Vorgaben
+gelten für jeden Block **vor** dem Lasttest und sind je Block prüfbar. Der Lasttest bestätigt sie am
+Ende; er ersetzt sie nicht.
+
+**Auswirkung.**
+
+- Prinzip VII Punkt 3 ist neu gefasst; die namentliche Pflicht für B05 und B10 entfällt. Constitution
+  auf **1.1.0**, in beiden geführten Fassungen.
+- **T122 aus B08b ist damit beantwortet** — aber anders als dort vorgesehen: B08b wird nicht in eine
+  Liste aufgenommen, weil es keine Liste mehr gibt. Die zusätzliche Abnahmebedingung, die T122 für
+  diesen Fall vorsah, entfällt.
+- **B08bs SC-006 wartet nicht länger auf B10.** Der Block ist nach dem Serverdurchlauf (T132)
+  abschliessbar; der Lastnachweis wanderte in die Phase.
+- **B05 ist rückwirkend nicht mehr im Widerspruch** zur Constitution. Das war der stillste der drei
+  Punkte und der Grund, aus dem die Regel überhaupt geprüft wurde.
+- B15 trägt die Phase. Die Zeile „Lasttests sind Teil der Definition of Done für B05 und B10" in
+  seinem Steckbrief entfällt und wird durch die Phase ersetzt.
+- B09s SC-001 bleibt, wird aber ausdrücklich als **Messung** geführt, nicht als Lasttest.
+
+---
+
+## ADR-032: Wegpunkt-Kristalle in B09 — Eingabe, Fenster, Persistenz und ein neuer Buchungsgrund
+
+**Status:** Angenommen · **Datum:** 2026-08-23 · **Blöcke:** B09 (Eigentümer), B02, B08b und B13
+(Eingriffe) · **Befristet bis:** B13 (Fenster und Eingabe)
+
+> **VOLLSTÄNDIG EINGELÖST am 2026-08-30 durch B13.** `WaypointMenu`, `WaypointMenuListener` **und**
+> `CrystalInteractListener` liegen jetzt in `rpg.platform.ui`. In `rpg.platform.zone` liegt kein
+> Anzeige- und kein Eingabecode mehr.
+>
+> **Beide, nicht nur das Fenster** — dieses ADR nennt die Eingabe ausdrücklich mit, und ein Fenster
+> ohne seinen Listener wäre ein halber Umzug gewesen. Das ist der Unterschied zu ADR-028, wo nur die
+> Anzeige wanderte.
+>
+> **Was bei B09 geblieben ist, ist die Entscheidung:** welche Wegpunkte offen sind, was eine Reise
+> kostet, wo ein Kristall steht — und `BukkitPositions`, weil eine Koordinatenumrechnung keine
+> Anzeige ist. B13 hat die Anzeige übernommen, nicht die Regel (FR-063).
+>
+> Bewacht von `NoDisplayCodeLeftTest` und `Adr032ConformanceTest`. Der zweite hieß bis dahin „sind
+> als befristet gekennzeichnet" und prüfte den alten Ort; er ist **umgedreht** statt gelöscht — ein
+> Test, der eine offene Schuld bewacht, wird beim Begleichen zum Test, dass sie beglichen ist.
+
+**Kontext.** Für das Reisen zwischen den sechs Regionen war am Morgen des 2026-08-23 entschieden:
+Portale als Konfigurationsquader, ein Quader mit Zielkoordinate, kostenlos, ohne Bedienoberfläche.
+Diese Fassung war so geschnitten, dass B09 seine Schicht nicht verlässt.
+
+Bei `/clarify` hat der Auftraggeber das ersetzt: **Wegpunkt-Kristalle, wie in einem Hack'n'Slash.**
+Ein Kristall wird per Rechtsklick zunächst freigeschaltet; ein weiterer Rechtsklick öffnet ein
+Fenster mit allen Kristallen, in dem nur die freigeschalteten wählbar sind — die übrigen bleiben
+sichtbar und melden beim Anklicken, dass sie noch nicht freigeschaltet sind. Eine Reise kostet Coins.
+
+Das ist spielerisch das stärkere Modell, weil es die **erste Reise erhält**: jede Region muss einmal
+zu Fuß erreicht worden sein, bevor sie ein Ziel wird. Sichtbare, aber gesperrte Ziele sind dabei
+genau der Anreiz, sie zu suchen — ein verborgenes Ziel wäre keiner.
+
+Architektonisch kostet es vier Dinge, die B09 nach seinem Zuschnitt nicht haben durfte:
+
+| Was hinzukommt | Wem es gehört |
+|---|---|
+| Eine Eingabe (Rechtsklick) | B13 |
+| Ein Auswahlfenster | B13 |
+| Dauerhafter Zustand je Charakter (Freischaltungen) | B02 |
+| Ein neuer Buchungsgrund für die Reise | B08b — **abgeschlossen** |
+
+**Entscheidung.** Die Kristalle entstehen in B09, mit allen vier Eingriffen. Fenster und Eingabe sind
+**befristet** und gehen an B13, sobald es existiert — dieselbe Anordnung wie bei ADR-028, wo B08b ein
+Kommando und ein Fenster in einem Schicht-1-Block bekam, weil eine Schnittstelle ohne Aufrufweg für
+den Betreiber unbenutzbar gewesen wäre. Hier gilt dasselbe Argument in der Spielerrichtung: ein
+Wegpunktsystem ohne Auswahlmöglichkeit ist kein Wegpunktsystem.
+
+Vier Festlegungen folgen aus bereits getroffenen Entscheidungen und wurden deshalb nicht neu
+verhandelt:
+
+1. **Der Preis steht in der Zonenkonfiguration**, bei dem, der ihn verlangt. ADR-027 verbietet einen
+   zentralen Preiskatalog; `currency.yml` ist nicht der Ort für Reisepreise.
+2. **Freischaltungen hängen am Charakter**, nicht am Account (ADR-011). Wer mit dem Warrior überall
+   war, fängt mit dem Mage bei null an.
+3. **Der Buchungsgrund ist eigenständig**, damit der Verlauf eine Reise von einem Einkauf und einer
+   Reparatur trennt — dieselbe Zusage, die B08b für jede Buchung gibt.
+4. **Der Kristall ist gebaut, nicht gesetzt.** Die Konfiguration beschreibt den Bereich um ein
+   Bauwerk, in dem ein Rechtsklick zählt. B09 setzt keine Blöcke und erkennt keinen Blocktyp — sonst
+   hinge das Reisen daran, dass niemand den Stein abbaut.
+
+*Warum nicht auf B13 warten:* dann gäbe es bis dahin kein Reisen, und der Rückweg vom *Pale Wilds*
+ins *Greenfields* führte jedes Mal über fünf Regionen. Das Reisen ist kein Beiwerk dieses Blocks,
+sondern der Grund, warum sechs getrennte Regionen überhaupt bewohnbar sind.
+
+*Warum die Coins und nicht kostenlos:* ausdrückliche Entscheidung des Auftraggebers. Die Empfehlung
+lautete kostenlos — das Freischalten ist bereits ein Preis, und eine Gebühr trifft den frischen
+Charakter am härtesten, der das Reisen am meisten braucht. Der Auftraggeber hat die Coin-Senke
+vorgezogen; die Zahl ist konfigurierbar und damit jederzeit auf null stellbar, falls sich das im
+Spiel als zu hart erweist.
+
+**Die eine Stelle, die im Plan nicht schiefgehen darf.** Gebucht und nicht gereist ist ein Diebstahl;
+gereist und nicht gebucht ein Freifahrtschein. Bei zu geringem Kontostand passiert **nichts** ausser
+einer Meldung, die den fehlenden Betrag benennt — dieselbe Form, die B08b für den Rangaufstieg schon
+hat.
+
+**Nachtrag vom 2026-08-23, aus `/plan` Phase 0 (`specs/009-zones-regions/research.md` R1).** Die
+Formulierung „Buchung und Versetzung gelten zusammen" ist **nicht zusagbar**. `debit` prüft und zieht
+in einem Schritt ab und ist unteilbar gegenüber anderen Buchungen — aber die Versetzung ist ein
+Paper-Aufruf und kein Teil derselben Buchung. B08bs Vertrag schliesst eine Reservierung sogar
+ausdrücklich aus: „zwei Fähigkeiten im selben Tick würden sonst beide dasselbe Geld ausgeben."
+
+Zusagbar ist die **Wirkung**, nicht die Unteilbarkeit: abbuchen, versetzen, und bei Fehlschlag
+zurückbuchen — alles in derselben Tickphase, in der sich keine andere Buchung dazwischenschieben
+kann. Daraus folgen **zwei** neue Buchungsgründe statt einem:
+
+- `WAYPOINT_TRAVEL` (DEBIT) — die Reise.
+- `WAYPOINT_REFUND` (CREDIT) — die Rückbuchung einer gescheiterten Reise.
+
+Der zweite ist keine Zierde. Ohne ihn wäre eine Rückbuchung im Verlauf nicht von einer gewöhnlichen
+Gutschrift zu unterscheiden, und niemand könnte nachsehen, wie oft der Fall überhaupt eintritt. Die
+Anforderung FR-050b in der Spec ist entsprechend umformuliert und trägt die Begründung.
+
+**Auswirkung.**
+
+- B09 wächst um Eingabe, Fenster und einen persistierten Aggregattyp. Ob die Freischaltungen ein
+  eigener Aggregattyp werden (ADR-015 Punkt 7: drei Eintragungen) oder am Charakter hängen, entscheidet
+  `/plan` an B02s Mustern.
+- **B08b bekommt zwei weitere Buchungsgründe** (siehe Nachtrag oben) — der zweite Eingriff in diesen
+  abgeschlossenen Block nach ADR-030s Todesgrund in B05. Beide Male gilt dieselbe Regel: der Compiler
+  zeigt die Stellen.
+- B13 erbt Fenster und Eingabe. Der Steckbrief von B13 trägt diese Schuld ab jetzt, wie er schon
+  ADR-028s Kontofenster trägt.
+- Die Entscheidung „Portale als Config-Quader" vom Morgen des 2026-08-23 ist **überholt** und im
+  Steckbrief als solche gekennzeichnet, nicht gelöscht.
+
+**Nachtrag vom 2026-08-23, nach der Umsetzung.** Alle vier Eingriffe sind ausgeführt und geprüft;
+`Adr032ConformanceTest` gleicht die Umsetzung gegen dieses ADR ab, statt sich darauf zu verlassen,
+dass jemand es liest.
+
+- **Die zwei Buchungsgründe stehen in B08b.** `WAYPOINT_TRAVEL` als DEBIT, `WAYPOINT_REFUND` als
+  CREDIT, beide mit einem Kommentar, der B09 und dieses ADR nennt — wer die Datei in einem Jahr liest,
+  soll ohne Archäologie sehen, warum zwei Werte eines fremden Blocks darin stehen.
+- **Fenster und Eingabe sind im Quelltext als befristet gekennzeichnet.** `WaypointMenu`,
+  `WaypointMenuListener` und `CrystalInteractListener` nennen jeweils dieses ADR, das Wort
+  *temporary* und **B13** als späteren Eigentümer.
+- **Die Persistenz hängt am Charakter**, nicht am Konto. `/plan` hat sich gegen einen eigenen
+  Aggregattyp für die Freischaltungen entschieden: `CHARACTER_ZONE_STATE` trägt beide Tabellen, weil
+  sie demselben Charakter gehören und im selben Moment geschrieben werden. Zwei Aggregattypen wären
+  zwei Positionen in der Schreibreihenfolge für eine Sache gewesen.
+- **Der Preis steht bei dem, der ihn verlangt** — je Kristall in `zones.yml`. `currency.yml` kennt
+  kein Reisen, und einen zentralen Katalog gibt es nicht (ADR-027).
+
+**Eine Zusage dieses ADRs war falsch, und sie steht oben noch:** „der Compiler zeigt die Stellen."
+Das gilt für keinen der beiden Eingriffe. Ein neuer Enum-Wert bricht nur dort, wo ein `switch`
+erschöpfend über das Enum geht — und weder über `DeathCause` noch über `BookingReason` gibt es einen.
+Beide Werte konnten hinzugefügt werden, ohne dass irgendetwas rot wurde. Was die Stellen tatsächlich
+zeigt, sind zwei geschriebene Zählungen: `DeathCauseLogoutTest` und `WaypointBookingReasonTest`. Wer
+den nächsten Eingriff in ein ausgeliefertes Enum plant, sollte nicht auf den Compiler zählen.
+
+---
+
+## ADR-033: Vanilla-Unterdrückung in zwei Schichten — Spielregeln zuerst, ein Ereignis-Riegel dahinter
+
+**Status:** Angenommen · **Datum:** 2026-08-24 · **Blöcke:** B10
+
+**Kontext.** Der Steckbrief verlangt, dass natürliches Spawning „überall, auch nachts, auch in
+Höhlen" aus ist — B10s Budget soll die einzige Quelle lebender Kreaturen sein (SC-010). Naheliegend
+wäre ein einziger `CreatureSpawnEvent`-Zuhörer, der jeden nicht erlaubten `SpawnReason` abbricht.
+
+**Entscheidung.** Zwei Schichten statt einer, in dieser Reihenfolge:
+
+1. **Sieben Spielregeln je Welt** (`SPAWN_MOBS`, `SPAWN_MONSTERS`, `SPAWN_PATROLS`,
+   `SPAWN_PHANTOMS`, `SPAWN_WANDERING_TRADERS`, `SPAWN_WARDENS`, `SPAWNER_BLOCKS_WORK`), gesetzt beim
+   Start und bei jedem `WorldLoadEvent` erneut — dieselbe Bauart wie `VanillaRegenerationGuard`
+   für die Regenerationsregel.
+2. **Ein `CreatureSpawnEvent`-Riegel** auf `HIGHEST`, der alles abbricht, dessen `SpawnReason` nicht
+   ausdrücklich erlaubt ist (`CUSTOM`, `COMMAND`, `SPAWNER_EGG`, `DISPENSE_EGG` — das absichtliche
+   Setzen aus FR-018d).
+
+**Begründung.** Die Spielregeln halten den Spawner-Durchlauf selbst an — kein Kandidat, kein
+Ereignisobjekt, keine Zuweisung, die einzige Variante, die wirklich nichts kostet. Sie decken aber
+nicht alle gut vierzig `SpawnReason`-Werte ab: Raids, Dorfverteidigung, Netherportale, Jockeys,
+Silberfischblöcke, Verstärkung, Slime-Teilung, Versuchsspawner, Infektion, Ertrunkene hängen an
+keiner Regel. Ohne den Riegel wäre „überall" schlicht falsch, und zwar an Stellen, die ein Test
+nicht zufällig trifft. Der Riegel selbst ist billig, gerade weil die Regeln davor stehen: er sieht
+nach Schicht 1 nur noch die Handvoll Fälle, die durchkommen.
+
+**Verworfen.** Nur der Riegel (zahlt für jeden Kandidaten, den der Spawner erzeugt hätte — genau die
+Last, die dieser Block senken soll). Nur die Regeln (löchrig, siehe oben). `spigot.yml`/`bukkit.yml`
+von Hand (Serverkonfiguration statt Plugin-Konfiguration — eine Zusage, die davon abhängt, dass
+jemand eine fremde Datei richtig ausgefüllt hat, ist keine Zusage). Aufräumen statt Verhindern
+(FR-018f schließt das ausdrücklich aus: eine Kreatur, die erst erscheint und dann entfernt wird, hat
+bereits einen Tick gekostet und war kurz sichtbar).
+
+**Auswirkung.** `VanillaSpawnSuppressor` trägt beide Schichten. Kein Schalter, der die Unterdrückung
+abschalten könnte (entschieden 2026-08-24, `NoSuppressionSwitchTest` hält das maschinell fest) — ein
+Schalter wäre ein Weg, das Budget zu umgehen.
+
+---
+
+## ADR-034: `FOLLOW_RANGE` je Art statt eigener Pfadfindung — die billige Stellschraube vor der Wette
+
+**Status:** Angenommen · **Datum:** 2026-08-26 · **Blöcke:** B10, B15 (späterer Lasttest-Nachweis)
+
+**Kontext.** Der Steckbrief nennt „ggf. vereinfachte AI statt Vanilla-Pathfinding" als
+Architekturvorgabe — mit „ggf.", also als Möglichkeit und nicht als Auftrag. FR-035 bis FR-037
+verlangen trotzdem, dass die Zielsuche gedrosselt und in der Reichweite begrenzt ist.
+
+**Entscheidung.** Kein Ersatz der Vanilla-KI. Stattdessen `Attribute.FOLLOW_RANGE` je Art, aus der
+Konfiguration — der Radius, in dem eine Kreatur überhaupt nach einem Ziel sucht, und damit die
+Stellschraube mit dem größten Hebel: die Suche ist quadratisch im Radius, und Vanillas Standard von
+16 bis 48 Blöcken ist für eine Horde zu großzügig. Dazu, für die eine eigene Zielzuweisung, die
+dieser Block kennt (der Klon aus US7), eine eigene Drosselung (`RetargetThrottle`), die höchstens im
+konfigurierten Abstand wieder anfasst.
+
+**Begründung.** Vanillas Pfadfindung ist bereits stark optimiert und in Server-Nähe gebaut; sie
+durch eigenen Java-Code zu ersetzen ist eine Wette, die man nur eingeht, wenn eine Messung sie
+verlangt. Diese Messung braucht 150 Spieler und 800 Kreaturen und gehört seit ADR-031 zu B15. Bis
+dahin ist die ehrliche Reihenfolge: die billige Stellschraube ziehen, messen, und den Ersatz nur
+bauen, wenn die Zahl ihn fordert. Das ist ausdrücklich **keine Vertagung der Zusage** — FR-035 bis
+FR-037 werden erfüllt, nur mit dem kleinsten Mittel, das sie erfüllt.
+
+**Verworfen.** Vanillas KI ganz abschalten (`setAI(false)`) und selbst steuern — eine Kreatur, die
+nicht mehr fällt, nicht mehr schwimmt und nicht mehr um einen Block herumgeht, ist keine Ersparnis,
+sondern ein anderes Spiel. `entity-activation-range` in `spigot.yml` — Serverkonfiguration, siehe
+ADR-033.
+
+**Auswirkung.** `HordeBudgetBenchmarkTest` misst die eigene Rechenarbeit ohne Volllast (Spawn- und
+Aufräum-Durchlauf bei 130 Kreaturen: 1.300 ns, Budget 1 ms) — das ist die Grundlage, gegen die B15
+später den Ersatz rechtfertigen müsste, sollte die echte Messung ihn verlangen.
+
+---
+
+## ADR-035: Aufräumen ortsgebunden statt entitätsgebunden einplanen
+
+**Status:** Angenommen · **Datum:** 2026-08-28 · **Blöcke:** B10
+
+**Kontext.** T112 (Abschnitt 3.3, Schritt 16) zeigte auf dem echten Server: eine im Kampf getroffene
+Kreatur verschwand trotzdem, weit unter dem 8-Sekunden-Kampffenster aus `combat.yml`. Debug-Logging
+zeigte den Kampfzustand als korrekt gesetzt (`inCombat=true`, `remaining=7.5s`) — die Kreatur wurde
+trotzdem nicht mehr im Log gesehen, ohne dass `HordeSweep.cleanup()` sie je entfernt hätte. Ursache:
+`HordeSweep.sweep()` plant sich über `scheduler.runAsyncDelayed(...)` selbst neu (R4) — `cleanup()`
+läuft also immer auf einem Async-Thread. Der bisherige Code rief dort
+`scheduler.runSyncOnEntity(...)` auf, und `PaperSchedulerAdapter.resolve(UUID)` liefert für eine
+Nicht-Spieler-Entität nur dann etwas zurück, wenn `server.isPrimaryThread()` wahr ist — von einem
+Async-Thread aus also **immer** `null`. Die Aufgabe wurde sofort verworfen, jede Runde aufs Neue,
+ohne dass `registry.remove()` je lief. Unbemerkt blieb das, weil zur selben Zeit Vanillas eigener
+Despawn (siehe ADR-036) dieselben Kreaturen unabhängig entfernte — beide Fehler haben sich
+gegenseitig verdeckt.
+
+**Entscheidung.** `HordeSweep.removeEntity(...)` plant jetzt über `scheduler.runSyncAtLocation(...)`
+ein, mit einer groben Position aus dem Chunk-Mittelpunkt der Kreatur (`entry.chunkKey()`) und der
+Weltkennung ihrer Zone. `server.getEntity(entityId)` wird erst **innerhalb** des Callbacks
+aufgelöst, wenn der richtige Thread schon feststeht — dasselbe Muster, das `placeBossInTick` für das
+Setzen einer Kreatur bereits vormacht.
+
+**Begründung.** Ortsgebundenes Einplanen braucht kein vorher aufgelöstes Entitäts-Handle, nur eine
+Welt und einen groben Ort — beides hat `cleanup()` bereits in der Hand, ohne die Entität selbst
+anzufassen. Das umgeht die Thread-Prüfung strukturell, statt sie zu umgehen: der Callback läuft
+tatsächlich auf dem richtigen (Region-)Thread, `server.getEntity(...)` ist dort ein normaler,
+sicherer Aufruf.
+
+**Verworfen.** `removeEntity` selbst synchron auf den Hauptthread springen lassen und von dort aus
+`runSyncOnEntity` erneut versuchen — ein Umweg über zwei Sprünge für dasselbe Ergebnis, das ein
+Sprung schon liefert. Die Thread-Prüfung in `PaperSchedulerAdapter.resolve` aufweichen oder
+entfernen — sie schützt zu Recht davor, `server.getEntity(...)` von einem Thread aus zu rufen, der
+dafür nicht vorgesehen ist; das Problem lag im Aufrufer, nicht in der Prüfung.
+
+**Auswirkung.** Jeder andere Aufrufer von `scheduler.runSyncOnEntity(...)` im Projekt, der (auch nur
+gelegentlich) aus einem async geplanten Durchlauf heraus aufgerufen wird, hat wahrscheinlich
+denselben Fehler — noch nicht systematisch durchsucht. Vom Nutzer auf dem echten Server verifiziert
+(T112, Abschnitt 3.3, Schritte 14–17 bestanden).
+
+---
+
+## ADR-036: Vanillas eigener Distanz-Despawn wird für eigene Kreaturen gesperrt
+
+**Status:** Angenommen · **Datum:** 2026-08-28 · **Blöcke:** B10
+
+**Kontext.** Noch während der Fehlersuche zu ADR-035 zeigte sich ein zweiter, unabhängiger Fehler:
+selbst mit korrektem Kampfzustand verschwand eine getroffene Kreatur, sobald der Spieler weit genug
+weg war. Grund: `PaperMobPlacer.place()` setzte nie `Mob#setRemoveWhenFarAway(false)`. Vanilla
+löscht eine Kreatur nach eigenem Ermessen, sobald sie weit genug von jedem Spieler entfernt ist
+(zufallsbasiert schon ab 32 Blöcken, garantiert ab 128) — komplett unabhängig von
+`CleanupRule`s Kampf-Ausnahme (FR-022). Die Kreatur wurde also nie durch den eigenen Sweep entfernt,
+sondern durch Vanilla selbst, ohne dass `CleanupRule` je gefragt wurde.
+
+**Entscheidung.** `PaperMobPlacer.place()` ruft beim Setzen einer Kreatur zusätzlich
+`suppressVanillaDespawn(entity, kind)` auf, das `Mob#setRemoveWhenFarAway(false)` in einem eigenen
+`try`/`catch` setzt — genau wie `applyFollowRange` es für die Zielsuchreichweite schon tut.
+
+**Begründung.** Der eigene `try`/`catch` ist kein Vorsichtsreflex: MockBukkit kennt
+`setRemoveWhenFarAway` nicht (`UnimplementedOperationException`) und hätte sonst die gesamte
+Platzierung mitgerissen, weil `place()` jede Laufzeitausnahme im Spawn-Consumer als Fehlschlag
+wertet. Eine Kreatur ohne diese Sperre ist schlechter dran, aber nicht kaputt (FR-044, Prinzip VI).
+
+**Verworfen.** Nichts — die einzige Alternative wäre gewesen, `CleanupRule` um eine
+Vanilla-Distanzprüfung zu ergänzen, aber das Budget kennt seine eigene Reichweite bereits
+(`cleanup-radius`); zwei Mechanismen für dieselbe Frage wären zwei Wahrheiten.
+
+**Auswirkung.** Ohne diese Sperre hätte kein Test — auch kein neuer — den Unterschied zwischen
+„Vanilla hat aufgeräumt" und „`CleanupRule` hat aufgeräumt" je bemerkt, weil beide von außen gleich
+aussehen (die Kreatur ist weg, kein Tod, keine Belohnung). Nur der echte Server zeigt den
+Unterschied, wenn man die Kampf-Ausnahme gezielt prüft (T112, Schritt 16).
+
+---
+
+## ADR-037: Klon-Aggro holt bereits kämpfende Kreaturen aktiv nach
+
+**Status:** Angenommen · **Datum:** 2026-08-28 · **Blöcke:** B10 (Anschluss B08, US7)
+
+**Kontext.** T112 (Abschnitt 3.6, Schritt 30) zeigte: stellt ein Spieler einen Klon erst, **nachdem**
+Kreaturen ihn schon angegriffen haben — der wahrscheinlich häufigste Fall in der Praxis, eine
+Ablenkung mitten im Kampf —, zog der Klon niemanden an. `CloneAggroListener` hing vollständig an
+`EntityTargetLivingEntityEvent`, und Vanilla feuert dieses Ereignis nur bei einer **neuen**
+Zielwahl, nicht mehr, solange das aktuelle Ziel (der Spieler) gültig bleibt. Eine bereits jagende
+Kreatur hätte das Ereignis also nie wieder gesehen, unabhängig davon, wie lange der Klon stand — ein
+echter Verstoß gegen FR-039 ("solange ein Klon steht", nicht nur "beim nächsten Zuschlagen").
+
+**Entscheidung.** `registerClone(...)` holt beim Erscheinen des Klons einmalig alle eigenen
+Kreaturen (`MobKindTag.isOurs`) in einem groben Umkreis (64 Blöcke) nach, deren aktuelles Ziel
+(`Mob#getTarget()`) der Klonbesitzer ist, prüft ihre individuelle `FOLLOW_RANGE` gegen den Klon und
+setzt das Ziel direkt um (`mob.setTarget(clone)`) — durch dieselbe Drosselung aus FR-041
+(`RetargetThrottle`) wie jede andere Umlenkung. Ab dann übernimmt wieder das normale Ereignis für
+alle künftigen Zielwahlen.
+
+**Begründung.** Ein einmaliger Nachtrag im Moment des Erscheinens ist kein Anschreiben gegen
+Vanillas Entscheidungsschleife (der Fehler, den `research.md` R9 für die Blockhaltung des Warriors
+schon beschreibt) — er setzt das Ziel genau einmal, an der Stelle, an der Vanilla es selbst
+akzeptiert hätte, wäre gerade neu gewählt worden. Die Drosselung aus FR-041 gilt mit, weil derselbe
+`RetargetThrottle` je Kreatur benutzt wird wie beim ereignisgetriebenen Weg.
+
+**Verworfen.** Eine wiederkehrende Aufgabe, die periodisch alle Kreaturen in Reichweite prüft
+(Prinzip II: keine wiederkehrende Arbeit für einen seltenen Zustand — ein Klon ist die Ausnahme,
+nicht die Regel, T096).
+
+**Auswirkung.** `CloneAggroListener` braucht jetzt `Server` im Konstruktor, um Klon und Nachbarschaft
+aufzulösen. Neuer Test `aCreatureAlreadyChasingThePlayerIsReclaimedWhenTheCloneAppears`. Vom Nutzer
+auf dem echten Server verifiziert, inklusive der Abschieds-Explosion aus B08s Farewell-Effekt.
+
+---
+
+## ADR-038: Eigene Kreaturen sind gegen jede Entzündung gesperrt, nicht nur die Sonne
+
+**Status:** Angenommen · **Datum:** 2026-08-28 · **Blöcke:** B10
+
+**Kontext.** Beim Warten auf einen Boss-Respawn (T112, Abschnitt 3.5) zeigte der Server-Log: der
+Boss war nicht getötet worden, sondern binnen weniger Minuten nach seinem Respawn in der Sonne
+verbrannt — bevor ein Spieler ihn erreichen konnte. Ein Blick zurück durch den gesamten Log dieser
+Sitzung zeigte: fast jeder „burned to death"-Eintrag über Stunden hinweg war eine eigene Kreatur.
+`mobs.yml` deckt den Bestand fast vollständig mit `base: ZOMBIE`/`HUSK`/`SKELETON`/
+`WITHER_SKELETON` ab — keine davon war gegen Sonnenlicht abgesichert. Das fraß unbemerkt laufend
+ins Budget und die Dichte (US4) und traf jetzt gezielt eine Kreatur mit einem 30-Minuten-Timer, bevor
+sie überhaupt für ihren Zweck (US5) zur Verfügung stand. Kein Prüfschritt in `quickstart.md` fragt
+danach — nur der laufende Server über längere Zeit zeigte es.
+
+**Entscheidung.** Neuer Zuhörer `DaylightBurnSuppressor`: bricht `EntityCombustEvent` für jede
+eigene Kreatur ab (`MobKindTag.isOurs`).
+
+**Begründung.** Ein erster Testlauf wollte nur die reine Sonnen-Entzündung abfangen und Lava
+weiterhin schaden lassen — ein Testfehler zeigte, dass `EntityCombustByBlockEvent` (Lava,
+Feuerblock) und `EntityCombustByEntityEvent` (eine andere Entität) dieselbe Handler-Liste wie die
+Oberklasse `EntityCombustEvent` teilen; ein Zuhörer auf der Oberklasse fängt sie alle ab, eine
+Unterscheidung nach Ursache ist mit Bordmitteln nicht möglich. Das ist hier auch keine Lücke: der
+eigentliche Schaden läuft nie über die Entzündung selbst, sondern über B05s Pipeline
+(`VanillaDamageListener` setzt jede Vanilla-Schadensursache einschließlich `FIRE_TICK` auf null und
+leitet sie um) — das Unterdrücken der Entzündung nimmt nur die zusätzliche, unkontrollierte
+Vanilla-Brenn-Animation samt eigenem Sekundenschaden weg, an der berechneten Schadenszahl ändert
+sich nichts.
+
+**Verworfen.** Jede Art einzeln mit Feuerresistenz ausstatten (`PotionEffectType.FIRE_RESISTANCE`) —
+ein sichtbarer, unerklärter Effekt auf jeder Kreatur für ein rein internes Problem. Eine Unterklasse
+gezielt filtern, um Lava weiterhin schaden zu lassen — mit Bordmitteln nicht sauber möglich (siehe
+oben), und ohnehin wirkungslos, da der Schaden längst über B05 läuft.
+
+**Auswirkung.** Betrifft die ganze Horde, nicht nur Bosse — die tatsächliche Populationsdichte (US4)
+dürfte dadurch spürbar näher an die konfigurierte Zieldichte heranrücken als zuvor angenommen, da ein
+bisher unsichtbarer Verlustkanal wegfällt. Neue Tests in `DaylightBurnSuppressorTest`. Vom Nutzer auf
+dem echten Server verifiziert.
+
+---
+
+## ADR-039: Was die Klärungssitzung zu B11 entschieden hat — und wo der Steckbrief dem Code widersprach
+
+**Status:** Angenommen · **Datum:** 2026-08-28 · **Blöcke:** B11, berührt B05, B07 und die
+Constitution
+
+**Kontext.** `/specify` für B11 stand an. Der Blocksteckbrief galt seit ADR-027 als „bereit für
+`/specify`", und die vier dort benannten Fragen waren beantwortet. Beim Abgleich des Steckbriefs
+gegen den **gebauten Code** stellte sich heraus, dass die Hälfte seines Umfangs bereits von
+Nachbarblöcken erledigt ist — und dass an einer Stelle Steckbrief und Code einander widersprechen.
+Elf Fragen an den Auftraggeber schlossen den Rest, in drei Runden. Dieser ADR hält fest, was dabei
+entschieden wurde; die vollständige Fassung steht in `specs/011-items-loot-equipment/spec.md`.
+
+**Die dritte Runde ist die lehrreichste.** Sie entstand aus der Frage des Auftraggebers, was in einer
+Party mit der Beute passiert — und deckte auf, dass die ersten beiden Runden ein **gebautes
+Party-System** übersehen hatten. Zwei fertige Blöcke wollten Unvereinbares, ohne dass es jemandem
+aufgefallen wäre; siehe den Nachtrag zu Abschnitt 2.
+
+### 1. Verschleiß ist ein Wert am Charakter, nicht Haltbarkeit am ItemStack
+
+**Der Steckbrief hatte unrecht.** Er kündigt „Durability und Reparatur" an und nennt die Todesstrafe
+tragfähig, „weil Haltbarkeitsverlust auf nicht ablegbarer Rüstung genauso funktioniert". B07 hat
+aber genau das Gegenteil gebaut: `BoundItemFactory.makeIndestructible()` setzt Klassenausrüstung auf
+`setUnbreakable(true)` — mit zwei Einwänden, die im Javadoc stehen. Erstens ließ eine zerbrochene
+Waffe den Krieger waffenlos zurück, weil die Leiter die einzige Waffenquelle ist und Werfen wie
+Herstellen verboten sind; nur ein Relogin brachte sie wieder. Zweitens: *„the tier carries the
+numbers, and a damaged item would quietly weaken a character in a way no attribute reflects."* Und
+dann der Satz, der die Lösung schon enthält: *„If wear is ever wanted as a mechanic, it belongs to
+the tier, not to the item stack."*
+
+**Entscheidung.** Verschleiß wird eingeführt — aber als **Zustandswert am Charakter**, je
+Leiter-Slot einer (`ARMOR`, `WEAPON`). Der ItemStack bleibt unzerstörbar. Der Zustand mindert
+ausschließlich den **Ausrüstungsbeitrag** des betroffenen Slots: oberhalb einer Schwelle voll,
+darunter stetig fallend bis auf einen Restanteil. Vorgabe: Schwelle 50 %, Restanteil 20 %.
+
+Die Quellen sind getrennt und damit spürbar: **erlittener** Schaden nutzt die **Rüstung** ab,
+**ausgeteilter Schaden aus einem Autoattack** die **Waffe**, der **Tod** beides. `DamageOrigin`
+trennt das bereits — `MELEE` und `PROJECTILE` sind der normale Angriff, `ABILITY` ist es nicht.
+**Fähigkeitsschaden schont die Waffe**, weshalb ein Magier seltener repariert als ein Krieger.
+
+**Begründung.** Beide Einwände von B07 sind damit ausgeräumt statt übergangen: nichts zerbricht, und
+die Schwächung ist keine stille — sie geht durch die Werteberechnung und ist ablesbar. Der
+Verschleiß liefert zugleich die laufende Coin-Senke, ohne die Coins nur hereinkommen und nie
+abfließen.
+
+**Der Tod muss schwerer wiegen als der Alltag, und das ist eine Regel, keine Zahlenwahl.** Vorgabe:
+10 Zustandspunkte je Tod gegen 0,01 je Schadenspunkt — ein Sterben wiegt tausend Schadenspunkte auf.
+Der **Start weist eine Konfiguration zurück**, in der diese Ordnung nicht mehr gilt. Ohne diese
+Prüfung hätte ein späteres Balancing die Todesstrafe aus ADR-017 stillschweigend aushebeln können,
+und niemand hätte es gemerkt.
+
+**Verworfen.**
+- **Zerbrechen zulassen** (die ursprüngliche Lesart des Steckbriefs): B07s erster Einwand steht
+  unverändert — ein Spieler ohne Waffe und ohne Bezugsquelle ist handlungsunfähig.
+- **Vanillas Haltbarkeitsbalken als Wahrheit**: hätte `setUnbreakable` aufheben müssen und damit
+  denselben Einwand zurückgeholt. Der Balken bleibt als **abgeleitete Anzeige** erhalten, wie Name
+  und Lore auch — Darstellung, nicht Autorität.
+- **Ein Zustandswert für die ganze Ausrüstung**: einfacher, aber dann verschleißt die Waffe eines
+  Magiers so schnell wie die eines Kriegers, und die Unterscheidung nach Kampfstil entfällt.
+
+**Auswirkung.** B11 greift damit an genau **einer** Stelle in den Ausrüstungsbeitrag ein, den B07
+besitzt. Die Naht ist benannt und in der Spec als solche festgeschrieben (FR-080); B07 selbst wird
+nicht angefasst. `CombatDeathEvent.playerVictim` trägt im Javadoc bereits *„B11 applies equipment
+damage only then"* — der Haken war vorgesehen.
+
+### 2. Beute gehört einem Charakter allein — dem größten Beitragenden
+
+**Entscheidung.** Gefallene Beute liegt auf dem Boden, ist aber **ausschließlich für ihren
+Eigentümer sichtbar und aufsammelbar**. Eigentümer ist der **größte Beitragende** aus
+`CombatDeathEvent.lootRecipient()`, und der Anspruch hängt am **Charakter**, nicht am Spieler
+(ADR-011).
+
+**Das ist eine begründete Abweichung von ADR-029.** Erfahrung und Coins teilen sich nach Anteil —
+B06 und B08b benutzen denselben `ShareCalculator`, und `CoinDropPlanner` erzeugt einen Haufen je
+Berechtigtem. Für Items geht das nicht, und B05 hat die Konsequenz bereits gezogen: *„XP is split by
+share because XP divides, loot goes to the largest contributor because a sword does not."* B11
+erfindet hier nichts, es benutzt die vorhandene Antwort.
+
+**Begründung.** Der Auftraggeber wollte das vertraute Aufheben vom Boden behalten, ohne dass jemand
+einem anderen die Beute wegschnappt. „Größter Beitragender statt letzter Treffer" ist zugleich die
+Entscheidung gegen Kill-Stealing, die B05 ausdrücklich so getroffen hat.
+
+**Die Mechanik existiert bereits und wird nicht zum zweiten Mal gebaut.** `rpg.platform.currency`
+löst dasselbe Problem seit B08b für Coin-Haufen, und das `package-info` benennt jede Falle, in die
+ein zweiter Anlauf sonst liefe:
+
+- `showEntity` ist Zustand der **Verbindung**, nicht der Entität — nach einem Relogin ist der
+  Gegenstand wieder unsichtbar, während beide Schlösser weiter passen. *„Unsichtbar aber aufsammelbar
+  ist das Schlechteste von beidem."*
+- `setOwner` kennt **Spieler**, ADR-011 kennt **Charaktere** — ohne die zweite Prüfung sammelt
+  Charakter B ein, was Charakter A verdient hat.
+- **Verschmelzen ist eine Gefahr, kein Merkmal**: Vanilla führt ähnliche Stapel zusammen, und damit
+  wechselte Besitz durch bloße Nähe.
+- **Unsichtbarkeit ist Darstellung und niemals die Autorität** (Prinzip VI) — das Aufsammelschloss
+  bleibt zusätzlich bestehen.
+- Vanillas Verfall räumt weg, was niemand holt: **keine wiederkehrende Aufgabe** je Gegenstand.
+
+**Verworfen.**
+- **Beute direkt ins Inventar**: technisch am einfachsten und konsistent mit ADR-018, aber es nimmt
+  dem Spiel das Aufheben, das der Auftraggeber behalten wollte.
+- **Beute für alle sichtbar wie in Vanilla**: schief, weil Spieler seit ADR-018 nichts werfen dürfen
+  — man könnte fremde Beute einsammeln, aber nicht zurückgeben.
+- **Anteilige Aufteilung wie bei Coins**: ein Gegenstand teilt sich nicht. Der einzige Ausweg wäre
+  eine Würfelrunde gewesen, und die hätte den mit ADR-027 abgeschafften Zufall zurückgeholt.
+
+#### Nachtrag: in einer Party wandert die Beute reihum
+
+**Der erste Entwurf hatte das Party-System übersehen.** B06 besitzt eines — `Party`,
+`PartyRegistry`, `ShareCalculator` — und behandelt eine Party ausdrücklich als **einen**
+Beitragenden: ihr Anteil ist die Summe der Mitgliedsanteile, und er wird gleichmäßig auf die
+Mitglieder **in Reichweite** verteilt, samt Nähe-Bonus, *„damit gemeinsames Spielen nicht schlechter
+ist als allein zu spielen"*.
+
+**Für Beute galt das nicht, und das war ein Widerspruch.** `DamageShare.topContributor` stammt aus
+B05, und **B05 kennt keine Partys** — es teilt rohen Schaden je Angreifer-UUID auf. In einer festen
+Gruppe wäre also jeder Gegenstand dauerhaft an denselben Spieler gegangen, während Erfahrung und
+Coins sich teilen. Der Tank und der Unterstützer hätten nie etwas bekommen. B05s Regel ist gegen
+Kill-Stealing zwischen Fremden gedacht; innerhalb einer Party wirkt sie gegen die Absicht von B06.
+
+**Entscheidung.** Die Party gilt auch für Beute als **ein** Beitragender. Weil ein Gegenstand sich
+nicht teilt, wandert er **reihum** unter den Mitgliedern in Reichweite.
+
+**Gezählt werden die Gegenstände, nicht die Kills.** Beute ist wahrscheinlichkeitsbehaftet; eine
+Runde je Kill ließe die Runde dessen verfallen, dessen Gegner nichts fallen lässt, und über einen
+Abend gliche sich das nicht aus. Je Gegenstand gezählt ist die Verteilung exakt gleichmäßig, und
+mehrere Gegenstände aus einem Tod gehen an aufeinanderfolgende Mitglieder.
+
+Wer außer Reichweite steht, wird übersprungen und behält seine Position — gemessen wie in B06 zum
+**gestorbenen Gegner**, dem einzigen gemeinsamen Bezugspunkt. Steht niemand in Reichweite, fällt der
+Anspruch auf den größten Beitragenden zurück. Der Reihenfolgezeiger ist **Laufzeitzustand der
+Party**: sie wird laut B06 nicht persistiert, und ein persistierter Zeiger wäre der einzige Teil von
+ihr, der einen Neustart überlebte.
+
+**Verworfen.** **Ein eigenes Exemplar je Mitglied** — niemand ginge leer aus, aber die Beute
+vervielfachte sich mit der Partygröße und unterliefe Beutetabellen wie Preise. **Eine Würfelrunde
+(Need/Greed)** — vertraut aus anderen Spielen, holt aber den mit ADR-027 abgeschafften Zufall
+zurück und braucht eine eigene Oberfläche mit Zeitfenster.
+
+### 3. Kosmetik erst auf der Höchststufe
+
+**Kontext.** Stufe 60 ist die Höchststufe; danach fehlt ein Ziel. Der Auftraggeber wollte
+Trimfarben als Kosmetik verkaufen, ausdrücklich **ohne** Levelbindung der einzelnen Farbe.
+
+**Das kollidiert mit B07.** In der ausgelieferten `classes.yml` ist der Trim für zwei der drei
+Klassen das **einzige** Unterscheidungsmerkmal: der Schurke trägt auf den Stufen 4, 5 und 6 dreimal
+`CHAINMAIL` und unterscheidet sich nur durch `COPPER/RIB` → `AMETHYST/SILENCE` → `NETHERITE/VEX`;
+der Krieger unterscheidet Stufe 5 von 6 nur durch das Vorhandensein des `GOLD/SENTRY`-Trims. B07s
+FR-016 fordert, dass zwei Stufen derselben Leiter niemals gleich aussehen. Ein frei anwendbarer Trim
+hätte einen Schurken auf Stufe 4 wie einen auf Stufe 6 aussehen lassen.
+
+**Entscheidung.** Eine gekaufte Trimfarbe ist **erst auf der Höchststufe der Leiter anwendbar**.
+Gekauft werden kann sie jederzeit; keine einzelne Farbe trägt eine eigene Levelhürde.
+
+**Begründung.** Das trifft die genannte Absicht genau — Kosmetik ist der Grind **nach** Stufe 60 —
+und hält die Stufenerkennbarkeit während der gesamten Progression intakt. Nur der Magier wäre
+ohnehin unberührt gewesen, weil er über Farbe statt Trim unterscheidet.
+
+**Verworfen.** **Trims auf jeder Stufe erlauben** und dafür Schurken- und Kriegerleiter ein zweites
+Unterscheidungsmerkmal geben. Machbar, aber es ist eine Änderung an `classes.yml` und an B07s
+Erscheinungsbildvalidierung — in einem Block, der B07 ausdrücklich nicht verändern soll. Wenn das
+gewünscht wird, gehört es in einen eigenen ADR und nicht hier hinein.
+
+### 3a. Verschleiß bemisst sich vor der Abwehr, nicht danach
+
+**Entscheidung.** Der Rüstungsverschleiß richtet sich nach dem **ankommenden** Schaden, nicht nach
+dem, was nach der Abwehr durchkommt.
+
+**Begründung.** Am durchgekommenen Schaden gemessen wäre eine **Abwärtsspirale** entstanden:
+verschlissene Rüstung mindert den Ausrüstungsbeitrag, also kommt mehr durch, also verschleißt sie
+schneller, also kommt noch mehr durch. Genau die Rückkopplung, die ein Spieler nicht mehr aufhalten
+kann, sobald sie einmal läuft. Zusätzlich wäre gute Rüstung doppelt belohnt worden — weniger Schaden
+**und** langsamerer Verschleiß. Vor der Abwehr gemessen ist die Verschleißrate von der
+Rüstungsgüte unabhängig, und die Rüstung nutzt sich an dem ab, was sie tatsächlich abfängt.
+
+**Verworfen.** **Eine Pauschale je Treffer** wäre gegen beide Effekte ebenso immun und noch
+einfacher, ließe aber einen Kratzer so viel kosten wie einen Bosstreffer.
+
+**Ebenfalls entschieden:** ein **beschworener Klon** (B08 `SummonEffect`) nutzt nichts ab — weder
+durch ausgeteilten noch durch eingesteckten Schaden. Er ist eine eigene Kreatur mit einer
+Momentaufnahme der Werte und selbst eine Fähigkeit; dass Fähigkeiten die Ausrüstung schonen, gilt
+für ihn wie für jede andere.
+
+### 4. Was ohne Diskussion folgte
+
+- **Aufstiegsmaterial entfällt als Kategorie.** Der Aufstieg kostet **Level und Coins**, und beides
+  ist bereits gebaut: `EquipmentTier.requiredLevel` in B07, `EquipmentPurchase` in B08b. B11 liefert
+  nur die Route dorthin — einen NPC — und ausdrücklich keinen zweiten Kaufmechanismus. Es bleiben
+  zwei Kategorien: Verbrauchbares und Kosmetik.
+- **Ein NPC je Region, sechs insgesamt**, im jeweiligen Safe-Core, mit je eigenem Verkaufsbestand.
+  Er kauft an, verkauft, repariert und führt den Aufstieg durch. Ein zentraler Händler hätte einen
+  Spieler in den Pale Wilds quer über die Karte geschickt, um einen Trank loszuwerden.
+
+### 5. Prinzip IV der Constitution wurde nachgezogen (1.1.0 → 1.1.1)
+
+Prinzip IV forderte wörtlich: *„Items speichern **Template-ID und gewürfelte Roll-Werte**"*. ADR-027
+hat den Roll-Mechanismus am 2026-08-22 abgeschafft — die Constitution hat das sechs Tage lang nicht
+nachvollzogen. Aufgefallen ist es erst, als B11 als erster Block diese Regel tatsächlich umsetzen
+sollte: der Constitution Check von `/plan` hätte gegen einen überholten Wortlaut geprüft.
+
+Der Satz heißt jetzt „Items speichern **die Template-ID**". Das ist ein **PATCH**, kein MINOR: die
+geschützte Zusage — kein gerendertes Lore, keine berechneten Endwerte — ist unverändert, es entfällt
+nur eine Erlaubnis, die niemand mehr nutzt. Wer der alten Fassung folgte, verstößt nicht gegen die
+neue. **Die Zusage wird dadurch stärker**: ohne Roll ist die Vorlage die einzige Quelle, und eine
+Balancing-Änderung wirkt auf jedes vorhandene Exemplar statt nur auf neue.
+
+Nachgezogen wurden alle drei Fassungen: `.specify/memory/constitution.md` (die vom Werkzeug gelesene),
+`constitution.md` und `minecraft-rpg-spec/minecraft-rpg-spec/constitution.md`. Eine stehengelassene
+Quellfassung wäre die nächste Divergenz gewesen.
+
+**Auswirkung insgesamt.** B11 ist deutlich kleiner als sein Steckbrief: kein Ausrüstungssystem,
+keine Kontoführung, keine zweite Lagerung, kein zweiter Kaufmechanismus. Was bleibt, ist das Item
+als Datenobjekt, zwei Kategorien, die Beute, die NPCs und der Verschleiß. Die Spec schreibt diese
+Abgrenzung als prüfbare Anforderung fest (FR-079 bis FR-081), weil bei einem verkleinerten Block das
+versehentliche Nachbauen vorhandener Nähte der wahrscheinlichste Fehler ist.
+
+### Nachtrag aus der Umsetzung: was der Rückbau nebenbei gefunden hat
+
+**Der Rückbau von `item_instance` (V11_1) hat eine Falle in `StateVersionMigrator` freigelegt.** Die
+Methode `migrate` baute den `SessionBundle` mit einem kurzen Bequemlichkeitskonstruktor neu und ließ
+dabei **classProgress, inventories, abilities, balances und zoneStates** fallen — sie wurden zu
+`List.of()`.
+
+**Ausgelöst hat das nie etwas, und genau das ist das Unangenehme daran.** Solange
+`CURRENT_DATA_VERSION` auf 1 steht, kann kein Datensatz migrationsbedürftig sein: der Zweig ist
+unerreichbar, und `migrate` gibt den Bundle über einen Früh-Rückgabepfad unverändert zurück. Es war
+also kein Fehler im Betrieb, sondern **eine Falle für den Tag, an dem Version 2 eingeführt wird** —
+und an dem Tag hätte ein Spieler mit altem Datensatz seine Ausrüstungsstufe, sein Inventar, seine
+Fähigkeiten, seine Coins und seinen Zonenzustand für die ganze Sitzung als leer gesehen, weil
+`DefaultSessionLifecycle` den migrierten Bundle behält (`loaded.put`) und an jedes
+`SessionAttachment` reicht. Gesucht hätte man den Fehler in der Migration.
+
+**Die Lehre ist allgemein und wird als Test festgehalten:** ein von Hand zusammengesetzter Record
+verliert stillschweigend, was ein späterer Block hinzufügt. `StateVersionMigratorTest` liest den
+Quelltext und prüft, dass der Konstruktoraufruf **jede** Record-Komponente von `SessionBundle`
+nennt — die einzige Art, einen toten Zweig richtig zu halten.
+
+**Aufgefallen ist es nur, weil der Rückbau diese Zeile ohnehin anfassen musste.** Das ist das zweite
+Mal in diesem Projekt, dass eine Aufräumarbeit einen Fehler findet, den kein Test gesucht hätte —
+beim ersten Mal war es der Klassenlader (B08b/T132).
+
+---
+
+## ADR-040: Ein zweiter Schreibweg auf `player_statistic_daily` — Maximum neben Summe
+
+**Status:** Angenommen · **Datum:** 2026-08-29 · **Blöcke:** B12, erweitert B02
+
+**Kontext.** `/specify` für B12 hat „höchster Schaden" in den Umfang aufgenommen. Der gesamte
+Statistik-Schreibweg aus B02 hängt aber an einem einzigen Satz:
+`ON CONFLICT (player_id, metric, day) DO UPDATE SET value = value + excluded.value`. Genau weil
+die Aktualisierung **addiert**, kann ein Delta geschrieben werden, ohne den gespeicherten Wert
+vorher zu lesen — das ist B02s FR-007 und der Grund, warum tausend Kills einen Schreibvorgang
+kosten und nicht tausend. Ein Maximum ist kein Summand. Es lässt sich in diesem Weg nicht
+ausdrücken.
+
+**Entscheidung.** Die Tabelle bleibt, wie sie ist. Daneben entsteht ein **zweiter Schreibweg** auf
+derselben Tabelle, der statt der Summe das Maximum bildet (`GREATEST`). Welchen Weg eine Metrik
+nimmt, steht in ihrem Verzeichniseintrag als **Metrikart** (Summe, Maximum, Zustand) — nicht an
+der Aufrufstelle. Auch der neue Weg liest **nicht** vor dem Schreiben.
+
+**Begründung.** Die Eigenschaft, die B02 teuer erkauft hat, ist nicht „addieren", sondern „ohne
+Lesen schreiben". `GREATEST(gespeichert, neu)` erhält diese Eigenschaft vollständig — es ist
+dieselbe Art Aussage über den vorhandenen Wert, nur mit einem anderen Operator. Auch die
+Zwischenspeicherung im Arbeitsspeicher überträgt sich: statt Deltas zu addieren, wird das
+laufende Maximum gehalten und beim Flush einmal geschrieben.
+
+**Verworfen.**
+- **Vor dem Schreiben lesen**: verletzt B02s FR-007 und macht aus jedem Schadensereignis eine
+  Datenbankabfrage. Genau das, was das Fundament verhindern sollte.
+- **Eine eigene Tabelle für Maximum-Metriken**: eine zweite Haltung für dieselbe Sache, mit
+  eigenem Schlüssel, eigenem Index, eigener Aufbewahrungsregel und einer zweiten Stelle, die bei
+  der Anonymisierung umgezeigt werden muss. Der Nutzen wäre allein begriffliche Sauberkeit.
+- **Auf die Metrik verzichten**: war die Alternative in der Klärungsfrage; der Auftraggeber hat
+  sich ausdrücklich für den vollen Umfang entschieden.
+
+**Auswirkung.** B12 ist der erste Block der dritten Schicht, der ein Fundament aus B02
+**erweitert** statt es nur zu benutzen. Die Erweiterung ist additiv: bestehende Metriken ändern
+ihr Verhalten nicht, und ein Aufrufer, der `increment` benutzt, merkt nichts davon. Der
+Anonymisierungspfad (`REPOINT_STATISTICS`) bleibt unverändert gültig, weil die Zeilen dieselben
+bleiben.
+
+---
+
+## ADR-041: Zustandswerte werden gelesen, nicht in die Statistik gespiegelt
+
+**Status:** Angenommen · **Datum:** 2026-08-29 · **Blöcke:** B12, berührt B06 und B08b
+
+**Kontext.** Die für B12 bestätigte Metrikliste enthält **Level, XP und Coins**. Die
+Statistiktabelle aus B02 hält aber Tageswerte, die über Zeiträume summiert werden. Die Summe der
+Tageslevel eines Spielers ist bedeutungslos, und ein täglich fortgeschriebener Coin-Stand wäre
+eine zweite Fassung eines Wertes, der bereits in `rpg.character_balance` steht.
+
+**Entscheidung.** Level, XP und Coins werden **nicht** in die Tagestabelle geschrieben. Ihre
+Ranglisten lesen `rpg.character_progress` und `rpg.character_balance` — dort, wo die Wahrheit
+ohnehin liegt. Sie erscheinen ausschließlich als **aktueller Stand** und bekommen keine Tages-,
+Wochen- oder Saisonform. Da beide Tabellen am Charakter hängen, Ranglisten aber Konten
+vergleichen, wird verdichtet: **Level** ist der höchste Charakter eines Kontos (bei Gleichstand
+entscheidet die XP innerhalb des Levels), **Coins** die Summe aller Kontostände.
+
+**Begründung.** Prinzip IV verlangt eine Wahrheit je Wert; ADR-039 hat mit dem Rückbau von
+`item_instance` gerade erst gezeigt, was ein zweiter Speicherort ohne Schreiber anrichtet. Ein
+gespiegelter Coin-Stand wäre schlimmer als das: er hätte einen Schreiber und würde trotzdem
+abweichen, sobald ein Flush ausfällt.
+
+**Verworfen.**
+- **Tägliche Momentaufnahme des Standes**: hätte einen Verlauf ermöglicht („Coins über die Zeit"),
+  aber jede Zeitraumsumme wäre eine sinnlose Zahl, und niemand hätte den Unterschied in der
+  Anzeige gesehen.
+- **Zustandswerte ganz aus B12 heraushalten**: hätte die vom Auftraggeber bestätigte Metrikliste
+  beschnitten.
+
+**Auswirkung.** Eine Rangliste in B12 hat **zwei mögliche Quellen** — die Statistiktabelle für
+Zähler und Maxima, die Fachtabellen für Zustände. Der Preis ist benannt: die Zusage „das Öffnen
+löst keine Datenbankabfrage aus" muss für beide Quellen über denselben Zwischenspeicher gehalten
+werden, nicht nur für die eine.
+
+---
+
+## ADR-042: Ein Kill zählt für jeden Beteiligten — in der Party für jeden in Reichweite
+
+**Status:** Angenommen · **Datum:** 2026-08-29 · **Blöcke:** B12, berührt B05, B06 und B11
+
+**Kontext.** Außerhalb einer Party ist die Frage beantwortet: B05 stellt
+`CombatDeathEvent.lootRecipient()` bereit, den größten Beitragenden, und B11 vergibt danach die
+Beute — *„XP is split by share because XP divides, loot goes to the largest contributor because a
+sword does not."* B12 übernimmt das für den Kill, damit es nicht zwei Antworten auf „wessen Kill
+war das" gibt. **Innerhalb** einer Party trägt diese Regel nicht: B06 behandelt eine Party als
+**einen** Beitragenden und verteilt Erfahrung und Coins an alle Mitglieder in Reichweite,
+ausdrücklich damit gemeinsames Spielen nicht schlechter ist als allein zu spielen. Nach der
+Beute-Regel allein hätte in einer festen Gruppe dauerhaft derselbe Spieler jeden Kill gezählt
+bekommen. Das ist dieselbe Kollision, die bei B11 erst durch die Party-Frage sichtbar wurde
+(ADR-039, Abschnitt 2) — nur an einer anderen Metrik.
+
+**Entscheidung.** Innerhalb einer Party wird der Kill **jedem Mitglied in Reichweite** gezählt,
+unabhängig von seinem Schadensanteil. Maßgeblich ist die Zusammensetzung zum Zeitpunkt des Todes,
+und die Reichweitenprüfung ist **dieselbe**, die B06 für Erfahrung und Coins benutzt. ~~Außerhalb
+einer Party bleibt es beim größten Beitragenden.~~ — **dieser Halbsatz ist noch am selben Tag
+ersetzt worden; siehe den Nachtrag am Ende dieses ADR.** Die Beute rotiert weiterhin je
+Gegenstand (B11); der Kill rotiert nicht.
+
+**Begründung.** Eine Statistik ist kein knappes Gut. Beute rotiert, weil ein Schwert sich nicht
+teilen lässt — eine Zahl lässt sich teilen, ohne kleiner zu werden. Damit gilt für sie B06s
+Zusage und nicht B11s Ausnahme.
+
+**Der Preis ist benannt und angenommen:** die Summe aller Kill-Zähler ist **größer** als die Zahl
+der getöteten Kreaturen. Die Metrik bedeutet damit **Beteiligung an einem Kill**, nicht
+„eigenhändig erledigt". Jede Anzeige muss sie so benennen — sonst zählt der Server etwas anderes,
+als der Spieler liest, und die Rangliste wird als kaputt gemeldet, obwohl sie tut, was hier
+entschieden wurde.
+
+**Verworfen.**
+- **Nur der größte eigene Anteil**: exakte Summe, aber in einer festen Gruppe sammelt dauerhaft
+  derselbe Spieler. Genau die Falle, die B11 bei der Beute mit der Rotation umgangen hat.
+- **Reihum wie die Beute**: Summe bliebe exakt, aber die eigene Kill-Zahl würde zur Lotterie und
+  spiegelte nicht mehr, woran man beteiligt war.
+- **Anteilig zählen (0,5 Kills)**: die Summe stimmte, aber gebrochene Kills sind keine Zahl, die
+  ein Spieler in einer Rangliste lesen will.
+
+**Auswirkung.** B12 liest die Party aus B06 und benutzt deren Reichweitenprüfung. Eine zweite,
+eigene Reichweite für dasselbe Ereignis ist damit ausgeschlossen — sie wäre der wahrscheinlichste
+stille Widerspruch zwischen „ich habe XP bekommen" und „mein Kill wurde nicht gezählt".
+
+### Nachtrag vom 2026-08-29: auch außerhalb einer Party zählt der Kill für jeden Beteiligten
+
+Der oben durchgestrichene Halbsatz hat den Fall **ohne** Party bei der alten Regel belassen — dem
+größten Beitragenden. Die dritte Klärungsrunde desselben Tages hat ihn ersetzt, und der Anlass
+war der **Regionsboss**.
+
+**Der Widerspruch, den erst die Boss-Frage sichtbar gemacht hat:** B05 verteilt Erfahrung nach
+Anteil an **alle** Beitragenden, nicht nur an den größten — dafür gibt es den `ShareCalculator`.
+Legen zehn Spieler ohne Party einen Boss, bekommen alle zehn Erfahrung und Coins, aber nach der
+alten Regel hätte genau **einer** einen Bosskill in seiner Statistik stehen gehabt. Neun Spieler
+hätten denselben Kampf bestritten und wären in der Bosskill-Rangliste unsichtbar geblieben.
+Genau dieselbe Art Lücke wie in ADR-039, Abschnitt 2 — zwei Blöcke, die für sich stimmen, und
+eine Frage, die keiner von beiden gestellt bekommt.
+
+**Ersetzte Entscheidung.** Ein Kill zählt für **jeden** Spieler, dessen Schadensanteil an der
+getöteten Kreatur eine konfigurierte **Schwelle** erreicht (Vorgabe 5 %). Das gilt für jede Art,
+Bosse eingeschlossen — der Boss war der Anlass für die Schwelle, nicht ihre Ausnahme. Die
+Partyregel oben bleibt unverändert bestehen und ist jetzt die **Erweiterung** der Schwelle: ein
+Mitglied in Reichweite zählt auch bei einem Anteil von null.
+
+**Begründung.** Der Anteil, gegen den die Schwelle prüft, existiert bereits — B05 führt ihn
+ohnehin, um Erfahrung zu verteilen. Es entsteht keine zweite Rechnung und keine zweite Wahrheit
+darüber, wer wie viel beigetragen hat. Und die Schwelle beantwortet nebenbei eine Frage, die
+sonst offen geblieben wäre: **Kill-Klau gibt es nicht mehr**, weil es nichts zu klauen gibt.
+
+**Verworfen (in der Runde, die diesen Nachtrag ausgelöst hat).**
+- **Eine Sonderregel nur für Bosse**: hätte den Widerspruch an der Stelle geheilt, an der er
+  auffiel, und ihn bei gewöhnlichen Mobs stehen lassen. Zwei Regeln, wo eine reicht.
+- **Beim größten Beitragenden bleiben**: exakteste Zählung, aber neun von zehn Bossteilnehmern
+  hätten nach dem Kampf nichts vorzuweisen gehabt.
+
+**Warum ein Nachtrag und keine stille Korrektur.** Die alte Fassung stand einen halben Tag lang
+und ist nirgends implementiert. Sie hier durchzustreichen statt sie zu löschen, hält fest, dass
+die Kill-Frage **zweimal** neu beantwortet werden musste, bevor sie stimmte — beim ersten Mal für
+die Party, beim zweiten für den Boss. Wer den nächsten Block schreibt, sollte sehen, dass diese
+Art Frage selten beim ersten Anlauf vollständig ist.
+
+---
+
+## ADR-043: Zwei Uhren für die Spielzeit, und drei Werte, die nur dem Spieler gehören
+
+**Status:** Angenommen · **Datum:** 2026-08-29 · **Blöcke:** B12, berührt B09
+
+**Kontext.** Spielzeit ist eine öffentliche Rangliste. Eine Rangliste über reine Onlinezeit
+gewinnt, wer den Client nachts laufen lässt — sie misst dann Anwesenheit, nicht Spiel. Zugleich
+wollte der Auftraggeber die Zeit **je Region** aufgeschlüsselt sehen und die untätige Zeit nicht
+verlieren, sondern nur nicht öffentlich zeigen.
+
+**Entscheidung.** Es gibt **zwei Uhren**: die **aktive Zeit**, die nach einer konfigurierten Dauer
+ohne Aktivität anhält (Vorgabe fünf Minuten), und die **gesamte Onlinezeit**, die durchläuft.
+Öffentlich gerankt wird ausschließlich die aktive Zeit. Die aktive Zeit wird zusätzlich **je Zone**
+aufgeschlüsselt; die Summe über alle Zonen ist die aktive Gesamtzeit — es ist dieselbe Uhr, nur
+anders aufgeteilt.
+
+Damit hat dieser Block **drei private Werte** statt einem: die Tode nach Verursacher, die gesamte
+Onlinezeit und die Aufteilung nach Zonen. Ein fremdes Profil zeigt die Gesamtzahl der Tode und die
+aktive Spielzeit — und keinen der drei.
+
+**Begründung.** Die Trennung kostet nichts, was der Spieler verliert: die untätige Zeit ist
+erfasst und für ihn sichtbar, sie taucht nur nicht im Vergleich mit anderen auf. Und sie schützt
+die einzige Metrik dieses Blocks, die sich ohne Spielen steigern lässt.
+
+**Beide Uhren laufen ohne eine einzige neue wiederkehrende Aufgabe.** Die Untätigkeit ergibt sich
+aus einem Zeitstempel der letzten Aktivität, der Zonenwechsel aus dem vorhandenen Ereignis in B09.
+Das ist keine Feinheit, sondern Prinzip II: eine Aufgabe je Spieler wäre bei 150 Spielern genau
+die Art wiederkehrender Last, die das Tick-Budget frisst.
+
+**Verworfen.**
+- **Nur Onlinezeit zählen**: einfachste Erfassung, aber die öffentliche Rangliste misst dann den
+  Stromverbrauch des Spielers.
+- **Zwei vollständig getrennte Metriken je Zone** (aktiv und online je Zone): doppelt so viele
+  Zeilen und zwei Sichtbarkeitsregeln auf derselben Dimension, ohne dass jemand die zweite Zahl
+  gebraucht hätte.
+- **Zonenaufteilung öffentlich**: vom Auftraggeber ausdrücklich abgelehnt. Wo jemand seine Zeit
+  verbringt, ist eine Auskunft über ihn, keine über sein Können.
+
+**Auswirkung.** FR-037 („kein privater Wert in einer fremden Ansicht") ist die Anforderung dieses
+Blocks mit der größten Wahrscheinlichkeit, beim Bauen still verloren zu gehen — es gibt vier
+Ausgabewege (eigenes Fenster, fremdes Profil, Rangliste, Hologramm) und drei Werte, die auf keinem
+davon außer dem ersten erscheinen dürfen. Sie wird über alle vier geprüft.
+
+---
+
+## ADR-044: Die Aufschlüsselung wird in Zeilen bezahlt, nicht durch Verdichten
+
+**Status:** Angenommen · **Datum:** 2026-08-29 · **Blöcke:** B12, berührt B02
+
+**Kontext.** Kills und Tode werden je Mob-Art aufgeschlüsselt, die Spielzeit je Zone. Aus einem
+Metrikschlüssel wird damit eine Familie von Schlüsseln, und die Zahl der Tageszeilen
+vervielfacht sich. B02s Baseline nennt eine Größenordnung von rund 73 000 Zeilen im Jahr bei 200
+Spielern — diese Schätzung ging von einer Handvoll undimensionierter Metriken aus. Mit den
+Dimensionen liegt die Größenordnung grob bei ein bis vier Millionen Zeilen im Jahr.
+
+**Entscheidung.** Das wird unverändert hingenommen. Es wird **nicht** verdichtet, nicht rotiert
+und nichts gelöscht.
+
+**Begründung.** Zeilen entstehen nur für Arten und Zonen, die ein Spieler tatsächlich berührt hat
+— die Obergrenze ist nicht das Produkt aus allen Arten und allen Spielern, sondern das, was
+wirklich gespielt wurde. Wenige Millionen schmale Zeilen mit den beiden vorhandenen Indizes sind
+für PostgreSQL klein, und die Aggregation läuft ohnehin über Materialized Views und nicht bei
+jeder Anzeige.
+
+**Der eigentliche Grund gegen das Verdichten ist aber kein Größenargument.** B02 sagt zu, dass
+Statistik-Rohdaten unbegrenzt aufbewahrt und **niemals** bereinigt werden. Ältere Tage zu einer
+Zeile je Art und Saison zusammenzufassen, hieße Rohdaten zu verändern — genau das, was diese
+Zusage ausschließt. Eine Zusage, die beim ersten Wachstum aufgegeben wird, war keine.
+
+**Verworfen.**
+- **Ältere Tage je Art verdichten**: bricht B02s Aufbewahrungszusage, und die Tagesauflösung wäre
+  rückwirkend nicht wiederherstellbar.
+- **Nur eine konfigurierte Liste „relevanter" Arten aufschlüsseln, Rest als „Sonstige"**: spart am
+  meisten und erzeugt eine Pflegeaufgabe, die niemand pflegen wird. Jede neue Mob-Art landete
+  stillschweigend im Sammeltopf.
+
+**Auswirkung.** Die Größenordnung ist bewusst gewählt und in der Spec als Annahme festgehalten,
+damit ein späterer Blick in die Tabelle nicht wie ein Fehler aussieht. Sollte sie sich als falsch
+erweisen, ist die Antwort ein zusätzlicher Index oder eine Partitionierung nach Tag — nicht das
+Löschen von Rohdaten.
+
+---
+
+## ADR-045: Eine Saisonbelohnung ist ein Anspruch, und er verfällt nicht
+
+**Status:** Angenommen · **Datum:** 2026-08-29 · **Blöcke:** B12, berührt B08b und B11
+
+**Kontext.** Saisons schließen mit einer Belohnung ab. Zum Zeitpunkt des Abschlusses ist der
+Empfänger in aller Regel nicht online — eine Saison endet an einem Datum, nicht dann, wenn alle
+Beteiligten zusehen.
+
+**Entscheidung.** Der Abschluss friert den Endstand ein und legt einen **Anspruch** an, statt
+etwas auszuschütten. Der Anspruch gehört dem **Konto** und wird von dem Charakter eingelöst, mit
+dem der Spieler ihn abholt: Coins landen auf dessen Kontostand, Items in dessen Inventar. Er ist
+**genau einmal** einlösbar, auch bei einem Absturz zwischen Gutschrift und Vermerk, und er
+**verfällt nicht**.
+
+**Begründung.** Eine Gutschrift an einen offline Spieler müsste in einen Bestand schreiben, dessen
+Cache-Autorität gerade niemand hält — Prinzip IV sagt, dass der Speicher-Cache autoritativ ist,
+solange ein Spieler online ist, und über den umgekehrten Fall schweigt es aus gutem Grund. Ein
+Anspruch verschiebt die Gutschrift auf einen Moment, in dem der Empfänger geladen ist und der
+normale Weg gilt.
+
+**Kein Verfall**, weil eine Frist einem Rückkehrer eine Belohnung nimmt, von der er nie erfahren
+hat. Ein Anspruch ist eine Zeile; sie kostet nichts, und keine Uhr muss getestet, erklärt oder
+später korrigiert werden.
+
+**Verworfen.**
+- **Beim Abschluss direkt gutschreiben**: hätte einen Schreibweg an der Sitzung vorbei gebraucht
+  und für jeden belohnten Spieler einen geladenen Zustand, den es nicht gibt.
+- **Verfall nach einer Saison oder einem Jahr**: begrenzt einen Bestand, der ohnehin klein ist,
+  und bestraft genau den Spieler, den die Belohnung zurückholen sollte.
+
+**Auswirkung.** Der eingefrorene Endstand und der Anspruch sind zwei neue, dauerhafte Bestände.
+Sie entstehen selten — viermal im Jahr, nicht tausendmal am Tag — und sind damit der erste Fall in
+diesem Projekt, für den der Write-Behind-Weg möglicherweise das falsche Werkzeug ist; die
+Entscheidung darüber gehört in `/speckit-plan`, nicht hierher. Dass der Endstand eingefroren wird,
+ist dagegen hier entschieden: eine Platzierung, die sich nach der Vergabe noch ändern kann, ist
+keine.
+
+**Nachtrag beim Bau (2026-08-30).** Drei Festlegungen, die „genau einmal" beim Bauen brauchte:
+
+- **Die eine Ausnahme von „erst vermerken, dann gutschreiben": das volle Inventar.** Die
+  Reihenfolge oben schützt gegen den *unvorhersehbaren* Fehler — einen Absturz, einen
+  Verbindungsabbruch. Ein volles Inventar ist keiner davon: es ist vorher bekannt. Es in dieselbe
+  Reihenfolge zu stecken hieße, einen Anspruch für einen Fall zu verbrauchen, den man hätte kommen
+  sehen, und der Spieler stünde mit leeren Händen und ohne Anspruch da, weil er einen Stapel zu
+  viel dabeihatte. Die Platzprüfung steht deshalb **vor** dem bedingten Update.
+- **Beim Abschluss werden die Ansprüche VOR dem Endstand geschrieben.** Der Beleg dafür, dass eine
+  Saison abgeschlossen ist, sind ihre Zeilen im Endstand. Stünden die zuerst da und bräche es
+  dazwischen ab, sähe der nächste Durchlauf die Saison als erledigt — und die Ansprüche wären für
+  immer weg. Andersherum ist ein Abbruch folgenlos: die Saison gilt weiter als offen, der nächste
+  Durchlauf schreibt beides, und der Anspruch fällt auf `ON CONFLICT DO NOTHING`.
+- **Beide Bestände schreiben direkt, nicht über den Write-Behind-Weg** — die offene Frage aus dem
+  Absatz oben. Sie entstehen viermal im Jahr; ein Puffer, der für tausend Schreibvorgänge je
+  Minute gebaut ist, würde hier nur eine weitere Stelle einführen, an der ein Anspruch zwischen
+  Erzeugung und Ablage hängen bleiben kann. Und der Riegel gegen doppelte Einlösung *ist* ein
+  bedingtes `UPDATE` in der Datenbank — er braucht die Datenbank ohnehin synchron.
+
+---
+
+## ADR-046: Die Saison kürt einen Spieler, nicht zwei Dutzend Ranglisten — eine gewichtete Gesamtwertung
+
+**Status:** Angenommen · **Datum:** 2026-08-29 · **Blöcke:** B12
+
+**Kontext.** B12 stellt für jede öffentliche Zählermetrik in jedem der vier Zeiträume eine
+Rangliste bereit, dazu zwei Zustandsranglisten — zweiundzwanzig Listen (fünf Metriken in vier
+Zeiträumen, plus Level und Coins). ADR-045 hat entschieden, dass eine Saison mit einer Belohnung
+abschließt, aber nicht, **welche** dieser Listen belohnt wird.
+Alle zweiundzwanzig zu belohnen hätte bedeutet, dass ein Spieler, der am letzten Saisontag zufällig
+die Tagesrangliste anführt, dieselbe Auszeichnung bekommt wie einer mit drei Monaten Arbeit.
+
+**Entscheidung.** Es gibt eine **Gesamtwertung**: eine Punktzahl je Konto über den
+Saisonzeitraum, gebildet als Summe gewichteter Metrikwerte — je Metrik ein konfigurierbarer
+Punktwert je Einheit. Nur sie wird belohnt. Die übrigen Ranglisten bleiben bestehen und sind Ehre
+ohne Preis.
+
+In die Punktzahl gehen **ausschließlich öffentliche Zählermetriken des Saisonzeitraums** ein.
+**Zustandswerte sind ausgeschlossen** — Level, XP und Coins tragen den Fortschritt vergangener
+Saisons in die laufende und würden alte Konten dauerhaft nach oben setzen, womit eine Saison
+aufhörte, ein Neuanfang zu sein. **Private Werte sind ebenfalls ausgeschlossen**, weil eine
+öffentliche Platzierung sonst aus Zahlen begründet wäre, die niemand nachsehen kann.
+
+**Begründung.** Eine Summe gewichteter Werte ist die einzige Form, die ein Spieler im Fenster
+nachrechnen kann. Deshalb ist auch gefordert, dass die Aufschlüsselung sichtbar ist: Wert,
+Gewicht, Punkte, je beitragender Metrik. Eine Wertung, deren Zustandekommen man nicht sieht, wird
+als Willkür gelesen — und bei einer Belohnung wird sie das lauter als anderswo.
+
+**Der Endstand friert die Gewichtung mit ein.** Sonst ließe sich die Platzierung einer
+abgeschlossenen Saison durch eine spätere Balancing-Änderung rückwirkend umsortieren, nachdem die
+Belohnungen bereits vergeben sind.
+
+**Verworfen.**
+- **Alle zweiundzwanzig Ranglisten belohnen**: mehr Gewinner, aber ein Tagesstand am Stichtag ist
+  Zufall, keine Leistung. Und es hätte über zweihundert Ansprüche je Saison erzeugt.
+- **Nur die sechs Saisonwertungen je Metrik belohnen**: näher an der Leistung, aber es hätte
+  sechs Spezialisten gekürt und keinen Spieler der Saison. Die Botschaft wäre unschärfer.
+- **Eine normalisierte Punktzahl** (jede Metrik auf 0–100 skaliert): statistisch sauberer, aber
+  niemand kann sie nachrechnen, und ein einzelner Ausreißer verschiebt die Skala aller anderen.
+
+**Auswirkung.** Die Gesamtwertung ist die dreiundzwanzigste Rangliste und die einzige mit einer
+Belohnung. Sie erzeugt eine neue Pflicht in der Konfigurationsprüfung: eine Gewichtung, die keine
+bekannte Metrik nennt, ergäbe eine Rangliste aus Nullen und muss den Start scheitern lassen. Das
+Balancing der Gewichte selbst gehört dem Betreiber — der Start prüft auf Gültigkeit, nicht auf
+Geschmack.
+
+**Nachtrag beim Bau (2026-08-30).** Drei Punkte, die diese Entscheidung offen gelassen hatte und
+die die Umsetzung beantworten musste:
+
+- **Sie ist keine `Aggregation`, obwohl sie oben „die dreiundzwanzigste Rangliste" heißt.** Jede
+  Aggregation ist eine Sicht auf *eine* Metrikfamilie und trägt deren Quellmetrik; die
+  Gesamtwertung entsteht aus mehreren, gewichtet, und ihre Einheit sind Punkte. Sie trotzdem als
+  Aggregation zu führen hätte bedeutet, ihr eine Quellmetrik zu geben, die sie nicht hat — und
+  jede Stelle, die `source()` liest, hätte eine Lüge bekommen: die Zeitraumprüfung, die Metrikart,
+  der Literal-Wächter. Sie ist deshalb ein eigener Typ (`SeasonScoreBoard`) auf einem eigenen
+  Platz im Speicherstand. Am Verhalten ändert das nichts, am Modell alles.
+- **Die Einheit der Spielzeit ist die angefangene Stunde, nicht die Sekunde.** Der Text oben sagt
+  „ein Punktwert je Einheit" und lässt offen, was eine Einheit ist. Gespeichert wird die Spielzeit
+  in Sekunden; ein Gewicht von 2 hätte also „zwei Punkte je Sekunde" bedeutet — bei einer
+  Spielstunde 7200 Punkte statt 2, und die Saisonwertung wäre eine reine Anwesenheitsliste
+  gewesen. *Angefangen* und nicht abgerundet: abrunden hieße, die erste Dreiviertelstunde einer
+  Sitzung zählt gar nicht.
+- **Der Zwischenstand wird gerechnet, nicht abgelegt** — aber er ist sichtbar (FR-050e). Er
+  entsteht bei jeder Auffrischung aus denselben Rohdaten wie der Endstand und liegt samt
+  Aufschlüsselung im Speicherstand, damit das Fenster ihn ohne Abfrage zeigen kann. Eingefroren
+  wird nur der Endstand, und erst er trägt seine Gewichtung bei sich. Eine Wertung, deren Stand
+  man erst erfährt, wenn sie vorbei ist, ist kein Wettbewerb, sondern eine Bekanntgabe.
+
+---
+
+## ADR-047: Der Klon leistet für den Spieler, kostet ihn aber nichts
+
+**Status:** Angenommen · **Datum:** 2026-08-29 · **Blöcke:** B12, berührt B08 und B11
+
+**Kontext.** B08 kennt beschworene Klone (`SummonEffect`). B11 hat für sie entschieden, dass sie
+**keinen** Verschleiß verursachen (FR-041a): der Schaden, den ein Klon austeilt, nutzt die Waffe
+des beschwörenden Spielers nicht ab. B12 muss dieselbe Kreatur ein zweites Mal einordnen — zählt
+ihr Schaden für den **höchsten Schaden** des Spielers?
+
+**Entscheidung.** Ja. Schaden eines Klons wird dem beschwörenden Spieler zugerechnet.
+
+**Das ist bewusst nicht dieselbe Antwort wie in B11, und die Asymmetrie hat einen Grund.** Ein
+Klon trägt **keine eigene Ausrüstung**, die sich abnutzen könnte — der Verschleiß hätte an
+fremdem Gerät angesetzt, nämlich am Werkzeug des Spielers, das der Klon gar nicht führt. Sein
+Schaden dagegen entsteht unmittelbar aus einer Fähigkeit, die der Spieler gewirkt und bezahlt
+hat. Was der Klon **kostet**, kostet ihn; was er **leistet**, leistet der Spieler.
+
+**Begründung.** Eine Beschwörung ist für die betroffenen Klassen kein Nebenweg, sondern der
+Hauptweg, Schaden auszuteilen. Würde ihr Schaden nicht zählen, wäre die Schadensrangliste für
+diese Klassen strukturell verschlossen — und zwar nicht, weil sie schwächer wären, sondern weil
+die Statistik an der falschen Stelle nachsieht.
+
+**Verworfen.**
+- **Konsequent wie B11 behandeln** (Klonschaden zählt nicht): wäre die widerspruchsfreiere
+  Regel auf dem Papier gewesen. Sie hätte aber eine ganze Spielweise aus einer öffentlichen
+  Rangliste ausgeschlossen, ohne dass ein Spieler den Grund je erkennen könnte.
+
+**Auswirkung.** Die Zuordnung „Schaden eines Klons gehört dem Beschwörer" gilt in B12 und
+**nicht** rückwirkend in B11 — dort bleibt FR-041a unverändert. Wer die beiden Stellen
+nebeneinander liest, muss die Asymmetrie erklärt bekommen; dieser ADR ist die Erklärung, und die
+Spec verweist an beiden Enden darauf.
+
+---
+
+## ADR-048: B12 wohnt in eigenen Paketen — `statistics`, nicht `stats`
+
+**Status:** Angenommen · **Datum:** 2026-08-29 · **Blöcke:** B12, berührt B04
+
+**Kontext.** `plan.md` und `tasks.md` haben `rpg.core.stats`, `rpg.persistence.stats` und
+`rpg.platform.stats` als **neue** Pakete für B12 geführt (`plan.md`, Verzeichnisbaum: „# neu").
+Sie sind nicht neu. Alle drei gehören **B04**, der Attribut- und Stat-Engine: allein
+`rpg.core.stats` hält 29 Klassen und ein `package-info.java`, das das Paket ausdrücklich für
+sich beansprucht („What this block owns"). Der Irrtum ist bis in `quickstart.md` durchgeschlagen,
+wo `--tests "rpg.core.stats.*"` B04s Tests mitgelaufen wäre und als B12-Beleg gezählt hätte.
+
+**Entscheidung.** B12 zieht in eigene Pakete `rpg.core.statistics`,
+`rpg.persistence.statistics` und `rpg.platform.statistics`. Die Klassen dieses Blocks tragen
+durchgehend das Präfix `Statistics…` statt `Stats…`.
+
+**Begründung.** Zwei Namenspaare hätten sonst nebeneinander gestanden, und beide sind von der
+Sorte, die kein Test findet, weil jede Klasse für sich einwandfrei arbeitet — falsch ist nur,
+welche jemand greift:
+
+| B04 (vorhanden) | B12 (geplant) | |
+|---|---|---|
+| `StatConfig` | `StatsConfig` | ein Buchstabe, dasselbe Paket |
+| `StatsModule` | `StatsModule` | derselbe Name, zwei Module |
+
+Dieselbe Fehlerart hat dieses Projekt schon zweimal Zeit gekostet: die gemeinsame UUID für
+Halter und Charakter (1614 Tests lang unsichtbar) und B10s zweite `bossStates`-Map neben der
+des Moduls. Beide Male stimmte jede Hälfte für sich.
+
+Dazu kommt: T001 verlangt ein `package-info`, das **die Grenze des Blocks nennt**. In einem
+Paket, dessen Grenze bereits ein anderer Block gezogen hat, ist diese Aufgabe nicht erfüllbar —
+sie wäre ein zweites Namensschild an derselben Tür.
+
+**Verworfen.** *Einzug in B04s Pakete* — spart das Umschreiben der Aufgabenliste, verschiebt die
+Kosten aber auf jede spätere Lesung. *`rpg.core.leaderboard`* — trennt ebenfalls sauber, trifft
+aber nur US3 und US6; Erfassung (US1) und Profil (US2) sind der größere Teil des Blocks, und
+`statistics.yml` heißt ohnehin schon so.
+
+**Zeitpunkt.** Entschieden, bevor die erste Zeile B12-Code entstand. Betroffen waren nur
+Pfadangaben in den Planungsunterlagen (123 Stellen, davon 113 in `tasks.md`); kein Quelltext.
+
+---
+
+## ADR-049: Drei Materialized Views, nicht vier — der Saisonstand kann keine sein
+
+**Status:** Angenommen · **Datum:** 2026-08-30 · **Blöcke:** B12
+
+**Kontext.** research.md R1 und data-model.md §2.1 sehen **vier** Materialized Views vor, eine je
+Zeitraum: `mv_stat_alltime`, `mv_stat_season`, `mv_stat_week`, `mv_stat_day`. Für drei davon
+funktioniert das: Allzeit, ISO-Woche und Kalendertag lassen sich allein aus der gespeicherten
+Tagesangabe bilden.
+
+**Die vierte nicht.** Eine Saison ist ein konfigurierter Datumsbereich aus `statistics.yml`. Eine
+Materialized View kennt keine Parameter — sie müsste die Saisongrenzen in ihrer eigenen Definition
+tragen. Damit wäre jede neue Saison eine neue Migration, und der Kalender stünde an zwei Stellen.
+
+**Entscheidung.** `V12_1` legt **drei** Sichten an. Der Saisonstand entsteht aus einer
+**parametrisierten Abfrage** je Auffrischung, deren Grenzen der `SeasonCalendar` liefert — ebenfalls
+eine Abfrage, also unverändert die Zusage aus R1: *eine Abfrage je Sicht, unabhängig von der Zahl
+der Ranglisten*.
+
+**Begründung.** Die Alternative wäre eine Tabelle `rpg.season`, beim Start aus der Konfiguration
+gefüllt, mit der die vierte Sicht sich verbinden könnte. Sie hätte vier Sichten erhalten — und den
+Kalender verdoppelt. Liefe die Spiegelung einmal nicht (fehlgeschlagene Migration, abgebrochener
+Start, ein von Hand geändertes `statistics.yml` ohne Neustart), rechneten die Saisonranglisten
+still mit dem alten Kalender weiter. Es gäbe keinen Fehler, nur andere Zahlen — und niemand hätte
+einen Anlass nachzusehen. Dieselbe Überlegung, aus der dieser Block Zustandswerte nicht spiegelt
+(ADR-041) und keine zweite Ablage führt (FR-002).
+
+**Nebenwirkung, bewusst in Kauf genommen.** Die Saisonabfrage liest die Rohtabelle statt einer
+vorbereiteten Sicht und ist damit teurer als die anderen drei. Sie läuft im Auffrischungstakt und
+nicht beim Öffnen eines Fensters — der Preis fällt also dort an, wo Zeit ist, und nicht dort, wo
+ein Spieler wartet.
+
+**Was die Sichten NICHT tun.** Sie verdichten nicht je Metrikfamilie, sondern gruppieren nach dem
+vollständigen Schlüssel einschließlich Dimension. Die Zusammenfassung je Familie und die Trennung
+von Boss- und Mob-Kills passieren beim Füllen des Speicherstands: welche Art ein Boss ist, steht in
+`mobs.yml` und nicht in der Datenbank (FR-009a). Verdichteten die Sichten bereits, wäre außerdem
+die Aufschlüsselung fürs eigene Profil verloren, die FR-038 verlangt.
+
+**Die Grenze von FR-032a, beim Bau gefunden (2026-08-30).** „Eine neue Metrik erscheint von allein
+auf dem Brett" gilt für **Summenmetriken**, nicht für Maximum-Metriken. Die Sicht muss wissen,
+welche Familie maximiert statt zu summieren, und das steht in keiner Spalte — sie nennt
+`damage_max` deshalb beim Namen. Eine **zweite** Maximum-Metrik braucht folglich eine Migration.
+
+Das ist keine Schlamperei, sondern eine Eigenschaft der Aggregation in SQL, und die Alternativen
+sind schlechter: eine Spalte „Art" in der Tageszeile wäre eine zweite Haltung derselben Angabe,
+die schon in `MetricRegistry` steht (ADR-040 hat dieselbe Frage für den Schreibweg entschieden).
+
+Wichtig ist, dass die Grenze **nicht still** ist: `NewMetricAppearsWithoutConfigTest` vergleicht
+die `IN (...)`-Liste der Sichten mit den Maximum-Metriken des Verzeichnisses in beide Richtungen.
+Wer eine Maximum-Metrik einträgt und die Sicht vergisst, bekommt einen roten Test — und nicht eine
+Rangliste, die still summiert. Eine summierte Höchstschadenzahl sähe nämlich wie eine plausible
+Zahl aus.
+
+---
+
+## ADR-050: Eine getaggte Kreatur ohne Registry-Eintrag wird entfernt, nicht adoptiert
+
+**Status:** Angenommen · **Datum:** 2026-08-30 · **Blöcke:** B10, B12, B11
+
+**Kontext.** `HordeRegistry` ist eine `LinkedHashMap` im Speicher und wird beim Start nicht
+wiederhergestellt. Die Kreaturen selbst überleben einen Neustart aber sehr wohl: sie stehen mit
+ihrem `MobKindTag` im `PersistentDataContainer` in der Weltdatei. Nach jedem Neustart lebt damit
+eine Population, die in keinem Bestand geführt wird.
+
+**Gefunden auf dem Testserver (2026-08-30)**, beim Versuch, B12s T147 abzuhaken: ein Kill gab
+Erfahrung, erzeugte aber keine `mob_kills`-Zeile. Der Grund waren zwei Wege zu derselben Frage —
+B06 liest das Tag an der Entität (`ProgressionDeathListener` → `MobKindTag.kindKeyOf`), B12 fragt
+die Registry (`KillStatListener` → `MobKinds.ofEntity`). Der eine überlebt den Neustart, der andere
+nicht.
+
+**Die Folgen reichen weiter als die eine fehlende Zeile.** Die Registry ist nicht nur ein
+Nachschlagewerk, sie **ist das Budget**. Steht die Population nicht darin, hält B10 den Platz für
+frei und spawnt darüber hinaus. Ihr eigenes Javadoc formuliert die Zusage, die dabei bricht: *„ein
+Budget, das man umgehen kann, ist keines."* Ebenso hängen B11s Beute (`could not drop loot for a
+death`) und B12s Todesursache an derselben Abfrage.
+
+**Entscheidung.** Beim Laden eines Chunks wird eine Kreatur mit unserem Tag, die **nicht** in der
+Registry steht, **entfernt**. Sie respawnt aus dem Budget wie jede andere. Damit gilt wieder, was
+das Startlog ohnehin behauptet — `the budget is now the only source of living creatures` —, und
+zwar auch nach einem Neustart, wo dieser Satz bisher schlicht unwahr war.
+
+**Begründung.** Die naheliegende Alternative wäre, die Kreatur zu **adoptieren**: sie beim Laden in
+die Registry aufzunehmen statt sie zu entfernen. Das klingt sparsamer und ist es nicht. Ein `Entry`
+braucht `zoneKey` — und zwar die **Ursprungs**zone, nicht die aktuelle, das ist FR-017 — sowie
+`spawnedAt`. Beides ist nach einem Neustart nicht rekonstruierbar: die Ursprungszone müsste
+zusätzlich ins Tag, der Zeitstempel wäre erfunden. Man bezahlt zwei neue Angaben und eine
+Halbwahrheit dafür, dass Kreaturen einen Neustart überleben — was keinen Spielwert hat, weil sie
+ohnehin nach Distanz und Zeit despawnen.
+
+**Nicht entschieden wurde, dass B12 das Tag lesen soll.** Das war der dritte Weg und er repariert
+eine Frage von dreien: B11 fragte weiter ins Leere, das Budget bliebe umgehbar, und wir hätten
+dauerhaft zwei Auflösungswege — genau die zweite Wahrheit, vor der `MobKinds` im eigenen Javadoc
+warnt. Jeder weitere Block baute sich dann seinen eigenen Rückfall.
+
+**Was trotzdem zu tun bleibt.** Vanilla-Wesen gibt es weiterhin, und für sie ist „nicht in der
+Registry" der Normalfall, kein Fehler. B12 muss den Fall also weiterhin abdecken — aber sichtbar:
+ein Tod durch ein nicht auflösbares Wesen gehört unter `deaths.environment`, nicht unter
+`deaths.player` (siehe B12 T150), und ein Kill an einem Vanilla-Tier zählt bewusst gar nicht
+(FR-006). Der Unterschied zwischen „gehört nicht dazu" und „wurde vergessen" muss im Code stehen.
+
+**Offen, bewusst festgehalten:** dass das Budget tatsächlich umgangen wird, ist ein **begründeter
+Verdacht und keine Messung**. Die Registry wurde zur Laufzeit nicht gegen die lebende Population
+gehalten. Vor der Umsetzung ist das die eine Zahl, die zu erheben ist — sie entscheidet, ob dies
+eine Aufräumarbeit ist oder ein Fehler mit Spielwirkung.
+
+---
+
+## ADR-051: Ein Kommando `/char` in B13, befristet — nach dem Muster von ADR-028
+
+**Status:** Angenommen · **Datum:** 2026-08-30 · **Blöcke:** B13, später B14
+
+**Kontext.** B13 baut die Charakterübersicht — das einzige wirklich fehlende Fenster des Blocks.
+Vier Blöcke (B04, B07, B08b, B11) führen Daten, die nirgendwo zusammen zu sehen sind. Das Fenster
+allein nützt niemandem: **ein Fenster ohne Aufrufweg ist für den Spieler nicht vorhanden.**
+
+Die einheitliche Kommandostruktur mit Rechtebaum und Tab-Completion gehört **B14**. Der ist mehrere
+Blöcke entfernt.
+
+**Entscheidung.** B13 legt **genau einen** Kommandoeintrag an: `/char`, ohne Argument, öffnet die
+Übersicht des **aktiven** Charakters. Recht `rpg.ui.character`, `default: true` — die eigenen Werte
+anzusehen ist nichts, wofür ein Betreiber erst etwas freischalten müsste.
+
+Das Kommando ist **vorläufig** und geht mit `/coins`, `/stats` und `/top` an B14.
+
+**Kein Argument.** Es gibt nichts zu wählen: die Übersicht zeigt den aktiven Charakter, und eine
+Summe über mehrere bildet sie nicht (FR-053). Ein Argument wäre die Einladung, genau das zu
+erwarten.
+
+**Alternative: eine Eingabegeste statt eines Kommandos.** Verworfen. Sie wäre unsichtbar — ein
+Spieler, dem niemand sagt, dass er die Offhand tauschen soll, findet das Fenster nie. Und der
+Offhand-Tausch wird von `EquipmentLockListener` bereits angefasst.
+
+**Auswirkung.** B14 erbt vier vorläufige Kommandos statt drei. Der Preis ist bekannt und angenommen:
+ADR-028 hat ihn für `/coins` bereits benannt, und B12 hat ihn für `/stats` und `/top` zweimal
+bezahlt. Die Alternative wäre ein Fenster gewesen, das bis B14 niemand öffnen kann.
+
+**B13 sammelt dabei keine fremden Kommandos ein.** `/coins` bleibt, wo es ist (FR-061a) — obwohl
+sein Fenster in diesem Block umgezogen ist. Eine Eingabegeste ist Präsentation, ein Kommando mit
+Rechtebaum ist es nicht.
+
+---
+
+## ADR-052: `AbilityHotbar` bleibt vor der Schnittstelle — eine benannte Ausnahme von Constitution III.4
+
+**Status:** Angenommen · **Datum:** 2026-08-30 · **Blöcke:** B13, B08
+
+**Kontext.** Constitution III.4 verlangt: „Rendering und Eingabe liegen hinter Schnittstellen
+(`HudRenderer`, `ItemRenderer` u. ä.), damit ein späterer Resource-Pack-Client ohne Umbau ergänzt
+werden kann."
+
+B08s `AbilityHotbar` legt die Skill-Leiste: Slot 0 die gebundene Waffe, ab Slot 1 je Fähigkeit ein
+Item. Das **ist** Rendering. Sie steht nicht hinter `HudRenderer`, und FR-024 sagt ausdrücklich, dass
+B13 sie nicht dorthin zieht.
+
+**Das ist eine Abweichung, und sie war bis zu diesem ADR unaufgeschrieben.** Die Spec hatte sie unter
+*Assumptions* mit dem Satz erklärt, die Vorgabe gelte „für das, was B13 baut, nicht rückwirkend für
+alles, was schon zeichnet". Das ist genau die **stille Neuinterpretation**, die die Governance
+ausschließt: „Ein Vorschlag, der gegen sie verstößt, wird abgelehnt oder verlangt eine ausdrückliche,
+begründete Ausnahme." Aufgefallen bei der Querprüfung durch `/speckit-analyze` am 2026-08-30.
+
+**Entscheidung.** Die Ausnahme wird **gewährt und hier festgehalten**. `AbilityHotbar` bleibt
+unverändert in `rpg.platform.ability`.
+
+**Begründung.** Sie läuft, sie ist getestet, sie ist auf echtem Paper abgenommen. Ein Umbau an
+fremdem funktionierendem Code wäre der teuerste Weg zu keinem sichtbaren Unterschied — dieselbe
+Begründung, mit der `ClassSelectionMenu` (FR-070) und B12s Fenster (FR-071) unangetastet bleiben.
+
+**Alternative: sie hinter `HudRenderer` ziehen.** Verworfen. `HudRenderer` schreibt Text auf drei
+Flächen; die Hotbar legt Gegenstände in Slots. Beides unter eine Schnittstelle zu zwingen hieße,
+entweder die Schnittstelle so weit zu machen, dass sie nichts mehr zusagt, oder eine zweite daneben
+zu stellen — und dann wäre die Zusage „eine Naht" schon gebrochen.
+
+**Auswirkung, und sie ist echt.** SC-004 sagt: „Ein Wechsel des `HudRenderer` erfordert keine
+Änderung an B04, B05 oder B08." Das gilt **ohne die Hotbar**. Ein pack-fähiger Client müsste sie
+später nachziehen — ein eigener Schritt, den dieser ADR sichtbar macht, statt ihn erst dann
+auffallen zu lassen.
+
+**Bewacht von** `UntouchedBlocksStayUntouchedTest`: `AbilityHotbar`, `ClassSelectionMenu`,
+`StatisticsMenu` und `LeaderboardMenu` tauchen in `rpg/platform/ui/` nirgends auf. B13 sichert jede
+andere Zusage per Test; ausgerechnet die vier „nicht anfassen" nur dem Augenschein zu überlassen
+hieße, sie beim ersten gut gemeinten Umbau zu verlieren.

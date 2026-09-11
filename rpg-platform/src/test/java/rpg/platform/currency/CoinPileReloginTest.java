@@ -27,6 +27,7 @@ import org.mockbukkit.mockbukkit.ServerMock;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
 
 import rpg.core.currency.CurrencyConfig;
+import rpg.platform.drop.OwnedDropPlatform;
 
 /**
  * Ein Haufen bleibt nach dem Wiedereinloggen sichtbar (FR-027a).
@@ -138,7 +139,7 @@ class CoinPileReloginTest {
     }
 
     /** Haelt fest, wem welcher Haufen gezeigt wurde. */
-    private static final class RecordingDisplay implements CoinPile.PilePlatform {
+    private static final class RecordingDisplay implements OwnedDropPlatform {
 
         final List<Map.Entry<Item, UUID>> shown = new ArrayList<>();
 

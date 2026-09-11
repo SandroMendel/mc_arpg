@@ -58,6 +58,19 @@ public final class AbilityRuntime {
     /** At most one running ability per character - a cast or a sustained one (FR-040, FR-045b). */
     private final Map<UUID, RunningAbility> running = new ConcurrentHashMap<>();
 
+    /**
+     * Sustained abilities that do NOT occupy their caster (FR-045a).
+     *
+     * <p>Keyed by character AND ability, because several can hold at once - that is the whole point
+     * of them. {@link #running} stays single-slot and keeps its meaning: at most one thing the
+     * character is <em>doing</em>. A shield that lasts eight seconds is not something he is doing.
+     *
+     * <p>Why not one map with a flag: every read of {@code running} asks "may he act", and an entry
+     * that sometimes means yes and sometimes no is the kind of answer that gets tested once and
+     * misread forever.
+     */
+    private final Map<Key, RunningAbility> holding = new ConcurrentHashMap<>();
+
     /** Charge pools, keyed by character and ability. */
     private final Map<Key, Charges> charges = new ConcurrentHashMap<>();
 
@@ -170,6 +183,14 @@ public final class AbilityRuntime {
                 holderOf(characterId).orElse(characterId), delay, () -> expire(characterId));
     }
 
+    /** The same for a held ability, which is addressed by its id rather than by the slot. */
+    private TaskHandle scheduleRelease(UUID characterId, Ability ability) {
+        return scheduling.after(
+                holderOf(characterId).orElse(characterId),
+                ability.duration(),
+                () -> expireHeld(characterId, ability.id()));
+    }
+
     /** Character plus ability - the key a charge pool hangs on. */
     private record Key(UUID characterId, String abilityId) {}
 
@@ -229,6 +250,12 @@ public final class AbilityRuntime {
         }
         if (!isUnlocked(characterId, abilityId)) {
             return AbilityResult.NOT_UNLOCKED;
+        }
+        // A second right-click on something already held takes it down (FR-045a). Checked before
+        // everything else: a player who wants to drop his shield should not be told he is on
+        // cooldown, and this is the only way to end a non-exclusive ability early.
+        if (holding.containsKey(new Key(characterId, abilityId))) {
+            return releaseHeld(characterId, ability, EndCause.PLAYER);
         }
         // FR-040 and FR-045b: at most one going at a time, whichever phase it is in. Checked before
         // the global lock because "you are already doing something" is the more useful thing to say.
@@ -422,6 +449,36 @@ public final class AbilityRuntime {
         takeEffect(characterId, ability, clock.instant());
     }
 
+
+    /**
+     * Ends a held ability - the second right-click, or the expiry.
+     *
+     * <p>The cost is kept and the cooldown starts here, exactly as for an exclusive one: stopping
+     * something early does not undo that it happened (FR-045e).
+     */
+    private AbilityResult releaseHeld(UUID characterId, Ability ability, EndCause cause) {
+        RunningAbility held = holding.remove(new Key(characterId, ability.id()));
+        if (held == null) {
+            return AbilityResult.TRIGGERED;
+        }
+        held.cancelTask();
+        sustain.ended(characterId, ability);
+        startCooldown(characterId, ability, clock.instant());
+        return AbilityResult.ENDED;
+    }
+
+    /** Ends a held ability whose duration ran out. Called by the scheduled one-shot. */
+    public void expireHeld(UUID characterId, String abilityId) {
+        Ability ability = registry.config().find(abilityId).orElse(null);
+        if (ability != null) {
+            releaseHeld(characterId, ability, EndCause.EXPIRED);
+        }
+    }
+
+    /** Whether this character is holding that ability right now. For the hotbar and for tests. */
+    public boolean isHolding(UUID characterId, String abilityId) {
+        return holding.containsKey(new Key(characterId, abilityId));
+    }
     /** Ends a sustained ability whose duration ran out. Called by the scheduled one-shot. */
     public void expire(UUID characterId) {
         end(characterId, EndCause.EXPIRED);
@@ -433,8 +490,7 @@ public final class AbilityRuntime {
 
         if (ability.sustained()) {
             Instant endsAt = now.plus(ability.duration());
-            running.put(
-                    characterId,
+            RunningAbility held =
                     new RunningAbility(
                             characterId,
                             ability.id(),
@@ -442,7 +498,17 @@ public final class AbilityRuntime {
                             now,
                             endsAt,
                             0.0,
-                            scheduleEnd(characterId, ability.duration())));
+                            ability.exclusive()
+                                    ? scheduleEnd(characterId, ability.duration())
+                                    : scheduleRelease(characterId, ability));
+            if (ability.exclusive()) {
+                // He is DOING this: the blocking stance, the whirl, drinking the potion. Nothing
+                // else may start while it lasts.
+                running.put(characterId, held);
+            } else {
+                // It merely holds on him: a shield, a battle cry. He keeps playing.
+                holding.put(new Key(characterId, ability.id()), held);
+            }
             sustain.started(characterId, ability);
             // No cooldown yet: it starts when the ability actually ends, however that happens.
             return AbilityResult.SUSTAINING;
@@ -649,8 +715,27 @@ public final class AbilityRuntime {
             return;
         }
         StatSnapshot snapshot = stats.snapshot(casterId);
-        List<UUID> resolved = targets.resolve(casterId, ability.target());
-        effects.run(ability, casterId, resolved, rank, snapshot);
+        if (!ability.target().mode().anchored()) {
+            effects.run(ability, casterId, targets.resolve(casterId, ability.target()), rank, snapshot);
+            return;
+        }
+        // An anchored ability picks a PLACE, and the place has to survive the cast: everything
+        // periodic on it is re-resolved there, tick after tick. Resolved once here as well, so the
+        // first application lands immediately rather than one interval late.
+        rpg.core.scheduler.WorldPosition anchor =
+                targets.anchorFor(casterId, ability.target()).orElse(null);
+        if (anchor == null) {
+            // No ground in sight and no caster to fall back on. Nothing to do, and nothing wrong -
+            // the mana is spent and the cooldown runs, exactly as for an area that finds nobody.
+            return;
+        }
+        effects.runAnchored(
+                ability,
+                casterId,
+                targets.resolveAt(casterId, anchor, ability.target()),
+                rank,
+                snapshot,
+                anchor);
     }
 
     /**

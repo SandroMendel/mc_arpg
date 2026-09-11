@@ -43,7 +43,10 @@ class MigrationIdempotencyTest {
             assertThat(outcome.applied()).isPositive();
             assertThat(tableExists(pools.writePool(), "player_state")).isTrue();
             assertThat(tableExists(pools.writePool(), "player_statistic_daily")).isTrue();
-            assertThat(tableExists(pools.writePool(), "item_instance")).isTrue();
+            // item_instance stand hier bis ADR-039. V11_1 hat sie zurueckgebaut - sie wurde bei
+            // jedem Sitzungsstart geladen und nie geschrieben (research.md R2). Die Zusicherung
+            // wird umgedreht statt geloescht, damit die Aenderung im Diff sichtbar bleibt.
+            assertThat(tableExists(pools.writePool(), "item_instance")).isFalse();
             assertThat(tableExists(pools.writePool(), "audit_log")).isTrue();
         }
     }

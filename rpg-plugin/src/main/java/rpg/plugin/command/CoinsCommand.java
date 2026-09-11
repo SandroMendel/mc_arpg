@@ -8,22 +8,23 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.bukkit.Server;
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
-import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
 import rpg.core.currency.BookingResult;
 import rpg.core.currency.Currency;
 import rpg.core.currency.CurrencyAdmin;
 import rpg.core.currency.CurrencyMessageKeys;
+import rpg.core.message.MessageKey;
 import rpg.core.message.Messages;
 import rpg.core.session.PlayerCharacter;
 import rpg.core.session.PlayerSession;
 import rpg.core.session.SessionRegistry;
-import rpg.platform.currency.CurrencyMenu;
-import rpg.platform.currency.CurrencyMenuListener;
+import rpg.platform.ui.CurrencyMenu;
+import rpg.platform.ui.CurrencyMenuListener;
+import rpg.plugin.command.framework.Argument;
+import rpg.plugin.command.framework.Arguments;
+import rpg.plugin.command.framework.RpgCommand;
 
 /**
  * {@code /coins} - open the window, or change a balance.
@@ -31,6 +32,14 @@ import rpg.platform.currency.CurrencyMenuListener;
  * <p><b>Provisional, and meant to be replaced</b> (ADR-028). Commands, the permission tree and tab
  * completion belong to B14; this exists because an interface with no way to call it is present and
  * unusable, and B14 is several blocks away.
+ *
+ * <p><b>Das FENSTER ist seit B13 umgezogen, dieses Kommando nicht</b> (FR-061a). {@code CurrencyMenu}
+ * und sein Listener liegen jetzt in {@code rpg.platform.ui} — ADR-028 nennt die <em>Anzeige</em>
+ * befristet und weist <em>Kommandos</em> ausdrücklich B14 zu. B13 sammelt keine Kommandos ein; es
+ * legt nur das eine an, das sein eigenes Fenster braucht ({@code /char}).
+ *
+ * <p>Eine Eingabegeste ist Präsentation, ein Kommando mit Rechtebaum und Tab-Completion ist es
+ * nicht — deshalb ist B09s Rechtsklick am Kristall mitgewandert und dieses Kommando nicht.
  *
  * <p><b>The measure of this class is how little it contains.</b> It parses arguments, checks a
  * permission and calls. Every rule - never negative, always a reason, always an actor, online versus
@@ -41,7 +50,7 @@ import rpg.platform.currency.CurrencyMenuListener;
  * and clicking one together out of buttons would be a number pad dressed as a UI. Reading, on the
  * other hand, is exactly what a window is for - a ledger of hundreds of rows is unreadable in chat.
  */
-public final class CoinsCommand implements CommandExecutor, TabCompleter {
+public final class CoinsCommand {
 
     public static final String PERMISSION_BALANCE = "rpg.currency.balance";
     public static final String PERMISSION_ADMIN = "rpg.currency.admin";
@@ -77,50 +86,84 @@ public final class CoinsCommand implements CommandExecutor, TabCompleter {
         this.offlineBalances = Objects.requireNonNull(offlineBalances, "offlineBalances");
     }
 
-    @Override
-    public boolean onCommand(
-            CommandSender sender, Command command, String label, String[] args) {
-        if (args.length == 0) {
-            return openOwn(sender);
-        }
-        String first = args[0].toLowerCase(java.util.Locale.ROOT);
-        return switch (first) {
-            case "set", "add", "remove" -> intervene(sender, first, args);
-            default -> openFor(sender, args[0]);
-        };
+    /**
+     * Der Knoten für den Kommandobaum (T037).
+     *
+     * <p><b>Drei Formen desselben Wortes, alle unverändert</b> (FR-005):
+     *
+     * <ul>
+     *   <li>{@code /coins} — das eigene Fenster, Recht {@code rpg.currency.balance}
+     *   <li>{@code /coins <spieler>} — ein fremdes Fenster, zusätzlich {@code rpg.currency.admin}
+     *   <li>{@code /coins set|add|remove <spieler> <klasse> <betrag>} — der Eingriff
+     * </ul>
+     *
+     * <p>Deshalb {@link RpgCommand#branchWithOwnForms} und nicht {@code branch}: der Knoten hat
+     * Unterkommandos <em>und</em> eigene Formen. Ein Spieler namens {@code set} ist damit über
+     * {@code /coins <spieler>} nicht erreichbar — dieselbe Lücke hatte die
+     * {@code switch (args[0])}-Fassung, sie ist jetzt nur aufgeschrieben.
+     *
+     * <p><b>{@code getPlayerExact} ist weg.</b> Es fand nur <em>online</em> Spieler, also lehnte
+     * {@code /coins <spieler>} jeden Abgemeldeten ab — mit derselben Meldung wie einen Tippfehler,
+     * sodass der Betreiber die zwei Fälle nicht unterscheiden konnte. Der {@code PLAYER}-Typ löst
+     * beides auf und nennt einen echten Tippfehler beim Namen (T017).
+     */
+    public RpgCommand definition(Server bukkit) {
+        Argument<org.bukkit.OfflinePlayer> whose =
+                Argument.optional("player", Arguments.player(bukkit));
+
+        return RpgCommand.branchWithOwnForms(
+                "coins",
+                MessageKey.of("command.coins.description"),
+                PERMISSION_BALANCE,
+                List.of(
+                        interventionBranch(bukkit, "set"),
+                        interventionBranch(bukkit, "add"),
+                        interventionBranch(bukkit, "remove")),
+                List.of(whose),
+                true,
+                context -> {
+                    Player viewer = context.player().orElseThrow();
+                    context.find(whose)
+                            .ifPresentOrElse(
+                                    target -> openForeign(viewer, target),
+                                    () -> openWindow(viewer, viewer.getUniqueId()));
+                });
     }
 
-    /** {@code /coins} - the player's own window. No special right needed. */
-    private boolean openOwn(CommandSender sender) {
-        if (!(sender instanceof Player player)) {
-            sender.sendMessage("Only a player has characters of their own.");
-            return true;
-        }
-        if (!player.hasPermission(PERMISSION_BALANCE)) {
-            player.sendMessage(messages.get(CurrencyMessageKeys.ADMIN_DENIED));
-            return true;
-        }
-        openWindow(player, player.getUniqueId());
-        return true;
+    /**
+     * Ein Eingriffszweig — {@code /coins set|add|remove <spieler> <klasse> <betrag>}.
+     *
+     * <p>Läuft <b>auch von der Konsole</b>: ein Kontostand richtigzustellen braucht keinen Körper
+     * in der Welt, und ein Betreiber sitzt oft genau dort (FR-008).
+     */
+    private RpgCommand interventionBranch(Server bukkit, String verb) {
+        Argument<org.bukkit.OfflinePlayer> who =
+                Argument.required("player", Arguments.player(bukkit));
+        Argument<rpg.core.session.CharacterClass> which =
+                Argument.required("class", Arguments.characterClass());
+        Argument<Long> howMuch = Argument.required("amount", Arguments.atLeast("amount", 0));
+
+        return RpgCommand.leaf(
+                verb,
+                MessageKey.of("command.coins." + verb + ".description"),
+                PERMISSION_ADMIN,
+                List.of(who, which, howMuch),
+                context ->
+                        intervene(
+                                context.sender(),
+                                verb,
+                                context.get(who),
+                                context.get(which),
+                                context.get(howMuch)));
     }
 
-    /** {@code /coins <player>} - somebody else's window. Requires the admin right. */
-    private boolean openFor(CommandSender sender, String playerName) {
-        if (!(sender instanceof Player viewer)) {
-            sender.sendMessage("The window can only be opened by a player.");
-            return true;
-        }
+    /** Ein fremdes Fenster — verlangt zusätzlich das Admin-Recht. */
+    private void openForeign(Player viewer, org.bukkit.OfflinePlayer target) {
         if (!viewer.hasPermission(PERMISSION_ADMIN)) {
             viewer.sendMessage(messages.get(CurrencyMessageKeys.ADMIN_DENIED));
-            return true;
-        }
-        Player target = server.getPlayerExact(playerName);
-        if (target == null) {
-            viewer.sendMessage(messages.get(CurrencyMessageKeys.ADMIN_UNKNOWN_CHARACTER));
-            return true;
+            return;
         }
         openWindow(viewer, target.getUniqueId());
-        return true;
     }
 
     private void openWindow(Player viewer, UUID targetPlayerId) {
@@ -141,31 +184,25 @@ public final class CoinsCommand implements CommandExecutor, TabCompleter {
         menu.openSelection(viewer, targetPlayerId, characters, balances);
     }
 
-    /** {@code /coins set|add|remove <player> <class> <amount>}. */
-    private boolean intervene(CommandSender sender, String verb, String[] args) {
-        if (!sender.hasPermission(PERMISSION_ADMIN)) {
-            sender.sendMessage(messages.get(CurrencyMessageKeys.ADMIN_DENIED));
-            return true;
-        }
-        if (args.length != 4) {
-            // The character has to be named: a player has up to three, and an intervention without
-            // it would be ambiguous - the operator would notice only when the wrong one is richer.
-            sender.sendMessage("Usage: /coins " + verb + " <player> <class> <amount>");
-            return true;
-        }
+    /**
+     * {@code /coins set|add|remove <player> <class> <amount>}.
+     *
+     * <p><b>Was hier alles verschwunden ist</b> (T037): die Rechteprüfung (macht das Gerüst,
+     * FR-003), die Prüfung auf {@code args.length != 4} samt Nutzungszeile (das Gerüst nennt das
+     * fehlende Argument, FR-004), und das Zerlegen des Betrags mit {@code Long.parseLong} im
+     * {@code try} (macht der {@code AMOUNT}-Typ). Was bleibt, ist der Vorgang.
+     */
+    private void intervene(
+            CommandSender sender,
+            String verb,
+            org.bukkit.OfflinePlayer target,
+            rpg.core.session.CharacterClass characterClass,
+            long amount) {
 
-        Optional<UUID> characterId = characterOf(args[1], args[2]);
+        Optional<UUID> characterId = characterOf(target.getUniqueId(), characterClass);
         if (characterId.isEmpty()) {
             sender.sendMessage(messages.get(CurrencyMessageKeys.ADMIN_UNKNOWN_CHARACTER));
-            return true;
-        }
-
-        long amount;
-        try {
-            amount = Long.parseLong(args[3]);
-        } catch (NumberFormatException notANumber) {
-            sender.sendMessage(messages.get(CurrencyMessageKeys.INVALID_AMOUNT));
-            return true;
+            return;
         }
 
         BookingResult result =
@@ -177,13 +214,13 @@ public final class CoinsCommand implements CommandExecutor, TabCompleter {
 
         if (!result.isSuccess()) {
             sender.sendMessage(messages.get(result.messageKey()));
-            return true;
+            return;
         }
         sender.sendMessage(
                 messages.get(
                         CurrencyMessageKeys.ADMIN_APPLIED,
                         Map.of(
-                                "character", args[2],
+                                "character", rpg.plugin.command.framework.Arguments.label(characterClass),
                                 "amount",
                                 String.valueOf(
                                         currency.balanceOf(characterId.get())
@@ -191,43 +228,36 @@ public final class CoinsCommand implements CommandExecutor, TabCompleter {
                                                         () ->
                                                                 offlineBalances.balanceOf(
                                                                         characterId.get()))))));
-        return true;
     }
 
     /**
-     * Resolves player plus class to a character.
+     * Löst Spieler plus Klasse zu einem Charakter auf.
      *
-     * <p>Only for an online player: an offline one would need a lookup this provisional command has
-     * no business owning. B14 will do better; until then the operator asks while the player is on.
+     * <p><b>Die Sitzung muss geladen sein</b> — daran hat sich nichts geändert: die Charaktere
+     * eines Spielers stehen in {@code SessionRegistry}, und die kennt nur Angemeldete. Der
+     * {@code PLAYER}-Typ nimmt inzwischen auch Abgemeldete an; für die gibt es dann keinen
+     * Charakter, und die Meldung sagt genau das ({@code ADMIN_UNKNOWN_CHARACTER}) statt „diesen
+     * Spieler gibt es nicht". <b>Zwei verschiedene Lagen, zwei verschiedene Meldungen</b> — vorher
+     * war beides dieselbe, und der Betreiber konnte einen Tippfehler nicht von einem
+     * abgemeldeten Spieler unterscheiden.
      */
-    private Optional<UUID> characterOf(String playerName, String className) {
-        Player target = server.getPlayerExact(playerName);
-        if (target == null) {
-            return Optional.empty();
-        }
-        return sessions.find(target.getUniqueId()).stream()
+    private Optional<UUID> characterOf(UUID playerId, rpg.core.session.CharacterClass wanted) {
+        return sessions.find(playerId).stream()
                 .flatMap(session -> session.availableCharacters().stream())
-                .filter(
-                        character ->
-                                character.characterClass()
-                                        .name()
-                                        .equalsIgnoreCase(className))
+                .filter(character -> character.characterClass() == wanted)
                 .map(PlayerCharacter::characterId)
                 .findFirst();
     }
 
-    @Override
-    public List<String> onTabComplete(
-            CommandSender sender, Command command, String alias, String[] args) {
-        // The bare minimum. Real completion is B14's, together with the rest of this class.
-        if (args.length == 1) {
-            return List.of("set", "add", "remove");
-        }
-        return List.of();
-    }
-
-    /** The window's page size, so the plugin can build the menu with it. */
-    public static CurrencyMenu menuFor(Messages messages, int pageSize) {
-        return new CurrencyMenu(messages, pageSize);
+    /**
+     * The window's page size, so the plugin can build the menu with it.
+     *
+     * <p>Seit B13 braucht das Fenster zusätzlich den gemeinsamen Rahmen (T122) — geteilt wird die
+     * Titelbehandlung, nicht das Aussehen: {@code buildPlain} gibt ihm keinen Rand, den es vorher
+     * nicht hatte (FR-061).
+     */
+    public static CurrencyMenu menuFor(
+            Messages messages, rpg.platform.ui.MenuFrame frame, int pageSize) {
+        return new CurrencyMenu(messages, frame, pageSize);
     }
 }

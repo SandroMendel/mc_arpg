@@ -19,7 +19,6 @@ import rpg.core.ability.AbilityState;
 import rpg.core.classes.ClassProgress;
 import rpg.core.currency.CharacterBalance;
 import rpg.core.inventory.CharacterInventory;
-import rpg.core.persistence.ItemInstance;
 import rpg.core.persistence.PersistenceException;
 import rpg.core.persistence.PlayerState;
 import rpg.core.progression.CharacterProgress;
@@ -54,16 +53,11 @@ public final class SessionBundleLoader {
             "SELECT player_id, data_version, revision, last_seen_at, anonymized"
                     + " FROM rpg.player_state WHERE player_id = ?";
 
-    // Items hang off the character since ADR-011, so this reaches them through it and still gets
-    // every item of the account in one statement. rolled_values is deliberately not selected: it is
-    // a JSONB blob per item that the owning block (B11) reads when it needs it, and transferring it
-    // for every item of every login would be the single largest part of this query for data nobody
-    // looks at here.
-    private static final String SELECT_ITEMS =
-            "SELECT i.instance_id, i.owner_character_id, i.template_id, i.revision"
-                    + " FROM rpg.item_instance i"
-                    + " JOIN rpg.character c ON c.character_id = i.owner_character_id"
-                    + " WHERE c.player_id = ?";
+    // Hier stand SELECT_ITEMS: eine Abfrage ueber rpg.item_instance, die bei JEDER Anmeldung lief
+    // und deren Ergebnis niemand gelesen hat. Mit ADR-039 ist sie weg - ein B11-Item traegt seine
+    // Vorlagen-ID im PersistentDataContainer und liegt damit im Inventar-Blob, den readInventories
+    // ohnehin holt (research.md R2, V11_1). Der Ladepfad ist damit um ein Statement kuerzer, und
+    // die Zusage dieser Klasse - eine Anmeldung, eine Runde - wird davon nur besser.
 
     private final DataSource loginPool;
     private final rpg.persistence.jdbc.JdbcCharacterRepository characters;
@@ -115,7 +109,6 @@ public final class SessionBundleLoader {
                     return SessionBundle.empty(playerId);
                 }
                 List<PlayerCharacter> loaded = characters.readByPlayer(connection, playerId);
-                List<ItemInstance> items = readItems(connection, playerId);
                 List<CharacterResources> resources = readResources(connection, loaded);
                 List<CharacterProgress> progress = readProgress(connection, loaded);
                 List<ClassProgress> classProgress = readClassProgress(connection, loaded);
@@ -123,18 +116,29 @@ public final class SessionBundleLoader {
                 List<AbilityState> abilities = readAbilities(connection, loaded);
                 List<CharacterBalance> balances =
                         JdbcCharacterBalanceRepository.readForPlayer(connection, playerId);
+                List<rpg.core.zone.ZoneCharacterState> zoneStates =
+                        rpg.persistence.zone.JdbcZoneStateRepository.readForPlayer(
+                                connection, playerId);
+                List<rpg.core.item.GearCondition> gearConditions =
+                        rpg.persistence.item.JdbcGearConditionRepository.readForPlayer(
+                                connection, playerId);
+                List<rpg.core.item.CosmeticUnlock> cosmetics =
+                        rpg.persistence.item.JdbcCosmeticRepository.readForPlayer(
+                                connection, playerId);
                 connection.commit();
                 return new SessionBundle(
                         playerId,
                         account,
                         loaded,
-                        items,
                         resources,
                         progress,
                         classProgress,
                         inventories,
                         abilities,
-                        balances);
+                        balances,
+                        zoneStates,
+                        gearConditions,
+                        cosmetics);
             } catch (SQLException failure) {
                 connection.rollback();
                 throw failure;
@@ -164,25 +168,6 @@ public final class SessionBundleLoader {
         }
     }
 
-    private static List<ItemInstance> readItems(Connection connection, UUID playerId)
-            throws SQLException {
-        List<ItemInstance> items = new ArrayList<>();
-        try (PreparedStatement statement = connection.prepareStatement(SELECT_ITEMS)) {
-            statement.setObject(1, playerId);
-            try (ResultSet rows = statement.executeQuery()) {
-                while (rows.next()) {
-                    items.add(
-                            new ItemInstance(
-                                    rows.getObject("instance_id", UUID.class),
-                                    rows.getObject("owner_character_id", UUID.class),
-                                    rows.getString("template_id"),
-                                    Map.of(), // rolled values are read by the owning block (B11)
-                                    rows.getLong("revision")));
-                }
-            }
-        }
-        return List.copyOf(items);
-    }
 
     /**
      * Reads the stored resources of every character in this bundle (B04, FR-028).

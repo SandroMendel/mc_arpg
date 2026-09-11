@@ -87,7 +87,10 @@ public final class MobEquipmentListener implements Listener {
         if (stats.findSnapshot(entity.getUniqueId()).isPresent()) {
             return;
         }
-        provider.statsFor(entity.getType().name())
+        // Die Art, nicht der Vanilla-Typ (B10, FR-006). Acht Arten je Region auf wenigen Entities
+        // heisst: getType().name() haette vier Kreaturen dieselben Werte gegeben. Ohne Vermerk
+        // faellt kindKeyOf auf den Typnamen zurueck, also gelten die combat.yml-Eintraege weiter.
+        provider.statsFor(rpg.platform.mob.MobKindTag.kindKeyOf(entity))
                 .ifPresent(
                         set -> {
                             stats.createForEntity(entity.getUniqueId());

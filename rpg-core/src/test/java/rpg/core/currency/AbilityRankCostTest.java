@@ -112,7 +112,8 @@ class AbilityRankCostTest {
                 null,
                 null,
                 null,
-                false);
+                false,
+                rpg.core.ability.EffectPhase.CAST);
     }
 
     private static Ability ability(Map<String, Object> rankCost) {
@@ -125,6 +126,8 @@ class AbilityRankCostTest {
                 Duration.ZERO,
                 Duration.ZERO,
                 false,
+                // exclusive: ohne sustained bedeutungslos, aber der Datensatz verlangt einen Wert
+                true,
                 Duration.ZERO,
                 1,
                 // Kein Ladefenster bei einer einzigen Ladung - das bedeutete nichts.

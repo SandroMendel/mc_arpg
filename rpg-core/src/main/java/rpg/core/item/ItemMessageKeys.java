@@ -1,0 +1,368 @@
+package rpg.core.item;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+
+import rpg.core.classes.LadderSlot;
+import rpg.core.message.MessageKey;
+
+/**
+ * Die Spielertexte dieses Blocks.
+ *
+ * <p><b>Der Name einer Vorlage ist ein Schlüssel, kein Text</b> — genau wie bei B10s Arten und B09s
+ * Regionen. Der sichtbare Name lebt unter {@code item.<key>.name} und nirgends sonst. Eine Vorlage
+ * umzubenennen ist eine Zeile dort, und keine Beutetabelle, kein Händlerbestand und kein späterer
+ * Block muss dafür angefasst werden (Prinzip V).
+ *
+ * <p>{@link #all(Collection)} nimmt deshalb die konfigurierten Vorlagenschlüssel entgegen — die
+ * Startprüfung kann dann beweisen, dass jede Vorlage wirklich einen Namen hat, und ein Trank, der
+ * als {@code item.potion.minor-healing.name} durch das Inventar liefe, verweigert stattdessen den
+ * Start.
+ *
+ * <p><b>Auch die Raritätsbezeichnungen stehen dort</b>, nicht im Java-Quelltext. Ein Farbcode im
+ * Code wäre ein hartcodierter Spielertext mit einem anderen Namen — und die acht Stufen sind das
+ * einzige, was ein Spieler von der Raritätsskala je zu sehen bekommt (FR-014).
+ */
+public final class ItemMessageKeys {
+
+    private ItemMessageKeys() {}
+
+    /** Der sichtbare Name einer Vorlage, {@code item.<key>.name}. */
+    public static MessageKey nameOf(String templateKey) {
+        return MessageKey.of("item." + templateKey + ".name");
+    }
+
+    /**
+     * Die Beschreibungszeile einer Vorlage, {@code item.<key>.lore}.
+     *
+     * <p>Optional: nicht jede Vorlage braucht eine. Wirkungswerte kommen ohnehin aus der Vorlage
+     * und werden bei jedem Laden neu abgeleitet (FR-002) — hier steht nur, was ein Autor darüber
+     * hinaus sagen will.
+     */
+    public static MessageKey loreOf(String templateKey) {
+        return MessageKey.of("item." + templateKey + ".lore");
+    }
+
+    // --- Was ein Verbrauchbares GENAU tut (FR-002) -------------------------------------
+    //
+    // Ein Trank namens "Healing Potion" sagt einem Spieler nicht, ob er 40 oder 420 heilt - und
+    // der Unterschied zwischen den dreien im Bestand ist genau das. Ohne die Zahl bleibt nur
+    // Ausprobieren, und Ausprobieren kostet einen Trank.
+
+    /** Wie viel geheilt wird. Platzhalter: {@code amount}. */
+    public static final MessageKey EFFECT_HEAL = MessageKey.of("item.effect.heal");
+
+    /** Wie viel Mana zurückkommt. Platzhalter: {@code amount}. */
+    public static final MessageKey EFFECT_MANA = MessageKey.of("item.effect.mana");
+
+    /** Ein zeitlicher Beitrag. Platzhalter: {@code attribute}, {@code amount}, {@code seconds}. */
+    public static final MessageKey EFFECT_BUFF = MessageKey.of("item.effect.buff");
+
+    /** Dass dieser Trank geworfen wird und jeden im Radius trifft. */
+    public static final MessageKey EFFECT_SPLASH = MessageKey.of("item.effect.splash");
+
+    /** Die Abklingzeit. Platzhalter: {@code seconds}. */
+    public static final MessageKey EFFECT_COOLDOWN = MessageKey.of("item.effect.cooldown");
+
+    // --- Wenn ein FREMDER Trank einen trifft ------------------------------------------
+    //
+    // Ein Wurftrank wirkt auf Leute, die ihn nicht geworfen haben. Ohne eine Meldung merkt der
+    // Getroffene nur, dass sich eine Zahl geaendert hat - und weiss weder, woher, noch wie viel.
+    // Beides zusammen macht aus einem Zufall eine Handlung, fuer die man sich bedanken kann.
+    //
+    // Nur bei einem FREMDEN Trank: wer selbst wirft, weiss ohnehin, was er getan hat, und eine
+    // Meldung dafuer waere die haeufigste und ueberfluessigste von allen.
+
+    /** Geheilt worden. Platzhalter: {@code amount}, {@code player}. */
+    public static final MessageKey SPLASH_HEALED = MessageKey.of("item.splash.healed");
+
+    /** Mana bekommen. Platzhalter: {@code amount}, {@code player}. */
+    public static final MessageKey SPLASH_MANA = MessageKey.of("item.splash.mana");
+
+    /** Einen Beitrag bekommen. Platzhalter: {@code attribute}, {@code amount}, {@code seconds}, {@code player}. */
+    public static final MessageKey SPLASH_BUFF = MessageKey.of("item.splash.buff");
+
+    // Und dieselben drei ohne Namen, fuer den eigenen Wurf. Wer selbst geworfen hat, weiss, von
+    // wem der Trank kam - die Frage lautet dann nur noch, was er gebracht hat.
+
+    /** Selbst geworfen, selbst getroffen: geheilt. Platzhalter: {@code amount}. */
+    public static final MessageKey SPLASH_SELF_HEALED = MessageKey.of("item.splash.self-healed");
+
+    /** Selbst geworfen: Mana. Platzhalter: {@code amount}. */
+    public static final MessageKey SPLASH_SELF_MANA = MessageKey.of("item.splash.self-mana");
+
+    /** Selbst geworfen: ein Beitrag. Platzhalter: {@code attribute}, {@code amount}, {@code seconds}. */
+    public static final MessageKey SPLASH_SELF_BUFF = MessageKey.of("item.splash.self-buff");
+
+    /**
+     * Der sichtbare Name eines Attributs, {@code item.attribute.<key>}.
+     *
+     * <p>Hier und nicht in B04: dort ist ein Attribut ein Rechenwert mit einem
+     * Konfigurationsschlüssel, und der ist kein Spielertext. Wenn B13 die Anzeige übernimmt,
+     * zieht dieser Schlüssel dorthin um — bis dahin braucht ihn genau eine Stelle, nämlich die
+     * Lore eines Buff-Tranks.
+     */
+    public static MessageKey attributeName(rpg.core.stats.Attribute attribute) {
+        // Aus HEALTH_REGEN wird health-regen. NICHT ueber Attribute.key(): der ist camelCase
+        // ("healthRegen"), und MessageKey laesst nur Kleinschreibung mit Bindestrich zu - was
+        // richtig ist, denn ein Schluessel ist ein Pfad in einer YAML-Datei und kein Java-Bezeichner.
+        return MessageKey.of(
+                "item.attribute." + attribute.name().toLowerCase(java.util.Locale.ROOT).replace('_', '-'));
+    }
+
+    /** Der Name einer Raritätsstufe, {@code item.rarity.<key>.name}. */
+    public static MessageKey rarityName(Rarity rarity) {
+        return MessageKey.of("item.rarity." + rarity.configKey() + ".name");
+    }
+
+    // --- Die fünf Ablehnungen (FR-037) ------------------------------------------------
+    //
+    // Jede hat ihre eigene Meldung, und das ist die Anforderung. „Geht nicht" ist keine Antwort:
+    // ein Spieler, der nicht erfaehrt, warum sein Trank nicht wirkt, probiert es weiter und haelt
+    // ihn dann fuer kaputt.
+
+    /** Das Level reicht nicht. */
+    public static final MessageKey REFUSED_LEVEL = MessageKey.of("item.refused.level");
+
+    /** Falsche Klasse. */
+    public static final MessageKey REFUSED_CLASS = MessageKey.of("item.refused.class");
+
+    /** Die Abklingzeit läuft noch. Platzhalter: {@code seconds}. */
+    public static final MessageKey REFUSED_COOLDOWN = MessageKey.of("item.refused.cooldown");
+
+    /** Es würde nichts bewirken — Heilung bei vollem Leben (FR-036). */
+    public static final MessageKey REFUSED_NO_EFFECT = MessageKey.of("item.refused.no-effect");
+
+    /** Die Vorlage ist unbekannt: ein Exemplar, dessen Vorlage verschwunden ist (FR-007). */
+    public static final MessageKey REFUSED_UNKNOWN = MessageKey.of("item.refused.unknown");
+
+    // --- Der Händler (FR-057 bis FR-065) ----------------------------------------------
+    //
+    // Auch hier gilt Prinzip V: kein sichtbarer Text im Java-Quelltext. Das Fenster zeichnet
+    // Vanilla-Materialien und holt jede Zeile von hier - B13 tauscht spaeter die Darstellung,
+    // ohne dass diese Schluessel sich aendern.
+
+    /** Die Überschrift des Händlerfensters. */
+    public static final MessageKey VENDOR_TITLE = MessageKey.of("item.vendor.title");
+
+    /** Der Verkaufsplatz im Fenster. */
+    public static final MessageKey VENDOR_SELL = MessageKey.of("item.vendor.sell");
+
+    /**
+     * Der Reparaturplatz einer Leiter, {@code item.vendor.repair.<slot>}.
+     *
+     * <p>Je Leiter einer, weil B07 genau zwei kennt — Rüstung und Waffe — und weil sie getrennt
+     * verschleißen (FR-040, FR-041). Ein gemeinsamer Knopf müsste raten, welche gemeint ist.
+     */
+    public static MessageKey vendorRepair(LadderSlot slot) {
+        return MessageKey.of("item.vendor.repair." + slot.configKey());
+    }
+
+    /** Der Aufstiegsplatz einer Leiter, {@code item.vendor.upgrade.<slot>}. */
+    public static MessageKey vendorUpgrade(LadderSlot slot) {
+        return MessageKey.of("item.vendor.upgrade." + slot.configKey());
+    }
+
+    // --- Was ein Dienst tut und was er kostet ------------------------------------------
+    //
+    // Ein Knopf, der nur seinen Namen traegt, verlangt vom Spieler, ihn auszuprobieren - und
+    // "ausprobieren" heisst bei einem Kauf: bezahlen. Jede Zeile hier beantwortet die zwei
+    // Fragen, die vor dem Klick stehen: was passiert, und was kostet es.
+
+    /** Was der Verkaufsplatz tut. */
+    public static final MessageKey VENDOR_SELL_LORE = MessageKey.of("item.vendor.sell.lore");
+
+    /**
+     * Was eine Reparatur kostet. Platzhalter: {@code condition}, {@code price}.
+     *
+     * <p>Der Zustand steht mit dabei, weil der Preis von ihm abhängt (FR-053) — ohne ihn wäre
+     * die Zahl unerklärlich und sähe nach Willkür aus.
+     */
+    public static MessageKey vendorRepairLore(LadderSlot slot) {
+        return MessageKey.of("item.vendor.repair." + slot.configKey() + ".lore");
+    }
+
+    /** Dieselbe Zeile, wenn nichts abgenutzt ist. Platzhalter: {@code condition}. */
+    public static MessageKey vendorRepairLoreIntact(LadderSlot slot) {
+        return MessageKey.of("item.vendor.repair." + slot.configKey() + ".lore-intact");
+    }
+
+    /** Was ein Aufstieg kostet. Platzhalter: {@code price}, {@code level}, {@code tier}. */
+    public static MessageKey vendorUpgradeLore(LadderSlot slot) {
+        return MessageKey.of("item.vendor.upgrade." + slot.configKey() + ".lore");
+    }
+
+    /** Dieselbe Zeile auf der Höchststufe — es gibt nichts mehr zu kaufen. */
+    public static MessageKey vendorUpgradeLoreTop(LadderSlot slot) {
+        return MessageKey.of("item.vendor.upgrade." + slot.configKey() + ".lore-top");
+    }
+
+    /**
+     * Der Zustand auf der getragenen Ausrüstung selbst. Platzhalter: {@code condition}.
+     *
+     * <p>Der Haltbarkeitsbalken zeigt <em>dass</em> etwas abgenutzt ist; diese Zeile zeigt, wie
+     * viel — und dass die Zahl etwas bedeutet, nämlich den Anteil der Werte, der noch ankommt.
+     */
+    public static final MessageKey GEAR_CONDITION_LORE =
+            MessageKey.of("item.gear.condition-lore");
+
+    /** Der Preis an der Ware. Platzhalter: {@code price}. */
+    public static final MessageKey VENDOR_PRICE = MessageKey.of("item.vendor.price");
+
+    /** Derselbe Preis, wenn der Kontostand ihn nicht deckt. Platzhalter: {@code price}. */
+    public static final MessageKey VENDOR_PRICE_SHORT = MessageKey.of("item.vendor.price-short");
+
+    /** Verkauft. Platzhalter: {@code amount}. */
+    public static final MessageKey VENDOR_SOLD = MessageKey.of("item.vendor.sold");
+
+    /** Gekauft. Platzhalter: {@code amount}. */
+    public static final MessageKey VENDOR_BOUGHT = MessageKey.of("item.vendor.bought");
+
+    /** Er nimmt diesen Gegenstand nicht an (FR-016). */
+    public static final MessageKey VENDOR_NOT_SELLABLE = MessageKey.of("item.vendor.not-sellable");
+
+    /** Klassenausrüstung bleibt am Charakter (FR-063, ADR-018). */
+    public static final MessageKey VENDOR_BOUND = MessageKey.of("item.vendor.bound");
+
+    /** Diese Vorlage führt er nicht (FR-058). */
+    public static final MessageKey VENDOR_NOT_IN_STOCK = MessageKey.of("item.vendor.not-in-stock");
+
+    /** Zu wenig Coins. */
+    public static final MessageKey VENDOR_NOT_ENOUGH = MessageKey.of("item.vendor.not-enough");
+
+    /** Kein Platz im Inventar — geprüft vor der Buchung (FR-064). */
+    public static final MessageKey VENDOR_NO_ROOM = MessageKey.of("item.vendor.no-room");
+
+    // --- Verschleiss und Reparatur (FR-051 bis FR-056) --------------------------------
+
+    /** Repariert. Platzhalter: {@code price}. */
+    public static final MessageKey REPAIR_DONE = MessageKey.of("item.repair.done");
+
+    /** Da war nichts abgenutzt — eine Auskunft, keine Gratisreparatur (FR-054). */
+    public static final MessageKey REPAIR_NOT_WORN = MessageKey.of("item.repair.not-worn");
+
+    /**
+     * Die Ausrüstung ist verschlissen. Platzhalter: {@code condition}.
+     *
+     * <p>Höchstens einmal je Schwelle und Ruhezeit (FR-051). Eine Meldung bei jedem Treffer wäre
+     * eine, die niemand mehr liest — und dann fiele die eine, auf die es ankam, auch nicht mehr auf.
+     */
+    public static final MessageKey WEAR_WARNING = MessageKey.of("item.wear.warning");
+
+    // --- Kosmetik (FR-067 bis FR-073) -------------------------------------------------
+
+    /** Die Farbe wird jetzt getragen. */
+    public static final MessageKey COSMETIC_APPLIED = MessageKey.of("item.cosmetic.applied");
+
+    /**
+     * Noch nicht auf der Höchststufe — <b>und der Besitz bleibt</b> (FR-069).
+     *
+     * <p>Der Text muss beides sagen. „Geht nicht" allein liest sich wie ein verlorener Kauf, und
+     * genau das ist es nicht: die Farbe wartet.
+     */
+    public static final MessageKey COSMETIC_NOT_TOP_TIER =
+            MessageKey.of("item.cosmetic.not-top-tier");
+
+    /** Sie wird bereits getragen. */
+    public static final MessageKey COSMETIC_ALREADY_WORN =
+            MessageKey.of("item.cosmetic.already-worn");
+
+    /** Amboss, Zauberpult und Schleifstein sind für gebundene Ausrüstung gesperrt (FR-056). */
+    public static final MessageKey REPAIR_ROUTE_LOCKED = MessageKey.of("item.repair.route-locked");
+
+    // --- Der Mülleimer (FR-078) --------------------------------------------------------
+
+    /** Nachgefragt: derselbe Befehl noch einmal vernichtet. */
+    public static final MessageKey TRASH_CONFIRM = MessageKey.of("item.trash.confirm");
+
+    /** Vernichtet. */
+    public static final MessageKey TRASH_DONE = MessageKey.of("item.trash.done");
+
+    /** Die Hand ist leer. */
+    public static final MessageKey TRASH_NOTHING_HELD =
+            MessageKey.of("item.trash.nothing-held");
+
+    /** Klassenausrüstung bleibt am Charakter (FR-063, ADR-018). */
+    public static final MessageKey TRASH_BOUND = MessageKey.of("item.trash.bound");
+
+    /**
+     * Die Schlüssel, die nicht an einer Vorlage hängen.
+     *
+     * <p>Sie stehen fest, also lässt sich beim Start beweisen, dass jeder einzelne aufgelöst wird.
+     * Eine Ablehnung, die als roher Schlüssel im Chat erscheint, ist der Fall, in dem ein Spieler
+     * gar nichts erfährt — und dieser Fall soll den Start kosten, nicht den Abend.
+     */
+    private static final List<MessageKey> FIXED =
+            List.of(
+                    REFUSED_LEVEL,
+                    REFUSED_CLASS,
+                    REFUSED_COOLDOWN,
+                    REFUSED_NO_EFFECT,
+                    REFUSED_UNKNOWN,
+                    VENDOR_TITLE,
+                    VENDOR_SELL,
+                    VENDOR_PRICE,
+                    VENDOR_PRICE_SHORT,
+                    VENDOR_SOLD,
+                    VENDOR_BOUGHT,
+                    VENDOR_NOT_SELLABLE,
+                    VENDOR_BOUND,
+                    VENDOR_NOT_IN_STOCK,
+                    VENDOR_NOT_ENOUGH,
+                    VENDOR_NO_ROOM,
+                    REPAIR_DONE,
+                    REPAIR_NOT_WORN,
+                    WEAR_WARNING,
+                    REPAIR_ROUTE_LOCKED,
+                    COSMETIC_APPLIED,
+                    COSMETIC_NOT_TOP_TIER,
+                    COSMETIC_ALREADY_WORN,
+                    TRASH_CONFIRM,
+                    TRASH_DONE,
+                    TRASH_NOTHING_HELD,
+                    TRASH_BOUND,
+                    VENDOR_SELL_LORE,
+                    EFFECT_HEAL,
+                    EFFECT_MANA,
+                    EFFECT_BUFF,
+                    EFFECT_SPLASH,
+                    EFFECT_COOLDOWN,
+                    SPLASH_HEALED,
+                    SPLASH_MANA,
+                    SPLASH_BUFF,
+                    SPLASH_SELF_HEALED,
+                    SPLASH_SELF_MANA,
+                    SPLASH_SELF_BUFF,
+                    GEAR_CONDITION_LORE);
+
+    /**
+     * Jeder Schlüssel, den dieser Block ausgeben kann — für die Auflösungsprüfung beim Start.
+     *
+     * <p>Nimmt die Vorlagenschlüssel entgegen, weil sie erst feststehen, wenn {@code items.yml}
+     * gelesen ist. Die Lore-Schlüssel sind <b>nicht</b> dabei: sie sind optional, und eine Pflicht
+     * daraus zu machen hieße, jeden Trank mit einem Satz zu versehen, den niemand schreiben wollte.
+     */
+    public static List<MessageKey> all(Collection<String> templateKeys) {
+        List<MessageKey> keys = new ArrayList<>();
+        for (String templateKey : templateKeys) {
+            keys.add(nameOf(templateKey));
+        }
+        for (Rarity rarity : Rarity.values()) {
+            keys.add(rarityName(rarity));
+        }
+        keys.addAll(FIXED);
+        for (rpg.core.stats.Attribute attribute : rpg.core.stats.Attribute.values()) {
+            keys.add(attributeName(attribute));
+        }
+        for (LadderSlot slot : LadderSlot.values()) {
+            keys.add(vendorRepair(slot));
+            keys.add(vendorUpgrade(slot));
+            keys.add(vendorRepairLore(slot));
+            keys.add(vendorRepairLoreIntact(slot));
+            keys.add(vendorUpgradeLore(slot));
+            keys.add(vendorUpgradeLoreTop(slot));
+        }
+        return keys;
+    }
+}
