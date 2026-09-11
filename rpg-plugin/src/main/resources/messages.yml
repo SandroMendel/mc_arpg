@@ -848,6 +848,14 @@ command:
   trash:
     description: "Destroy the item in your hand for good, after a confirmation."
 
+  item:
+    description: "Create and deliver configured items."
+  item.give:
+    description: "Give a configured item to a player."
+    done: "Granted {amount}x {template} to {player}."
+    dropped: "Inventory full: dropped {amount}x {template} for {player}."
+    target-unavailable: "{player} must be online and have an active character."
+
   # Die Wurzel aller Betreiberwerkzeuge.
   rpg:
     description: "Operator tools."

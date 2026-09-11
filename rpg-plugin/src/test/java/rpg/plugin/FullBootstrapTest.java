@@ -700,12 +700,12 @@ class FullBootstrapTest {
     }
 
     @Test
-    void allSixCommandsAreDeclared() {
-        // Der Sammelbeweis fuer FR-005: sechs Kommandos gingen hinein, sechs kommen heraus. Ein
-        // Umzug, der eines davon unterwegs verliert, faellt hier auf und nicht erst dem Spieler.
+    void allCommandsAreDeclared() {
+        // Der Sammelbeweis fuer FR-005: die sechs bestehenden Kommandos bleiben erhalten, und die
+        // neuen Admin-Gruppen haengen gemeinsam unter /rpg. Ein verlorener Knoten faellt hier auf.
         assertThat(plugin.declaredCommandsForTest())
                 .extracting(rpg.plugin.command.framework.RpgCommand::name)
-                .containsExactlyInAnyOrder("char", "coins", "stats", "top", "trash", "xp");
+                .containsExactlyInAnyOrder("char", "coins", "stats", "top", "trash", "xp", "rpg");
     }
 
     /**
