@@ -356,6 +356,18 @@ Die Klärungssitzung vom 2026-08-28 hat sieben weitere Fragen beantwortet; alles
 - [ ] Refresh-Intervall der Leaderboards?
 - [ ] Anzeigeform: Chat, GUI, Hologramm im Hub?
 
+## B14 (Commands, Permissions & Admin) — umgesetzt *(2026-09-11)*
+
+- [x] Spieler- und Admin-Kommandos laufen über den gemeinsamen Brigadier-Baum; die vorläufigen
+      Wege `/coins`, `/char`, `/stats` und `/top` sind damit an B14 zurückgegeben.
+- [x] Rechtebaum, Präfix-gefilterte und begrenzte Tab-Completion sowie die deutsche Sprachdatei
+      sind verdrahtet und durch den Bootstrap geprüft.
+- [x] Datenverändernde Admin-Eingriffe werden append-only auditiert; `/rpg inspect` und
+      `/rpg audit` bleiben reine Lesewerkzeuge.
+- [x] Die beiden neuen B14-Entscheidungen sind in ADR-053 und ADR-054 festgehalten.
+- [ ] Offen bleibt ausschließlich die echte Paper-Abnahme mit Deploy und Quickstart; das ist keine
+      weitere offene Architekturentscheidung, sondern T105/T117/T118/T119.
+
 ## Betrieb
 
 - [x] **PostgreSQL-Standort**: gleiche Maschine wie der Server.

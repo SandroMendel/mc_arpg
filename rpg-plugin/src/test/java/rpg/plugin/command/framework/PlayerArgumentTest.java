@@ -86,6 +86,22 @@ class PlayerArgumentTest {
     }
 
     @Test
+    @DisplayName("Vorschlaege bleiben gefiltert und auf FR-033 begrenzt")
+    void suggestionsAreFilteredAndBounded() {
+        for (int index = 0; index < ArgumentType.SUGGESTION_LIMIT + 10; index++) {
+            server.addPlayer("Player" + String.format("%02d", index));
+        }
+
+        assertThat(type.suggest("Player0"))
+                .as("der bereits getippte Praefix bleibt wirksam")
+                .allMatch(name -> name.startsWith("Player0"));
+        assertThat(type.suggest(""))
+                .as("auch bei leerem Eingabefeld geht nur die begrenzte Liste hinaus")
+                .hasSize(ArgumentType.SUGGESTION_LIMIT);
+        assertThat(type.suggest("Nobody")).isEmpty();
+    }
+
+    @Test
     @DisplayName("jeder Vorschlag besteht die Pruefung - FR-002 auch hier")
     void everySuggestionParses() throws Exception {
         server.addPlayer("Sandro");

@@ -153,6 +153,34 @@ public final class JdbcPlayerStateRepository implements PlayerStateRepository, B
         return future;
     }
 
+    /**
+     * Reads an account row without making it authoritative for a connected session.
+     *
+     * <p>This is deliberately separate from {@link #load(UUID)}. The normal login read populates the
+     * in-memory cache because the session will own that state afterwards. Foreign inspection is not a
+     * login path: looking at an offline player must not make the row look like a connected player's
+     * authoritative aggregate or change what a later session handover sees.
+     */
+    public CompletableFuture<Optional<PlayerState>> peek(UUID playerId) {
+        Objects.requireNonNull(playerId, "playerId");
+        CompletableFuture<Optional<PlayerState>> future = new CompletableFuture<>();
+        scheduler.runAsync(
+                () -> {
+                    try {
+                        future.complete(readFromDatabase(playerId));
+                    } catch (SQLException | RuntimeException failure) {
+                        logger.log(
+                                Level.SEVERE,
+                                "[persistence] could not peek state for " + playerId,
+                                failure);
+                        future.completeExceptionally(
+                                new PersistenceException(
+                                        "could not peek player state for " + playerId, failure));
+                    }
+                });
+        return future;
+    }
+
     @Override
     public void markDirty(UUID playerId) {
         coordinator.markDirty(AggregateType.PLAYER_STATE, playerId.toString());

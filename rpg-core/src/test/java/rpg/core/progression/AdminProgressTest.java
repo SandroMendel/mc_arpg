@@ -60,7 +60,7 @@ class AdminProgressTest {
         AuditEntry entry = fixture.auditLog.entries.get(0);
         assertThat(entry.actor()).as("an intervention nobody can attribute is worse than none")
                 .isEqualTo(actor.toString());
-        assertThat(entry.action()).isEqualTo("progression.set");
+        assertThat(entry.action()).isEqualTo("progress_set");
         assertThat(entry.details())
                 .containsEntry("fromLevel", 8)
                 .containsEntry("fromXp", 30L)

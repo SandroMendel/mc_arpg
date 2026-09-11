@@ -22,6 +22,7 @@ import java.util.Optional;
  * @param retargetInterval Abstand, in dem eine eigene Zielzuweisung frühestens wieder anfasst
  * @param kinds die Arten, nach Kennung
  * @param hordes was in welcher Zone steht, nach Zonenschlüssel
+ * @param adminSpawnLimit maximale Zahl gleichzeitig handgesetzter Kreaturen
  */
 public record MobConfig(
         Budget budget,
@@ -31,7 +32,32 @@ public record MobConfig(
         double cleanupRadius,
         Duration retargetInterval,
         Map<String, MobKind> kinds,
-        Map<String, HordeSpec> hordes) {
+        Map<String, HordeSpec> hordes,
+        int adminSpawnLimit) {
+
+    public static final int DEFAULT_ADMIN_SPAWN_LIMIT = 20;
+
+    /** Kompatibilitätskonstruktor für die regulären B10-Aufrufer ohne Admin-Grenze. */
+    public MobConfig(
+            Budget budget,
+            Duration respawnInterval,
+            double densityPerPlayer,
+            Duration cleanupAfter,
+            double cleanupRadius,
+            Duration retargetInterval,
+            Map<String, MobKind> kinds,
+            Map<String, HordeSpec> hordes) {
+        this(
+                budget,
+                respawnInterval,
+                densityPerPlayer,
+                cleanupAfter,
+                cleanupRadius,
+                retargetInterval,
+                kinds,
+                hordes,
+                DEFAULT_ADMIN_SPAWN_LIMIT);
+    }
 
     public MobConfig {
         Objects.requireNonNull(budget, "budget");
@@ -50,6 +76,10 @@ public record MobConfig(
         if (!Double.isFinite(cleanupRadius) || cleanupRadius <= 0.0) {
             throw new IllegalArgumentException(
                     "horde.cleanup-radius must be positive, but was " + cleanupRadius);
+        }
+        if (adminSpawnLimit <= 0) {
+            throw new IllegalArgumentException(
+                    "admin-spawn-limit must be positive, but was " + adminSpawnLimit);
         }
     }
 

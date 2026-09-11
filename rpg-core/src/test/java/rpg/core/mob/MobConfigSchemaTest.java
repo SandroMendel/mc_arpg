@@ -3,6 +3,7 @@ package rpg.core.mob;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -10,6 +11,7 @@ import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import rpg.core.config.SchemaValidator;
 import rpg.core.config.ConfigView;
 import rpg.core.stats.Attribute;
 
@@ -36,6 +38,28 @@ class MobConfigSchemaTest {
         assertThat(config.horde("greenfields").orElseThrow().entries()).hasSize(1);
         assertThat(config.horde("greenfields").orElseThrow().boss().kindKey())
                 .isEqualTo("greenfields.warden");
+        assertThat(config.adminSpawnLimit()).isEqualTo(20);
+    }
+
+    @Test
+    @DisplayName("die Admin-Grenze faellt ohne Feld auf 20 zurueck")
+    void anOmittedAdminSpawnLimitUsesTheDefault() throws Exception {
+        Map<String, Object> doc = document();
+        doc.remove("admin-spawn-limit");
+
+        ConfigView validated =
+                SchemaValidator.validate(Path.of("mobs.yml"), doc, MobConfigSchema.schema());
+
+        assertThat(MobConfigSchema.schema().bind(validated).adminSpawnLimit()).isEqualTo(20);
+    }
+
+    @Test
+    @DisplayName("eine gesetzte Admin-Grenze wird uebernommen")
+    void aConfiguredAdminSpawnLimitBinds() {
+        Map<String, Object> doc = document();
+        doc.put("admin-spawn-limit", 7);
+
+        assertThat(MobConfigSchema.schema().bind(view(doc)).adminSpawnLimit()).isEqualTo(7);
     }
 
     @Test
@@ -181,6 +205,7 @@ class MobConfigSchemaTest {
 
         Map<String, Object> doc = new LinkedHashMap<>();
         doc.put("budget", budget(800, 130, 12, 25));
+        doc.put("admin-spawn-limit", 20);
         doc.put(
                 "horde",
                 Map.of(

@@ -27,7 +27,8 @@ class BossCountsAgainstTheBudgetTest {
                         "greenfields.warden-of-the-field",
                         "greenfields",
                         NearbyChunks.pack(0, 0),
-                        Instant.now()));
+                        Instant.now(),
+                        HordeRegistry.Origin.BUDGET));
 
         assertThat(registry.countIn("greenfields")).as("der Boss zaehlt wie jede Kreatur").isEqualTo(1);
         assertThat(registry.total()).isEqualTo(1);
@@ -53,7 +54,8 @@ class BossCountsAgainstTheBudgetTest {
                         "greenfields.warden-of-the-field",
                         "greenfields",
                         NearbyChunks.pack(0, 0),
-                        Instant.now()));
+                        Instant.now(),
+                        HordeRegistry.Origin.BUDGET));
 
         assertThat(
                         budget.allows(

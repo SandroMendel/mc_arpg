@@ -51,7 +51,14 @@ class MobModuleReloadTest {
         // Eine Kreatur, wie HordeSweep sie eintragen würde - vor dem Nachladen gesetzt.
         UUID placed = UUID.randomUUID();
         module.registry()
-                .add(new HordeRegistry.Entry(placed, "probe.rotling", "greenfields", 0L, Instant.now()));
+                .add(
+                        new HordeRegistry.Entry(
+                                placed,
+                                "probe.rotling",
+                                "greenfields",
+                                0L,
+                                Instant.now(),
+                                HordeRegistry.Origin.BUDGET));
 
         loader.set(configWith(Duration.ofSeconds(5), 300));
         module.applyReloadedConfig();

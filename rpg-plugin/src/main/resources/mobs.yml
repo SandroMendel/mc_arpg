@@ -19,6 +19,9 @@
 # Zonen zu je 130 sind 780 und bleiben darunter; sechs zu je 200 waeren 1200, und dann greift diese
 # Zahl. Sie stammt aus dem M4-Nachweis der Vision - 800 Kreaturen bei 150 Spielern - und ist der
 # einzige Ort, an dem dieser Zielwert wirklich eingehalten wird.
+#
+# Handgesetzte Kreaturen werden separat begrenzt: Sie belasten den Chunk, aber nicht dieses Budget.
+admin-spawn-limit: 20
 budget:
   server-wide: 800
   per-zone: 130

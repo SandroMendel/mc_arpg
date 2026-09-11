@@ -25,6 +25,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityRemoveEvent;
+import org.bukkit.event.world.EntitiesLoadEvent;
 
 import rpg.core.event.EventBus;
 import rpg.core.mob.BossSpec;
@@ -336,7 +337,8 @@ public final class HordeSweep implements Listener {
                                             kind.key(),
                                             zoneKey,
                                             chunkKey,
-                                            Instant.now(clock)));
+                                            Instant.now(clock),
+                                            HordeRegistry.Origin.BUDGET));
                             state.placed(entity.getUniqueId());
                         });
     }
@@ -474,7 +476,8 @@ public final class HordeSweep implements Listener {
                                                 kind.key(),
                                                 zoneKey,
                                                 chunkKey,
-                                                Instant.now(clock))));
+                                                Instant.now(clock),
+                                                HordeRegistry.Origin.BUDGET)));
     }
 
     private Location randomLocationIn(SpawnArea area, World world) {
@@ -527,6 +530,26 @@ public final class HordeSweep implements Listener {
                     "[mob] the sweep of zone " + zoneKey + " failed and will be logged only once - "
                             + "it keeps retrying every " + config.get().respawnInterval(),
                     failure);
+        }
+    }
+
+    /**
+     * Entfernt eine getaggte Kreatur, deren fluechtiger Registry-Eintrag einen Neustart nicht
+     * ueberlebt hat (ADR-050).
+     *
+     * <p>Ein Admin-Spawn bleibt deshalb beim Chunk-Laden erhalten, solange er im gemeinsamen Bestand
+     * steht. Nach einem Neustart steht er dort absichtlich nicht mehr und wird nicht adoptiert: seine
+     * Ursprungszone und sein Setzzeitpunkt waeren nicht ehrlich rekonstruierbar.
+     */
+    @EventHandler
+    public void onEntitiesLoad(EntitiesLoadEvent event) {
+        for (Entity entity : event.getEntities()) {
+            if (MobKindTag.isOurs(entity) && !registry.holds(entity.getUniqueId())) {
+                placer.remove(entity);
+                logger.info(
+                        "[mob] removed tagged entity without registry entry on chunk load: "
+                                + entity.getUniqueId());
+            }
         }
     }
 

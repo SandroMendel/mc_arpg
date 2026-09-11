@@ -6,6 +6,10 @@ import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.logging.Level;
 
 import org.bukkit.plugin.java.JavaPlugin;
@@ -100,6 +104,9 @@ public class RpgPlugin extends JavaPlugin {
     private static final Duration BOOTSTRAP_BUDGET = Duration.ofSeconds(30);
 
     private static final String MESSAGES_FILE = "messages.yml";
+
+    private static final List<String> RELOAD_MODULE_NAMES =
+            List.of("CombatModule", "ItemModule", "MobModule", "StatisticsModule", "UiModule", "ZoneModule");
 
     /**
      * How often every online player's inventory is written down.
@@ -325,6 +332,11 @@ public class RpgPlugin extends JavaPlugin {
     private InventoryModule inventoryModule;
     private ExperienceBar experienceBar;
 
+    /** Read-only sources shared with B14's foreign-player inspection command. */
+    private rpg.core.ui.CharacterSheets inspectionSheets;
+    private rpg.platform.statistics.ProfileLoader inspectionProfiles;
+    private java.util.function.Function<UUID, Optional<UUID>> inspectionCharacterOfPlayer;
+
     @Override
     public void onEnable() {
         long startedAt = System.nanoTime();
@@ -400,6 +412,45 @@ public class RpgPlugin extends JavaPlugin {
         // er braucht nur, was B04, B05 und B06 fuehren.
         wireCharacterSheet();
 
+        registerAdminCommand(
+                new rpg.plugin.command.admin.ReloadCommand(
+                                this::reloadConfigurationResult,
+                                new rpg.plugin.command.framework.AdminAudit(
+                                        registry.getService(rpg.core.persistence.AuditLogRepository.class),
+                                        Clock.systemUTC()),
+                                messages)
+                        .definition());
+        registerAdminCommand(
+                new rpg.plugin.command.admin.SetCommand(
+                                getServer(),
+                                sessionModule.registry(),
+                                progressionModule.progression(),
+                                classesModule.selection(),
+                                scheduler,
+                                new rpg.plugin.command.framework.AdminAudit(
+                                        registry.getService(rpg.core.persistence.AuditLogRepository.class),
+                                        Clock.systemUTC()),
+                                messages,
+                                getLogger())
+                        .definition());
+        registerAdminCommand(
+                new rpg.plugin.command.admin.InspectCommand(
+                                getServer(),
+                                this::readInspection,
+                                scheduler,
+                                messages,
+                                getLogger())
+                        .definition(rateLimits().forCommand("rpg.inspect")));
+        registerAdminCommand(
+                new rpg.plugin.command.admin.AuditCommand(
+                                registry.getService(rpg.core.persistence.AuditLogRepository.class),
+                                Clock.systemUTC(),
+                                getServer(),
+                                scheduler,
+                                messages,
+                                getLogger())
+                        .definition(rateLimits().forCommand("rpg.audit")));
+
         // Same cadence as B02's autosave, and for the same reason: a crash should cost one interval,
         // not a whole session's loot. The quit path captures on its own; this is only for the case
         // where there is no quit path.
@@ -468,6 +519,16 @@ public class RpgPlugin extends JavaPlugin {
      *     the previous one stays active
      */
     public boolean reloadConfiguration() {
+        return reloadConfigurationResult().applied();
+    }
+
+    /**
+     * Reloads the complete configuration and keeps the rejection details for the admin command.
+     *
+     * <p>The boolean method above remains the small compatibility seam used by earlier blocks;
+     * B14 uses this richer result so an operator can fix the exact file and document path.
+     */
+    public rpg.plugin.command.admin.ReloadResult reloadConfigurationResult() {
         try {
             configLoader.reloadAll();
             // Modules that keep derived state from their configuration have to be told. B04 does:
@@ -476,24 +537,65 @@ public class RpgPlugin extends JavaPlugin {
             if (statsModule != null) {
                 statsModule.applyReloadedConfig();
             }
+            if (combatModule != null) {
+                combatModule.applyReloadedConfig();
+            }
+            if (itemModule != null) {
+                itemModule.applyReloadedConfig();
+            }
+            if (mobModule != null) {
+                mobModule.applyReloadedConfig();
+            }
+            if (statisticsModule != null) {
+                statisticsModule.applyReloadedConfig();
+            }
+            if (uiModule != null) {
+                uiModule.applyReloadedConfig();
+            }
             // B09 holds a chunk index derived from zones.yml, so it has to be told as well: the
             // index is rebuilt and everyone present is re-evaluated once (FR-014, research.md R6).
             // One pass is not a recurring task - this block registers nothing with the scheduler.
             if (zoneModule != null) {
                 zoneModule.applyReloadedConfig();
             }
-            getLogger().info("[config] phase=RELOAD state=APPLIED - all modules reloaded");
-            return true;
-        } catch (ConfigValidationException rejected) {
             getLogger()
-                    .log(
-                            Level.SEVERE,
-                            "[config] phase=RELOAD state=REJECTED - keeping the previously valid"
-                                    + " configuration: "
-                                    + rejected.getMessage(),
-                            rejected);
-            return false;
+                    .info(
+                            "[config] phase=RELOAD state=APPLIED modules="
+                                    + String.join(", ", RELOAD_MODULE_NAMES));
+            return rpg.plugin.command.admin.ReloadResult.success();
+        } catch (ConfigValidationException rejected) {
+            logReloadRejection(rejected);
+            return rpg.plugin.command.admin.ReloadResult.rejected(rejected);
+        } catch (IllegalArgumentException | IllegalStateException rejected) {
+            ConfigValidationException normalized = normalizeReloadRejection(rejected);
+            logReloadRejection(normalized);
+            return rpg.plugin.command.admin.ReloadResult.rejected(normalized);
         }
+    }
+
+    private void logReloadRejection(ConfigValidationException rejected) {
+        getLogger()
+                .log(
+                        Level.SEVERE,
+                        "[config] phase=RELOAD state=REJECTED - keeping the previously valid"
+                                + " configuration: "
+                                + rejected.getMessage(),
+                        rejected);
+    }
+
+    private static ConfigValidationException normalizeReloadRejection(RuntimeException failure) {
+        String detail = failure.getMessage() == null ? failure.getClass().getSimpleName() : failure.getMessage();
+        String source =
+                detail.startsWith("zones.yml")
+                        ? "zones.yml"
+                        : detail.startsWith("items.yml") ? "items.yml" : "configuration";
+        String documentPath = "<document>";
+        int colon = detail.indexOf(':');
+        if (colon > 0 && !detail.substring(0, colon).contains(" ")) {
+            documentPath = detail.substring(0, colon);
+        }
+        return new ConfigValidationException(
+                Path.of(source), documentPath, "a valid configuration value", detail, failure);
     }
 
     /** Nimmt ein Kommando in den Baum auf, der am Ende von {@code onEnable} registriert wird. */
@@ -586,13 +688,30 @@ public class RpgPlugin extends JavaPlugin {
         rpg.core.ui.LanguageSet language = configuredLanguage(loader);
         Path languageFile = getDataFolder().toPath().resolve(language.file());
         if (!Files.exists(languageFile)) {
+            try {
+                // B13 liefert den zweiten Sprachsatz mit aus. Er wird beim ersten Start in den
+                // Plugin-Ordner kopiert, genau wie messages.yml; vorhandene Uebersetzungen bleiben
+                // unangetastet. Fuer einen selbst angelegten Sprachcode bleibt die aussagekraeftige
+                // Fehlermeldung unten bestehen.
+                saveResource(language.file(), false);
+            } catch (IllegalArgumentException missingResource) {
+                throw new IllegalStateException(
+                        "ui.yml: language ist '"
+                                + language.code()
+                                + "', aber "
+                                + language.file()
+                                + " gibt es nicht im Plugin-Ordner. Lege die Datei an oder stelle"
+                                + " language auf 'en' zurueck (FR-018)",
+                        missingResource);
+            }
+        }
+        if (!Files.exists(languageFile)) {
             throw new IllegalStateException(
                     "ui.yml: language ist '"
                             + language.code()
                             + "', aber "
                             + language.file()
-                            + " gibt es nicht im Plugin-Ordner. Lege die Datei an oder stelle"
-                            + " language auf 'en' zurueck (FR-018)");
+                            + " konnte nicht aus der Plugin-Datei angelegt werden (FR-018)");
         }
         Messages loaded = MapMessages.fromNested(loader.readDocument(Path.of(language.file())));
 
@@ -631,6 +750,11 @@ public class RpgPlugin extends JavaPlugin {
         // B14: die Meldungen des Kommandogeruests (T041). Ab hier prueft der Start auch sie.
         declared.addAll(rpg.plugin.command.CommandMessageKeys.all());
         declared.addAll(rpg.plugin.command.admin.ItemGiveMessageKeys.all());
+        declared.addAll(rpg.plugin.command.admin.ReloadMessageKeys.all());
+        declared.addAll(rpg.plugin.command.admin.MobSpawnMessageKeys.all());
+        declared.addAll(rpg.plugin.command.admin.SetMessageKeys.all());
+        declared.addAll(rpg.plugin.command.admin.InspectMessageKeys.all());
+        declared.addAll(rpg.plugin.command.admin.AuditMessageKeys.all());
         MessageKeyValidator.verifyAllPresent(loaded, declared);
 
         getLogger()
@@ -1394,6 +1518,7 @@ public class RpgPlugin extends JavaPlugin {
                                         .findFirst()
                                         .flatMap(rpg.core.session.PlayerSession::activeCharacter)
                                         .map(rpg.core.session.PlayerCharacter::characterId);
+        inspectionCharacterOfPlayer = characterOfPlayer;
         rpg.core.ui.CharacterSheets sheets =
                 new rpg.core.ui.CharacterSheets(
                         characterId ->
@@ -1450,6 +1575,7 @@ public class RpgPlugin extends JavaPlugin {
                                         .map(rpg.core.progression.ProgressView::level)
                                         .orElse(1),
                         characterId -> currencyModule.currency().balanceOrZero(characterId));
+        inspectionSheets = sheets;
 
         rpg.platform.ui.MenuFrame frame = uiMenuFrame();
         // Eine eigene Factory und kein geteiltes Feld: sie ist zustandslos (Vorlagen plus Texte),
@@ -2766,6 +2892,7 @@ public class RpgPlugin extends JavaPlugin {
                                         .find(kindKey)
                                         .map(rpg.core.mob.MobKind::boss)
                                         .orElse(false));
+        inspectionProfiles = loader;
 
         rpg.platform.statistics.StatisticsMenu profileMenu =
                 new rpg.platform.statistics.StatisticsMenu(messages);
@@ -2811,6 +2938,282 @@ public class RpgPlugin extends JavaPlugin {
         // Seit B14 (T035) im Kommandobaum, mit Sperrzeit aus commands.yml (T042): /stats fragt
         // die Datenbank.
         registerCommand(stats.definition(getServer(), rateLimits().forCommand("stats")));
+    }
+
+    /**
+     * Read-only data source for B14's four inspection views.
+     *
+     * <p>The account row is read first. A missing row is also how B02 represents an anonymised
+     * player after the personal reference has been removed, so no old Bukkit name is ever sent back
+     * to the operator. Existing players then use the public repository reads of the owning blocks;
+     * no session is opened and no aggregate is marked dirty.
+     */
+    private CompletableFuture<rpg.plugin.command.admin.InspectCommand.Report> readInspection(
+            rpg.plugin.command.admin.InspectCommand.View view, UUID playerId) {
+        CompletableFuture<Optional<rpg.core.persistence.PlayerState>> account =
+                persistenceModule.playerStates().peek(playerId);
+        return account.thenCompose(
+                state -> {
+                    boolean anonymized =
+                            state.isEmpty() || state.map(rpg.core.persistence.PlayerState::anonymized).orElse(false);
+                    if (state.isEmpty()) {
+                        return CompletableFuture.completedFuture(
+                                rpg.plugin.command.admin.InspectCommand.Report.empty(true));
+                    }
+                    return readInspectionView(view, playerId, state)
+                            .thenApply(report -> report.withAnonymized(anonymized));
+                });
+    }
+
+    private CompletableFuture<rpg.plugin.command.admin.InspectCommand.Report> readInspectionView(
+            rpg.plugin.command.admin.InspectCommand.View view,
+            UUID playerId,
+            Optional<rpg.core.persistence.PlayerState> account) {
+        return switch (view) {
+            case SHEET -> readInspectionSheet(playerId);
+            case STATISTICS -> readInspectionStatistics(playerId);
+            case INVENTORY -> readInspectionInventory(playerId);
+            case SESSION -> readInspectionSession(playerId, account);
+        };
+    }
+
+    private CompletableFuture<rpg.plugin.command.admin.InspectCommand.Report> readInspectionSheet(
+            UUID playerId) {
+        Optional<UUID> liveCharacter =
+                inspectionCharacterOfPlayer == null
+                        ? Optional.empty()
+                        : inspectionCharacterOfPlayer.apply(playerId);
+        if (liveCharacter.isPresent() && inspectionSheets != null) {
+            return CompletableFuture.completedFuture(
+                    inspectionSheets
+                            .of(liveCharacter.get())
+                            .map(this::sheetReport)
+                            .orElseGet(
+                                    () ->
+                                            rpg.plugin.command.admin.InspectCommand.Report
+                                                    .empty(false)));
+        }
+
+        return sessionModule.characters().findByPlayer(playerId)
+                .thenCompose(
+                        characters -> {
+                            Optional<rpg.core.session.PlayerCharacter> selected =
+                                    characters.stream()
+                                            .max(
+                                                    (left, right) ->
+                                                            left.lastPlayedAt()
+                                                                    .compareTo(right.lastPlayedAt()));
+                            if (selected.isEmpty()) {
+                                return CompletableFuture.completedFuture(
+                                        rpg.plugin.command.admin.InspectCommand.Report.empty(false));
+                            }
+                            UUID characterId = selected.get().characterId();
+                            CompletableFuture<Optional<rpg.core.progression.CharacterProgress>> progress =
+                                    progressionModule.repository().find(characterId);
+                            CompletableFuture<Optional<rpg.core.currency.CharacterBalance>> balance =
+                                    currencyModule.balances().find(characterId);
+                            return progress.thenCombine(
+                                    balance,
+                                    (storedProgress, storedBalance) ->
+                                            storedSheetReport(
+                                                    selected.get(), storedProgress, storedBalance));
+                        });
+    }
+
+    private rpg.plugin.command.admin.InspectCommand.Report sheetReport(
+            rpg.core.ui.CharacterSheet sheet) {
+        List<rpg.plugin.command.admin.InspectCommand.Line> lines = new ArrayList<>();
+        lines.add(
+                new rpg.plugin.command.admin.InspectCommand.Line(
+                        rpg.plugin.command.admin.InspectMessageKeys.SHEET_CLASS,
+                        rpg.plugin.command.framework.Arguments.label(sheet.characterClass())));
+        lines.add(
+                new rpg.plugin.command.admin.InspectCommand.Line(
+                        rpg.plugin.command.admin.InspectMessageKeys.SHEET_LEVEL,
+                        String.valueOf(sheet.level())));
+        lines.add(
+                new rpg.plugin.command.admin.InspectCommand.Line(
+                        rpg.plugin.command.admin.InspectMessageKeys.SHEET_COINS,
+                        String.valueOf(sheet.coins())));
+        lines.add(
+                new rpg.plugin.command.admin.InspectCommand.Line(
+                        rpg.plugin.command.admin.InspectMessageKeys.SHEET_REVISION,
+                        String.valueOf(sheet.revision())));
+        for (rpg.core.stats.Attribute attribute : rpg.core.stats.Attribute.values()) {
+            lines.add(
+                    new rpg.plugin.command.admin.InspectCommand.Line(
+                            rpg.core.ui.UiMessageKeys.attributeLabel(attribute),
+                            String.valueOf(sheet.valueOf(attribute))));
+        }
+        lines.add(
+                new rpg.plugin.command.admin.InspectCommand.Line(
+                        rpg.plugin.command.admin.InspectMessageKeys.SHEET_EQUIPMENT,
+                        String.valueOf(sheet.equipment().size())));
+        return new rpg.plugin.command.admin.InspectCommand.Report(false, lines);
+    }
+
+    private rpg.plugin.command.admin.InspectCommand.Report storedSheetReport(
+            rpg.core.session.PlayerCharacter character,
+            Optional<rpg.core.progression.CharacterProgress> progress,
+            Optional<rpg.core.currency.CharacterBalance> balance) {
+        List<rpg.plugin.command.admin.InspectCommand.Line> lines = new ArrayList<>();
+        lines.add(
+                new rpg.plugin.command.admin.InspectCommand.Line(
+                        rpg.plugin.command.admin.InspectMessageKeys.SHEET_CLASS,
+                        rpg.plugin.command.framework.Arguments.label(character.characterClass())));
+        lines.add(
+                new rpg.plugin.command.admin.InspectCommand.Line(
+                        rpg.plugin.command.admin.InspectMessageKeys.SHEET_LEVEL,
+                        String.valueOf(progress.map(rpg.core.progression.CharacterProgress::level).orElse(1))));
+        lines.add(
+                new rpg.plugin.command.admin.InspectCommand.Line(
+                        rpg.plugin.command.admin.InspectMessageKeys.SHEET_XP,
+                        String.valueOf(
+                                progress
+                                        .map(rpg.core.progression.CharacterProgress::xpInLevel)
+                                        .orElse(0L))));
+        lines.add(
+                new rpg.plugin.command.admin.InspectCommand.Line(
+                        rpg.plugin.command.admin.InspectMessageKeys.SHEET_COINS,
+                        String.valueOf(
+                                balance.map(rpg.core.currency.CharacterBalance::balance).orElse(0L))));
+        return new rpg.plugin.command.admin.InspectCommand.Report(false, lines);
+    }
+
+    private CompletableFuture<rpg.plugin.command.admin.InspectCommand.Report> readInspectionStatistics(
+            UUID playerId) {
+        if (inspectionProfiles == null) {
+            return CompletableFuture.completedFuture(
+                    rpg.plugin.command.admin.InspectCommand.Report.empty(false));
+        }
+        rpg.core.statistics.ProfileSnapshot profile =
+                inspectionProfiles.foreign(playerId, rpg.core.statistics.Period.ALL_TIME);
+        List<rpg.plugin.command.admin.InspectCommand.Line> lines = new ArrayList<>();
+        for (rpg.core.statistics.Aggregation board : rpg.core.statistics.Aggregation.values()) {
+            if (board.visibility() != rpg.core.statistics.MetricVisibility.PUBLIC) {
+                continue;
+            }
+            if (profile.values().containsKey(board) || profile.rankOf(board).isPresent()) {
+                lines.add(
+                        new rpg.plugin.command.admin.InspectCommand.Line(
+                                rpg.core.statistics.StatisticsMessageKeys.boardName(board),
+                                String.valueOf(profile.valueOf(board))));
+            }
+        }
+        return CompletableFuture.completedFuture(
+                new rpg.plugin.command.admin.InspectCommand.Report(false, lines));
+    }
+
+    private CompletableFuture<rpg.plugin.command.admin.InspectCommand.Report> readInspectionInventory(
+            UUID playerId) {
+        return inspectionCharacter(playerId)
+                .thenCompose(
+                        character -> {
+                            if (character.isEmpty()) {
+                                return CompletableFuture.completedFuture(
+                                        rpg.plugin.command.admin.InspectCommand.Report.empty(false));
+                            }
+                            UUID characterId = character.get().characterId();
+                            CompletableFuture<Optional<rpg.core.inventory.CharacterInventory>> stored =
+                                    inventoryModule
+                                            .contentsOf(characterId)
+                                            .map(
+                                                    value ->
+                                                            CompletableFuture.completedFuture(
+                                                                    Optional.of(value)))
+                                            .orElseGet(
+                                                    () -> inventoryModule.repository().find(characterId));
+                            return stored.thenApply(
+                                    inventory -> inventoryReport(
+                                            inventory.orElseGet(
+                                                    () ->
+                                                            rpg.core.inventory.CharacterInventory
+                                                                    .empty(characterId))));
+                        });
+    }
+
+    private CompletableFuture<Optional<rpg.core.session.PlayerCharacter>> inspectionCharacter(
+            UUID playerId) {
+        Optional<rpg.core.session.PlayerSession> live = sessionModule.registry().find(playerId);
+        if (live.isPresent()) {
+            return CompletableFuture.completedFuture(live.get().activeCharacter());
+        }
+        return sessionModule.characters().findByPlayer(playerId)
+                .thenApply(
+                        characters ->
+                                characters.stream()
+                                        .max(
+                                                (left, right) ->
+                                                        left.lastPlayedAt()
+                                                                .compareTo(right.lastPlayedAt())));
+    }
+
+    private rpg.plugin.command.admin.InspectCommand.Report inventoryReport(
+            rpg.core.inventory.CharacterInventory inventory) {
+        List<rpg.plugin.command.admin.InspectCommand.Line> lines = new ArrayList<>();
+        lines.add(
+                new rpg.plugin.command.admin.InspectCommand.Line(
+                        rpg.plugin.command.admin.InspectMessageKeys.INVENTORY_BACKPACK,
+                        inventoryValue(inventory.contents())));
+        lines.add(
+                new rpg.plugin.command.admin.InspectCommand.Line(
+                        rpg.plugin.command.admin.InspectMessageKeys.INVENTORY_ENDER_CHEST,
+                        inventoryValue(inventory.enderChest())));
+        return new rpg.plugin.command.admin.InspectCommand.Report(false, lines);
+    }
+
+    private String inventoryValue(byte[] contents) {
+        if (contents.length == 0) {
+            return messages.get(
+                    rpg.plugin.command.admin.InspectMessageKeys.INVENTORY_COUNT,
+                    Map.of("stacks", "0", "items", "0"));
+        }
+        try {
+            org.bukkit.inventory.ItemStack[] items =
+                    org.bukkit.inventory.ItemStack.deserializeItemsFromBytes(contents);
+            int stacks = 0;
+            int amount = 0;
+            for (org.bukkit.inventory.ItemStack item : items) {
+                if (item != null && !item.getType().isAir()) {
+                    stacks++;
+                    amount += item.getAmount();
+                }
+            }
+            return messages.get(
+                    rpg.plugin.command.admin.InspectMessageKeys.INVENTORY_COUNT,
+                    Map.of("stacks", String.valueOf(stacks), "items", String.valueOf(amount)));
+        } catch (RuntimeException unreadable) {
+            return messages.get(rpg.plugin.command.admin.InspectMessageKeys.INVENTORY_UNREADABLE);
+        }
+    }
+
+    private CompletableFuture<rpg.plugin.command.admin.InspectCommand.Report> readInspectionSession(
+            UUID playerId, Optional<rpg.core.persistence.PlayerState> account) {
+        List<rpg.plugin.command.admin.InspectCommand.Line> lines = new ArrayList<>();
+        Optional<rpg.core.session.PlayerSession> session = sessionModule.registry().find(playerId);
+        lines.add(
+                new rpg.plugin.command.admin.InspectCommand.Line(
+                        rpg.plugin.command.admin.InspectMessageKeys.SESSION_STATE,
+                        session.map(current -> current.state().name()).orElse("OFFLINE")));
+        lines.add(
+                new rpg.plugin.command.admin.InspectCommand.Line(
+                        rpg.plugin.command.admin.InspectMessageKeys.SESSION_ONLINE,
+                        String.valueOf(getServer().getPlayer(playerId) != null)));
+        lines.add(
+                new rpg.plugin.command.admin.InspectCommand.Line(
+                        rpg.plugin.command.admin.InspectMessageKeys.SESSION_CHARACTER,
+                        session.flatMap(rpg.core.session.PlayerSession::activeCharacter)
+                                .map(character -> character.characterId().toString())
+                                .orElse("none")));
+        account.map(rpg.core.persistence.PlayerState::lastSeenAt)
+                .ifPresent(
+                        lastSeen ->
+                                lines.add(
+                                        new rpg.plugin.command.admin.InspectCommand.Line(
+                                                rpg.plugin.command.admin.InspectMessageKeys.SESSION_LAST_SEEN,
+                                                lastSeen.toString())));
+        return CompletableFuture.completedFuture(
+                new rpg.plugin.command.admin.InspectCommand.Report(false, lines));
     }
 
     /**
@@ -3087,6 +3490,19 @@ public class RpgPlugin extends JavaPlugin {
                         getLogger());
         mobSweep.subscribeTo(eventBus);
         getServer().getPluginManager().registerEvents(mobSweep, this);
+        registerAdminCommand(
+                new rpg.plugin.command.admin.MobSpawnCommand(
+                                mobModule.kinds(),
+                                mobModule.registry(),
+                                mobModule::config,
+                                zoneModule::zones,
+                                placer,
+                                new rpg.plugin.command.framework.AdminAudit(
+                                        registry.getService(rpg.core.persistence.AuditLogRepository.class),
+                                        Clock.systemUTC()),
+                                messages,
+                                Clock.systemUTC())
+                        .definition());
         // Fuer Zonen, die beim Start schon Spieler haben - fuer die feuert kein ZoneChangedEvent
         // mehr, das dieser Zuhoerer sehen koennte (etwa nach einem /rpg reload waehrend Betrieb
         // waere das nicht noetig, aber beim allerersten Start schon).

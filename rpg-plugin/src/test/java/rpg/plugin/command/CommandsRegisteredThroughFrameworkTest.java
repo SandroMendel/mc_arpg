@@ -99,8 +99,8 @@ class CommandsRegisteredThroughFrameworkTest {
                 .as("sechs Spielerkommandos plus die Methodendeklaration selbst")
                 .isEqualTo(7);
         assertThat(collectedAdmin)
-                .as("eine Admin-Gruppe plus die Methodendeklaration selbst")
-                .isEqualTo(2);
+                .as("sechs Admin-Gruppen plus die Methodendeklaration selbst")
+                .isEqualTo(7);
     }
 
     // --- Aufbau ---------------------------------------------------------------

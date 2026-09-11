@@ -258,13 +258,13 @@ und nie benutzt wurde.
 **Independent Test**: Eine gültige und eine ungültige Änderung, jeweils mit Beobachtung vor und
 nach dem Kommando (quickstart 16–20).
 
-- [ ] T062 [US4] Einstiegspunkt in `rpg-plugin/src/main/java/rpg/plugin/RpgPlugin.java`: `ConfigLoader.reloadAll()` rufen und danach `applyReloadedConfig()` an **allen sechs** Modulen — `CombatModule`, `ItemModule`, `MobModule`, `StatisticsModule`, `UiModule`, `ZoneModule` (FR-020, FR-023)
-- [ ] T063 [US4] `ReloadCommand` in `rpg-plugin/.../command/admin/ReloadCommand.java` — `/rpg reload`, genau der Name, den `ZoneModule`s Javadoc bereits nennt
-- [ ] T064 [US4] Abgelehntes Neuladen: `ConfigValidationException` in eine Meldung mit Datei, Dokumentpfad und Grund übersetzen; Server läuft weiter (FR-022)
-- [ ] T065 [US4] **Logzeile, die die Module beim Namen nennt**, deren Haken gelaufen ist — ohne sie ist FR-023 nicht prüfbar, weil ein „ok" nichts darüber sagt, ob sechs Module erreicht wurden oder eines (FR-023a)
-- [ ] T066 [US4] Audit-Eintrag `config_reloaded` schreiben (FR-028)
-- [ ] T067 [P] [US4] `ReloadReachesAllModulesTest` in `rpg-plugin/src/test/java/rpg/plugin/command/admin/ReloadReachesAllModulesTest.java` — nach einem erfolgreichen Neuladen hat **jedes** der sechs Module seinen Haken ausgeführt; fehlt eines, wird der Test rot (FR-023)
-- [ ] T068 [P] [US4] `RejectedReloadTouchesNothingTest` in `rpg-plugin/src/test/java/rpg/plugin/command/admin/RejectedReloadTouchesNothingTest.java` — eine abgelehnte Quelle lässt **alle** Module auf der vorherigen Fassung und führt **keinen** Haken aus (FR-021, SC-005)
+- [X] T062 [US4] Einstiegspunkt in `rpg-plugin/src/main/java/rpg/plugin/RpgPlugin.java`: `ConfigLoader.reloadAll()` rufen und danach `applyReloadedConfig()` an **allen sechs** Modulen — `CombatModule`, `ItemModule`, `MobModule`, `StatisticsModule`, `UiModule`, `ZoneModule` (FR-020, FR-023)
+- [X] T063 [US4] `ReloadCommand` in `rpg-plugin/.../command/admin/ReloadCommand.java` — `/rpg reload`, genau der Name, den `ZoneModule`s Javadoc bereits nennt
+- [X] T064 [US4] Abgelehntes Neuladen: `ConfigValidationException` in eine Meldung mit Datei, Dokumentpfad und Grund übersetzen; Server läuft weiter (FR-022)
+- [X] T065 [US4] **Logzeile, die die Module beim Namen nennt**, deren Haken gelaufen ist — ohne sie ist FR-023 nicht prüfbar, weil ein „ok" nichts darüber sagt, ob sechs Module erreicht wurden oder eines (FR-023a)
+- [X] T066 [US4] Audit-Eintrag `config_reloaded` schreiben (FR-028)
+- [X] T067 [P] [US4] `ReloadReachesAllModulesTest` in `rpg-plugin/src/test/java/rpg/plugin/command/admin/ReloadReachesAllModulesTest.java` — nach einem erfolgreichen Neuladen hat **jedes** der sechs Module seinen Haken ausgeführt; fehlt eines, wird der Test rot (FR-023)
+- [X] T068 [P] [US4] `RejectedReloadTouchesNothingTest` in `rpg-plugin/src/test/java/rpg/plugin/command/admin/RejectedReloadTouchesNothingTest.java` — eine abgelehnte Quelle lässt **alle** Module auf der vorherigen Fassung und führt **keinen** Haken aus (FR-021, SC-005)
 - [ ] T069 [US4] quickstart 16–20 auf dem echten Server, einschließlich 17a und 19a — eine Balancing-Änderung ist damit **ohne Serverneustart** wirksam, also in Sekunden statt einer vollen Startzeit (SC-004)
 
 > **Schritt 19, 19a und 20 sind die eigentliche Prüfung dieses Blocks.** Alles davor testet ein
@@ -279,17 +279,17 @@ nach dem Kommando (quickstart 16–20).
 **Independent Test**: Jede Art setzen, über Chunk-Neuladen und Serverneustart beobachten
 (quickstart 21–25).
 
-- [ ] T070 [US5] **ADR-1 schreiben** in `02-decisions.md`: `HordeRegistry.Entry` bekommt eine Herkunft. Begründung, Alternative (zweiter Bestand) und Auswirkung nach dem Muster der übrigen ADRs — **vor** der Umsetzung
-- [ ] T071 [US5] `Origin`-Feld (`BUDGET` / `ADMIN`) an `HordeRegistry.Entry` in `rpg-core/src/main/java/rpg/core/mob/HordeRegistry.java` ergänzen
-- [ ] T072 [US5] `total()` und `countIn(zoneKey)` in `HordeRegistry.java` auf `BUDGET` einschränken, `countInChunk()` **unverändert alle** zählen (Chunkdichte ist eine Lastgrenze, keine Budgetfrage), `countAdmin()` ergänzen (data-model.md)
-- [ ] T073 [US5] Alle vorhandenen Aufrufer von `HordeRegistry.Entry` in `rpg-core` und `rpg-platform` auf den neuen Konstruktor nachziehen — der Spawnplaner setzt `BUDGET`
-- [ ] T074 [US5] Obergrenze für handgesetzte Kreaturen in `rpg-plugin/src/main/resources/mobs.yml` und ihrem Schema ergänzen, **Voreinstellung 20** (Prinzip V) — hoch genug für jede Abnahme, niedrig genug, dass die Umgehung beziffert bleibt
-- [ ] T075 [US5] `MobSpawnCommand` in `rpg-plugin/.../command/admin/MobSpawnCommand.java` — `/rpg mob spawn <Art>` über `PaperMobPlacer.place(kind, location, zoneKey)`, danach Eintrag mit `Origin.ADMIN` (FR-018, FR-019)
-- [ ] T076 [US5] Erreichte Obergrenze: Abbruch mit Meldung, die die Grenze nennt (FR-019a)
-- [ ] T077 [US5] Audit-Eintrag `mob_spawned` schreiben (FR-028)
-- [ ] T078 [P] [US5] `AdminSpawnDoesNotConsumeBudgetTest` in `rpg-core/src/test/java/rpg/core/mob/AdminSpawnDoesNotConsumeBudgetTest.java` — `total()` und `countIn()` bleiben unverändert, `countAdmin()` steigt, `countInChunk()` zählt beide (FR-019a, SC-010)
-- [ ] T079 [P] [US5] `AdminSpawnSurvivesChunkReloadTest` in `rpg-plugin/src/test/java/rpg/plugin/command/admin/AdminSpawnSurvivesChunkReloadTest.java` — ADR-050 entfernt sie nicht, weil sie ordnungsgemäß in der Registry steht (FR-019)
-- [ ] T080 [P] [US5] `NoPersistentAdminMarkerTest` in `rpg-plugin/src/test/java/rpg/plugin/command/admin/NoPersistentAdminMarkerTest.java` — **FR-019b als Test**: die Herkunft wird **nicht** in den `PersistentDataContainer` geschrieben, und nach einem Neustart lebt keine handgesetzte Kreatur mehr, weil die Registry nicht wiederhergestellt wird und ADR-050 aufräumt. Beide Zählungen stehen dann wieder auf null
+- [X] T070 [US5] **ADR-1 schreiben** in `02-decisions.md`: `HordeRegistry.Entry` bekommt eine Herkunft. Begründung, Alternative (zweiter Bestand) und Auswirkung nach dem Muster der übrigen ADRs — **vor** der Umsetzung
+- [X] T071 [US5] `Origin`-Feld (`BUDGET` / `ADMIN`) an `HordeRegistry.Entry` in `rpg-core/src/main/java/rpg/core/mob/HordeRegistry.java` ergänzen
+- [X] T072 [US5] `total()` und `countIn(zoneKey)` in `HordeRegistry.java` auf `BUDGET` einschränken, `countInChunk()` **unverändert alle** zählen (Chunkdichte ist eine Lastgrenze, keine Budgetfrage), `countAdmin()` ergänzen (data-model.md)
+- [X] T073 [US5] Alle vorhandenen Aufrufer von `HordeRegistry.Entry` in `rpg-core` und `rpg-platform` auf den neuen Konstruktor nachziehen — der Spawnplaner setzt `BUDGET`
+- [X] T074 [US5] Obergrenze für handgesetzte Kreaturen in `rpg-plugin/src/main/resources/mobs.yml` und ihrem Schema ergänzen, **Voreinstellung 20** (Prinzip V) — hoch genug für jede Abnahme, niedrig genug, dass die Umgehung beziffert bleibt
+- [X] T075 [US5] `MobSpawnCommand` in `rpg-plugin/.../command/admin/MobSpawnCommand.java` — `/rpg mob spawn <Art>` über `PaperMobPlacer.place(kind, location, zoneKey)`, danach Eintrag mit `Origin.ADMIN` (FR-018, FR-019)
+- [X] T076 [US5] Erreichte Obergrenze: Abbruch mit Meldung, die die Grenze nennt (FR-019a)
+- [X] T077 [US5] Audit-Eintrag `mob_spawned` schreiben (FR-028)
+- [X] T078 [P] [US5] `AdminSpawnDoesNotConsumeBudgetTest` in `rpg-core/src/test/java/rpg/core/mob/AdminSpawnDoesNotConsumeBudgetTest.java` — `total()` und `countIn()` bleiben unverändert, `countAdmin()` steigt, `countInChunk()` zählt beide (FR-019a, SC-010)
+- [X] T079 [P] [US5] `AdminSpawnSurvivesChunkReloadTest` in `rpg-plugin/src/test/java/rpg/plugin/command/admin/AdminSpawnSurvivesChunkReloadTest.java` — ADR-050 entfernt sie nicht, weil sie ordnungsgemäß in der Registry steht (FR-019)
+- [X] T080 [P] [US5] `NoPersistentAdminMarkerTest` in `rpg-plugin/src/test/java/rpg/plugin/command/admin/NoPersistentAdminMarkerTest.java` — **FR-019b als Test**: die Herkunft wird **nicht** in den `PersistentDataContainer` geschrieben, und nach einem Neustart lebt keine handgesetzte Kreatur mehr, weil die Registry nicht wiederhergestellt wird und ADR-050 aufräumt. Beide Zählungen stehen dann wieder auf null
 - [ ] T081 [US5] quickstart 21–25 auf dem echten Server, einschließlich 23a
 
 ---
@@ -301,14 +301,14 @@ nach dem Kommando (quickstart 16–20).
 **Independent Test**: Setzen und Zurücksetzen an einem Testcharakter, danach Kontrolle des
 Audit-Logs (quickstart 26–28a).
 
-- [ ] T082 [US6] **ADR-2 schreiben** in `02-decisions.md`: kein Setzen einzelner Attribute (FR-024a). Begründung: `StatEngine` hat bewusst keinen Setzer, `SourceKind` ist geschlossen und seine Deklarationsreihenfolge *ist* die Summationsreihenfolge; ein Admin-Wert bräuchte einen siebten Eintrag darin und wäre nach dem nächsten Anmelden trotzdem weg
-- [ ] T083 [US6] `SetCommand` in `rpg-plugin/.../command/admin/SetCommand.java` — `/rpg set level|xp <Spieler> <Wert>` über `Progression.setProgress(actorId, characterId, level, xpInLevel)` (FR-024)
-- [ ] T084 [US6] `/rpg set class <Spieler> <Klasse>` über `ClassSelection.choose(...)` — derselbe öffentliche Weg wie eine Klassenwahl durch den Spieler; `CompletableFuture` über `TickReturn` zurückführen, **kein `join()`** (FR-024, Prinzip I)
-- [ ] T085 [US6] **Halter-ID ist nicht Spieler-ID**: die Charakter-ID über `StatEngine.characterIdOf` bzw. die Sitzung auflösen, nicht die Spieler-UUID durchreichen ([[vuntexrpg-holder-vs-character-id]] — dieser Fehler hat B08 und B11 je einmal erwischt und scheitert **still**)
-- [ ] T086 [US6] Werte außerhalb des Bereichs ablehnen, ohne etwas zu verändern (FR-025)
-- [ ] T087 [US6] Audit-Einträge `progress_set` und `class_changed` schreiben — B06 schreibt den ersten bereits, der zweite kommt hinzu (FR-028)
-- [ ] T088 [P] [US6] `SetCommandTest` in `rpg-plugin/src/test/java/rpg/plugin/command/admin/SetCommandTest.java` — Stufe wirkt sofort, Log führt alten und neuen Stand, Wert außerhalb des Bereichs verändert nichts (FR-025)
-- [ ] T089 [P] [US6] `NoAttributeSetterTest` in `rpg-plugin/src/test/java/rpg/plugin/command/admin/NoAttributeSetterTest.java` — es gibt kein Kommando, das ein einzelnes Attribut setzt, und das ist Absicht (FR-024a)
+- [X] T082 [US6] **ADR-2 schreiben** in `02-decisions.md`: kein Setzen einzelner Attribute (FR-024a). Begründung: `StatEngine` hat bewusst keinen Setzer, `SourceKind` ist geschlossen und seine Deklarationsreihenfolge *ist* die Summationsreihenfolge; ein Admin-Wert bräuchte einen siebten Eintrag darin und wäre nach dem nächsten Anmelden trotzdem weg
+- [X] T083 [US6] `SetCommand` in `rpg-plugin/.../command/admin/SetCommand.java` — `/rpg set level|xp <Spieler> <Wert>` über `Progression.setProgress(actorId, characterId, level, xpInLevel)` (FR-024)
+- [X] T084 [US6] `/rpg set class <Spieler> <Klasse>` über `ClassSelection.choose(...)` — derselbe öffentliche Weg wie eine Klassenwahl durch den Spieler; `CompletableFuture` über `TickReturn` zurückführen, **kein `join()`** (FR-024, Prinzip I)
+- [X] T085 [US6] **Halter-ID ist nicht Spieler-ID**: die Charakter-ID über `StatEngine.characterIdOf` bzw. die Sitzung auflösen, nicht die Spieler-UUID durchreichen ([[vuntexrpg-holder-vs-character-id]] — dieser Fehler hat B08 und B11 je einmal erwischt und scheitert **still**)
+- [X] T086 [US6] Werte außerhalb des Bereichs ablehnen, ohne etwas zu verändern (FR-025)
+- [X] T087 [US6] Audit-Einträge `progress_set` und `class_changed` schreiben — B06 schreibt den ersten bereits, der zweite kommt hinzu (FR-028)
+- [X] T088 [P] [US6] `SetCommandTest` in `rpg-plugin/src/test/java/rpg/plugin/command/admin/SetCommandTest.java` — Stufe wirkt sofort, Log führt alten und neuen Stand, Wert außerhalb des Bereichs verändert nichts (FR-025)
+- [X] T089 [P] [US6] `NoAttributeSetterTest` in `rpg-plugin/src/test/java/rpg/plugin/command/admin/NoAttributeSetterTest.java` — es gibt kein Kommando, das ein einzelnes Attribut setzt, und das ist Absicht (FR-024a)
 - [ ] T090 [US6] quickstart 26–28a auf dem echten Server
 
 ---
@@ -320,12 +320,12 @@ Audit-Logs (quickstart 26–28a).
 **Independent Test**: Jede Ansicht für einen zweiten Spieler öffnen und danach prüfen, dass dessen
 Daten unverändert sind (quickstart 29–31a).
 
-- [ ] T091 [US7] `InspectCommand` in `rpg-plugin/.../command/admin/InspectCommand.java` — `/rpg inspect sheet|statistics|inventory|session <Spieler>`, je Unterkommando ein eigenes Recht (FR-026)
-- [ ] T092 [US7] Offline-Spieler über den `PLAYER`-Argumenttyp auflösen; ein Tippfehler bricht ab und nennt den Namen, statt als leeres Profil durchzugehen (FR-026, research.md §9)
-- [ ] T093 [US7] Sicherstellen, dass **kein** Pfad dieser Ansichten schreibt — keine Sitzung anlegen, keinen Cache füllen, keinen Zustand berühren (FR-027)
-- [ ] T094 [US7] **Kein** Audit-Eintrag für lesende Zugriffe (FR-029)
-- [ ] T095 [P] [US7] `InspectionChangesNothingTest` in `rpg-plugin/src/test/java/rpg/plugin/command/admin/InspectionChangesNothingTest.java` — Werte des Betroffenen vor und nach jeder Ansicht identisch (FR-027). **Dass kein Audit-Eintrag entsteht, beweist nur, dass nichts protokolliert wurde, nicht dass nichts passiert ist**
-- [ ] T096 [P] [US7] `AnonymizedPlayerStaysAnonymousTest` in `rpg-plugin/src/test/java/rpg/plugin/command/admin/AnonymizedPlayerStaysAnonymousTest.java` — B02s Anonymisierung gilt weiter, B14 macht keinen Klarnamen wieder sichtbar
+- [X] T091 [US7] `InspectCommand` in `rpg-plugin/.../command/admin/InspectCommand.java` — `/rpg inspect sheet|statistics|inventory|session <Spieler>`, je Unterkommando ein eigenes Recht (FR-026)
+- [X] T092 [US7] Offline-Spieler über den `PLAYER`-Argumenttyp auflösen; ein Tippfehler bricht ab und nennt den Namen, statt als leeres Profil durchzugehen (FR-026, research.md §9)
+- [X] T093 [US7] Sicherstellen, dass **kein** Pfad dieser Ansichten schreibt — keine Sitzung anlegen, keinen Cache füllen, keinen Zustand berühren (FR-027)
+- [X] T094 [US7] **Kein** Audit-Eintrag für lesende Zugriffe (FR-029)
+- [X] T095 [P] [US7] `InspectionChangesNothingTest` in `rpg-plugin/src/test/java/rpg/plugin/command/admin/InspectionChangesNothingTest.java` — Werte des Betroffenen vor und nach jeder Ansicht identisch (FR-027). **Dass kein Audit-Eintrag entsteht, beweist nur, dass nichts protokolliert wurde, nicht dass nichts passiert ist**
+- [X] T096 [P] [US7] `AnonymizedPlayerStaysAnonymousTest` in `rpg-plugin/src/test/java/rpg/plugin/command/admin/AnonymizedPlayerStaysAnonymousTest.java` — B02s Anonymisierung gilt weiter, B14 macht keinen Klarnamen wieder sichtbar
 - [ ] T097 [US7] quickstart 29–31a auf dem echten Server
 
 ---
@@ -337,33 +337,33 @@ Daten unverändert sind (quickstart 29–31a).
 **Independent Test**: Je einen Eingriff aus jeder Gruppe ausführen und über die Abfrage
 wiederfinden (quickstart 32–35).
 
-- [ ] T098 [US8] `AuditCommand` in `rpg-plugin/.../command/admin/AuditCommand.java` — `/rpg audit [Zeitraum]` über `AuditLogRepository.between(from, to)`, neueste zuerst (FR-030)
-- [ ] T099 [US8] Ergebnis über `TickReturn` in den Tick zurückführen — `between()` liefert ein `CompletableFuture`, **kein `join()`** (Prinzip I)
-- [ ] T100 [US8] Sperrzeit auf `/rpg audit` setzen (FR-032) — `/stats` und `/top` haben ihre bereits aus T042
-- [ ] T101 [US8] Ausgabe seitenweise, **zehn Einträge je Seite**, statt eine unbegrenzte Liste in den Chat zu schreiben
-- [ ] T102 [P] [US8] `AuditLogReadTest` in `rpg-persistence/src/test/java/rpg/persistence/AuditLogReadTest.java` — **gegen eine echte PostgreSQL-Instanz (Testcontainers)**: mehrere Einträge über einen Zeitraum, neueste zuerst, Fenstergrenzen beidseitig einschließend, leerer Zeitraum liefert eine leere Liste statt eines Fehlers (FR-036, Constitution VII)
-- [ ] T103 [P] [US8] `AuditLogStaysAppendOnlyTest` in `rpg-plugin/src/test/java/rpg/plugin/command/admin/AuditLogStaysAppendOnlyTest.java` — Architekturtest: aus B14 heraus erreicht kein anderer Schreibweg als `append` das Log (FR-031, FR-031a)
-- [ ] T104 [P] [US8] `EveryMutationIsAuditedTest` in `rpg-plugin/src/test/java/rpg/plugin/command/admin/EveryMutationIsAuditedTest.java` — je ein Eingriff aus jeder Werkzeuggruppe erzeugt genau einen Eintrag; lesende Kommandos erzeugen keinen (FR-028, FR-029, SC-006)
+- [X] T098 [US8] `AuditCommand` in `rpg-plugin/.../command/admin/AuditCommand.java` — `/rpg audit [Zeitraum]` über `AuditLogRepository.between(from, to)`, neueste zuerst (FR-030)
+- [X] T099 [US8] Ergebnis über `TickReturn` in den Tick zurückführen — `between()` liefert ein `CompletableFuture`, **kein `join()`** (Prinzip I)
+- [X] T100 [US8] Sperrzeit auf `/rpg audit` setzen (FR-032) — `/stats` und `/top` haben ihre bereits aus T042
+- [X] T101 [US8] Ausgabe seitenweise, **zehn Einträge je Seite**, statt eine unbegrenzte Liste in den Chat zu schreiben
+- [X] T102 [P] [US8] `AuditLogReadTest` in `rpg-persistence/src/test/java/rpg/persistence/AuditLogReadTest.java` — **gegen eine echte PostgreSQL-Instanz (Testcontainers)**: mehrere Einträge über einen Zeitraum, neueste zuerst, Fenstergrenzen beidseitig einschließend, leerer Zeitraum liefert eine leere Liste statt eines Fehlers (FR-036, Constitution VII)
+- [X] T103 [P] [US8] `AuditLogStaysAppendOnlyTest` in `rpg-plugin/src/test/java/rpg/plugin/command/admin/AuditLogStaysAppendOnlyTest.java` — Architekturtest: aus B14 heraus erreicht kein anderer Schreibweg als `append` das Log (FR-031, FR-031a)
+- [X] T104 [P] [US8] `EveryMutationIsAuditedTest` in `rpg-plugin/src/test/java/rpg/plugin/command/admin/EveryMutationIsAuditedTest.java` — je ein Eingriff aus jeder Werkzeuggruppe erzeugt genau einen Eintrag; lesende Kommandos erzeugen keinen (FR-028, FR-029, SC-006)
 - [ ] T105 [US8] quickstart 32–35 auf dem echten Server
 
 ---
 
 ## Phase 11: Polish & Querschnitt
 
-- [ ] T106 [P] Tab-Completion-Listen begrenzen und am bereits Getippten filtern — nie die vollständige Menge senden (FR-033, Prinzip II)
-- [ ] T107 [P] Wiederholbare Messung in `rpg-plugin/src/test/java/rpg/plugin/command/CommandTickCostBenchmark.java` nach dem Muster von B13s `HudTickCostBenchmark`: Registrierung und Vervollständigung bleiben **unter dem Tick-Budget von 5 ms** (Prinzip II). **Kein** Lasttest — der gehört B15 (Constitution VII, ADR-031)
-- [ ] T108 [P] Zweite Sprachdatei aus B13 um alle B14-Schlüssel ergänzen (`messages.yml` selbst ist mit T041 schon gewachsen — diese Aufgabe fasst sie nicht noch einmal an)
-- [ ] T109 [P] `01-architecture.md` um B14s Kommandogerüst ergänzen
-- [ ] T110 [P] Blockdokument `minecraft-rpg-spec/minecraft-rpg-spec/blocks/B14-commands-permissions-admin.md` auf **Status: umgesetzt** setzen und die beiden ADR-Nummern eintragen
-- [ ] T111 [P] `06-open-questions.md` prüfen: hat B14 eine offene Frage beantwortet oder eine neue aufgeworfen?
-- [ ] T112 Die vier eingelösten ADR-Zusagen schließen — ADR-028 (`/coins`), ADR-051 (`/char`) und B12s beide (`/stats`, `/top`) sind mit dem Umzug erfüllt; in `02-decisions.md` vermerken (SC-009)
-- [ ] T113 Prüfen, dass **kein** Block mehr ein eigenes vorläufiges Kommando führt (SC-009)
-- [ ] T114 `MessageKeyValidator` muss beim Start schweigen — alle B14-Schlüssel in beiden Sprachdateien vorhanden (FR-009)
-- [ ] T115 Vollständiger Testlauf `./gradlew test` — alle grün, **0 übersprungen**; ein übersprungener Test ist bei MockBukkit kein Erfolg, sondern ein Nicht-Ergebnis ([[vuntexrpg-mockbukkit-skips]])
-- [ ] T116 `FullBootstrapTest` auf **Vollständigkeit** erweitern: jedes Kommando und jedes Recht, jetzt einschließlich der Admin-Werkzeuge aus US3–US8 (FR-035, [[vuntexrpg-block-done-criteria]])
+- [X] T106 [P] Tab-Completion-Listen begrenzen und am bereits Getippten filtern — nie die vollständige Menge senden (FR-033, Prinzip II)
+- [X] T107 [P] Wiederholbare Messung in `rpg-plugin/src/test/java/rpg/plugin/command/CommandTickCostBenchmark.java` nach dem Muster von B13s `HudTickCostBenchmark`: Registrierung und Vervollständigung bleiben **unter dem Tick-Budget von 5 ms** (Prinzip II). **Kein** Lasttest — der gehört B15 (Constitution VII, ADR-031)
+- [X] T108 [P] Zweite Sprachdatei aus B13 um alle B14-Schlüssel ergänzen (`messages.yml` selbst ist mit T041 schon gewachsen — diese Aufgabe fasst sie nicht noch einmal an)
+- [X] T109 [P] `01-architecture.md` um B14s Kommandogerüst ergänzen
+- [X] T110 [P] Blockdokument `minecraft-rpg-spec/minecraft-rpg-spec/blocks/B14-commands-permissions-admin.md` auf **Status: umgesetzt** setzen und die beiden ADR-Nummern eintragen
+- [X] T111 [P] `06-open-questions.md` prüfen: hat B14 eine offene Frage beantwortet oder eine neue aufgeworfen?
+- [X] T112 Die vier eingelösten ADR-Zusagen schließen — ADR-028 (`/coins`), ADR-051 (`/char`) und B12s beide (`/stats`, `/top`) sind mit dem Umzug erfüllt; in `02-decisions.md` vermerken (SC-009)
+- [X] T113 Prüfen, dass **kein** Block mehr ein eigenes vorläufiges Kommando führt (SC-009)
+- [X] T114 `MessageKeyValidator` muss beim Start schweigen — alle B14-Schlüssel in beiden Sprachdateien vorhanden (FR-009)
+- [X] T115 Vollständiger Testlauf `./gradlew test` — alle grün, **0 übersprungen**; ein übersprungener Test ist bei MockBukkit kein Erfolg, sondern ein Nicht-Ergebnis ([[vuntexrpg-mockbukkit-skips]])
+- [X] T116 `FullBootstrapTest` auf **Vollständigkeit** erweitern: jedes Kommando und jedes Recht, jetzt einschließlich der Admin-Werkzeuge aus US3–US8 (FR-035, [[vuntexrpg-block-done-criteria]])
 - [ ] T117 Deploy nach [[vuntexrpg-server-deploy]] — Jar **und** geänderte YAMLs; die Frage ist „welche Datei unterscheidet sich", nicht „welche ist neu". `messages.yml` ist gewachsen und **muss** kopiert werden, sonst bricht der Start am Schlüsselprüfer ab, bevor irgendeine B14-Prüfung läuft
 - [ ] T118 **Serverabnahme**: `quickstart.md` Abschnitt 3 vollständig — 40 Schritte plus die drei Vorabschritte. **Alle allein machbar**, kein zweiter Spieler nötig
-- [ ] T119 `/speckit-analyze` erneut laufen lassen und die Abdeckung gegen den umgesetzten Stand messen
+- [X] T119 `/speckit-analyze` erneut laufen lassen und die Abdeckung gegen den umgesetzten Stand messen
 
 ---
 

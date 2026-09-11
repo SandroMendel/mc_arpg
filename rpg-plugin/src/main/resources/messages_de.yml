@@ -819,117 +819,117 @@ command:
   # aber Prinzip V kennt keine Ausnahme fuer Betreibertext. Seit dem Umzug auf Brigadier liest
   # ohnehin niemand mehr die description: aus plugin.yml (research.md §1).
   char:
-    description: "Open your character sheet."
+    description: "Dein Charakterblatt oeffnen."
 
   stats:
-    description: "Open your own record."
+    description: "Deine Statistiken oeffnen."
 
   top:
-    description: "Open a leaderboard."
+    description: "Eine Rangliste oeffnen."
 
   coins:
-    description: "Open the coin window, or change a balance."
+    description: "Das Muenzenfenster oeffnen oder einen Kontostand aendern."
   coins.set:
-    description: "Set a character's balance."
+    description: "Den Kontostand eines Charakters setzen."
   coins.add:
-    description: "Add coins to a character."
+    description: "Einem Charakter Muenzen geben."
   coins.remove:
-    description: "Remove coins from a character."
+    description: "Einem Charakter Muenzen nehmen."
 
   xp:
-    description: "Give experience, take it away, or set a level."
+    description: "Erfahrung geben, nehmen oder eine Stufe setzen."
   xp.give:
-    description: "Give experience to a character."
+    description: "Einem Charakter Erfahrung geben."
   xp.take:
-    description: "Take experience away from a character."
+    description: "Einem Charakter Erfahrung nehmen."
   xp.set:
-    description: "Set a character to a level."
+    description: "Einen Charakter auf eine Stufe setzen."
 
   trash:
-    description: "Destroy the item in your hand for good, after a confirmation."
+    description: "Das Item in deiner Hand nach Bestaetigung endgueltig zerstoeren."
 
   item:
-    description: "Create and deliver configured items."
+    description: "Konfigurierte Items erzeugen und ausgeben."
   item.give:
-    description: "Give a configured item to a player."
-    done: "Granted {amount}x {template} to {player}."
-    dropped: "Inventory full: dropped {amount}x {template} for {player}."
-    target-unavailable: "{player} must be online and have an active character."
+    description: "Einem Spieler ein konfiguriertes Item geben."
+    done: "{amount}x {template} an {player} ausgegeben."
+    dropped: "Inventar voll: {amount}x {template} fuer {player} fallengelassen."
+    target-unavailable: "{player} muss online sein und einen aktiven Charakter haben."
 
   mob:
-    description: "Create configured creatures."
+    description: "Konfigurierte Kreaturen erzeugen."
   mob.spawn:
-    description: "Spawn a configured creature at your position."
-    done: "Spawned {kind} in {zone}."
-    no-zone: "You must stand inside a configured zone."
-    limit: "The admin creature limit of {limit} has been reached."
-    failed: "The creature could not be spawned."
+    description: "Eine konfigurierte Kreatur an deiner Position spawnen."
+    done: "{kind} in {zone} gespawnt."
+    no-zone: "Du musst in einer konfigurierten Zone stehen."
+    limit: "Das Admin-Kreaturenlimit von {limit} ist erreicht."
+    failed: "Die Kreatur konnte nicht gespawnt werden."
 
   set:
-    description: "Correct a character's progress or class."
+    description: "Den Fortschritt oder die Klasse eines Charakters korrigieren."
   set.level:
-    description: "Set a character's level."
+    description: "Die Stufe eines Charakters setzen."
   set.xp:
-    description: "Set a character's experience."
+    description: "Die Erfahrung eines Charakters setzen."
   set.class:
-    description: "Choose a character's class through the normal selection path."
-  set.done: "{player}: {property} changed from {from} to {to}."
-  set.notice: "An operator changed your {property} from {from} to {to}."
-  set.target-unavailable: "The target has no ready character session."
-  set.rejected: "The requested value was rejected and nothing changed."
-  set.class.done: "{player}: class set to {class}."
-  set.class.notice: "An operator selected {class} for you."
-  set.class.failed: "The class could not be set."
+    description: "Die Klasse eines Charakters ueber den normalen Auswahlweg waehlen."
+  set.done: "{player}: {property} von {from} auf {to} geaendert."
+  set.notice: "Ein Betreiber hat dein {property} von {from} auf {to} geaendert."
+  set.target-unavailable: "Das Ziel hat keine bereite Charaktersitzung."
+  set.rejected: "Der angeforderte Wert wurde abgelehnt; nichts wurde geaendert."
+  set.class.done: "{player}: Klasse auf {class} gesetzt."
+  set.class.notice: "Ein Betreiber hat {class} fuer dich ausgewaehlt."
+  set.class.failed: "Die Klasse konnte nicht gesetzt werden."
 
   inspect:
-    description: "Inspect another player's data without changing it."
+    description: "Die Daten eines anderen Spielers ansehen, ohne sie zu aendern."
   inspect.sheet:
-    description: "Inspect another player's character sheet."
-    title: "Character sheet for {player}."
-    class: "Class"
-    level: "Level"
-    xp: "Experience"
-    coins: "Coins"
-    revision: "Stat revision"
-    equipment: "Equipment"
+    description: "Das Charakterblatt eines anderen Spielers ansehen."
+    title: "Charakterblatt von {player}."
+    class: "Klasse"
+    level: "Stufe"
+    xp: "Erfahrung"
+    coins: "Muenzen"
+    revision: "Statistikrevision"
+    equipment: "Ausrüstung"
   inspect.statistics:
-    description: "Inspect another player's public statistics."
-    title: "Statistics for {player}."
+    description: "Die oeffentlichen Statistiken eines anderen Spielers ansehen."
+    title: "Statistiken von {player}."
   inspect.inventory:
-    description: "Inspect another player's stored inventory."
-    title: "Inventory for {player}."
-    backpack: "Backpack"
-    ender-chest: "Ender chest"
-    count: "{stacks} stack(s), {items} item(s)"
-    unreadable: "unreadable on this server version"
+    description: "Das gespeicherte Inventar eines anderen Spielers ansehen."
+    title: "Inventar von {player}."
+    backpack: "Inventar"
+    ender-chest: "Endertruhe"
+    count: "{stacks} Stack(s), {items} Item(s)"
+    unreadable: "in dieser Serverversion nicht lesbar"
   inspect.session:
-    description: "Inspect another player's session state."
-    title: "Session for {player}."
-    state: "State"
+    description: "Den Sitzungsstatus eines anderen Spielers ansehen."
+    title: "Sitzung von {player}."
+    state: "Status"
     online: "Online"
-    character: "Active character"
-    last-seen: "Last seen"
+    character: "Aktiver Charakter"
+    last-seen: "Zuletzt gesehen"
   inspect.line: "{label}: {value}"
-  inspect.anonymous: "anonymous player"
-  inspect.no-data: "No stored data is available for {player}."
-  inspect.failed: "The read-only inspection could not be completed."
+  inspect.anonymous: "anonymer Spieler"
+  inspect.no-data: "Keine gespeicherten Daten fuer {player} verfuegbar."
+  inspect.failed: "Die schreibgeschuetzte Einsicht konnte nicht abgeschlossen werden."
 
   audit:
-    description: "Read the administrative audit log."
-  audit.page: "Audit log — page {page}/{pages} ({entries} entries)."
-  audit.entry: "{time} | actor={actor} | action={action} | target={target} | {details}"
-  audit.empty: "No audit entries were found in that period."
-  audit.more: "Only the first 10 entries are shown; {remaining} more remain in the period."
-  audit.failed: "The audit log could not be read."
+    description: "Das administrative Audit-Log lesen."
+  audit.page: "Audit-Log — Seite {page}/{pages} ({entries} Eintraege)."
+  audit.entry: "{time} | Akteur={actor} | Aktion={action} | Ziel={target} | {details}"
+  audit.empty: "In diesem Zeitraum wurden keine Audit-Eintraege gefunden."
+  audit.more: "Nur die ersten 10 Eintraege werden angezeigt; {remaining} weitere sind im Zeitraum vorhanden."
+  audit.failed: "Das Audit-Log konnte nicht gelesen werden."
 
   reload:
-    description: "Reload all configuration without restarting."
-    done: "Configuration reloaded successfully."
-    rejected: "Configuration rejected in {file} at {path}: expected {expected}, but was {actual}."
+    description: "Die gesamte Konfiguration ohne Neustart neu laden."
+    done: "Konfiguration erfolgreich neu geladen."
+    rejected: "Konfiguration in {file} bei {path} abgelehnt: {expected} erwartet, aber {actual} gefunden."
 
   # Die Wurzel aller Betreiberwerkzeuge.
   rpg:
-    description: "Operator tools."
+    description: "Betreiberwerkzeuge."
 
   error:
     argument-missing: '&cMissing &f{argument}&c - expected {expected}.'
