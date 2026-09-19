@@ -1,0 +1,6 @@
+combat:
+  combat-timeout-seconds: 8
+environment:
+  fire: 2.0
+mobs:
+  default: 1.0

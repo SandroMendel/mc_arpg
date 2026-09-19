@@ -1,0 +1,596 @@
+schemaVersion: 1
+# B08 - the abilities. Every balancing number lives here, never in code (Principle V).
+#
+# WHAT THIS FILE OWNS and what it does not:
+#   - it owns the global cooldown and the two combat factors of regeneration
+#   - it does NOT own the regeneration RATES. Those are the attributes healthRegen and manaRegen and
+#     they live in classes.yml, because they belong to the character (ADR-023)
+#   - it does NOT own which class has which ability. That binding is in classes.yml under
+#     `abilities:`; this file only defines what an id means (B07 names, B08 resolves)
+#
+# THE UNIQUE IS ONE OF THE SIX (ADR-022). It is not a seventh entry, not its own category and not
+# necessarily active: the warrior's is, the rogue's and the mage's are passive. How the six split
+# between active and passive is content and differs per class - warrior and mage are 4+2, the rogue
+# is 3+3 (ADR-025). Startup checks "exactly six, at most one unique" and nothing about the split.
+#
+# PERIODIC EFFECTS HAVE NO PRIMITIVE OF THEIR OWN. An effect with `interval-ms` applies repeatedly
+# over its duration: DAMAGE with an interval is a damage-over-time, MANA_RESTORE with one is the mana
+# potion. All running instances share ONE server-wide sweep - one per target would be a recurring
+# task per entity and would break Principle II.
+#
+# A DAMAGE `amount` IS A FACTOR, NOT AN ABSOLUTE NUMBER. 1.4 means 140% of the caster's physical or
+# magic damage. That is how an ability scales with level and equipment without reading a single
+# attribute itself (FR-013). Read this before "buffing" anything: 40.0 is not a small change.
+#
+# max-targets IS A REQUIRED FIELD on every targeting mode that can return more than one. There is no
+# default, deliberately - a forgotten line must not be indistinguishable from a decision (FR-020).
+
+runtime:
+  # After any active ability every other one is locked for this long. The reason is the input scheme
+  # itself: slot switch plus right-click can happen four times in one tick, and without the lock
+  # "all four at once" would always be the strongest opening (ADR-022).
+  global-cooldown-ms: 750
+
+  regeneration:
+    # Multiplied onto healthRegen / manaRegen while the holder is in combat. Health is the stricter
+    # of the two on purpose: holding mana back shortens a fight, holding health back decides it.
+    health-combat-factor: 0.20
+    mana-combat-factor: 0.35
+
+# ---------------------------------------------------------------------------------------------
+# The eighteen. Written LAST, after the machine was finished - because SC-001 ("a new ability comes
+# from configuration alone") only proves something if the code was done first. It held for
+# seventeen of them; Rage needed one addition to the vocabulary, and that addition is a list where
+# there used to be a single value, not a Java class. See warrior.rage below.
+#
+# `rank-cost` STEHT UEBERALL AUF EINEM COIN, UND DAS IST KEINE BALANCING-ENTSCHEIDUNG.
+#
+# Es ist ein Platzhalter (T103). Achtzehnmal dieselbe Eins heisst: die Kostenpruefung ist
+# verdrahtet und laesst sich im Spiel ausloesen, ohne dass jemand ein Preisgefuege behauptet, das
+# nie besprochen wurde. Ein Rangaufstieg kostet damit spuerbar etwas - naemlich, dass man ueberhaupt
+# Coins haben muss - und nichts darueber hinaus.
+#
+# Wer die Preise setzt, ersetzt hier achtzehn Zeilen und keinen Code: fehlt der Block, ist der
+# Aufstieg gratis (FR-054); steht er da, prueft AbilityRuntime ihn ZULETZT, nach Freischaltung und
+# Hoechstrang, damit "zu teuer" nie eine Ablehnung verdeckt, die einen anderen Grund hat.
+# ---------------------------------------------------------------------------------------------
+abilities:
+
+  # ============================== WARRIOR - melee, toughness, build-up ==============================
+
+  # Rage. The counter that makes the warrior stronger the longer a fight lasts.
+  #
+  # TWO TRIGGERS, and this is the one place the eighteen asked for something the framework did not
+  # have. Rage builds on damage dealt AND on damage taken - a warrior who is being beaten gets angry
+  # too - and a single trigger could not say that. `trigger` now accepts a list. Nothing else here
+  # needs a second one, which is exactly why the single spelling stayed valid: making seventeen
+  # definitions worse to read so that one could be written would be the wrong trade.
+  #
+  # It costs no task and stores nothing: build, idle grace and decay are three numbers, and the
+  # current value follows from the last reading plus elapsed time (FR-016b).
+  warrior.rage:
+    kind: PASSIVE
+    # A marker, not a trigger: Rage builds and decays - the marker is a reminder that it is running, not a button.
+    # Clicking it says so (AbilityResult.PASSIVE) instead of pretending it is locked.
+    item: 'BLAZE_POWDER'
+    display-name-key: 'ability.warrior.rage.name'
+    description-key: 'ability.warrior.rage.description'
+    trigger: [ON_DAMAGE_DEALT, ON_DAMAGE_TAKEN]
+    cooldown-ms: 0
+    max-rank: 5
+    rank-cost: { coins: 1 }
+    target: { mode: SELF }
+    effects:
+      # A full meter is worth +12 physicalDamage at rank 1. Twelve hits fill it; five idle seconds
+      # later it drains in twenty.
+      - type: METER
+        attribute: physicalDamage
+        amount: 12.0
+        per-rank: 3.0
+        build-per-hit: 8.0
+        idle-before-ms: 5000
+        decay-per-second: 6.0
+      # And defence, at half the value. Rage is offence first.
+      - type: METER
+        attribute: defense
+        amount: 6.0
+        per-rank: 1.5
+        build-per-hit: 8.0
+        idle-before-ms: 5000
+        decay-per-second: 6.0
+
+  # Block. Absorbs PHYSICAL damage only - a fireball goes straight through, and that is the
+  # counterplay the type filter exists for (FR-015a).
+  warrior.shield:
+    kind: ACTIVE
+    display-name-key: 'ability.warrior.shield.name'
+    description-key: 'ability.warrior.shield.description'
+    item: 'SHIELD'
+    mana-cost: 20.0
+    # Defensiv und haltend; erneutes Auslösen scheitert ohnehin am ALREADY_SUSTAINING.
+    cooldown-ms: 800
+    cast-time-ms: 0
+    sustained: true
+    duration-ms: 8000
+    max-rank: 5
+    rank-cost: { coins: 1 }
+    target: { mode: SELF }
+    effects:
+      - type: SHIELD
+        damage-type: PHYSICAL
+        amount: 60.0
+        per-rank: 20.0
+        duration-ms: 8000
+
+  # Leap. A wind-up the player can still walk out of: cancelled before the jump it costs nothing,
+  # after the jump it is spent (FR-045d). interrupt-on-move stays false - a leap you cannot aim by
+  # turning would be worse than one that cannot be cancelled.
+  warrior.leap:
+    kind: ACTIVE
+    display-name-key: 'ability.warrior.leap.name'
+    description-key: 'ability.warrior.leap.description'
+    item: 'FEATHER'
+    mana-cost: 25.0
+    # Fortbewegung. Die Abklingzeit begrenzt sie; eine Wirkzeit tat es zusaetzlich und war das
+    # Falsche - ein Sprung, der eine halbe Sekunde nach dem Klick losgeht, kommt immer zu spaet.
+    cooldown-ms: 600
+    cast-time-ms: 0
+    interrupt-on-move: false
+    max-rank: 5
+    rank-cost: { coins: 1 }
+    # RADIUS um den LANDEPUNKT, nicht LINE vom Absprung aus. Was ein Sprung anrichtet, richtet er
+    # dort an, wo er aufkommt - eine Linie in Blickrichtung beschrieb den Weg dorthin, und der Weg
+    # ist nicht der Aufprall (FR-045d).
+    target:
+      mode: RADIUS
+      range: 4.0
+      max-targets: 6
+    effects:
+      # Der Schub in Blickrichtung. 1.4 war ein Schritt, kein Sprung - der Warrior kam kaum weiter
+      # als beim Laufen, und eine Faehigkeit mit Wirkzeit und Manakosten muss sich lohnen.
+      - type: DASH
+        amount: 2.6
+        per-rank: 0.2
+      # Beide erst beim Aufkommen. Vorher trafen sie, was VOR dem Sprung vor ihm stand, und der
+      # Rueckstoss drueckte vom Absprungpunkt weg - beides sichtbar falsch, sobald man weit springt.
+      - type: DAMAGE
+        when: landing
+        damage-type: PHYSICAL
+        amount: 1.1
+        per-rank: 0.15
+      - type: KNOCKBACK
+        when: landing
+        amount: 0.7
+
+  # Lifesteal. A share of the damage that ACTUALLY landed, which is why it hangs on APPLICATION and
+  # not on RAW_DAMAGE - armour has already been paid for by then (ADR-022).
+  warrior.lifesteal:
+    kind: PASSIVE
+    # A marker, not a trigger: Lifesteal happens on every hit; the slot is how a player knows it is theirs.
+    # Clicking it says so (AbilityResult.PASSIVE) instead of pretending it is locked.
+    item: 'GHAST_TEAR'
+    display-name-key: 'ability.warrior.lifesteal.name'
+    description-key: 'ability.warrior.lifesteal.description'
+    trigger: ON_DAMAGE_DEALT
+    cooldown-ms: 0
+    max-rank: 5
+    rank-cost: { coins: 1 }
+    target: { mode: SELF }
+    effects:
+      - type: LIFESTEAL
+        amount: 0.08
+        per-rank: 0.02
+
+  # Whirl. Damage over time in the shape that is allowed: one interval effect in the shared sweep,
+  # never a task per target (FR-010b). Endable early - the whirl stops at once.
+  warrior.whirl:
+    kind: ACTIVE
+    display-name-key: 'ability.warrior.whirl.name'
+    description-key: 'ability.warrior.whirl.description'
+    item: 'IRON_AXE'
+    mana-cost: 35.0
+    # Haltend und flächig - das obere Mittelfeld.
+    cooldown-ms: 900
+    cast-time-ms: 0
+    sustained: true
+    duration-ms: 5000
+    max-rank: 5
+    rank-cost: { coins: 1 }
+    # Ein ZYLINDER, keine Kugel. Bei einer Kugel schrumpft die seitliche Reichweite mit jedem Block
+    # Hoehe - 4.5 zu Fuessen, 3.3 bei einem Mob drei Bloecke hoeher -, und am Hang liest sich das
+    # als "mal trifft er, mal nicht". Ein Zylinder sagt etwas, das man sich merken kann: alles im
+    # Umkreis, auf deiner Hoehe und ein Stueck darueber und darunter.
+    #
+    # BALANCING: 6.0 statt 4.5 waagerecht - fast die doppelte Flaeche. Die Obergrenze von zehn
+    # Zielen bleibt die harte Grenze fuers Tickbudget, nicht der Radius.
+    target:
+      mode: RADIUS
+      range: 6.0
+      height: 3.0
+      max-targets: 10
+    effects:
+      - type: DAMAGE
+        damage-type: PHYSICAL
+        amount: 0.55
+        per-rank: 0.08
+        duration-ms: 5000
+        interval-ms: 1000
+
+  # Wutschrei, the unique. Active, sustained, self only - the one thing a warrior does that helps
+  # nobody but himself. The id still says berserker; only the display name is player-facing.
+  warrior.call-of-the-berserker:
+    kind: ACTIVE
+    display-name-key: 'ability.warrior.call-of-the-berserker.name'
+    description-key: 'ability.warrior.call-of-the-berserker.description'
+    item: 'GOAT_HORN'
+    mana-cost: 45.0
+    # Die Ultimative des Warriors - die Obergrenze des Bandes.
+    cooldown-ms: 1000
+    cast-time-ms: 0
+    sustained: true
+    # NICHT exklusiv. Der Ruf ist ein Kampfschrei, kein Zustand, in dem der Warrior feststeckt -
+    # zwoelf Sekunden ohne jede andere Faehigkeit waeren keine Ultimative, sondern eine Strafe.
+    exclusive: false
+    duration-ms: 12000
+    max-rank: 5
+    rank-cost: { coins: 1 }
+    target: { mode: SELF }
+    effects:
+      - type: BUFF
+        attribute: movementSpeed
+        amount: 0.05
+        per-rank: 0.01
+        duration-ms: 12000
+      - type: BUFF
+        attribute: attackSpeed
+        amount: 0.35
+        per-rank: 0.08
+        duration-ms: 12000
+
+  # ============================== ROGUE - mobility, single target, states ==========================
+  #
+  # THREE active and THREE passive. This is the exception the counting rule was relaxed for
+  # (ADR-025): an assassin lives off states more than off button presses.
+
+  # Poisoned Blade. Stacks up to three times, and the total per second is capped - without the cap
+  # enough hits would make it unbounded (V40). A fourth hit at the maximum refreshes the duration and
+  # adds nothing: the reward for hitting again is that it lasts.
+  rogue.poisoned-blade:
+    kind: PASSIVE
+    # A marker, not a trigger: Poison on hit, by chance. The marker names what the chance belongs to.
+    # Clicking it says so (AbilityResult.PASSIVE) instead of pretending it is locked.
+    item: 'SPIDER_EYE'
+    display-name-key: 'ability.rogue.poisoned-blade.name'
+    description-key: 'ability.rogue.poisoned-blade.description'
+    trigger: ON_DAMAGE_DEALT
+    chance: 0.35
+    cooldown-ms: 0
+    max-rank: 5
+    rank-cost: { coins: 1 }
+    target:
+      mode: NEAREST
+      range: 4.0
+      max-targets: 1
+    effects:
+      - type: DAMAGE
+        damage-type: PHYSICAL
+        amount: 0.20
+        per-rank: 0.04
+        duration-ms: 6000
+        interval-ms: 1000
+        max-stacks: 3
+        stack-cap: 0.45
+
+  # Teleport. Two charges, and the cooldown only starts once the second is spent (FR-045i). Unused
+  # within the window the pool jumps back to two, so holding one in reserve costs nothing.
+  rogue.teleport:
+    kind: ACTIVE
+    display-name-key: 'ability.rogue.teleport.name'
+    description-key: 'ability.rogue.teleport.description'
+    item: 'ENDER_PEARL'
+    mana-cost: 20.0
+    # Zwei Ladungen; der Cooldown greift erst, wenn der Vorrat leer ist.
+    cooldown-ms: 500
+    cast-time-ms: 0
+    charges: 2
+    charge-window-ms: 10000
+    max-rank: 5
+    rank-cost: { coins: 1 }
+    target:
+      mode: CURSOR
+      range: 20.0
+      max-targets: 1
+    effects:
+      - type: TELEPORT
+        amount: 1.0
+
+  # Sneaky Backstab. The only ability carrying `requires-behind-target`, and the condition is only
+  # knowable in the moment of the hit - which is why V34 ties it to ON_DAMAGE_DEALT.
+  rogue.backstab:
+    kind: PASSIVE
+    # A marker, not a trigger: Only from behind - and only visible as a marker, since nothing is clicked.
+    # Clicking it says so (AbilityResult.PASSIVE) instead of pretending it is locked.
+    item: 'FLINT'
+    display-name-key: 'ability.rogue.backstab.name'
+    description-key: 'ability.rogue.backstab.description'
+    trigger: ON_DAMAGE_DEALT
+    requires-behind-target: true
+    cooldown-ms: 0
+    max-rank: 5
+    rank-cost: { coins: 1 }
+    target: { mode: SELF }
+    effects:
+      - type: BUFF
+        attribute: attackSpeed
+        amount: 0.25
+        per-rank: 0.05
+        duration-ms: 60000
+      - type: BUFF
+        attribute: physicalDamage
+        amount: 8.0
+        per-rank: 2.0
+        duration-ms: 60000
+
+  # Invisibility. Ends on damage dealt and on a second right-click. The void stays lethal, and mobs
+  # keep their interest until B10 - both are written down in InvisibilityEffect rather than pretended
+  # away here (FR-016d).
+  rogue.invisibility:
+    kind: ACTIVE
+    display-name-key: 'ability.rogue.invisibility.name'
+    description-key: 'ability.rogue.invisibility.description'
+    item: 'GLASS_BOTTLE'
+    mana-cost: 30.0
+    # Haltend, endet beim Zuschlagen.
+    cooldown-ms: 800
+    cast-time-ms: 0
+    sustained: true
+    duration-ms: 6000
+    max-rank: 5
+    rank-cost: { coins: 1 }
+    target: { mode: SELF }
+    effects:
+      - type: INVISIBILITY
+        amount: 1.0
+        duration-ms: 6000
+
+  # Clone. Carries the values from the moment it was called, does not attack, and goes off when it
+  # runs out. The aggression redirect follows with B10 (FR-016c).
+  rogue.clone:
+    kind: ACTIVE
+    display-name-key: 'ability.rogue.clone.name'
+    description-key: 'ability.rogue.clone.description'
+    item: 'ARMOR_STAND'
+    mana-cost: 40.0
+    # Beschwörung; teurer als ein Schlag, billiger als eine Ultimative.
+    cooldown-ms: 900
+    cast-time-ms: 0
+    max-rank: 5
+    rank-cost: { coins: 1 }
+    # Der Klon steht bei ihm, die Explosion trifft um IHN herum - deshalb eine Flaeche und nicht
+    # SELF. Beim Wirken waehlt sie niemanden aus: der SUMMON-Effekt braucht kein Ziel, und der
+    # Schaden wartet auf das Ende (FR-016c).
+    target:
+      mode: RADIUS
+      range: 4.0
+      max-targets: 8
+    effects:
+      - type: SUMMON
+        amount: 60.0
+        per-rank: 20.0
+        duration-ms: 10000
+      # Der Knall am Ende. `when: summon-end` heisst: nicht jetzt, sondern wenn der Klon geht, und
+      # dort, wo er dann steht.
+      - type: DAMAGE
+        when: summon-end
+        damage-type: MAGIC
+        amount: 1.6
+        per-rank: 0.25
+      - type: KNOCKBACK
+        when: summon-end
+        amount: 0.9
+
+  # Second Life, the unique. Passive, and that is the whole reason ADR-022 let the unique be passive:
+  # forcing it active would have meant a button for "do not die", which is not the ability.
+  #
+  # `open-world-only` LOADS BUT IS NOT ENFORCED until B09 delivers the zones. The start says so once
+  # as a note, because refusing to start over a correct configuration would be worse (V36).
+  rogue.second-life:
+    kind: PASSIVE
+    display-name-key: 'ability.rogue.second-life.name'
+    description-key: 'ability.rogue.second-life.description'
+    item: 'TOTEM_OF_UNDYING'
+    trigger: ON_DEATH
+    chance: 0.20
+    open-world-only: true
+    cooldown-ms: 600000
+    max-rank: 5
+    rank-cost: { coins: 1 }
+    target: { mode: SELF }
+    effects:
+      # Rang 1 haelt die Haelfte, Rang 5 die volle Leiste. Vorher 35 bis 55 Prozent - eine
+      # Wiederbelebung, nach der man beim naechsten Schlag wieder liegt, ist keine.
+      - type: HEAL
+        amount: 0.50
+        per-rank: 0.125
+        as-fraction: true
+
+  # ============================== MAGE - mana, magic damage, area ==================================
+
+  # Magisches Leben. Nimmt einen ANTEIL vom Auto-Angriff und laesst den Rest stehen. Haengt aus dem
+  # Grund an MODIFIERS, aus dem das Ausweichen dort haengt: ab APPLICATION ist der Schlag gelandet.
+  #
+  # Es war vorher ein EVADE mit `damage-type: MAGIC` und 15 Prozent Chance - und tat damit im Spiel
+  # nie etwas. Nicht, weil es kaputt war: Mobs schlagen PHYSICAL zu, und der Typfilter liess genau
+  # das durch. Was blieb, war eine Faehigkeit, die auf dem Papier wirkte und am Zombie nicht.
+  #
+  # Jetzt filtert es andersherum. Der Schadenstyp ist offen - physisch wie magisch -, gefiltert wird
+  # die HERKUNFT: ein Schwertschlag und ein Skelettpfeil werden gemildert, ein gewirkter Feuerball
+  # trifft voll. Ohne diesen Filter waere die Faehigkeit eine pauschale Schadensreduktion und damit
+  # etwas anderes als das, was ihr Name verspricht.
+  mage.magic-life:
+    kind: PASSIVE
+    # A marker, not a trigger: Reacts to damage taken. The slot says the reaction exists.
+    # Clicking it says so (AbilityResult.PASSIVE) instead of pretending it is locked.
+    item: 'GLISTERING_MELON_SLICE'
+    display-name-key: 'ability.mage.magic-life.name'
+    description-key: 'ability.mage.magic-life.description'
+    trigger: ON_DAMAGE_TAKEN
+    cooldown-ms: 0
+    # KEINE Chance mehr, und das ist der Unterschied zwischen den beiden Primitiven: eine Milderung
+    # wirkt IMMER und dafuer anteilig. Ein `chance` hier wuerde sie wieder in ein Ausweichen mit
+    # kleinerer Zahl verwandeln - selten und dann stark, statt verlaesslich und dafuer weniger.
+    max-rank: 5
+    rank-cost: { coins: 1 }
+    target: { mode: SELF }
+    effects:
+      - type: MITIGATE
+        # Die Spanne kommt vom Rang: Rang 1 mildert 10 Prozent, jeder weitere 2.5 mehr, Rang 5 also
+        # 20. BALANCING - die beiden Zahlen sind gesetzt, damit die Mechanik im Spiel messbar ist,
+        # nicht weil sie ausgespielt waeren.
+        amount: 0.10
+        per-rank: 0.025
+        # Der Auto-Angriff, und das sind zwei Herkuenfte: der Schlag des Zombies und der Pfeil des
+        # Skeletts sind dasselbe Ereignis aus Sicht dessen, der getroffen wird. ABILITY fehlt hier
+        # absichtlich - gegen gewirkten Schaden steht das Magieschild, nicht diese Faehigkeit.
+        origins: [MELEE, PROJECTILE]
+
+  # Lightning. Hops from the target it hit to the next one nearby - each further hop is looked for
+  # around the LAST one hit, which is what makes it a chain and not eight nearest targets (FR-019a).
+  mage.lightning:
+    kind: ACTIVE
+    display-name-key: 'ability.mage.lightning.name'
+    description-key: 'ability.mage.lightning.description'
+    item: 'BLAZE_ROD'
+    # Der Grundangriff des Magiers, und Grundangriffe muessen bezahlbar sein: mit 30 Mana waren die
+    # Vorraete nach vier Blitzen leer und der Magier stand ohne alles da.
+    mana-cost: 5.0
+    # Die Untergrenze des Abklingbandes.
+    cooldown-ms: 500
+    cast-time-ms: 0
+    max-rank: 5
+    rank-cost: { coins: 1 }
+    target:
+      mode: CHAIN
+      range: 18.0
+      hop-range: 6.0
+      max-targets: 8
+    effects:
+      - type: DAMAGE
+        damage-type: MAGIC
+        amount: 1.3
+        per-rank: 0.18
+
+  # Magic Shield. No type filter at all - physical and magic alike. That difference to the warrior's
+  # Block is the whole reason the filter is optional rather than required.
+  mage.magic-shield:
+    kind: ACTIVE
+    display-name-key: 'ability.mage.magic-shield.name'
+    description-key: 'ability.mage.magic-shield.description'
+    item: 'AMETHYST_SHARD'
+    mana-cost: 30.0
+    cooldown-ms: 800
+    cast-time-ms: 0
+    # NICHT sustained - anders als der Block des Warriors, und das ist der Unterschied zwischen den
+    # beiden Schilden.
+    #
+    # `sustained` heisst: die Faehigkeit BELEGT den Spieler, solange sie laeuft. Beim Warrior ist das
+    # richtig - er haelt den Schild hoch, steht in der Blockhaltung und macht nichts anderes, und ein
+    # zweiter Rechtsklick nimmt ihn herunter. Der Magier haelt nichts; sein Schild ist ein Zauber, der
+    # acht Sekunden anhaelt, waehrend er weiterzaubert. Solange das hier true stand, wies ihm jede
+    # weitere Faehigkeit ein "Beende erst Magieschild" ab.
+    #
+    # Beides zusammen ist die Antwort: die Faehigkeit LAEUFT acht Sekunden, damit ein zweiter
+    # Rechtsklick sie abbrechen kann und der Spieler sieht, dass sie laeuft - aber sie BELEGT ihn
+    # nicht. Solange nur `sustained: true` stand, wies ihm jede weitere Faehigkeit ein "Beende erst
+    # Magieschild" ab; solange nur `sustained: false` stand, gab es nichts zum Abbrechen.
+    sustained: true
+    exclusive: false
+    # Die acht Sekunden stehen jetzt an BEIDEN Stellen, und das ist kein Doppel: hier sagen sie,
+    # wie lange die Faehigkeit laeuft und abbrechbar ist, am Effekt, wie lange der Vorrat haelt.
+    duration-ms: 8000
+    max-rank: 5
+    rank-cost: { coins: 1 }
+    target: { mode: SELF }
+    effects:
+      - type: SHIELD
+        amount: 50.0
+        per-rank: 18.0
+        duration-ms: 8000
+
+  # Mana Potion. Triggerable in combat, but any damage taken ends it - otherwise it would simply be
+  # free mana in the middle of a fight. Costs no mana, which is the point of it.
+  mage.mana-potion:
+    kind: ACTIVE
+    display-name-key: 'ability.mage.mana-potion.name'
+    description-key: 'ability.mage.mana-potion.description'
+    item: 'HONEY_BOTTLE'
+    mana-cost: 0.0
+    # Haltend, endet bei jedem Treffer - der Schaden ist die eigentliche Grenze.
+    cooldown-ms: 700
+    cast-time-ms: 0
+    sustained: true
+    duration-ms: 5000
+    max-rank: 5
+    rank-cost: { coins: 1 }
+    target: { mode: SELF }
+    effects:
+      - type: MANA_RESTORE
+        amount: 12.0
+        per-rank: 4.0
+        duration-ms: 5000
+        interval-ms: 1000
+
+  # Lightning Storm. Anchored at a ground point in the cursor direction, and it STAYS there: the mage
+  # may walk away and it keeps raining where it was called down (FR-019b).
+  mage.lightning-storm:
+    kind: ACTIVE
+    display-name-key: 'ability.mage.lightning-storm.name'
+    description-key: 'ability.mage.lightning-storm.description'
+    item: 'TRIDENT'
+    mana-cost: 55.0
+    # Die Ultimative des Magiers - die Obergrenze des Bandes.
+    cooldown-ms: 1000
+    cast-time-ms: 0
+    max-rank: 5
+    rank-cost: { coins: 1 }
+    target:
+      mode: GROUND_AREA
+      range: 16.0
+      area-radius: 5.0
+      max-targets: 10
+    effects:
+      - type: DAMAGE
+        damage-type: MAGIC
+        amount: 0.7
+        per-rank: 0.1
+        duration-ms: 6000
+        interval-ms: 1000
+
+  # Rise & Fall, the unique. Passive, always on, and the only ability the player may switch off -
+  # three settings: on, off, jump without slow fall (FR-052d).
+  #
+  # DOUBLE_JUMP is a primitive rather than a special case in the listener, because the listener has
+  # to be able to ask "who may double jump" WITHOUT naming an ability id. Any later class could get
+  # one, and then the listener would need a second name in it.
+  mage.rise-and-fall:
+    kind: PASSIVE
+    display-name-key: 'ability.mage.rise-and-fall.name'
+    description-key: 'ability.mage.rise-and-fall.description'
+    # EIN Marker, nicht zwei. Der Wind Charge ist der Sprung; der Trank daneben belegte einen
+    # zweiten Platz in der Leiste fuer dieselbe Faehigkeit, und Plaetze sind knapp.
+    item: 'WIND_CHARGE'
+    trigger: ALWAYS
+    player-toggle: true
+    cooldown-ms: 6000
+    max-rank: 5
+    rank-cost: { coins: 1 }
+    target: { mode: SELF }
+    effects:
+      # Hoeher als vorher (0.8): der Doppelsprung war ein Huepfer und keine Fortbewegung.
+      - type: DOUBLE_JUMP
+        amount: 1.15
+        per-rank: 0.06
+      - type: STATUS_EFFECT
+        status-effect: 'SLOW_FALLING'
+        amount: 0.0
+        duration-ms: 6000

@@ -148,3 +148,44 @@ mehrere hier als abgeschlossen geführte Punkte wieder offen — der Steckbrief
       - **Netzwerk**: ≥ 1 Gbit/s Uplink für 100–200 gleichzeitige Spieler.
       - Anbieter mit garantiert dedizierten Kernen bevorzugen, keine
         Burst-/Shared-vCPU-Billig-Angebote.
+
+## B15 (Performance & Observability) — für die Umsetzung geklärt
+
+- [x] Zielhardware: die reale Zielmaschine; das konkrete Profil wird pro Run im Manifest erfasst.
+- [x] Monitoring: strukturierte Logs plus Prometheus-kompatibler Text-Export, ohne Grafana-
+      Laufzeitabhängigkeit.
+- [x] Lastgenerator: externes `mc-pilot`-Profil mit festem Version-/Commit-Eintrag je Run.
+- [x] Alarm: 90-%-Warnung, kritischer Zustand nach 60 Sekunden, deduplizierte Erholung.
+- [x] Profiling: Papers gebündeltes Spark nur für kontrollierte Zehn-Minuten-Läufe.
+- [ ] Echter 15+30-Minuten-Lauf auf der Zielmaschine: Betriebsnachweis nach Bereitstellung des
+      Servers; kein offener Architekturentscheid.
+
+## B16 (Content-Konfiguration & Balancing) — Leitplanken und Entscheidungen
+
+Die folgenden Fragen bilden die offene Zuordnung aus B16-DEC-001, D3. Sie führen keine neuen
+Fachwerte ein und lösen keine bestehende Balancefrage durch die Dateistruktur auf.
+
+- [ ] **Q-B16-001 — Alte Balancefragen bleiben unverändert offen.** Die bereits offenen Fragen
+      zu Basiswerten/Wachstum, Cooldowns und Casting, Mob-Budgets/Wellen/Geometrie, Raritäten,
+      Rolls/Affixen, Händlerumfang sowie Leaderboard- und Betriebsdetails behalten ihren
+      bisherigen Status in dieser Datei. B16 darf sie weder als entschieden markieren noch durch
+      einen neuen YAML-Schlüssel, Default oder Owner implizit beantworten. Ihre spätere Klärung
+      bleibt eine eigene Clarify-/Specify-Entscheidung.
+
+- [x] **Q-B16-002 — `mobs.admin-spawn-limit`.** Entschieden: `20` ist eine serverweite
+      `PROTECTION_BOUNDARY` für gleichzeitig im `HordeRegistry` registrierte Mobs mit
+      `Origin.ADMIN`. Jeder `/rpg mob spawn`-Aufruf setzt höchstens eine Kreatur. `mobs.yml` ist
+      der fachliche Owner; `MobConfig.DEFAULT_ADMIN_SPAWN_LIMIT=20` bleibt ausschließlich der
+      Kompatibilitäts-Fallback für ein fehlendes optionales Feld. Der Wert ist kein neues
+      Balancing-Ziel.
+
+- [x] **Q-B16-003 — `exception.ability.behind-angle`.** Entschieden: `BehindTargetCheck.DEFAULT_ANGLE`
+      bleibt als globale `ALGORITHM_CONSTANT` bei `90.0` Grad im Core. Das ist der halbe
+      Öffnungswinkel des hinteren Kegels: die hintere Hemisphäre zählt, die exakte Seitenlinie
+      nicht. Es gibt dafür vorerst keinen YAML-Owner; ein späterer per-Ability-Wert wäre eine
+      separate fachliche Entscheidung.
+
+- [x] **Q-B16-004 — `exception.ability.projectile-speed`.** Entschieden: `ProjectileEffect.DEFAULT_SPEED`
+      bleibt als `PLATFORM_PHYSICS`-Konstante bei `1.6` Blöcken pro Tick im Core. Sie ist der
+      globale Startgeschwindigkeitswert für den `PROJECTILE`-Effekt; aktuell existiert kein
+      entsprechender YAML-Ability-Eintrag und damit vorerst kein YAML-Owner.

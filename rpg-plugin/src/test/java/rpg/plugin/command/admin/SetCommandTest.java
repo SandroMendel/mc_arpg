@@ -30,6 +30,8 @@ import org.mockbukkit.mockbukkit.world.WorldMock;
 
 import rpg.core.classes.ClassSelection;
 import rpg.core.event.DefaultEventBus;
+import rpg.core.message.MapMessages;
+import rpg.core.message.Messages;
 import rpg.core.persistence.AuditEntry;
 import rpg.core.persistence.AuditLogRepository;
 import rpg.core.progression.ProgressView;
@@ -45,8 +47,6 @@ import rpg.core.session.PlayerCharacter;
 import rpg.core.session.PlayerSession;
 import rpg.core.session.SessionRegistry;
 import rpg.core.session.SessionState;
-import rpg.core.message.MapMessages;
-import rpg.core.message.Messages;
 import rpg.plugin.command.framework.AdminAudit;
 import rpg.plugin.command.framework.Argument;
 import rpg.plugin.command.framework.ArgumentRejected;

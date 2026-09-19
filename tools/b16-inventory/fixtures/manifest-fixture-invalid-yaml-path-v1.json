@@ -1,0 +1,24 @@
+{
+  "inventoryVersion": "b16-inventory-v1",
+  "schemaVersion": 1,
+  "generatedFrom": "invalid-yaml-path-fixture",
+  "semanticMethod": "fixture statement probe",
+  "sourceRoots": ["tools/b16-inventory/fixtures/valid"],
+  "scanRegions": [],
+  "candidates": [
+    {
+      "id": "fixture.invalid.yaml-path",
+      "sourceFile": "tools/b16-inventory/fixtures/valid/Sample.java",
+      "sourcePattern": "double\\s+balance\\s*=\\s*(?<value>100\\.0)",
+      "valueGroup": "value",
+      "expectedValue": 100.0,
+      "yamlFile": "C:/outside/sample.yml",
+      "yamlPath": "sample.balance",
+      "unit": "fixture-units",
+      "category": "CONTENT",
+      "scanStatus": "MIGRATABLE",
+      "semanticCheck": "exact-numeric",
+      "reason": "absolute YAML path must fail path validation"
+    }
+  ]
+}

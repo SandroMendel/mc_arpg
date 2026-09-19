@@ -15,6 +15,7 @@ import org.bukkit.event.entity.EntityDamageEvent;
 import rpg.core.combat.CombatPipeline;
 import rpg.core.combat.DeathCause;
 import rpg.core.combat.EnvironmentSource;
+import rpg.core.performance.MeasurementScope;
 import rpg.platform.combat.VanillaDamageMapping.Mapping;
 
 /**
@@ -35,50 +36,62 @@ public final class VanillaDamageListener implements Listener {
     private final CombatPipeline pipeline;
     private final VanillaDamageMapping mapping;
     private final Logger logger;
+    private final java.util.function.Supplier<MeasurementScope> performanceScope;
 
     public VanillaDamageListener(
             CombatPipeline pipeline, VanillaDamageMapping mapping, Logger logger) {
+        this(pipeline, mapping, logger, () -> () -> {});
+    }
+
+    public VanillaDamageListener(
+            CombatPipeline pipeline,
+            VanillaDamageMapping mapping,
+            Logger logger,
+            java.util.function.Supplier<MeasurementScope> performanceScope) {
         this.pipeline = pipeline;
         this.mapping = mapping;
         this.logger = logger;
+        this.performanceScope = java.util.Objects.requireNonNull(performanceScope, "performanceScope");
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
     public void onDamage(EntityDamageEvent event) {
-        if (!(event.getEntity() instanceof LivingEntity target)) {
-            return;
-        }
-
-        Mapping treatment = mapping.resolve(event.getCause());
-
-        // Whatever happens next, vanilla's number is not it (FR-016).
-        event.setDamage(0.0);
-
-        switch (treatment.treatment()) {
-            case DISABLED -> event.setCancelled(true);
-
-            case LETHAL -> {
-                event.setCancelled(true);
-                pipeline.kill(
-                        target.getUniqueId(),
-                        event.getCause() == EntityDamageEvent.DamageCause.VOID
-                                ? DeathCause.VOID
-                                : DeathCause.ADMIN);
+        try (MeasurementScope ignored = performanceScope.get()) {
+            if (!(event.getEntity() instanceof LivingEntity target)) {
+                return;
             }
 
-            case MAPPED -> {
-                EnvironmentSource source = treatment.environmentSource().orElseThrow();
-                if (source == EnvironmentSource.FALL) {
-                    pipeline.fallDamage(target.getUniqueId(), target.getFallDistance());
-                } else {
-                    pipeline.environmentDamage(target.getUniqueId(), source);
+            Mapping treatment = mapping.resolve(event.getCause());
+
+            // Whatever happens next, vanilla's number is not it (FR-016).
+            event.setDamage(0.0);
+
+            switch (treatment.treatment()) {
+                case DISABLED -> event.setCancelled(true);
+
+                case LETHAL -> {
+                    event.setCancelled(true);
+                    pipeline.kill(
+                            target.getUniqueId(),
+                            event.getCause() == EntityDamageEvent.DamageCause.VOID
+                                    ? DeathCause.VOID
+                                    : DeathCause.ADMIN);
                 }
-                // Vanilla's invulnerability ticks are a second, hidden attack window: they would
-                // quietly cap attack speed at two hits per second (research.md E6).
-                target.setNoDamageTicks(0);
-            }
 
-            case COMBAT -> handleCombat(event, target);
+                case MAPPED -> {
+                    EnvironmentSource source = treatment.environmentSource().orElseThrow();
+                    if (source == EnvironmentSource.FALL) {
+                        pipeline.fallDamage(target.getUniqueId(), target.getFallDistance());
+                    } else {
+                        pipeline.environmentDamage(target.getUniqueId(), source);
+                    }
+                    // Vanilla's invulnerability ticks are a second, hidden attack window: they would
+                    // quietly cap attack speed at two hits per second (research.md E6).
+                    target.setNoDamageTicks(0);
+                }
+
+                case COMBAT -> handleCombat(event, target);
+            }
         }
     }
 

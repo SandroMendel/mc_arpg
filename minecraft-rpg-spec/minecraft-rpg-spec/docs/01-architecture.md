@@ -63,11 +63,70 @@ Querschnitt: B15 Performance/Observability · B16 Content-Config
 rpg-core        Domänenmodell + Formeln, keine Bukkit-Abhängigkeit, voll testbar
 rpg-persistence PostgreSQL, Repositories, Migrationen
 rpg-platform    Paper-Adapter: Events, Scheduler, Entities, Rendering
-rpg-content     Konfigurations-Ladelogik + Schema-Validierung
+rpg-content     B16-Definitionen, Defaults, Schemas + Querverbindungsprüfung (serverfrei)
 rpg-plugin      Bootstrap, Modulverdrahtung, plugin.yml
 ```
 
 Abhängigkeitsrichtung strikt: `plugin → platform → core`, `core` kennt niemanden.
+
+## B16 Content-Ownership und Ladegrenze
+
+`rpg-content` ist der Owner der ausgelieferten B16-Content-Definitionen, Defaults, domänenspezifischen
+Schemas und Querverbindungsprüfungen. Das Modul bleibt serverfrei, hängt nur von `rpg-core` ab und
+kennt weder Bukkit noch Paper. Die neun gebündelten B16-Dateien sind:
+
+`classes.yml`, `abilities.yml`, `progression.yml`, `combat.yml`, `zones.yml`, `mobs.yml`,
+`items.yml`, `currency.yml` und `stats.yml` (für B16 nur die verwalteten Teilbereiche).
+
+Die versionierten Defaults liegen unter `rpg-content/src/main/resources/` und werden vom Plugin beim
+Bootstrap in den Plugin-Datenordner kopiert, ohne vorhandene Betreiberdateien zu überschreiben. Das
+Plugin bündelt das Content-Modul in das deploybare Artefakt und verdrahtet den bestehenden Adminpfad
+`/rpg reload` mit der gemeinsamen Reload-Transaktion.
+
+Die YAML-Parser-Grenze liegt außerhalb von `rpg-content`: `rpg-platform` stellt den bestehenden
+`YamlConfigLoader` und SnakeYAML bereit. `rpg-content` erhält den Parser als `DocumentReader` und führt
+danach serverfrei die Versions-/Strukturprüfung, das typisierte Binding sowie die Querverbindungs- und
+Domäneninvariantenprüfung für alle neun Quellen durch. `YamlConfigLoader` wird daher nicht in
+`rpg-content` implementiert und `rpg-content` führt keinen zweiten YAML-Parser ein.
+
+## B16 Snapshot- und Reload-Lebenszyklus
+
+Eine B16-Generation wird als unveränderlicher `ContentSnapshot` aufgebaut. Die Reihenfolge ist:
+
+```text
+neun Dateien lesen und YAML parsen
+        ↓
+schemaVersion und feste Struktur prüfen
+        ↓
+Typen und Wertebereiche binden
+        ↓
+Querverbindungen und Domäneninvarianten prüfen
+        ↓ Erfolg                              ↓ Fehler
+vollständigen Snapshot bereitstellen         bisherigen Snapshot behalten
+        ↓
+gemeinsam in ConfigHandle-Generation        keine Teilveröffentlichung
+stagen; Reload-Hooks anwenden
+        ↓ Hook-Erfolg
+eine neue Generation atomar publizieren
+```
+
+Der `B16ContentLoader` liefert den vollständig geprüften Snapshot; die Veröffentlichung bleibt in
+der bestehenden `ConfigLoader`-/`ConfigHandle`-Transaktion. Alle registrierten Quellen werden zuerst
+gemeinsam gestaged. Erst wenn die Reload-Hooks erfolgreich waren, wird die neue Generation sichtbar.
+Schlägt Parsing, Schema-, Querverbindungs- oder Hook-Verarbeitung fehl, bleibt die vollständige
+vorherige Generation aktiv. Bei einem Hook-Fehler stellt der Loader die vorherige Generation vor dem
+Rollback-Hook wieder her; ein gemischter alter/neuer Content-Zustand wird nicht veröffentlicht.
+
+## B15 Performance-/Observability-Fluss
+
+`rpg-core` hält den begrenzten Messring und die Alert-Zustände ohne Bukkit. `rpg-platform` misst
+öffentliche Paper-Tick-Events und verdrahtet kurze Scopes an B03, B05, B08b, B09, B10, B12, B13
+und B14. `rpg-plugin` besitzt Konfiguration, Report-Zyklus, strukturierte Logs und den atomaren
+Prometheus-Text-Export. Der Export läuft in einer einzigen serverweiten asynchronen One-Shot-Kette;
+es gibt keine wiederkehrende Aufgabe je Spieler oder Entität.
+
+Lasttest und Spark bleiben außerhalb des Plugin-JARs. Das versionierte Szenario und der Windows-
+Runner erfassen das reale Hardwareprofil sowie die Rohartefakte; Paper liefert Spark bereits mit.
 
 ## Datenfluss Spielerwert (Beispiel)
 

@@ -11,8 +11,8 @@ import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import rpg.core.config.SchemaValidator;
 import rpg.core.config.ConfigView;
+import rpg.core.config.SchemaValidator;
 import rpg.core.stats.Attribute;
 
 /**

@@ -1,0 +1,50 @@
+{
+  "runId": "fixture-failed",
+  "status": "FAILED",
+  "scenario": {
+    "id": "b15-full",
+    "revision": 1,
+    "players": 150,
+    "regions": 6,
+    "customMobs": 800,
+    "warmupMinutes": 15,
+    "measurementMinutes": 30,
+    "workloads": ["movement", "combat", "coin-drops", "hordes"]
+  },
+  "environment": {
+    "minecraft": "26.2",
+    "paperBuild": "26.2.build.112-stable",
+    "java": "25",
+    "tool": "mc-pilot",
+    "toolVersion": "fixture"
+  },
+  "hardware": {
+    "cpu": "fixture-cpu",
+    "cores": "logical=16;physical=8",
+    "memoryBytes": "34359738368",
+    "storage": "fixture",
+    "os": "Windows",
+    "jvmArguments": "-Xms4G -Xmx4G"
+  },
+  "artifacts": {
+    "metrics": "failed-metrics.prom",
+    "report": "failed-report.log",
+    "logs": "failed-server.log"
+  },
+  "result": {
+    "meanTps": 18.7,
+    "msptP95": 44.1,
+    "msptP99": 57.3,
+    "peakCustomMobs": 800,
+    "measurementMinutes": 30,
+    "activePlayersPeak": 150,
+    "missingSources": [],
+    "metricsFresh": true,
+    "restartDetected": false,
+    "warmupCompleted": true,
+    "firstFailure": {
+      "code": "TPS_BELOW_TARGET",
+      "message": "Mean TPS fell below 19.5 during the measurement window."
+    }
+  }
+}

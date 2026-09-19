@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vuntex.example/schemas/b15-run-manifest.schema.json",
+  "title": "B15 performance run manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "runId",
+    "status",
+    "scenario",
+    "environment",
+    "hardware",
+    "artifacts",
+    "result"
+  ],
+  "properties": {
+    "runId": { "type": "string", "minLength": 1 },
+    "status": {
+      "type": "string",
+      "enum": ["RUNNING", "PASSED", "FAILED", "INVALID", "ABORTED"]
+    },
+    "scenario": { "$ref": "#/$defs/scenario" },
+    "environment": { "$ref": "#/$defs/environment" },
+    "hardware": { "$ref": "#/$defs/hardware" },
+    "artifacts": { "$ref": "#/$defs/artifacts" },
+    "result": { "$ref": "#/$defs/result" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "PASSED" } } },
+      "then": {
+        "properties": {
+          "result": {
+            "required": ["meanTps", "msptP95", "msptP99", "peakCustomMobs", "measurementMinutes", "activePlayersPeak", "missingSources", "metricsFresh", "restartDetected", "warmupCompleted"],
+            "properties": {
+              "meanTps": { "minimum": 19.5 },
+              "msptP95": { "exclusiveMaximum": 40.0 },
+              "msptP99": { "exclusiveMaximum": 50.0 },
+              "peakCustomMobs": { "minimum": 800 },
+              "measurementMinutes": { "minimum": 30 },
+              "activePlayersPeak": { "minimum": 150 },
+              "missingSources": { "maxItems": 0 },
+              "metricsFresh": { "const": true },
+              "restartDetected": { "const": false },
+              "warmupCompleted": { "const": true },
+              "firstFailure": { "type": "null" }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "revision",
+        "players",
+        "regions",
+        "customMobs",
+        "warmupMinutes",
+        "measurementMinutes",
+        "workloads"
+      ],
+      "properties": {
+        "id": { "const": "b15-full" },
+        "revision": { "type": "integer", "minimum": 1 },
+        "players": { "type": "integer", "minimum": 150 },
+        "regions": { "type": "integer", "minimum": 6 },
+        "customMobs": { "type": "integer", "minimum": 800 },
+        "warmupMinutes": { "type": "integer", "minimum": 15 },
+        "measurementMinutes": { "type": "integer", "minimum": 30 },
+        "workloads": {
+          "type": "array",
+          "uniqueItems": true,
+          "contains": { "const": "movement" },
+          "minItems": 4,
+          "items": {
+            "type": "string",
+            "enum": ["movement", "combat", "coin-drops", "hordes"]
+          }
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minecraft", "paperBuild", "java", "tool", "toolVersion"],
+      "properties": {
+        "minecraft": { "type": "string", "minLength": 1 },
+        "paperBuild": { "type": "string", "minLength": 1 },
+        "java": { "type": "string", "minLength": 1 },
+        "tool": { "const": "mc-pilot" },
+        "toolVersion": { "type": "string", "minLength": 1 }
+      }
+    },
+    "hardware": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cpu", "cores", "memoryBytes", "storage", "os", "jvmArguments"],
+      "properties": {
+        "cpu": { "type": "string", "minLength": 1 },
+        "cores": { "type": "string", "minLength": 1 },
+        "memoryBytes": { "type": "string", "minLength": 1 },
+        "storage": { "type": "string", "minLength": 1 },
+        "os": { "type": "string", "minLength": 1 },
+        "jvmArguments": { "type": "string" }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["metrics", "report", "logs"],
+      "properties": {
+        "metrics": { "type": "string", "minLength": 1 },
+        "report": { "type": "string", "minLength": 1 },
+        "logs": { "type": "string", "minLength": 1 },
+        "profiler": { "type": "string", "minLength": 1 }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["meanTps", "msptP95", "msptP99", "peakCustomMobs", "measurementMinutes", "activePlayersPeak", "missingSources", "metricsFresh", "restartDetected", "warmupCompleted", "firstFailure"],
+      "properties": {
+        "meanTps": { "type": ["number", "null"], "minimum": 0 },
+        "msptP95": { "type": ["number", "null"], "minimum": 0 },
+        "msptP99": { "type": ["number", "null"], "minimum": 0 },
+        "peakCustomMobs": { "type": ["integer", "null"], "minimum": 0 },
+        "measurementMinutes": { "type": ["number", "null"], "minimum": 0 },
+        "activePlayersPeak": { "type": ["integer", "null"], "minimum": 0 },
+        "missingSources": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "metricsFresh": { "type": "boolean" },
+        "restartDetected": { "type": "boolean" },
+        "warmupCompleted": { "type": "boolean" },
+        "firstFailure": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["code", "message"],
+          "properties": {
+            "code": { "type": "string", "minLength": 1 },
+            "message": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    }
+  }
+}

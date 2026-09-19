@@ -1,0 +1,30 @@
+{
+  "inventoryVersion": "b16-inventory-v1",
+  "schemaVersion": 1,
+  "generatedFrom": "tools/b16-inventory/fixtures/statement-window",
+  "semanticMethod": "fixture statement-window fallback",
+  "sourceRoots": ["tools/b16-inventory/fixtures/statement-window"],
+  "scanRegions": [
+    {
+      "id": "sample-defaults",
+      "sourceFile": "tools/b16-inventory/fixtures/statement-window/Sample.java",
+      "candidatePattern": "\\bbalance\\s*="
+    }
+  ],
+  "candidates": [
+    {
+      "id": "fixture.sample.balance",
+      "sourceFile": "tools/b16-inventory/fixtures/statement-window/Sample.java",
+      "sourcePattern": "\\bbalance\\s*=\\s*(?<value>100\\.0)",
+      "valueGroup": "value",
+      "expectedValue": 100.0,
+      "yamlFile": "tools/b16-inventory/fixtures/statement-window/sample.yml",
+      "yamlPath": "sample.balance",
+      "unit": "fixture-units",
+      "category": "CONTENT",
+      "scanStatus": "MIGRATABLE",
+      "semanticCheck": "exact-numeric",
+      "reason": "the earlier literal in the same statement must not be missed"
+    }
+  ]
+}

@@ -37,11 +37,8 @@ public final class ReloadCommand {
 
     private void reload(CommandContext context) {
         ReloadResult result = reload.get();
+        audit.record(context.sender(), "config_reloaded", result.auditDetails());
         if (result.applied()) {
-            audit.record(
-                    context.sender(),
-                    "config_reloaded",
-                    Map.of("scope", "global"));
             tell(context.sender(), ReloadMessageKeys.DONE, Map.of());
             return;
         }

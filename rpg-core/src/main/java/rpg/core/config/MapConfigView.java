@@ -1,27 +1,37 @@
 package rpg.core.config;
 
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
  * {@link ConfigView} over an already validated, flattened document.
  *
- * <p>Constructed only by {@link SchemaValidator}, so every declared path is guaranteed to be present
- * with the declared type. The accessors therefore never throw a checked exception.
+ * <p>Constructed only by {@link SchemaValidator}. Required paths and optional paths with defaults
+ * are present with their declared type; optional paths without defaults may be absent. The
+ * accessors therefore never throw a checked exception.
  */
-final class MapConfigView implements ConfigView {
+final class MapConfigView implements ValidatedConfigView {
 
-    private final int schemaVersion;
+    private final ConfigSchema<?> validatingSchema;
     private final Map<String, Object> values;
 
-    MapConfigView(int schemaVersion, Map<String, Object> values) {
-        this.schemaVersion = schemaVersion;
-        this.values = Map.copyOf(values);
+    MapConfigView(ConfigSchema<?> validatingSchema, Map<String, Object> values) {
+        this.validatingSchema = validatingSchema;
+        Map<String, Object> snapshot = new LinkedHashMap<>(values.size());
+        values.forEach((path, value) -> snapshot.put(path, ConfigValueSnapshot.copy(value)));
+        this.values = Collections.unmodifiableMap(snapshot);
+    }
+
+    @Override
+    public ConfigSchema<?> validatingSchema() {
+        return validatingSchema;
     }
 
     @Override
     public int schemaVersion() {
-        return schemaVersion;
+        return validatingSchema.schemaVersion();
     }
 
     @Override

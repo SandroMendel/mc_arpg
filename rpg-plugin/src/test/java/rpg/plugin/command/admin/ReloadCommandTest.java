@@ -18,6 +18,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.ServerMock;
+import org.mockbukkit.mockbukkit.entity.PlayerMock;
 
 import rpg.core.config.ConfigValidationException;
 import rpg.core.message.MapMessages;
@@ -26,9 +27,10 @@ import rpg.core.persistence.AuditEntry;
 import rpg.core.persistence.AuditLogRepository;
 import rpg.plugin.command.framework.AdminAudit;
 import rpg.plugin.command.framework.CommandContext;
+import rpg.plugin.command.framework.CommandPermissions;
 import rpg.plugin.command.framework.RpgCommand;
 
-/** T063/T064/T066 — the reload leaf reports its outcome and audits successful changes. */
+/** T063/T064/T066/T017 — reload reports and audits both outcomes without player state. */
 class ReloadCommandTest {
 
     private ServerMock server;
@@ -57,13 +59,21 @@ class ReloadCommandTest {
         definition.action().accept(context(server.getConsoleSender(), Map.of()));
 
         assertThat(server.getConsoleSender().nextMessage()).contains("reloaded successfully");
-        assertThat(auditLog.entries).singleElement().extracting(AuditEntry::action)
-                .isEqualTo("config_reloaded");
+        assertThat(auditLog.entries)
+                .singleElement()
+                .satisfies(
+                        entry -> {
+                            assertThat(entry.action()).isEqualTo("config_reloaded");
+                            assertThat(entry.details())
+                                    .containsEntry("result", ReloadResult.RESULT_APPLIED)
+                                    .containsEntry("source", ReloadResult.ALL_SOURCES)
+                                    .containsEntry("scope", "global");
+                        });
     }
 
     @Test
-    @DisplayName("eine Ablehnung nennt Datei, Dokumentpfad und Grund und schreibt kein Audit")
-    void rejectionIsExplainedWithoutAnAuditEntry() {
+    @DisplayName("eine Ablehnung nennt Datei, Dokumentpfad und Grund und wird auditiert")
+    void rejectionIsExplainedAndAudited() {
         ConfigValidationException failure =
                 new ConfigValidationException(
                         java.nio.file.Path.of("zones.yml"),
@@ -79,7 +89,34 @@ class ReloadCommandTest {
                 .contains("zones.greenfields.world")
                 .contains("a known world")
                 .contains("'nowhere'");
-        assertThat(auditLog.entries).isEmpty();
+        assertThat(auditLog.entries)
+                .singleElement()
+                .satisfies(
+                        entry -> {
+                            assertThat(entry.action()).isEqualTo("config_reloaded");
+                            assertThat(entry.details())
+                                    .containsEntry("result", ReloadResult.RESULT_REJECTED)
+                                    .containsEntry("source", "zones.yml")
+                                    .containsEntry("path", "zones.greenfields.world")
+                                    .containsEntry("expected", "a known world")
+                                    .containsEntry("actual", "'nowhere'")
+                                    .containsEntry("scope", "global")
+                                    .containsEntry("reason", failure.getMessage());
+                        });
+    }
+
+    @Test
+    @DisplayName("/rpg reload bleibt auf rpg.admin.reload beschränkt")
+    void reloadUsesTheExistingAdminPermissionGate() {
+        command = new ReloadCommand(ReloadResult::success, audit(), messages());
+        RpgCommand definition = command.definition();
+        PlayerMock player = server.addPlayer();
+
+        assertThat(CommandPermissions.allows(player, definition)).isFalse();
+
+        player.addAttachment(MockBukkit.createMockPlugin(), ReloadCommand.PERMISSION, true);
+
+        assertThat(CommandPermissions.allows(player, definition)).isTrue();
     }
 
     private AdminAudit audit() {

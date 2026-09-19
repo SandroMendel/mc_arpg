@@ -1,0 +1,24 @@
+{
+  "inventoryVersion": "b16-inventory-v1",
+  "schemaVersion": 1,
+  "generatedFrom": "invalid-fields-fixture",
+  "semanticMethod": "fixture statement probe",
+  "sourceRoots": ["tools/b16-inventory/fixtures/valid"],
+  "scanRegions": [],
+  "candidates": [
+    {
+      "id": "fixture.invalid.fields",
+      "sourceFile": "tools/b16-inventory/fixtures/valid/Sample.java",
+      "sourcePattern": "double\\s+balance\\s*=\\s*(?<value>100\\.0)",
+      "expectedValue": 100.0,
+      "yamlFile": "tools/b16-inventory/fixtures/valid/sample.yml",
+      "yamlPath": "sample.balance",
+      "unit": "fixture-units",
+      "category": "CONTENT",
+      "scanStatus": "MIGRATABLE",
+      "semanticCheck": "exact-numeric",
+      "reason": "missing valueGroup and unknown field must fail schema validation",
+      "unexpected": true
+    }
+  ]
+}

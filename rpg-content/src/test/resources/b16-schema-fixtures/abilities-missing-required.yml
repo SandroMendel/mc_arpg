@@ -1,0 +1,6 @@
+schemaVersion: 1
+runtime:
+  regeneration:
+    health-combat-factor: 0.5
+    mana-combat-factor: 0.25
+abilities: {}

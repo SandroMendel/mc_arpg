@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.Set;
 import java.util.UUID;
 
 import org.bukkit.block.BlockFace;
@@ -29,6 +30,7 @@ import org.mockbukkit.mockbukkit.entity.PlayerMock;
 import com.destroystokyo.paper.event.player.PlayerConnectionCloseEvent;
 
 import rpg.core.module.BootstrapState;
+import rpg.core.performance.SubsystemId;
 import rpg.persistence.support.PostgresContainer;
 
 /**
@@ -157,6 +159,24 @@ class FullBootstrapTest {
         assertThat(dataFolder.resolve("classes.yml")).exists();
         assertThat(dataFolder.resolve("abilities.yml")).exists();
         assertThat(dataFolder.resolve("messages.yml")).exists();
+        assertThat(dataFolder.resolve("performance.yml")).exists();
+    }
+
+    @Test
+    void b15SourcesAndConfigurationAreCompleteInTheFullBootstrap() {
+        assertThat(plugin.performanceConfig()).isNotNull();
+        assertThat(plugin.performanceConfig().windowSamples()).isEqualTo(256);
+        assertThat(plugin.performanceRegistry().snapshot().subsystems().keySet())
+                .containsExactlyInAnyOrderElementsOf(
+                        Set.of(
+                                new SubsystemId("b03-session-load"),
+                                new SubsystemId("b05-combat"),
+                                new SubsystemId("b08b-coin-drops"),
+                                new SubsystemId("b09-zone-movement"),
+                                new SubsystemId("b10-hordes"),
+                                new SubsystemId("b12-statistics"),
+                                new SubsystemId("b13-hud"),
+                                new SubsystemId("b14-admin")));
     }
 
     // --- B04 --------------------------------------------------------------

@@ -1,0 +1,8 @@
+provisional: true
+fallback-point:
+  world: world
+zones:
+  greenfields:
+    level-band:
+      min: 1
+      max: 60

@@ -1,0 +1,10 @@
+xp-curve:
+  2: 100
+level-growth:
+  health: 1.0
+mob-xp:
+  default: 5
+party:
+  max-size: 5
+progress-event:
+  interval-ms: 500

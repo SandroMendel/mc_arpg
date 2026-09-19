@@ -32,6 +32,25 @@ tasks.named<ProcessResources>("processResources") {
 // plugin.yml is read by MockBukkit when it loads the plugin class in tests
 tasks.named<Test>("test") {
     dependsOn(tasks.named("processResources"))
+    dependsOn(tasks.named("jar"))
+}
+
+// Server-free B16 evidence. Keep Docker/Postgres bootstrap tests out of this acceptance gate.
+tasks.register<Test>("serverFreeTest") {
+    description = "Runs the server-free B16 snapshot, ownership, and reload wiring tests."
+    group = "verification"
+    dependsOn(tasks.named("testClasses"))
+    dependsOn(tasks.named("jar"))
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform()
+    filter {
+        includeTestsMatching("rpg.plugin.B16ContentSnapshotTest")
+        includeTestsMatching("rpg.plugin.B16MigrationRuntimeBoundaryTest")
+        includeTestsMatching("rpg.plugin.ContentResourceOwnershipTest")
+        includeTestsMatching("rpg.plugin.command.admin.ReloadCommandTest")
+        includeTestsMatching("rpg.plugin.ReloadRollbackTest")
+    }
 }
 
 // The deployable artifact. A Paper plugin is loaded as ONE jar, so rpg-core, rpg-platform,

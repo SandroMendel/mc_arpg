@@ -18,6 +18,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import rpg.core.message.MessageKey;
 import rpg.core.message.Messages;
+import rpg.core.performance.MeasurementScope;
 import rpg.core.session.PlayerSession;
 import rpg.core.session.SessionLifecycle;
 import rpg.core.session.SessionMessageKeys;
@@ -48,6 +49,7 @@ public final class SessionPreLoadListener implements Listener {
     private final Duration loadTimeout;
     private final Supplier<Optional<MessageKey>> persistenceRefusal;
     private final Logger logger;
+    private final Supplier<MeasurementScope> performanceScope;
 
     public SessionPreLoadListener(
             SessionLifecycle lifecycle,
@@ -56,12 +58,31 @@ public final class SessionPreLoadListener implements Listener {
             Duration loadTimeout,
             Supplier<Optional<MessageKey>> persistenceRefusal,
             Logger logger) {
+        this(
+                lifecycle,
+                stash,
+                messages,
+                loadTimeout,
+                persistenceRefusal,
+                logger,
+                () -> () -> {});
+    }
+
+    public SessionPreLoadListener(
+            SessionLifecycle lifecycle,
+            PendingSessionStash stash,
+            Messages messages,
+            Duration loadTimeout,
+            Supplier<Optional<MessageKey>> persistenceRefusal,
+            Logger logger,
+            Supplier<MeasurementScope> performanceScope) {
         this.lifecycle = Objects.requireNonNull(lifecycle, "lifecycle");
         this.stash = Objects.requireNonNull(stash, "stash");
         this.messages = Objects.requireNonNull(messages, "messages");
         this.loadTimeout = Objects.requireNonNull(loadTimeout, "loadTimeout");
         this.persistenceRefusal = Objects.requireNonNull(persistenceRefusal, "persistenceRefusal");
         this.logger = Objects.requireNonNull(logger, "logger");
+        this.performanceScope = Objects.requireNonNull(performanceScope, "performanceScope");
     }
 
     @EventHandler(priority = EventPriority.LOW)
@@ -84,11 +105,15 @@ public final class SessionPreLoadListener implements Listener {
         }
 
         try {
-            PlayerSession session =
-                    lifecycle
-                            .beginLoad(playerId, loadTimeout)
-                            .get(loadTimeout.toMillis(), TimeUnit.MILLISECONDS);
-            stash.put(session);
+            // This is an asynchronous login metric, not a server-tick metric. The scope is kept
+            // separate from the overall tick source so database wait time cannot inflate MSPT.
+            try (MeasurementScope ignored = performanceScope.get()) {
+                PlayerSession session =
+                        lifecycle
+                                .beginLoad(playerId, loadTimeout)
+                                .get(loadTimeout.toMillis(), TimeUnit.MILLISECONDS);
+                stash.put(session);
+            }
         } catch (java.util.concurrent.TimeoutException timeout) {
             lifecycle.abandonLoad(playerId);
             disallow(event, SessionMessageKeys.KICK_LOAD_TIMEOUT);

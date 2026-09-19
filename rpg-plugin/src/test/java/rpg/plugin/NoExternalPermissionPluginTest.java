@@ -139,6 +139,9 @@ class NoExternalPermissionPluginTest {
     }
 
     private static String between(String text, String start, String end) {
+        // Git may deliver plugin.yml with CRLF on Windows; the boundary is expressed in logical
+        // lines, not in one particular checkout line ending.
+        text = text.replace("\r\n", "\n");
         int from = text.indexOf(start);
         if (from < 0) {
             return "";

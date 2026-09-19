@@ -2,6 +2,7 @@ package rpg.platform.currency;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -17,6 +18,7 @@ import rpg.core.currency.CoinDropPlanner;
 import rpg.core.currency.Currency;
 import rpg.core.event.EventBus;
 import rpg.core.event.Subscription;
+import rpg.core.performance.MeasurementScope;
 import rpg.core.progression.WorldPoint;
 
 /**
@@ -44,6 +46,7 @@ public final class CoinDropListener {
     private final CoinPileRegistry registry;
     private final Currency currency;
     private final Logger logger;
+    private final Supplier<MeasurementScope> performanceScope;
 
     private Subscription subscription;
 
@@ -54,12 +57,24 @@ public final class CoinDropListener {
             CoinPileRegistry registry,
             Currency currency,
             Logger logger) {
+        this(server, planner, piles, registry, currency, logger, () -> () -> {});
+    }
+
+    public CoinDropListener(
+            Server server,
+            CoinDropPlanner planner,
+            CoinPile piles,
+            CoinPileRegistry registry,
+            Currency currency,
+            Logger logger,
+            Supplier<MeasurementScope> performanceScope) {
         this.server = Objects.requireNonNull(server, "server");
         this.planner = Objects.requireNonNull(planner, "planner");
         this.piles = Objects.requireNonNull(piles, "piles");
         this.registry = Objects.requireNonNull(registry, "registry");
         this.currency = Objects.requireNonNull(currency, "currency");
         this.logger = Objects.requireNonNull(logger, "logger");
+        this.performanceScope = Objects.requireNonNull(performanceScope, "performanceScope");
     }
 
     /** Subscribes to the core bus. Called once at startup. */
@@ -76,28 +91,30 @@ public final class CoinDropListener {
     }
 
     private void onDeath(CombatDeathEvent death) {
-        if (death.playerVictim()) {
-            return;
-        }
-        try {
-            Entity creature = server.getEntity(death.victimId());
-            if (creature == null) {
-                // Already removed. Without a type and a place there is nothing to drop, and
-                // guessing either would be worse than dropping nothing.
+        try (MeasurementScope ignored = performanceScope.get()) {
+            if (death.playerVictim()) {
                 return;
             }
-            // Die Art, nicht der Vanilla-Typ (B10, FR-007). Vier Arten auf ZOMBIE waren hier vier
-            // Mal derselbe Schluessel und damit vier Mal derselbe Betrag.
-            String mobTypeKey = rpg.platform.mob.MobKindTag.kindKeyOf(creature);
-            WorldPoint origin = pointOf(creature.getLocation());
+            try {
+                Entity creature = server.getEntity(death.victimId());
+                if (creature == null) {
+                    // Already removed. Without a type and a place there is nothing to drop, and
+                    // guessing either would be worse than dropping nothing.
+                    return;
+                }
+                // Die Art, nicht der Vanilla-Typ (B10, FR-007). Vier Arten auf ZOMBIE waren hier vier
+                // Mal derselbe Schluessel und damit vier Mal derselbe Betrag.
+                String mobTypeKey = rpg.platform.mob.MobKindTag.kindKeyOf(creature);
+                WorldPoint origin = pointOf(creature.getLocation());
 
-            List<CoinDropPlan> plans = planner.planFor(death, mobTypeKey, origin);
-            for (CoinDropPlan plan : plans) {
-                realise(plan);
+                List<CoinDropPlan> plans = planner.planFor(death, mobTypeKey, origin);
+                for (CoinDropPlan plan : plans) {
+                    realise(plan);
+                }
+            } catch (RuntimeException failure) {
+                // A failure here must not take B05's death handling with it (Constitution VI).
+                logger.log(Level.WARNING, "[currency] could not drop coins for a death", failure);
             }
-        } catch (RuntimeException failure) {
-            // A failure here must not take B05's death handling with it (Constitution VI).
-            logger.log(Level.WARNING, "[currency] could not drop coins for a death", failure);
         }
     }
 

@@ -394,3 +394,95 @@ verloren — außer der Auskunft, warum.
 **Für die folgenden Blöcke:** Ein Block gilt erst als fertig, wenn sein Modul in
 `RpgPlugin.modules()` steht, seine Standardkonfiguration ausgeliefert wird und `FullBootstrapTest`
 mit ihm grün ist.
+
+---
+
+## ADR-031 — B15 bündelt Lasttest und Observability außerhalb der Laufzeit
+
+**Datum:** 2026-09-11
+**Status:** angenommen
+**Betrifft:** B15, alle performance-relevanten Blöcke
+
+**Entscheidung:** B15 misst die vorhandenen Hotpaths über einen gemeinsamen, begrenzten Vertrag.
+Core bleibt Bukkit-frei; Paper-Tickdaten kommen über öffentliche Tick-Events. Berichte gehen als
+strukturierte Logs und atomare Prometheus-Textdatei nach außen. Die Alarmgrenze ist 90 % für die
+Warnung und 60 Sekunden kontinuierliche Verletzung für den kritischen Zustand.
+
+Der reproduzierbare Nachweis läuft mit dem externen `mc-pilot`-Adapter auf der realen Zielmaschine:
+150 Spieler, 800 Custom-Mobs, sechs Regionen, 15 Minuten Warm-up und 30 Minuten Messung. Spark
+wird nur kontrolliert über Papers gebündelte Integration gestartet; keine Spark-Klasse und keine
+Profiler-Laufzeitabhängigkeit kommt in das Plugin-JAR.
+
+**Begründung:** Ein Dashboard oder ein eingebetteter Client würde B15 an eine Betriebsplattform
+binden und Messung, Lastgenerator und Serverprozess untrennbar machen. Der Manifestvertrag hält
+Hardware, Versionen, Rohdaten, Grenzwerte und optionale Profiling-Artefakte dagegen gemeinsam
+vergleichbar.
+
+**Auswirkung:** Ein fehlender Messwert ist `missing`, nicht Null. Ein fehlendes Pflichtartefakt,
+veraltete Metrik oder nicht erreichte Last invalidiert den Lauf; echte Grenzwertverletzungen werden
+als `FAILED` mit `firstFailure` abgelegt. Der echte Paper- und Vollastlauf bleibt als
+Betriebsnachweis offen, obwohl die Code-/Testbasis bereit ist.
+
+---
+
+## B16-DEC-001 — Versionierte Content-Konfiguration ohne stilles Rebalancing
+
+**Datum:** 2026-09-19
+**Status:** angenommen
+**Betrifft:** B16, versionierte YAML-Content-Dokumente und ihre Migration
+
+Diese Entscheidung ordnet die fünf B16-Leitplanken jeweils genau einer Entscheidung oder offenen
+Frage zu. Fachwerte, Einheiten, Zuständigkeiten und bislang ungeklärte YAML-Zielpfade werden durch
+diese Dokumentation nicht neu festgelegt.
+
+### D1 — Explizite `schemaVersion`
+
+Jedes von B16 verwaltete YAML-Dokument trägt am Root eine positive ganzzahlige
+`schemaVersion`. Die geladene Version muss exakt der unterstützten Version entsprechen; eine
+fehlende, unbekannte oder nicht unterstützte Version ist ein Fehler. `schemaVersion` ist damit
+Teil des Dateivertrags und kein impliziter Java-Default.
+
+### D2 — Expliziter v0→v1-Migrationsweg
+
+Eine Legacy-Datei ohne `schemaVersion` gilt für diesen Vertrag als v0. Die Migration v0→v1 ist
+ein ausdrücklich aufgerufener, versionierter Schritt: Sie liest die bekannte v0-Struktur,
+erzeugt eine getrennte v1-Ausgabedatei mit `schemaVersion: 1` und lässt die Quelldatei sowie
+Betreiberdateien unverändert. Der normale Serverstart und ein normaler Reload führen diesen
+Schritt nicht stillschweigend aus.
+
+### D3 — Verhaltensneutralität der ersten Migration
+
+v0→v1 verändert keine Zahlen, Einheiten, stabilen IDs oder bestehende Semantik. Der Schritt
+ergänzt ausschließlich den expliziten Versionsvertrag und die dafür erforderliche Dokumentform.
+Kein fehlender Fachwert wird erfunden, und kein heutiger Default wird durch ein neues
+Balancing-Ziel ersetzt. Nicht entschiedene Felder bleiben außerhalb des ersten B16-Schemas oder
+werden als offen ausgewiesen.
+
+### D4 — YAML bleibt Quelle der Wahrheit; kein Spreadsheet-/Runtime-Rückimport
+
+YAML ist die einzige Laufzeitquelle und die einzige Quelle der Wahrheit für B16-Content.
+Deterministische Analyseausgaben wie CSV, JSON oder Markdown sind Nachweise und keine
+Konfigurationsquellen. B16 lädt sie weder zur Laufzeit noch importiert es sie automatisch zurück
+in YAML oder in den Plugin-Zustand. Ein späterer Import wäre eine eigene, ausdrücklich zu
+entscheidende Erweiterung.
+
+### D5 — Eigentümerschaft der drei Inventarwerte
+
+Die drei im B16-Inventar zunächst offenen Zahlen werden ohne Rebalancing fachlich eingeordnet:
+
+- `mobs.yml:admin-spawn-limit=20` ist eine serverweite `PROTECTION_BOUNDARY` für gleichzeitig
+  registrierte `Origin.ADMIN`-Mobs. `mobs.yml` besitzt den konfigurierten Wert; der Java-Default
+  `20` ist nur der Kompatibilitäts-Fallback für das optionale Feld.
+- `BehindTargetCheck.DEFAULT_ANGLE=90.0` Grad bleibt als globale `ALGORITHM_CONSTANT` im Core.
+  Er beschreibt den halben Öffnungswinkel des hinteren Kegels; die exakte Seitenlinie zählt nicht.
+  Ein YAML-Owner wird dafür vorerst nicht eingeführt.
+- `ProjectileEffect.DEFAULT_SPEED=1.6` Blöcke pro Tick bleibt als `PLATFORM_PHYSICS`-Konstante im
+  Core. Sie ist der globale Default für den `PROJECTILE`-Effekt; solange keine Ability diesen
+  Effekt in YAML verwendet, wird kein YAML-Feld erfunden.
+
+Diese Entscheidung schließt die drei T033/T033a-Inventar-GAPs als begründete `EXCEPTION`s. Sie
+ändert keine Laufzeitwerte und entscheidet keine übrigen Balancing-Fragen.
+
+**Auswirkung:** Diese Entscheidungen dokumentieren Versionierung, Migration, Analysegrenzen und
+die drei nun geklärten Inventar-Owner. Die übrigen offenen fachlichen Balancefragen stehen
+weiterhin ausschließlich in `06-open-questions.md`.

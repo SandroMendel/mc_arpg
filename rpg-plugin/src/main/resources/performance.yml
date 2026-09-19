@@ -1,0 +1,27 @@
+# B15 - performance and observability.
+#
+# The complete schema is validated by the performance module. This shipped document keeps all
+# operator-facing limits in one file; no threshold belongs in a listener or report formatter.
+
+measurement:
+  enabled: true
+  window-samples: 256
+
+alerts:
+  warning-ratio: 0.90
+  critical-after-seconds: 60
+
+report:
+  interval-seconds: 60
+
+export:
+  enabled: true
+  path: performance/metrics.prom
+
+targets:
+  mean-tps-min: 19.5
+  mspt-p95-max: 40.0
+  mspt-p99-max: 50.0
+
+# A future subsystem can add its stable id here without changing the exporter contract.
+budgets: {}

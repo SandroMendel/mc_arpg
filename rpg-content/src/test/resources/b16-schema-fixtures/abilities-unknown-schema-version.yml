@@ -1,0 +1,7 @@
+schemaVersion: 2
+runtime:
+  global-cooldown-ms: 750
+  regeneration:
+    health-combat-factor: 0.5
+    mana-combat-factor: 0.25
+abilities: {}

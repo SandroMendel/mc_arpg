@@ -1,0 +1,32 @@
+{
+  "inventoryVersion": "b16-inventory-v1",
+  "schemaVersion": 1,
+  "generatedFrom": "tools/b16-inventory/fixtures/gap",
+  "semanticMethod": "fixture statement probe",
+  "sourceRoots": ["tools/b16-inventory/fixtures/gap"],
+  "scanRegions": [
+    {
+      "id": "sample-defaults",
+      "sourceFile": "tools/b16-inventory/fixtures/gap/Sample.java",
+      "startPattern": "public static double defaults\\(\\)",
+      "endPattern": "return balance",
+      "candidatePattern": "double\\s+balance\\s*=\\s*(?<value>\\d+\\.\\d+)"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "fixture.sample.balance",
+      "sourceFile": "tools/b16-inventory/fixtures/gap/Sample.java",
+      "sourcePattern": "double\\s+balance\\s*=\\s*(?<value>100\\.0)",
+      "valueGroup": "value",
+      "expectedValue": 100.0,
+      "yamlFile": "tools/b16-inventory/fixtures/gap/sample.yml",
+      "yamlPath": "sample.balance",
+      "unit": "fixture-units",
+      "category": "CONTENT",
+      "scanStatus": "MIGRATABLE",
+      "semanticCheck": "exact-numeric",
+      "reason": "fixture negative path"
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+classes:
+  warrior:
+    base-stats:
+      health: 100.0
+    abilities:
+      - slash

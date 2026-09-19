@@ -2,11 +2,14 @@ package rpg.core.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
 
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.Test;
 
@@ -126,5 +129,45 @@ class ConfigLoaderReloadFailureTest {
         loader.put(COMBAT, document("max-targets", 12));
         assertThatCode(loader::reloadAll).doesNotThrowAnyException();
         assertThat(combat.get()).isEqualTo(12);
+    }
+
+    @Test
+    void aFailedApplyHookRestoresThePreviousHandlesSnapshotAndDerivedState() throws Exception {
+        InMemoryConfigLoader loader = new InMemoryConfigLoader();
+        loader.put(COMBAT, document("max-targets", 5));
+        ConfigHandle<Integer> combat = loader.register(COMBAT, intSchema("max-targets"));
+
+        AtomicReference<String> snapshotValue = new AtomicReference<>("old-snapshot");
+        ConfigHandle<String> snapshot =
+                loader.registerBatch(
+                        List.of(Path.of("config", "content-snapshot.yml")), snapshotValue::get);
+        AtomicReference<String> derivedState = new AtomicReference<>("old-derived-state");
+
+        loader.put(COMBAT, document("max-targets", 9));
+        snapshotValue.set("new-snapshot");
+
+        assertThatThrownBy(
+                        () ->
+                                loader.reloadAll(
+                                        () -> {
+                                            derivedState.set(
+                                                    "new-"
+                                                            + combat.get()
+                                                            + "-"
+                                                            + snapshot.get());
+                                            throw new IllegalStateException("simulated reload hook failure");
+                                        },
+                                        () ->
+                                                derivedState.set(
+                                                        "restored-"
+                                                                + combat.get()
+                                                                + "-"
+                                                                + snapshot.get())))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("simulated reload hook failure");
+
+        assertThat(combat.get()).isEqualTo(5);
+        assertThat(snapshot.get()).isEqualTo("old-snapshot");
+        assertThat(derivedState).hasValue("restored-5-old-snapshot");
     }
 }

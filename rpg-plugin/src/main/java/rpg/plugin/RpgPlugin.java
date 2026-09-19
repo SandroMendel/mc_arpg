@@ -14,12 +14,15 @@ import java.util.logging.Level;
 
 import org.bukkit.plugin.java.JavaPlugin;
 
+import rpg.content.B16ContentLoader;
+import rpg.content.ContentSnapshot;
 import rpg.core.ability.AbilityMessageKeys;
 import rpg.core.classes.ClassMessageKeys;
 import rpg.core.classes.ClassRegistry;
 import rpg.core.combat.CombatMessageKeys;
 import rpg.core.combat.CombatModule;
 import rpg.core.combat.CombatPipeline;
+import rpg.core.config.ConfigHandle;
 import rpg.core.config.ConfigLoader;
 import rpg.core.config.ConfigValidationException;
 import rpg.core.currency.CurrencyMessageKeys;
@@ -87,6 +90,7 @@ import rpg.platform.session.SessionQuitListener;
 import rpg.platform.stats.PaperVanillaAttributeBridge;
 import rpg.platform.stats.VanillaRegenerationGuard;
 import rpg.platform.zone.BukkitPositions;
+import rpg.plugin.performance.PerformanceModule;
 
 /**
  * Plugin entry point: wires the five modules together and hands control to
@@ -122,7 +126,9 @@ public class RpgPlugin extends JavaPlugin {
      *
      * <p>A module whose file is missing refuses to start, which is the right behaviour for a running
      * server and the wrong first impression for an operator who just dropped the jar in. Shipping a
-     * default of each means the first start works and the file is there to be edited.
+     * default of each means the first start works and the file is there to be edited. The nine B16
+     * content defaults have one runtime owner in {@code rpg-content}; the deployable jar keeps their
+     * unchanged names on the classpath.
      */
     private static final List<String> DEFAULT_CONFIG_FILES =
             List.of(
@@ -139,7 +145,24 @@ public class RpgPlugin extends JavaPlugin {
                     "items.yml",
                     "statistics.yml",
                     "ui.yml",
-                    "commands.yml");
+                    "commands.yml",
+                    "performance.yml");
+
+    /**
+     * Copies only absent defaults into the operator's data folder.
+     *
+     * <p>The saver is supplied by the Paper plugin so this policy stays server-free testable: the
+     * actual bootstrap call below remains {@code saveResource(file, false)}. There is no second
+     * write path or startup migration; after this step the runtime reads from the data folder.
+     */
+    static void saveMissingDefaults(
+            Path dataFolder, java.util.function.Consumer<String> resourceSaver) {
+        for (String file : DEFAULT_CONFIG_FILES) {
+            if (!Files.exists(dataFolder.resolve(file))) {
+                resourceSaver.accept(file);
+            }
+        }
+    }
 
     /**
      * Was am Ende von {@code onEnable} als <b>ein</b> Baum registriert wird (B14, T033/T039).
@@ -177,6 +200,7 @@ public class RpgPlugin extends JavaPlugin {
     private EventBus eventBus;
     private Scheduler scheduler;
     private ConfigLoader configLoader;
+    private ConfigHandle<ContentSnapshot> contentSnapshotHandle;
     private Messages messages;
     private ModuleBootstrap bootstrap;
     private PersistenceModule persistenceModule;
@@ -190,6 +214,7 @@ public class RpgPlugin extends JavaPlugin {
     private rpg.core.item.ItemModule itemModule;
     private rpg.core.statistics.StatisticsModule statisticsModule;
     private rpg.core.ui.UiModule uiModule;
+    private PerformanceModule performanceModule;
 
     /**
      * Was B13 je Spieler hält und beim Sitzungsende loswerden muss (FR-004c).
@@ -347,13 +372,10 @@ public class RpgPlugin extends JavaPlugin {
         YamlConfigLoader yamlLoader = new YamlConfigLoader(getDataFolder().toPath());
         configLoader = yamlLoader;
 
-        // Defaults before anything reads them; saveResource leaves an existing file alone, so an
-        // operator's edits survive every restart and every update.
-        for (String file : DEFAULT_CONFIG_FILES) {
-            if (!Files.exists(getDataFolder().toPath().resolve(file))) {
-                saveResource(file, false);
-            }
-        }
+        // Defaults before anything reads them: saveResource(..., false) copies a missing classpath
+        // default and never overwrites an operator file. The runtime reads from the data folder
+        // afterwards; this is not a new write path or a startup migration.
+        saveMissingDefaults(getDataFolder().toPath(), file -> saveResource(file, false));
 
         // Messages before anything else: the pre-login guard needs them, and a missing text must
         // stop the start rather than surface later as a blank kick screen (FR-023a).
@@ -362,6 +384,16 @@ public class RpgPlugin extends JavaPlugin {
         } catch (RuntimeException | ConfigValidationException failure) {
             getLogger().log(Level.SEVERE, "RPG bootstrap failed - messages.yml is unusable", failure);
             bootstrapState.markFailed("messages.yml is unusable: " + failure.getMessage());
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+
+        try {
+            registerB16Content(yamlLoader);
+        } catch (RuntimeException | ConfigValidationException failure) {
+            getLogger()
+                    .log(Level.SEVERE, "RPG bootstrap failed - B16 content is unusable", failure);
+            bootstrapState.markFailed("B16 content is unusable: " + failure.getMessage());
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
@@ -388,6 +420,11 @@ public class RpgPlugin extends JavaPlugin {
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
+
+        // The registry exists before READY; the Paper adapter is registered only after the module
+        // graph is live so no tick event can observe a half-built server (B15/FR-002).
+        performanceModule.registerListener();
+        performanceModule.startReporting();
 
         // Before the session listeners, because it produces the observer they carry: B07 has to hear
         // about a ready session, and B03 allows exactly one join handler (FR-007).
@@ -483,6 +520,10 @@ public class RpgPlugin extends JavaPlugin {
         if (bootstrap == null) {
             return; // enable never got far enough to build one
         }
+        if (performanceModule != null) {
+            performanceModule.stopReporting();
+            performanceModule.unregisterListener();
+        }
         // Vor dem Modul-Shutdown: die Plattformschicht raeumt die Entitaeten selbst weg, bevor
         // MobModule.stop() nur noch den Bestand leert (FR-023). Synchron, weil onDisable schon im
         // Tick laeuft - kein weiterer Umweg ueber den Scheduler noetig.
@@ -530,56 +571,85 @@ public class RpgPlugin extends JavaPlugin {
      */
     public rpg.plugin.command.admin.ReloadResult reloadConfigurationResult() {
         try {
-            configLoader.reloadAll();
-            // Modules that keep derived state from their configuration have to be told. B04 does:
-            // its engine holds the attribute definitions and has to mark every holder so the new
-            // numbers actually take effect (User Story 7, scenario 4).
-            if (statsModule != null) {
-                statsModule.applyReloadedConfig();
-            }
-            if (combatModule != null) {
-                combatModule.applyReloadedConfig();
-            }
-            if (itemModule != null) {
-                itemModule.applyReloadedConfig();
-            }
-            if (mobModule != null) {
-                mobModule.applyReloadedConfig();
-            }
-            if (statisticsModule != null) {
-                statisticsModule.applyReloadedConfig();
-            }
-            if (uiModule != null) {
-                uiModule.applyReloadedConfig();
-            }
-            // B09 holds a chunk index derived from zones.yml, so it has to be told as well: the
-            // index is rebuilt and everyone present is re-evaluated once (FR-014, research.md R6).
-            // One pass is not a recurring task - this block registers nothing with the scheduler.
-            if (zoneModule != null) {
-                zoneModule.applyReloadedConfig();
-            }
+            reloadWithTransactionalHooks(
+                    configLoader, this::applyReloadedConfigHooks, this::applyReloadedConfigHooks);
             getLogger()
                     .info(
-                            "[config] phase=RELOAD state=APPLIED modules="
+                            "[config] phase=RELOAD state=APPLIED result="
+                                    + rpg.plugin.command.admin.ReloadResult.RESULT_APPLIED
+                                    + " source="
+                                    + rpg.plugin.command.admin.ReloadResult.ALL_SOURCES
+                                    + " modules="
                                     + String.join(", ", RELOAD_MODULE_NAMES));
             return rpg.plugin.command.admin.ReloadResult.success();
         } catch (ConfigValidationException rejected) {
             logReloadRejection(rejected);
             return rpg.plugin.command.admin.ReloadResult.rejected(rejected);
-        } catch (IllegalArgumentException | IllegalStateException rejected) {
+        } catch (RuntimeException rejected) {
             ConfigValidationException normalized = normalizeReloadRejection(rejected);
             logReloadRejection(normalized);
             return rpg.plugin.command.admin.ReloadResult.rejected(normalized);
         }
     }
 
+    /** Runs all derived-state hooks before the loader publishes the staged generation. */
+    private void applyReloadedConfigHooks() {
+        // Modules that keep derived state from their configuration have to be told. B04 does:
+        // its engine holds the attribute definitions and has to mark every holder so the new
+        // numbers actually take effect (User Story 7, scenario 4).
+        if (statsModule != null) {
+            statsModule.applyReloadedConfig();
+        }
+        if (combatModule != null) {
+            combatModule.applyReloadedConfig();
+        }
+        if (itemModule != null) {
+            itemModule.applyReloadedConfig();
+        }
+        if (mobModule != null) {
+            mobModule.applyReloadedConfig();
+        }
+        if (statisticsModule != null) {
+            statisticsModule.applyReloadedConfig();
+        }
+        if (uiModule != null) {
+            uiModule.applyReloadedConfig();
+        }
+        // B09 holds a chunk index derived from zones.yml, so it has to be told as well: the
+        // index is rebuilt and everyone present is re-evaluated once (FR-014, research.md R6).
+        // One pass is not a recurring task - this block registers nothing with the scheduler.
+        if (zoneModule != null) {
+            zoneModule.applyReloadedConfig();
+        }
+    }
+
+    /**
+     * Small, server-free orchestration seam for the plugin's reload transaction.
+     *
+     * <p>The production call supplies the same hook for applying and compensating: after a failed
+     * hook the loader has restored the previous handle/snapshot generation before this hook runs
+     * again. Existing module hooks are synchronous; external effects they may have emitted remain
+     * outside the proof boundary of this method.
+     */
+    static void reloadWithTransactionalHooks(
+            ConfigLoader loader, Runnable applyReloadedConfig, Runnable restorePreviousConfig)
+            throws ConfigValidationException {
+        loader.reloadAll(applyReloadedConfig, restorePreviousConfig);
+    }
+
     private void logReloadRejection(ConfigValidationException rejected) {
         getLogger()
                 .log(
                         Level.SEVERE,
-                        "[config] phase=RELOAD state=REJECTED - keeping the previously valid"
-                                + " configuration: "
-                                + rejected.getMessage(),
+                        "[config] phase=RELOAD state=REJECTED result="
+                                + rpg.plugin.command.admin.ReloadResult.RESULT_REJECTED
+                                + " source="
+                                + rejected.sourceFile()
+                                + " path="
+                                + rejected.documentPath()
+                                + " reason="
+                                + rejected.getMessage()
+                                + " - keeping the previously valid configuration",
                         rejected);
     }
 
@@ -649,7 +719,8 @@ public class RpgPlugin extends JavaPlugin {
         new rpg.plugin.command.framework.CommandTree(
                         new rpg.plugin.command.framework.CommandErrors(messages),
                         new rpg.plugin.command.framework.RateLimits(Clock.systemUTC()),
-                        messages)
+                        messages,
+                        () -> performanceModule.scopeWiring().begin("b14-admin"))
                 .register(this, all);
 
         getLogger()
@@ -911,7 +982,18 @@ public class RpgPlugin extends JavaPlugin {
                                         abilityModule.registry().abilitiesOf(characterClass).stream()
                                                 .map(rpg.core.ui.MaterialUniqueness.SlotUse::of)
                                                 .toList());
+        performanceModule =
+                new PerformanceModule(
+                        this,
+                        getLogger(),
+                        () -> getServer().getOnlinePlayers().size(),
+                        () ->
+                                mobModule == null
+                                        ? 0L
+                                        : (long) mobModule.registry().total()
+                                                + mobModule.registry().countAdmin());
         return List.of(
+                performanceModule,
                 persistenceModule,
                 sessionModule,
                 statsModule,
@@ -929,6 +1011,16 @@ public class RpgPlugin extends JavaPlugin {
                 cosmeticModule,
                 statisticsModule,
                 uiModule);
+    }
+
+    /** Registers the complete B16 generation before individual modules join the reload transaction. */
+    private void registerB16Content(YamlConfigLoader yamlLoader) throws ConfigValidationException {
+        B16ContentLoader.Sources sources = B16ContentLoader.Sources.standard();
+        B16ContentLoader contentLoader =
+                new B16ContentLoader(yamlLoader::readDocument, BukkitPositions.resolver());
+        contentSnapshotHandle =
+                yamlLoader.registerBatch(
+                        sources.orderedPaths(), () -> contentLoader.loadSnapshot(sources));
     }
 
     /**
@@ -958,7 +1050,8 @@ public class RpgPlugin extends JavaPlugin {
                                 messages,
                                 sessionModule.config().loadTimeout(),
                                 persistenceModule::loginRefusalReason,
-                                getLogger()),
+                                getLogger(),
+                                () -> performanceModule.scopeWiring().begin("b03-session-load")),
                         this);
         getServer()
                 .getPluginManager()
@@ -1014,7 +1107,10 @@ public class RpgPlugin extends JavaPlugin {
                 .getPluginManager()
                 .registerEvents(
                         new rpg.platform.zone.ZoneMovementListener(
-                                zoneModule::zones, zoneTracker, characters),
+                                zoneModule::zones,
+                                zoneTracker,
+                                characters,
+                                () -> performanceModule.scopeWiring().begin("b09-zone-movement")),
                         this);
 
         // US2: the warning under the level band. It hears the zone change on B01's bus rather than
@@ -1215,7 +1311,10 @@ public class RpgPlugin extends JavaPlugin {
                 .getPluginManager()
                 .registerEvents(
                         new VanillaDamageListener(
-                                pipeline, new VanillaDamageMapping(getLogger()), getLogger()),
+                                pipeline,
+                                new VanillaDamageMapping(getLogger()),
+                                getLogger(),
+                                () -> performanceModule.scopeWiring().begin("b05-combat")),
                         this);
         getServer().getPluginManager().registerEvents(new ProjectileCombatListener(stats), this);
         getServer().getPluginManager().registerEvents(mobEquipment, this);
@@ -1417,7 +1516,8 @@ public class RpgPlugin extends JavaPlugin {
                         // spielt - nicht aus irgendeinem Modul, das zufaellig eine Map davon haelt.
                         this::playersInPlay,
                         refresh,
-                        getLogger());
+                        getLogger(),
+                        () -> performanceModule.scopeWiring().begin("b13-hud"));
         // Der Sekundenabgleich des Cooldown-Overlays. Er faengt, was der Ausloesepfad nicht sieht:
         // anhaltende Faehigkeiten starten ihren Cooldown beim ENDEN, Ladungsfaehigkeiten erst bei
         // der letzten. Beim Krieger wurde deshalb ausschliesslich Leap grau - die einzige seiner
@@ -2711,7 +2811,8 @@ public class RpgPlugin extends JavaPlugin {
                         entityId ->
                                 cloneRegistry == null
                                         ? java.util.Optional.empty()
-                                        : cloneRegistry.summonerOf(entityId))
+                                        : cloneRegistry.summonerOf(entityId),
+                        () -> performanceModule.scopeWiring().begin("b12-statistics"))
                 .subscribeTo(eventBus);
 
         new rpg.platform.statistics.ZoneTimeListener(playtimeAccrual, accounts)
@@ -3428,7 +3529,13 @@ public class RpgPlugin extends JavaPlugin {
 
         rpg.platform.currency.CoinDropListener coinDrops =
                 new rpg.platform.currency.CoinDropListener(
-                        getServer(), planner, piles, pileRegistry, currency, getLogger());
+                        getServer(),
+                        planner,
+                        piles,
+                        pileRegistry,
+                        currency,
+                        getLogger(),
+                        () -> performanceModule.scopeWiring().begin("b08b-coin-drops"));
         coinDrops.subscribeTo(eventBus);
 
         getServer()
@@ -3487,7 +3594,8 @@ public class RpgPlugin extends JavaPlugin {
                         mobCombatPipeline::isInCombat,
                         placer,
                         Clock.systemUTC(),
-                        getLogger());
+                        getLogger(),
+                        () -> performanceModule.scopeWiring().begin("b10-hordes"));
         mobSweep.subscribeTo(eventBus);
         getServer().getPluginManager().registerEvents(mobSweep, this);
         registerAdminCommand(
@@ -4231,9 +4339,39 @@ gearDisplay =
         return configLoader;
     }
 
+    /**
+     * The currently published, complete B16 generation; {@code null} before bootstrap begins.
+     *
+     * <p>This is the immutable validation/generation marker for B16. Core and persistence modules
+     * intentionally keep their existing core-typed handles because {@code rpg-core} must not depend
+     * back on {@code rpg-content}; both views are committed by the same loader generation.
+     */
+    public ContentSnapshot contentSnapshot() {
+        return contentSnapshotHandle == null ? null : contentSnapshotHandle.get();
+    }
+
     /** The registry other modules resolve services through. */
     public DefaultModuleRegistry registry() {
         return registry;
+    }
+
+    /** The B15 registry assembled during bootstrap, for monitoring and integration tests. */
+    public rpg.core.performance.PerformanceRegistry performanceRegistry() {
+        return registry == null
+                ? null
+                : registry.findService(rpg.core.performance.PerformanceRegistry.class).orElse(null);
+    }
+
+    /** The validated B15 settings used by the running plugin. */
+    public rpg.plugin.performance.PerformanceConfig performanceConfig() {
+        if (performanceModule == null) {
+            return null;
+        }
+        try {
+            return performanceModule.config();
+        } catch (IllegalStateException stopped) {
+            return null;
+        }
     }
 
     /** The internal event bus. */
