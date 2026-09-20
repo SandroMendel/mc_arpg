@@ -6,6 +6,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 import org.bukkit.command.CommandSender;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -19,6 +20,7 @@ import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import rpg.core.message.MessageKey;
 import rpg.core.message.Messages;
+import rpg.core.performance.MeasurementScope;
 
 /**
  * Baut aus {@link RpgCommand} einen Brigadier-Baum und registriert ihn (T013).
@@ -61,11 +63,21 @@ public final class CommandTree {
     private final CommandErrors errors;
     private final RateLimits rateLimits;
     private final Messages messages;
+    private final Supplier<MeasurementScope> performanceScope;
 
     public CommandTree(CommandErrors errors, RateLimits rateLimits, Messages messages) {
+        this(errors, rateLimits, messages, () -> () -> {});
+    }
+
+    public CommandTree(
+            CommandErrors errors,
+            RateLimits rateLimits,
+            Messages messages,
+            Supplier<MeasurementScope> performanceScope) {
         this.errors = Objects.requireNonNull(errors, "errors");
         this.rateLimits = Objects.requireNonNull(rateLimits, "rateLimits");
         this.messages = Objects.requireNonNull(messages, "messages");
+        this.performanceScope = Objects.requireNonNull(performanceScope, "performanceScope");
     }
 
     /**
@@ -212,6 +224,14 @@ public final class CommandTree {
     private int execute(
             RpgCommand command,
             com.mojang.brigadier.context.CommandContext<CommandSourceStack> raw) {
+        try (MeasurementScope ignored = performanceScope.get()) {
+            return executeInternal(command, raw);
+        }
+    }
+
+    private int executeInternal(
+            RpgCommand command,
+            com.mojang.brigadier.context.CommandContext<CommandSourceStack> raw) {
 
         CommandSender sender = raw.getSource().getSender();
 
@@ -295,6 +315,12 @@ public final class CommandTree {
      * vermerkt die Sperrzeit, und zweimal aufgerufen sperrte es sich selbst aus.
      */
     private int runBare(RpgCommand command, CommandSender sender) {
+        try (MeasurementScope ignored = performanceScope.get()) {
+            return runBareInternal(command, sender);
+        }
+    }
+
+    private int runBareInternal(RpgCommand command, CommandSender sender) {
         if (!mayRun(command, sender)) {
             return 0;
         }

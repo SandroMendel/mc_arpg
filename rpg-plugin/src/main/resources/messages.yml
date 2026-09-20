@@ -856,6 +856,77 @@ command:
     dropped: "Inventory full: dropped {amount}x {template} for {player}."
     target-unavailable: "{player} must be online and have an active character."
 
+  mob:
+    description: "Create configured creatures."
+  mob.spawn:
+    description: "Spawn a configured creature at your position."
+    done: "Spawned {kind} in {zone}."
+    no-zone: "You must stand inside a configured zone."
+    limit: "The admin creature limit of {limit} has been reached."
+    failed: "The creature could not be spawned."
+
+  set:
+    description: "Correct a character's progress or class."
+  set.level:
+    description: "Set a character's level."
+  set.xp:
+    description: "Set a character's experience."
+  set.class:
+    description: "Choose a character's class through the normal selection path."
+  set.done: "{player}: {property} changed from {from} to {to}."
+  set.notice: "An operator changed your {property} from {from} to {to}."
+  set.target-unavailable: "The target has no ready character session."
+  set.rejected: "The requested value was rejected and nothing changed."
+  set.class.done: "{player}: class set to {class}."
+  set.class.notice: "An operator selected {class} for you."
+  set.class.failed: "The class could not be set."
+
+  inspect:
+    description: "Inspect another player's data without changing it."
+  inspect.sheet:
+    description: "Inspect another player's character sheet."
+    title: "Character sheet for {player}."
+    class: "Class"
+    level: "Level"
+    xp: "Experience"
+    coins: "Coins"
+    revision: "Stat revision"
+    equipment: "Equipment"
+  inspect.statistics:
+    description: "Inspect another player's public statistics."
+    title: "Statistics for {player}."
+  inspect.inventory:
+    description: "Inspect another player's stored inventory."
+    title: "Inventory for {player}."
+    backpack: "Backpack"
+    ender-chest: "Ender chest"
+    count: "{stacks} stack(s), {items} item(s)"
+    unreadable: "unreadable on this server version"
+  inspect.session:
+    description: "Inspect another player's session state."
+    title: "Session for {player}."
+    state: "State"
+    online: "Online"
+    character: "Active character"
+    last-seen: "Last seen"
+  inspect.line: "{label}: {value}"
+  inspect.anonymous: "anonymous player"
+  inspect.no-data: "No stored data is available for {player}."
+  inspect.failed: "The read-only inspection could not be completed."
+
+  audit:
+    description: "Read the administrative audit log."
+  audit.page: "Audit log — page {page}/{pages} ({entries} entries)."
+  audit.entry: "{time} | actor={actor} | action={action} | target={target} | {details}"
+  audit.empty: "No audit entries were found in that period."
+  audit.more: "Only the first 10 entries are shown; {remaining} more remain in the period."
+  audit.failed: "The audit log could not be read."
+
+  reload:
+    description: "Reload all configuration without restarting."
+    done: "Configuration reloaded successfully."
+    rejected: "Configuration rejected in {file} at {path}: expected {expected}, but was {actual}."
+
   # Die Wurzel aller Betreiberwerkzeuge.
   rpg:
     description: "Operator tools."

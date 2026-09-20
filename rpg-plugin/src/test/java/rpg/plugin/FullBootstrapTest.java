@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.Set;
 import java.util.UUID;
 
 import org.bukkit.block.BlockFace;
@@ -29,6 +30,7 @@ import org.mockbukkit.mockbukkit.entity.PlayerMock;
 import com.destroystokyo.paper.event.player.PlayerConnectionCloseEvent;
 
 import rpg.core.module.BootstrapState;
+import rpg.core.performance.SubsystemId;
 import rpg.persistence.support.PostgresContainer;
 
 /**
@@ -157,6 +159,24 @@ class FullBootstrapTest {
         assertThat(dataFolder.resolve("classes.yml")).exists();
         assertThat(dataFolder.resolve("abilities.yml")).exists();
         assertThat(dataFolder.resolve("messages.yml")).exists();
+        assertThat(dataFolder.resolve("performance.yml")).exists();
+    }
+
+    @Test
+    void b15SourcesAndConfigurationAreCompleteInTheFullBootstrap() {
+        assertThat(plugin.performanceConfig()).isNotNull();
+        assertThat(plugin.performanceConfig().windowSamples()).isEqualTo(256);
+        assertThat(plugin.performanceRegistry().snapshot().subsystems().keySet())
+                .containsExactlyInAnyOrderElementsOf(
+                        Set.of(
+                                new SubsystemId("b03-session-load"),
+                                new SubsystemId("b05-combat"),
+                                new SubsystemId("b08b-coin-drops"),
+                                new SubsystemId("b09-zone-movement"),
+                                new SubsystemId("b10-hordes"),
+                                new SubsystemId("b12-statistics"),
+                                new SubsystemId("b13-hud"),
+                                new SubsystemId("b14-admin")));
     }
 
     // --- B04 --------------------------------------------------------------
@@ -708,6 +728,41 @@ class FullBootstrapTest {
                 .containsExactlyInAnyOrder("char", "coins", "stats", "top", "trash", "xp", "rpg");
     }
 
+    @Test
+    void everyB14CommandPathIsPresentOnTheLiveTree() {
+        assertThat(commandPaths())
+                .as("US3-US8: jedes Spieler- und Admin-Kommando muss verdrahtet sein")
+                .containsExactlyInAnyOrder(
+                        "char",
+                        "coins",
+                        "coins set",
+                        "coins add",
+                        "coins remove",
+                        "stats",
+                        "top",
+                        "trash",
+                        "xp",
+                        "xp give",
+                        "xp take",
+                        "xp set",
+                        "rpg",
+                        "rpg item",
+                        "rpg item give",
+                        "rpg mob",
+                        "rpg mob spawn",
+                        "rpg set",
+                        "rpg set level",
+                        "rpg set xp",
+                        "rpg set class",
+                        "rpg inspect",
+                        "rpg inspect sheet",
+                        "rpg inspect statistics",
+                        "rpg inspect inventory",
+                        "rpg inspect session",
+                        "rpg audit",
+                        "rpg reload");
+    }
+
     /**
      * T044 — <b>die Syntax der sechs ist unveraendert</b> (FR-005, SC-008).
      *
@@ -777,8 +832,8 @@ class FullBootstrapTest {
      * jedes Recht, das <em>irgendwo im Code steht</em>; dieser findet die, die ein Kommando
      * <em>wirklich trägt</em> — auch wenn es sie zusammensetzt, statt sie hinzuschreiben.
      *
-     * <p>Die Vollständigkeitsprüfung über <em>alle</em> Kommandos folgt in T116, wenn die
-     * Admin-Werkzeuge existieren.
+     * <p>Die explizite US3-US8-Abdeckung steht direkt darunter: sie prüft nicht nur, dass ein Recht
+     * im Deskriptor vorkommt, sondern dass jedes Werkzeug und jeder Pfad am lebenden Baum hängt.
      */
     @Test
     void everyPermissionOnTheLiveTreeIsDeclared() {
@@ -792,6 +847,35 @@ class FullBootstrapTest {
         assertThat(declared)
                 .as("ein Recht, das kein plugin.yml-Eintrag deckt, wirkt je nach Server anders")
                 .containsAll(demanded);
+
+        assertThat(declared)
+                .as("US3-US8: alle neuen Admin-Rechte muessen auslieferbar sein")
+                .contains(
+                        "rpg.admin.item.give",
+                        "rpg.admin.mob.spawn",
+                        "rpg.admin.set.class",
+                        "rpg.admin.reload",
+                        "rpg.admin.inspect.sheet",
+                        "rpg.admin.inspect.statistics",
+                        "rpg.admin.inspect.inventory",
+                        "rpg.admin.inspect.session",
+                        "rpg.admin.audit");
+    }
+
+    private java.util.List<String> commandPaths() {
+        java.util.List<String> paths = new java.util.ArrayList<>();
+        for (rpg.plugin.command.framework.RpgCommand root : plugin.declaredCommandsForTest()) {
+            collectPaths(root, root.name(), paths);
+        }
+        return paths;
+    }
+
+    private static void collectPaths(
+            rpg.plugin.command.framework.RpgCommand node,
+            String path,
+            java.util.List<String> into) {
+        into.add(path);
+        node.children().forEach(child -> collectPaths(child, path + " " + child.name(), into));
     }
 
     private static void collectPermissions(

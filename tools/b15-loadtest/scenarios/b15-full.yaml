@@ -1,0 +1,42 @@
+# B15 full-load scenario. Keep this file versioned with the server baseline.
+id: b15-full
+revision: 1
+
+environment:
+  minecraft: "26.2"
+  paper-build: "26.2.build.112-stable"
+  java-major: 25
+  player-tool: mc-pilot
+  player-tool-version: "pin-at-run"
+
+load:
+  simulated-players: 150
+  custom-mobs: 800
+  regions:
+    - region-01
+    - region-02
+    - region-03
+    - region-04
+    - region-05
+    - region-06
+  workloads:
+    - movement
+    - combat
+    - coin-drops
+    - hordes
+  region-distribution: even
+  actions:
+    movement: "move --region {region} --loop"
+    combat: "attack --target custom-mob --loop"
+    coin-drops: "kill --target coin-drop-mob --loop"
+    hordes: "horde --region {region} --loop"
+
+phases:
+  warmup-minutes: 15
+  measurement-minutes: 30
+
+acceptance:
+  mean-tps-min: 19.5
+  mspt-p95-max: 40.0
+  mspt-p99-max: 50.0
+  peak-custom-mobs-min: 800

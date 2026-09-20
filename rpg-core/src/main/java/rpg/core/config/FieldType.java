@@ -71,13 +71,15 @@ public enum FieldType {
                 return null;
             case DOUBLE:
                 if (raw instanceof Double d) {
-                    return d;
+                    return Double.isFinite(d) ? d : null;
                 }
                 if (raw instanceof Number n && !(raw instanceof Float)) {
-                    return Double.valueOf(n.doubleValue());
+                    double value = n.doubleValue();
+                    return Double.isFinite(value) ? Double.valueOf(value) : null;
                 }
                 if (raw instanceof Float f) {
-                    return Double.valueOf(f.doubleValue());
+                    double value = f.doubleValue();
+                    return Float.isFinite(f) ? Double.valueOf(value) : null;
                 }
                 return null;
             case LIST:

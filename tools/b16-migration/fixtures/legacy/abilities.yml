@@ -1,0 +1,5 @@
+runtime:
+  global-cooldown-ms: 750
+abilities:
+  slash:
+    rank-cost: 0

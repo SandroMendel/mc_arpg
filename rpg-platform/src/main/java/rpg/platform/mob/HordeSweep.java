@@ -25,6 +25,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityRemoveEvent;
+import org.bukkit.event.world.EntitiesLoadEvent;
 
 import rpg.core.event.EventBus;
 import rpg.core.mob.BossSpec;
@@ -37,6 +38,7 @@ import rpg.core.mob.MobConfig;
 import rpg.core.mob.MobKind;
 import rpg.core.mob.NearbyChunks;
 import rpg.core.mob.SpawnPlanner;
+import rpg.core.performance.MeasurementScope;
 import rpg.core.scheduler.Scheduler;
 import rpg.core.scheduler.WorldPosition;
 import rpg.core.zone.Cuboid;
@@ -80,6 +82,7 @@ public final class HordeSweep implements Listener {
     private final PaperMobPlacer placer;
     private final Clock clock;
     private final Logger logger;
+    private final Supplier<MeasurementScope> performanceScope;
     private final RandomGenerator random = RandomGenerator.getDefault();
 
     /** Welche Zonen gerade eine eigene Schleife laufen haben - hoechstens eine je Zone. */
@@ -117,6 +120,34 @@ public final class HordeSweep implements Listener {
             PaperMobPlacer placer,
             Clock clock,
             Logger logger) {
+        this(
+                server,
+                scheduler,
+                zones,
+                zonePresence,
+                config,
+                registry,
+                bossStates,
+                inCombat,
+                placer,
+                clock,
+                logger,
+                () -> () -> {});
+    }
+
+    public HordeSweep(
+            Server server,
+            Scheduler scheduler,
+            Supplier<Zones> zones,
+            ZonePresence zonePresence,
+            Supplier<MobConfig> config,
+            HordeRegistry registry,
+            java.util.Map<String, BossState> bossStates,
+            Predicate<UUID> inCombat,
+            PaperMobPlacer placer,
+            Clock clock,
+            Logger logger,
+            Supplier<MeasurementScope> performanceScope) {
         this.server = Objects.requireNonNull(server, "server");
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
         this.zones = Objects.requireNonNull(zones, "zones");
@@ -128,6 +159,7 @@ public final class HordeSweep implements Listener {
         this.placer = Objects.requireNonNull(placer, "placer");
         this.clock = Objects.requireNonNull(clock, "clock");
         this.logger = Objects.requireNonNull(logger, "logger");
+        this.performanceScope = Objects.requireNonNull(performanceScope, "performanceScope");
     }
 
     /** Beginnt zu hoeren - eine Zone, die schon Spieler hat, kommt beim naechsten Wechsel dran. */
@@ -186,25 +218,29 @@ public final class HordeSweep implements Listener {
     }
 
     private void sweep(String zoneKey) {
-        boolean keepGoing;
-        MobConfig currentConfig = config.get();
-        Duration nextInterval = currentConfig.respawnInterval();
-        try {
-            int playersInZone = countPlayers(zoneKey);
-            nextInterval =
-                    DensityScaling.respawnInterval(
-                            currentConfig.respawnInterval(), currentConfig.densityPerPlayer(), playersInZone);
-            keepGoing = doSweep(zoneKey, currentConfig, playersInZone);
-        } catch (RuntimeException failure) {
-            logFailureOnce(zoneKey, failure);
-            // FR-044: eine kaputte Zone darf nicht fuer immer stehenbleiben - der naechste
-            // Durchlauf bekommt eine neue Chance.
-            keepGoing = true;
-        }
-        if (keepGoing) {
-            scheduler.runAsyncDelayed(nextInterval, () -> sweep(zoneKey));
-        } else {
-            active.remove(zoneKey);
+        try (MeasurementScope ignored = performanceScope.get()) {
+            boolean keepGoing;
+            MobConfig currentConfig = config.get();
+            Duration nextInterval = currentConfig.respawnInterval();
+            try {
+                int playersInZone = countPlayers(zoneKey);
+                nextInterval =
+                        DensityScaling.respawnInterval(
+                                currentConfig.respawnInterval(),
+                                currentConfig.densityPerPlayer(),
+                                playersInZone);
+                keepGoing = doSweep(zoneKey, currentConfig, playersInZone);
+            } catch (RuntimeException failure) {
+                logFailureOnce(zoneKey, failure);
+                // FR-044: eine kaputte Zone darf nicht fuer immer stehenbleiben - der naechste
+                // Durchlauf bekommt eine neue Chance.
+                keepGoing = true;
+            }
+            if (keepGoing) {
+                scheduler.runAsyncDelayed(nextInterval, () -> sweep(zoneKey));
+            } else {
+                active.remove(zoneKey);
+            }
         }
     }
 
@@ -336,7 +372,8 @@ public final class HordeSweep implements Listener {
                                             kind.key(),
                                             zoneKey,
                                             chunkKey,
-                                            Instant.now(clock)));
+                                            Instant.now(clock),
+                                            HordeRegistry.Origin.BUDGET));
                             state.placed(entity.getUniqueId());
                         });
     }
@@ -474,7 +511,8 @@ public final class HordeSweep implements Listener {
                                                 kind.key(),
                                                 zoneKey,
                                                 chunkKey,
-                                                Instant.now(clock))));
+                                                Instant.now(clock),
+                                                HordeRegistry.Origin.BUDGET)));
     }
 
     private Location randomLocationIn(SpawnArea area, World world) {
@@ -527,6 +565,26 @@ public final class HordeSweep implements Listener {
                     "[mob] the sweep of zone " + zoneKey + " failed and will be logged only once - "
                             + "it keeps retrying every " + config.get().respawnInterval(),
                     failure);
+        }
+    }
+
+    /**
+     * Entfernt eine getaggte Kreatur, deren fluechtiger Registry-Eintrag einen Neustart nicht
+     * ueberlebt hat (ADR-050).
+     *
+     * <p>Ein Admin-Spawn bleibt deshalb beim Chunk-Laden erhalten, solange er im gemeinsamen Bestand
+     * steht. Nach einem Neustart steht er dort absichtlich nicht mehr und wird nicht adoptiert: seine
+     * Ursprungszone und sein Setzzeitpunkt waeren nicht ehrlich rekonstruierbar.
+     */
+    @EventHandler
+    public void onEntitiesLoad(EntitiesLoadEvent event) {
+        for (Entity entity : event.getEntities()) {
+            if (MobKindTag.isOurs(entity) && !registry.holds(entity.getUniqueId())) {
+                placer.remove(entity);
+                logger.info(
+                        "[mob] removed tagged entity without registry entry on chunk load: "
+                                + entity.getUniqueId());
+            }
         }
     }
 

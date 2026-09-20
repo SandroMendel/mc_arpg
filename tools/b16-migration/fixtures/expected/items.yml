@@ -1,0 +1,13 @@
+schemaVersion: 1
+inventory:
+  full-warning-cooldown-ms: 15000
+wear:
+  threshold: 50.0
+repair:
+  base-cost: 10
+templates:
+  potion:
+    material: POTION
+loot:
+  by-zone: {}
+vendors: {}

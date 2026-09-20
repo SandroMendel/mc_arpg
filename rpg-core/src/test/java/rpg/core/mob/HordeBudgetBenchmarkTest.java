@@ -108,7 +108,14 @@ class HordeBudgetBenchmarkTest {
         Instant now = Instant.now();
         for (int i = 0; i < CREATURES; i++) {
             long chunkKey = NearbyChunks.pack(i % 20, (i * 3) % 20);
-            registry.add(new HordeRegistry.Entry(UUID.randomUUID(), "greenfields.rotling", "greenfields", chunkKey, now));
+            registry.add(
+                    new HordeRegistry.Entry(
+                            UUID.randomUUID(),
+                            "greenfields.rotling",
+                            "greenfields",
+                            chunkKey,
+                            now,
+                            HordeRegistry.Origin.BUDGET));
         }
         return registry;
     }

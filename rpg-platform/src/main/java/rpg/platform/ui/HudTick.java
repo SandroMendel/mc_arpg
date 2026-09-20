@@ -7,6 +7,7 @@ import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import rpg.core.performance.MeasurementScope;
 import rpg.core.scheduler.Scheduler;
 import rpg.core.ui.UiConfig;
 
@@ -56,6 +57,7 @@ public final class HudTick {
     private final Supplier<List<UUID>> players;
     private final HudRefresh refresh;
     private final Logger logger;
+    private final Supplier<MeasurementScope> performanceScope;
 
     private final List<java.util.function.Consumer<UUID>> alsoPerPlayer =
             new java.util.concurrent.CopyOnWriteArrayList<>();
@@ -68,11 +70,22 @@ public final class HudTick {
             Supplier<List<UUID>> players,
             HudRefresh refresh,
             Logger logger) {
+        this(scheduler, config, players, refresh, logger, () -> () -> {});
+    }
+
+    public HudTick(
+            Scheduler scheduler,
+            Supplier<UiConfig> config,
+            Supplier<List<UUID>> players,
+            HudRefresh refresh,
+            Logger logger,
+            Supplier<MeasurementScope> performanceScope) {
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
         this.config = Objects.requireNonNull(config, "config");
         this.players = Objects.requireNonNull(players, "players");
         this.refresh = Objects.requireNonNull(refresh, "refresh");
         this.logger = Objects.requireNonNull(logger, "logger");
+        this.performanceScope = Objects.requireNonNull(performanceScope, "performanceScope");
     }
 
     /**
@@ -108,18 +121,20 @@ public final class HudTick {
      * — eine wartende Prüfung wäre langsam und flackerte.
      */
     public void runOnce() {
-        for (UUID playerId : players.get()) {
-            // refresh faengt selbst je Flaeche; hier steht kein zweiter Faenger, sonst verdeckte er
-            // die Stelle, an der es schiefging.
-            refresh.refresh(playerId);
-            for (java.util.function.Consumer<UUID> extra : alsoPerPlayer) {
-                try {
-                    extra.accept(playerId);
-                } catch (RuntimeException failure) {
-                    logger.log(
-                            Level.WARNING,
-                            "[ui] a per-player step failed for " + playerId,
-                            failure);
+        try (MeasurementScope ignored = performanceScope.get()) {
+            for (UUID playerId : players.get()) {
+                // refresh faengt selbst je Flaeche; hier steht kein zweiter Faenger, sonst verdeckte er
+                // die Stelle, an der es schiefging.
+                refresh.refresh(playerId);
+                for (java.util.function.Consumer<UUID> extra : alsoPerPlayer) {
+                    try {
+                        extra.accept(playerId);
+                    } catch (RuntimeException failure) {
+                        logger.log(
+                                Level.WARNING,
+                                "[ui] a per-player step failed for " + playerId,
+                                failure);
+                    }
                 }
             }
         }

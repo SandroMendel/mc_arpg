@@ -10,7 +10,8 @@ import java.util.Optional;
  * @param type expected value kind
  * @param required whether the field must be present; a missing required field aborts the load
  *     (FR-002) and is never replaced by a default
- * @param defaultValue value used when an optional field is absent; empty for required fields
+ * @param defaultValue value used when an optional field is absent; empty when no fallback is
+ *     declared
  * @param minimum inclusive lower bound for numeric fields, if any
  * @param maximum inclusive upper bound for numeric fields, if any
  */
@@ -52,6 +53,12 @@ public record FieldDefinition(
                 Optional.of(defaultValue),
                 Optional.empty(),
                 Optional.empty());
+    }
+
+    /** An optional field with no fallback; absence remains absent in the validated view. */
+    public static FieldDefinition optional(String path, FieldType type) {
+        return new FieldDefinition(
+                path, type, false, Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     /** Returns a copy of this definition constrained to the inclusive range {@code [min, max]}. */

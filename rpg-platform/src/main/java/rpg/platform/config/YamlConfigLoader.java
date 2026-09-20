@@ -4,8 +4,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
@@ -54,6 +57,29 @@ public final class YamlConfigLoader extends AbstractConfigLoader {
         return parse(source);
     }
 
+    /**
+     * Reads several YAML roots in caller-supplied order without applying a domain schema.
+     *
+     * <p>This is the parser-side seam available to a B16 coordinator: all files can be parsed first,
+     * then {@code rpg-content} can perform version, structure, binding and cross-domain checks as
+     * one staging operation. No content definition or snapshot is created here.
+     *
+     * @throws ConfigValidationException when the first source cannot be read or parsed
+     */
+    public Map<Path, Map<String, Object>> readDocuments(List<Path> sources)
+            throws ConfigValidationException {
+        Objects.requireNonNull(sources, "sources");
+        Map<Path, Map<String, Object>> documents = new LinkedHashMap<>();
+        for (Path source : sources) {
+            Objects.requireNonNull(source, "source");
+            if (documents.containsKey(source)) {
+                throw new IllegalArgumentException("duplicate YAML source: " + source);
+            }
+            documents.put(source, readDocument(source));
+        }
+        return Collections.unmodifiableMap(documents);
+    }
+
     @Override
     protected Map<String, Object> parse(Path source) throws ConfigValidationException {
         Path resolved = source.isAbsolute() ? source : baseDirectory.resolve(source);
@@ -66,9 +92,11 @@ public final class YamlConfigLoader extends AbstractConfigLoader {
         try (InputStream in = Files.newInputStream(resolved)) {
             Object parsed = newYaml().load(in);
             if (parsed == null) {
-                // an empty file is a valid YAML document; treat it as "no keys" so the schema
-                // decides whether that is acceptable
-                return new LinkedHashMap<>();
+                throw new ConfigValidationException(
+                        source,
+                        "<document>",
+                        "a mapping at the document root",
+                        "null (empty YAML document or explicit null)");
             }
             if (!(parsed instanceof Map<?, ?> map)) {
                 throw new ConfigValidationException(
@@ -79,6 +107,9 @@ public final class YamlConfigLoader extends AbstractConfigLoader {
             }
             return toStringKeyedMap(map);
         } catch (YAMLException malformed) {
+            // SnakeYAML exposes duplicate-key details through this exception, but does not
+            // provide a stable dotted document path. Preserve its message and cause rather than
+            // introducing a second parser solely to manufacture a path.
             throw new ConfigValidationException(
                     source, "<document>", "well-formed YAML", malformed.getMessage(), malformed);
         } catch (IOException unreadable) {
@@ -93,7 +124,10 @@ public final class YamlConfigLoader extends AbstractConfigLoader {
         return new Yaml(new SafeConstructor(options));
     }
 
-    /** SnakeYAML hands back {@code Map<Object, Object>}; configuration keys are always strings. */
+    /**
+     * Normalizes only the document root. Nested maps are intentionally left untouched: existing
+     * open mappings and B16 numeric level registries may use non-string keys.
+     */
     private static Map<String, Object> toStringKeyedMap(Map<?, ?> source) {
         Map<String, Object> result = new LinkedHashMap<>();
         source.forEach((key, value) -> result.put(String.valueOf(key), value));

@@ -32,6 +32,7 @@ import net.kyori.adventure.text.Component;
 import rpg.core.message.MapMessages;
 import rpg.core.message.MessageKey;
 import rpg.core.message.Messages;
+import rpg.core.performance.MeasurementScope;
 import rpg.core.session.CharacterClass;
 import rpg.core.session.PlayerCharacter;
 import rpg.core.session.PlayerSession;
@@ -64,6 +65,7 @@ class SessionListenerTest {
     private PendingSessionStash stash;
     private SafeStateGuard guard;
     private Messages messages;
+    private final List<String> performanceScopeEvents = new ArrayList<>();
 
     @BeforeEach
     void setUp() {
@@ -98,6 +100,7 @@ class SessionListenerTest {
 
         assertThat(event.getLoginResult()).isEqualTo(AsyncPlayerPreLoginEvent.Result.ALLOWED);
         assertThat(stash.size()).isEqualTo(1);
+        assertThat(performanceScopeEvents).containsExactly("open", "close");
     }
 
     @Test
@@ -265,7 +268,23 @@ class SessionListenerTest {
 
     private SessionPreLoadListener preLoadListener(Optional<MessageKey> refusal) {
         return new SessionPreLoadListener(
-                lifecycle, stash, messages, TIMEOUT, () -> refusal, QUIET);
+                lifecycle,
+                stash,
+                messages,
+                TIMEOUT,
+                () -> refusal,
+                QUIET,
+                () ->
+                        new MeasurementScope() {
+                            {
+                                performanceScopeEvents.add("open");
+                            }
+
+                            @Override
+                            public void close() {
+                                performanceScopeEvents.add("close");
+                            }
+                        });
     }
 
     private SessionJoinListener joinListener() {

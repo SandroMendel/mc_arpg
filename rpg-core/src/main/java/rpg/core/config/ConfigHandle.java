@@ -1,9 +1,10 @@
 package rpg.core.config;
 
 import java.nio.file.Path;
+import java.util.List;
 
 /**
- * A live view of one registered configuration source.
+ * A live view of one registered configuration value, backed by one source or a coordinated batch.
  *
  * <p>{@link #get()} always returns the currently valid configuration: after a successful
  * {@link ConfigLoader#reloadAll()} it returns the new value, after a failed one it keeps returning
@@ -19,4 +20,14 @@ public interface ConfigHandle<T> {
 
     /** The file this configuration is loaded from. */
     Path source();
+
+    /**
+     * All files that contribute to this value.
+     *
+     * <p>Ordinary handles contain one file. A batch handle keeps {@link #source()} as its first
+     * diagnostic path and exposes the complete source set here.
+     */
+    default List<Path> sources() {
+        return List.of(source());
+    }
 }

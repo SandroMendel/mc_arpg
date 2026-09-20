@@ -54,7 +54,12 @@ class MobApiContractTest {
         UUID mob = UUID.randomUUID();
         registry.add(
                 new HordeRegistry.Entry(
-                        mob, "probe.rotling", "greenfields", 0L, Instant.parse("2026-08-24T20:00:00Z")));
+                        mob,
+                        "probe.rotling",
+                        "greenfields",
+                        0L,
+                        Instant.parse("2026-08-24T20:00:00Z"),
+                        HordeRegistry.Origin.BUDGET));
         MobKinds kinds = MobKinds.backedBy(MobApiContractTest::config, registry);
 
         assertThat(kinds.ofEntity(mob).orElseThrow().key()).isEqualTo("probe.rotling");
@@ -95,8 +100,12 @@ class MobApiContractTest {
     void totalCountsAcrossAllZones() {
         HordeRegistry registry = new HordeRegistry();
         Instant when = Instant.parse("2026-08-24T20:00:00Z");
-        registry.add(new HordeRegistry.Entry(UUID.randomUUID(), "a", "greenfields", 1L, when));
-        registry.add(new HordeRegistry.Entry(UUID.randomUUID(), "b", "dustlands", 2L, when));
+        registry.add(
+                new HordeRegistry.Entry(
+                        UUID.randomUUID(), "a", "greenfields", 1L, when, HordeRegistry.Origin.BUDGET));
+        registry.add(
+                new HordeRegistry.Entry(
+                        UUID.randomUUID(), "b", "dustlands", 2L, when, HordeRegistry.Origin.BUDGET));
 
         Hordes hordes = Hordes.backedBy(registry, new HashMap<>());
 

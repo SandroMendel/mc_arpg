@@ -116,6 +116,6 @@ class HordeRegistryTest {
     }
 
     private static HordeRegistry.Entry entry(UUID id, String kind, String zone, long chunk) {
-        return new HordeRegistry.Entry(id, kind, zone, chunk, WHEN);
+        return new HordeRegistry.Entry(id, kind, zone, chunk, WHEN, HordeRegistry.Origin.BUDGET);
     }
 }

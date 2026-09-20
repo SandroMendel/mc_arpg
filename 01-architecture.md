@@ -56,7 +56,7 @@ Der Unterschied ist in diesem Projekt schon zweimal aufgefallen.
 | B11 | Items, Ausrüstung & Loot | 2 | B03, B04, B05, B06, B07, B08b, B09, B10 | gebaut, Serverabnahme offen |
 | B12 | Statistiken & Leaderboards | 3 | B02, B05, B06 | gebaut, Serverabnahme offen |
 | B13 | UI, HUD & Texte | 3 | B04, B08, B09 | offen |
-| B14 | Commands, Permissions, Admin | 3 | alle | offen |
+| B14 | Commands, Permissions, Admin | 3 | alle | gebaut, Serverabnahme offen |
 | B15 | Performance & Observability | quer | B01 | offen |
 | B16 | Content-Konfiguration & Balancing | quer | B01 | offen |
 | B17 | Test & Deployment | quer | B01 | offen |
@@ -64,6 +64,25 @@ Der Unterschied ist in diesem Projekt schon zweimal aufgefallen.
 > B08b ist nachträglich entstanden und stand bisher nur in den Abhängigkeiten von B11, nicht als
 > eigene Zeile. Er ist hier ergänzt: ein Block, auf den andere verweisen, der aber in der
 > Übersicht fehlt, ist beim Lesen ein Tippfehler und keine Entscheidung.
+
+## B14 · Kommandogerüst und Rechtebaum
+
+B14 liegt als dünne, einheitliche Schale über den öffentlichen Schnittstellen der übrigen Blöcke:
+
+- `RpgCommand` beschreibt den Baum aus Wurzel, Unterkommando, Argumenten, Spielerbezug, Recht und
+  Sperrzeit. `RpgPlugin` sammelt die sechs Spielerkommandos und die Admin-Gruppen und hängt sie
+  unter einer einzigen optionalen `/rpg`-Wurzel zusammen.
+- `CommandTree` baut daraus den Brigadier-Baum und registriert ihn über den Paper-Lifecycle. Die
+  einzige Rechteprüfung sitzt am Knoten; `requires` steuert damit Ausführbarkeit und Sichtbarkeit
+  in der Vervollständigung zugleich.
+- `ArgumentType` ist die gemeinsame Quelle für Prüfung und Vorschlag. Vorschläge werden am Präfix
+  gefiltert und auf 50 Einträge begrenzt, damit ein leerer Tab-Druck keine vollständige Namens- oder
+  Konfigurationsmenge durch den Server schickt.
+- Schreibende Adminpfade laufen über vorhandene öffentliche Block-APIs, protokollieren über
+  `AdminAudit` und greifen asynchron auf die Persistenz zu. `/rpg inspect` und `/rpg audit` sind
+  dagegen reine Lesepfade; die Einsicht erzeugt weder Cache- noch Audit-Seiteneffekte.
+- Die ausgelieferten Nachrichtenschlüssel liegen in `messages.yml` und `messages_de.yml`; der
+  Bootstrap prüft beide Sprachsätze für die B14-Schlüssel, bevor der Server Spieler annimmt.
 
 ## Modul-/Projektstruktur (Vorschlag)
 

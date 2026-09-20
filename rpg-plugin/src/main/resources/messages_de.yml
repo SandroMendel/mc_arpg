@@ -1,0 +1,952 @@
+# Player-facing texts. Constitution V: no text lives in code.
+#
+# Every key used anywhere in the plugin must appear here - the bootstrap validates that and
+# refuses to start otherwise (FR-023a), so a forgotten entry cannot surface later as a blank
+# message at the worst possible moment.
+#
+# Placeholders are written as {name} and substituted in a single pass; substituted content is
+# never re-examined, so a value containing {something} cannot inject another placeholder.
+#
+# Multilingual support is NOT implemented (ADR-005) - this file is the structure that keeps it
+# possible without touching code later.
+
+server:
+  kick:
+    # Shown while the plugin is still starting up (B01, FR-013)
+    starting-up: 'The server is still starting up. Please try again in a moment.'
+    # Shown when the bootstrap failed and the server refuses sessions
+    bootstrap-failed: 'The server did not start correctly and is not accepting players. Please contact an administrator.'
+    # Shown while the server is shutting down
+    shutting-down: 'The server is shutting down.'
+
+session:
+  kick:
+    # Stored state could not be read; the login is refused (B03, FR-011)
+    load-failed: 'Your character data could not be loaded. Your progress is safe - please try again shortly.'
+    # Loading exceeded its 5 second budget (B03, FR-006)
+    load-timeout: 'Loading your character took too long. Please try again.'
+    # The stored state is in a version this build does not know (B03, FR-027)
+    unknown-data-version: 'Your character data was saved by a newer version of the server. Please contact an administrator.'
+  character:
+    # A second character of the same class was rejected (B03, FR-020)
+    class-taken: 'You already have a character of that class.'
+
+persistence:
+  kick:
+    # Shown when persistence is unreachable and no state can be loaded (B02, FR-005a)
+    database-unavailable: 'The server cannot reach its data storage right now. Your progress is safe - please try again shortly.'
+    # Shown when the write buffer hit its limit and everyone must be disconnected (B02, FR-009b)
+    buffer-exhausted: 'The server must disconnect you to protect your progress. Please try again shortly.'
+
+progression:
+  # B06. Every player-facing string of the progression block lives here; the block itself contains
+  # no text at all (FR-038). B13 draws these and B14 answers with them.
+  level-up: 'You reached level <level>.'
+  max-level: 'You have reached the maximum level.'
+
+  # Betreiber-Eingriffe. Das Kommando liegt befristet in B14s Gebiet (ADR-028); jede Aenderung steht
+  # im Audit-Log, und der Betroffene erfaehrt sie - wer heimlich Stufen verliert, meldet einen Fehler.
+  admin:
+    xp-changed: '{player}: {change} - now level {level} ({xp} xp in level).'
+    xp-notice: 'An operator changed your experience: {change}. You are level {level}.'
+    denied: 'You may not change experience.'
+    unknown-target: 'No such player online, or they have no character in play.'
+    invalid-amount: 'That amount is not usable.'
+    usage: 'Usage: /xp give|take <player> <amount> | /xp set <player> <level> [xp]'
+  party:
+    created: 'You founded a party.'
+    invited: 'You invited <player> to your party.'
+    joined: '<player> joined the party.'
+    left: '<player> left the party.'
+    removed: '<player> was removed from the party.'
+    disbanded: 'The party was disbanded.'
+    leader-changed: '<player> is now the party leader.'
+    error:
+      already-in-party: 'That player is already in a party.'
+      full: 'Your party is full.'
+      not-leader: 'Only the party leader can do that.'
+      invite-expired: 'That invitation has expired.'
+      invite-unknown: 'You have no pending invitation.'
+      target-not-ready: 'That player is not ready yet.'
+      self-invite: 'You cannot invite yourself.'
+      not-a-member: 'That player is not in your party.'
+
+combat:
+  status:
+    # The player's own health and defence, on the action bar. Redrawn on every change and once a
+    # second while in combat, because Minecraft fades an action bar after about two seconds.
+    # A player: health, mana, defence. The colour of the whole line follows health alone - it is the
+    # number that decides whether to run.
+    # SEIT B13 OHNE {progress}: Level und Erfahrung stehen auf der Sidebar (FR-002a). Dieselben
+    # Zahlen auf zwei Flaechen waeren kein Layout, sondern eine doppelte Wahrheit auf dem
+    # Bildschirm. Wer die alte Zeile sucht: sie ist umgezogen, nicht verschwunden.
+    action-bar: '{health}/{max} HP ({percent}%)   {mana}/{maxMana} MP   DEF {defense}'
+    # A mob has no mana. Its own text rather than a placeholder that stays empty: 0/0 would take
+    # space from three numbers that mean something.
+    action-bar-no-mana: '{health}/{max} HP ({percent}%)   DEF {defense}'
+    # Ein Spieler mit Zaehler - heute nur der Berserker. Eigener Text statt eines Platzhalters,
+    # der bei Magier und Rogue leer bliebe: drei Zahlen, die etwas sagen, sollen ihren Platz
+    # nicht an eine vierte verlieren, die nichts sagt.
+    action-bar-with-meter: '{health}/{max} HP ({percent}%)   {mana}/{maxMana} MP   DEF {defense}   RAGE {meter}'
+    # Stufe und Erfahrung.
+    #
+    # SEIT B13 UNBENUTZT auf der Actionbar - die Sidebar traegt beides (ui.sidebar.level und
+    # ui.sidebar.xp). Die zwei Schluessel bleiben trotzdem stehen: sie gehoeren B05/B06, und ein
+    # Block raeumt keine fremden Schluessel weg. Wer sie loescht, faellt bei der Startpruefung auf,
+    # weil CombatMessageKeys sie weiterhin anmeldet.
+    #
+    # KEINE Erfahrungskugel am Boden: Coins liegen dort, weil man sie aufheben muss - Erfahrung
+    # bekommt man ohnehin, und eine zweite Sorte Bodenobjekte je Kill kostet Entitaeten und
+    # verdeckt die Coins.
+    progress: 'LV {level}   XP {xp}/{xpNext}'
+    # Auf der Hoechststufe ist die Schwelle der naechsten Stufe 0, und "4120/0" saehe aus wie ein
+    # Fehler. FR-051 will einen fertigen Charakter als fertig gemeldet sehen.
+    progress-max: 'LV {level}   XP {xp}   MAX'
+  mob:
+    # Über jeder Kreatur OHNE eigene Art - ein gewöhnlicher Zombie, ein Tier. EINE Zeile: vanilla
+    # gibt einer Entität genau einen Namen, und eine Lebensleiste DARUNTER wäre eine zweite Entität
+    # je Mob (ADR-005, Prinzip II). Die Zeile für eine Art aus mobs.yml steht unter `mob.nameplate`.
+    nameplate: "{name}  {health}/{max}  DEF {defense}"
+
+# B10. Der Name einer Mob-Art ist ein Schlüssel und nie ein Text — genau wie bei den Regionen.
+# Eine Art umzubenennen ist eine Zeile hier, und keine Horde, kein Bereich und kein späterer Block
+# muss dafür angefasst werden. Fehlt einer, verweigert der Start (FR-010).
+mob:
+  # Die Zeile über einer Kreatur MIT eigener Art. Eigener Text neben combat.mob.nameplate, weil
+  # erst B10 ein Level kennt. Welcher der beiden gilt, folgt aus der Kreatur und nicht aus einem
+  # Schalter: ein Levelfeld, das bei einem gewöhnlichen Zombie leer bliebe, wäre ein Rest
+  # Formatierung ohne Zahl.
+  nameplate: "{name} [{level}]  {health}/{max}  DEF {defense}"
+
+  greenfields:
+    rotling:
+      name: 'Rotling'
+    field-shade:
+      name: 'Field Shade'
+    thornling:
+      name: 'Thornling'
+    husk-of-the-furrow:
+      name: 'Husk of the Furrow'
+    creeping-vine:
+      name: 'Creeping Vine'
+    bog-slime:
+      name: 'Bog Slime'
+    marsh-drowned:
+      name: 'Marsh Drowned'
+    wight-of-the-hedge:
+      name: 'Wight of the Hedge'
+    warden-of-the-field:
+      name: 'Warden of the Field'
+
+  dustlands:
+    sand-shambler:
+      name: 'Sand Shambler'
+    husk-of-the-dune:
+      name: 'Husk of the Dune'
+    wastes-strider:
+      name: 'Wastes Strider'
+    bone-picker:
+      name: 'Bone Picker'
+    dust-crawler:
+      name: 'Dust Crawler'
+    cavern-biter:
+      name: 'Cavern Biter'
+    shifting-swarm:
+      name: 'Shifting Swarm'
+    dune-hexer:
+      name: 'Dune Hexer'
+    dune-warlord:
+      name: 'Warlord of the Dunes'
+
+  safari-plains:
+    plains-raider:
+      name: 'Plains Raider'
+    fallen-herder:
+      name: 'Fallen Herder'
+    grassland-archer:
+      name: 'Grassland Archer'
+    tall-grass-weaver:
+      name: 'Tall Grass Weaver'
+    savanna-hexer:
+      name: 'Savanna Hexer'
+    raid-vanguard:
+      name: 'Raid Vanguard'
+    raid-marauder:
+      name: 'Raid Marauder'
+    raid-caller:
+      name: 'Raid Caller'
+    savanna-overlord:
+      name: 'Overlord of the Savanna'
+
+  terracotta-canyons:
+    canyon-archer:
+      name: 'Canyon Archer'
+    canyon-stalker:
+      name: 'Canyon Stalker'
+    ledge-crawler:
+      name: 'Ledge Crawler'
+    fissure-biter:
+      name: 'Fissure Biter'
+    canyon-hexer:
+      name: 'Canyon Hexer'
+    flitting-vex:
+      name: 'Flitting Vex'
+    canyon-vanguard:
+      name: 'Canyon Vanguard'
+    hollow-wanderer:
+      name: 'Hollow Wanderer'
+    canyon-warden:
+      name: 'Warden of the Canyon'
+
+  darkforest:
+    rotwood-shambler:
+      name: 'Rotwood Shambler'
+    moss-husk:
+      name: 'Moss Husk'
+    canopy-weaver:
+      name: 'Canopy Weaver'
+    gloom-hexer:
+      name: 'Gloom Hexer'
+    thicket-vex:
+      name: 'Thicket Vex'
+    thicket-caller:
+      name: 'Thicket Caller'
+    thicket-vanguard:
+      name: 'Thicket Vanguard'
+    night-glider:
+      name: 'Night Glider'
+    gloom-sovereign:
+      name: 'Sovereign of Gloom'
+
+  pale-wilds:
+    pale-skeleton:
+      name: 'Pale Skeleton'
+    ashen-reaper:
+      name: 'Ashen Reaper'
+    cinder-wisp:
+      name: 'Cinder Wisp'
+    pale-piglin:
+      name: 'Pale Piglin'
+    pale-brute:
+      name: 'Pale Brute'
+    wild-hoglin:
+      name: 'Wild Hoglin'
+    corrupted-zoglin:
+      name: 'Corrupted Zoglin'
+    pale-ooze:
+      name: 'Pale Ooze'
+    pale-sovereign:
+      name: 'The Pale Sovereign'
+
+class:
+  # Display names. The enum constant stays WARRIOR; "Berserker" is a value here, never in code
+  # (ADR-019). This is also where a later translation would land without touching a class file.
+  warrior:
+    name: 'Berserker'
+  mage:
+    name: 'Mage'
+  rogue:
+    name: 'Rogue'
+
+  selection:
+    title: 'Choose your class'
+    chosen: 'You are now a {class}.'
+    # Shown when a player tries to leave the selection. Before the choice there is no game state
+    # at all (ADR-020), so there is nothing to go back to.
+    locked: 'Choose a class first.'
+    # Der Betreiber-Zugang. Nur sichtbar mit rpg.admin.no-class, und er waehlt keine Klasse: kein
+    # Charakter, keine Werte, keine Ausruestung - dafuer Creative, damit Moderieren ueberhaupt geht.
+    admin-entry: 'Enter without a class (operator)'
+    admin-entered: 'You entered without a class. No character, no stats - Creative.'
+    error:
+      class-taken: 'You already have a {class} on this account.'
+      unknown-class: 'That class does not exist.'
+      already-has-character: 'You already have a character in play.'
+    # The selection is shown on every join, so it cannot be waited out: a player parked in the menu
+    # holds a session and a server slot without ever entering the world.
+    timeout:
+      warning: 'Choose a character within {seconds} seconds or you will be disconnected.'
+      kick: 'Disconnected: no character was chosen.'
+
+  # Lore of one slot in the selection. Shown on every join, so it has to answer "which of my
+  # characters is this" at a glance.
+  slot:
+    level: 'Level {level}'
+    tiers: 'Armour {armor}/{armor_max}   Weapon {weapon}/{weapon_max}'
+    last-played: 'Last played {when} ago'
+    resume: 'Click to play'
+    empty: 'No character yet'
+    create: 'Click to create one'
+
+  tier:
+    advanced: 'Your {slot} advanced to tier {tier}.'
+    error:
+      below-required-level: 'That tier requires level {level}.'
+      already-at-top: 'That is already the highest tier.'
+      unknown-character: 'No character found.'
+
+  equipment:
+    # The class armour and weapon are part of the character, not contents of its inventory
+    # (ADR-018).
+    bound: 'That is part of your character and cannot be moved.'
+    drop-disabled: 'Items cannot be thrown. Use your ender chest, a vendor, or the bin.'
+
+  inventory:
+    # No automatic cleanup, no background bank, no silent discard - the player makes room.
+    full: 'Your inventory is full. Make room before more loot arrives.'
+
+# B08 - abilities. Every one of these is referenced by AbilityMessageKeys; the display names of the
+# eighteen abilities themselves come from abilities.yml, which names a key rather than a text.
+ability:
+  rejected:
+    on-cooldown: 'That ability is still on cooldown for {seconds}s.'
+    global-lock: 'Too soon after your last ability.'
+    not-enough-mana: 'Not enough mana - {cost} needed.'
+    not-unlocked: 'You unlock that ability at level {level}.'
+    already-casting: 'You are already casting something.'
+    already-sustaining: 'Finish {ability} first.'
+    no-charges: 'No charges left.'
+    no-character: 'Choose a class first.'
+
+  # A passive marker was clicked. Deliberately NOT under "rejected": the player owns the ability,
+  # nothing was refused, and saying so is the whole reason the marker occupies a hotbar slot.
+  passive: 'That ability is passive - it works on its own, no click needed.'
+
+  unlocked: 'New ability unlocked: {ability}.'
+
+  # Said whenever a passive really took something off an incoming hit. A mitigation is invisible by
+  # nature - it makes a number smaller, and a smaller number among other numbers looks like nothing,
+  # which is why Magic Life was reported as broken while working.
+  mitigated: 'Absorbed {absorbed} damage ({left} got through).'
+
+  rank:
+    advanced: '{ability} is now rank {rank}.'
+    at-maximum: '{ability} is already at its highest rank.'
+    # Since B08b (ADR-027): a rank has a price. Checked last, after unlock and maximum rank, so
+    # seeing this means everything else was in order.
+    not-enough-coins: 'Not enough coins to raise that rank.'
+
+  toggle:
+    changed: '{ability} is now {state}.'
+
+  second-life:
+    # No respawn and no death screen - the rogue is put back where he fell (FR-052c).
+    title: 'Second Life'
+    subtitle: 'Death passed you by.'
+
+  # The display names of the eighteen. abilities.yml names a key, never a text - so a rename here
+  # never touches balancing, and a translation never touches numbers (Principle V).
+  warrior:
+    rage:
+      name: 'Rage'
+      description: 'Grows with every blow you land or take. Fades when the fighting stops.'
+    shield:
+      name: 'Block'
+      description: 'Absorbs physical damage for a while. Magic goes straight through.'
+    leap:
+      name: 'Leap'
+      description: 'A long jump to where you are looking. Everything at the landing takes it.'
+    lifesteal:
+      name: 'Lifesteal'
+      description: 'A share of the damage you deal comes back as health.'
+    whirl:
+      name: 'Whirl'
+      description: 'Physical damage to everything around you, once a second.'
+    call-of-the-berserker:
+      name: 'War Cry'
+      description: 'Move and strike faster for a while. Endable early.'
+
+  rogue:
+    poisoned-blade:
+      name: 'Poisoned Blade'
+      description: 'A chance to poison what you hit. Stacks up to three times.'
+    teleport:
+      name: 'Teleport'
+      description: 'Step instantly to the mob you are looking at. Two charges.'
+    backstab:
+      name: 'Sneaky Backstab'
+      description: 'Hitting from behind makes you faster and stronger for a minute.'
+    invisibility:
+      name: 'Vanish'
+      description: 'Unseen and untouchable, until you strike or step out of it.'
+    clone:
+      name: 'Clone'
+      description: 'A double of you that does not fight, and goes off when it ends.'
+    second-life:
+      name: 'Second Life'
+      description: 'A chance to be put back on your feet instead of dying.'
+
+  mage:
+    magic-life:
+      name: 'Magic Life'
+      description: 'Softens every blow and arrow that reaches you. Cast damage comes through in full.'
+    lightning:
+      name: 'Lightning'
+      description: 'Strikes your target and jumps on to the next, up to eight.'
+    magic-shield:
+      name: 'Magic Shield'
+      description: 'Absorbs damage of any kind for a while.'
+    mana-potion:
+      name: 'Mana Potion'
+      description: 'Mana every second. Any damage taken ends it.'
+    lightning-storm:
+      name: 'Lightning Storm'
+      description: 'A storm on the ground where you point. It stays where you called it.'
+    rise-and-fall:
+      name: 'Rise & Fall'
+      description: 'A second jump in mid-air, then a slow fall. Switchable.'
+
+# B08b - currency and account.
+currency:
+  rejected:
+    not-enough: 'Not enough coins - {needed} needed, you have {balance}.'
+    invalid-amount: 'That is not a valid amount of coins.'
+    overflow: 'That would exceed the largest balance the server can hold.'
+    no-character: 'No such character.'
+  pile:
+    picked-up: 'Picked up {amount} coins.'
+    # The cap bit and an older pile was credited instead of dropped (FR-030a). Deliberately not
+    # worded as a pickup: the player did not pick anything up.
+    cashed-in: '{amount} coins from an earlier pile were added to your balance.'
+  starting-balance: 'You start with {amount} coins.'
+  balance:
+    current: '{character}: {amount} coins.'
+  admin:
+    applied: '{character} now has {amount} coins.'
+    denied: 'You are not allowed to do that.'
+    unknown-character: 'No such character for that player.'
+  # The window is provisional (ADR-028); B13 will own this wording.
+  menu:
+    title-characters: 'Coins'
+    title-history: 'Coins - {character}'
+    character-entry: '{character} - {amount} coins'
+    history-entry: '{direction}{amount} - {reason}'
+    page-next: 'Next page'
+    page-previous: 'Previous page'
+    empty: 'No bookings yet.'
+
+# B09 - zones and regions.
+#
+# Zone names are keys here and NOWHERE else: `zones.yml` carries the technical key, this file
+# carries what the player reads (FR-003a). Renaming a region is one line here, and no portal,
+# spawn area or later block has to be touched for it (SC-017).
+#
+# A missing key refuses the start (FR-003c). A zone whose name shows up in game as a key string
+# is a mistake that should surface at start, not in front of a player.
+zone:
+  greenfields:
+    name: 'The Greenfields'
+  dustlands:
+    name: 'The Dustlands'
+  safari-plains:
+    name: 'The Safari Plains'
+  terracotta-canyons:
+    name: 'The Terracotta Canyons'
+  darkforest:
+    name: 'The Darkforest'
+  pale-wilds:
+    name: 'The Pale Wilds'
+
+  # Entering a region below its level band (FR-021). Warns once, never blocks (FR-022, FR-024).
+  too-dangerous: 'This area is too dangerous for you. Recommended level: {min}-{max}.'
+  # Death (FR-035). Costs no experience and no items (FR-036).
+  died: 'You died.'
+  # First login after a combat logout (ADR-030, FR-041)
+  died-logout: 'You logged out in combat and died.'
+
+  # Waypoint crystals. Input and window are temporary here and belong to B13 (ADR-032).
+  waypoint:
+    menu-title: 'Waypoints'
+    unlocked: 'Waypoint discovered: {zone}.'
+    locked: 'You have not discovered {zone} yet.'
+    not-enough-coins: 'Travelling to {zone} costs {price} coins - you do not have enough.'
+    in-combat: 'You cannot travel while in combat.'
+    gone: 'That waypoint no longer exists.'
+    travelled: 'You travelled to {zone} for {price} coins.'
+    # Shown when the teleport failed after the debit went through and the coins came back
+    # (FR-050f, research.md R1). A journey never ends at a loss.
+    refunded: 'The journey failed. Your {price} coins were returned.'
+    # Shown in the window on a locked entry (FR-048a)
+    entry-unlocked: '{zone} - level {band-min}-{band-max} ({price} coins)'
+    entry-locked: '{zone} - level {band-min}-{band-max} (not discovered)'
+    entry-here: '{zone} - you are here'
+
+# ---------------------------------------------------------------------------------------------
+# B11 - Items, Ausrüstung & Loot.
+#
+# Der Name einer Vorlage ist ein SCHLÜSSEL, kein Text. Er lebt hier und nirgends sonst; eine
+# Vorlage umzubenennen ist eine Zeile in dieser Datei, und keine Beutetabelle und kein
+# Händlerbestand muss dafür angefasst werden (Prinzip V). ItemModule.start weist den Start ab,
+# wenn eine konfigurierte Vorlage hier keinen Namen hat - ein Trank, der als
+# item.potion.minor-healing.name durchs Inventar liefe, ist kein Zustand, den man bemerkt.
+#
+# Die Wirkungswerte stehen NICHT hier. Sie kommen aus items.yml und werden bei jedem Laden neu
+# abgeleitet (FR-002) - stünden sie hier, wäre ein Balancing zwei Dateien statt einer, und die
+# zweite würde vergessen.
+# ---------------------------------------------------------------------------------------------
+item:
+  # Die acht Raritätsstufen. Ein Etikett, sonst nichts: ein epischer Trank heilt nicht mehr als
+  # ein gewöhnlicher, er ist seltener (FR-014, ADR-027).
+  rarity:
+    common: { name: 'Common' }
+    uncommon: { name: 'Uncommon' }
+    rare: { name: 'Rare' }
+    epic: { name: 'Epic' }
+    legendary: { name: 'Legendary' }
+    mythic: { name: 'Mythic' }
+    divine: { name: 'Divine' }
+    special: { name: 'Special' }
+
+  # Was ein Verbrauchbares GENAU tut. Ein Trank namens "Healing Potion" sagt nicht, ob er 40 oder
+  # 420 heilt - und der Unterschied zwischen den dreien im Bestand ist genau das. Diese Zeilen
+  # werden bei JEDEM Laden aus items.yml abgeleitet: wer dort eine Zahl ändert, ändert sie damit
+  # auch auf jedem vorhandenen Exemplar (SC-001).
+  effect:
+    heal: '&cHeals &f{amount}&c health'
+    mana: '&9Restores &f{amount}&9 mana'
+    buff: '&b{attribute} &f+{amount}&b for &f{seconds}s'
+    splash: '&dThrown - affects everyone it hits'
+    cooldown: '&8Cooldown {seconds}s'
+
+  # Wenn ein FREMDER Trank einen trifft. Ohne diese Meldung merkt der Getroffene nur, dass sich
+  # eine Zahl geändert hat - und weiß weder, woher, noch wie viel. Wer selbst wirft, bekommt
+  # nichts: er weiß, was er getan hat.
+  splash:
+    healed: '&aYou have been healed for &f{amount} HP &aby &f{player}&a.'
+    mana: '&b{player} &brestored &f{amount} mana &bfor you.'
+    buff: '&b{player} gave you &f{attribute} +{amount}&b for &f{seconds}s&b.'
+    # Der eigene Wurf: der Name waere die Antwort auf eine Frage, die niemand stellt.
+    self-healed: '&aHealed for &f{amount} HP&a.'
+    self-mana: '&bRestored &f{amount} mana&b.'
+    self-buff: '&b{attribute} &f+{amount}&b for &f{seconds}s&b.'
+
+  # Die Attributnamen für die Lore eines Buff-Tranks. In B04 ist ein Attribut ein Rechenwert mit
+  # einem Konfigurationsschlüssel, und der ist kein Spielertext.
+  attribute:
+    health: 'Health'
+    health-regen: 'Health regeneration'
+    defense: 'Defence'
+    mana: 'Mana'
+    mana-regen: 'Mana regeneration'
+    physical-damage: 'Physical damage'
+    magic-damage: 'Magic damage'
+    attack-speed: 'Attack speed'
+    movement-speed: 'Movement speed'
+    ability-cooldown: 'Ability cooldown'
+
+  # Die fünf Ablehnungen (FR-037). Jede hat ihre eigene Meldung: "geht nicht" ist keine Antwort,
+  # und ein Spieler, der den Grund nicht erfährt, hält den Trank für kaputt.
+  refused:
+    level: '&cYou are not high enough level for that.'
+    class: '&cThat is not for your class.'
+    cooldown: '&c{seconds} seconds to go.'
+    no-effect: '&7That would do nothing right now.'
+    unknown: '&7There is nothing you can do with that.'
+
+  # Der Händler (FR-057 bis FR-065). Das Fenster zeichnet Vanilla-Materialien und holt jede
+  # sichtbare Zeile von hier - B13 tauscht später die Darstellung, ohne dass ein Schlüssel sich
+  # ändert. Jede Ablehnung nennt ihren Grund, aus demselben Grund wie oben bei den Tränken.
+  vendor:
+    title: 'Merchant'
+    sell: '&eSell'
+    # Ein Knopf, der nur seinen Namen trägt, verlangt vom Spieler, ihn auszuprobieren - und
+    # "ausprobieren" heißt bei einem Kauf: bezahlen. Jede lore-Zeile beantwortet die zwei Fragen,
+    # die vor dem Klick stehen: was passiert, und was kostet es.
+    sell.lore: '&7Click an item in your own inventory to sell it.'
+
+    # Je Leiter einer. B07 kennt genau zwei, und sie verschleißen getrennt - ein gemeinsamer Knopf
+    # müsste raten, welche gemeint ist.
+    repair:
+      armor-ladder: '&eRepair armour'
+      weapon-ladder: '&eRepair weapon'
+      # {condition} steht mit dabei, weil der Preis davon abhängt (FR-053). Ohne ihn wäre die Zahl
+      # unerklärlich und sähe nach Willkür aus.
+      armor-ladder.lore: '&7Condition &f{condition}%&7. Restores it fully for &6{price} coins&7.'
+      weapon-ladder.lore: '&7Condition &f{condition}%&7. Restores it fully for &6{price} coins&7.'
+      armor-ladder.lore-intact: '&7Condition &f{condition}%&7 - nothing to repair.'
+      weapon-ladder.lore-intact: '&7Condition &f{condition}%&7 - nothing to repair.'
+
+    upgrade:
+      armor-ladder: '&eUpgrade armour'
+      weapon-ladder: '&eUpgrade weapon'
+      armor-ladder.lore: '&7Tier &f{tier}&7 for &6{price} coins&7, from level &f{level}&7.'
+      weapon-ladder.lore: '&7Tier &f{tier}&7 for &6{price} coins&7, from level &f{level}&7.'
+      armor-ladder.lore-top: '&7Top tier reached. Nothing left to buy here.'
+      weapon-ladder.lore-top: '&7Top tier reached. Nothing left to buy here.'
+
+    price: '&6{price} coins'
+    price-short: '&c{price} coins'
+    sold: '&aSold for {amount} coins.'
+    bought: '&aBought for {amount} coins.'
+    not-sellable: '&cHe will not take that.'
+    bound: '&cYour class equipment stays with you.'
+    not-in-stock: '&cHe does not carry that here.'
+    not-enough: '&cYou do not have that many coins.'
+    no-room: '&cThere is no room in your inventory.'
+
+  # Verschleiß und Reparatur (FR-051 bis FR-056). Die Warnung kommt höchstens einmal je Schwelle
+  # und Ruhezeit - eine Meldung bei jedem Treffer wäre eine, die niemand mehr liest, und dann fiele
+  # die eine, auf die es ankam, auch nicht mehr auf.
+  repair:
+    done: '&aRepaired for {price} coins.'
+    not-worn: '&7There is nothing to repair there.'
+    route-locked: '&cYour class equipment can only be repaired by the merchant.'
+
+  wear:
+    warning: '&eYour gear is worn ({condition}%). Have it repaired before it costs you a fight.'
+
+  # Auf der getragenen Ausrüstung selbst. Der Haltbarkeitsbalken zeigt, DASS etwas abgenutzt ist -
+  # diese Zeile zeigt, wie viel, und dass die Zahl etwas bedeutet: den Anteil der Werte, der noch
+  # ankommt. Ausrüstung zerbricht nie (FR-038); bei 0 % bleiben 20 % Wirkung.
+  gear:
+    condition-lore: '&7Condition &f{condition}%&7 · stats at &f{factor}%'
+
+  # Kosmetik (FR-067 bis FR-073). Der Text zu not-top-tier muss BEIDES sagen - dass es noch nicht
+  # geht und dass die Farbe bleibt. "Geht nicht" allein liest sich wie ein verlorener Kauf.
+  # Der Mülleimer (FR-078). Vernichten ist der einzige unumkehrbare Vorgang, den ein Spieler hier
+  # auslösen kann - deshalb zwei Aufrufe, und der erste tut nichts.
+  trash:
+    confirm: '&eType /trash again to destroy that for good.'
+    done: '&7Gone.'
+    nothing-held: '&7You are not holding anything.'
+    bound: '&cYour class equipment stays with you.'
+
+  cosmetic:
+    applied: '&aYour trim has changed.'
+    not-top-tier: '&eNot yet - this needs the top tier of both ladders. The colour is yours and it will keep.'
+    already-worn: '&7You are already wearing that one.'
+
+  potion:
+    minor-healing:
+      name: 'Minor Healing Potion'
+      lore: 'A thin red brew. Enough to finish a fight you nearly lost.'
+    healing:
+      name: 'Healing Potion'
+      lore: 'Brewed for people who expect to be hit.'
+    greater-healing:
+      name: 'Greater Healing Potion'
+      lore: 'The last one you drink before deciding to run.'
+    lesser-mana:
+      name: 'Lesser Mana Potion'
+      lore: 'Bitter. Works anyway.'
+    mana:
+      name: 'Mana Potion'
+      lore: 'Steadier than the lesser sort, and twice the price.'
+    stoneskin:
+      name: 'Stoneskin Draught'
+      lore: 'Your skin remembers being rock. Briefly.'
+    fury:
+      name: 'Draught of Fury'
+      lore: 'Faster, harder, and no help at all when it wears off.'
+
+  trim:
+    ember:
+      name: 'Ember Trim'
+      lore: 'Worn by those who have nothing left to prove.'
+    frost:
+      name: 'Frost Trim'
+      lore: 'Cold enough to be noticed across a battlefield.'
+    verdant:
+      name: 'Verdant Trim'
+      lore: 'The rarest of the three, and the hardest to explain.'
+
+# ==============================================================================
+# B12 - Statistiken & Ranglisten
+# ==============================================================================
+# Englisch wie alle Spielertexte (Prinzip VIII). Jeder Schluessel hier wird beim
+# Start gegen StatisticsMessageKeys.all() geprueft - fehlt einer, startet der
+# Server nicht, statt einem Spieler den rohen Schluessel ins Fenster zu schreiben.
+
+statistics:
+
+  profile:
+    title: '&6Your Record'
+    title-other: "&6{player}'s Record"
+    line: '&7{label}&8: &f{value}'
+    # Steht im FREMDEN Profil an der Stelle, an der die Aufschluesselung fehlt -
+    # damit die Luecke als Absicht lesbar ist und nicht als fehlender Wert.
+    private-omitted: '&8Some details are only visible to the player themselves.'
+
+  unknown-player: '&cNo record for &f{player}&c.'
+
+  leaderboard:
+    title: '&6{board} &8- &7{period}'
+    entry: '&8#{rank} &f{player} &8- &7{value}'
+    entry-self: '&8#{rank} &e{player} &8- &7{value}'
+    your-rank: '&7Your place&8: &f#{rank} &8({value})'
+    unranked: '&7You are not on this board yet.'
+    empty: '&7Nobody is on this board yet.'
+    not-ready: '&7The board is still being built. Try again shortly.'
+    as-of: '&8Updated {age} ago.'
+
+  board:
+    # FR-007c: NICHT "creatures killed". Ein Kill zaehlt jedem Beteiligten
+    # (ADR-042), also uebersteigt die Summe aller Zaehler die Zahl gestorbener
+    # Kreaturen. Wer "killed" liest, rechnet nach und meldet die Rangliste als
+    # kaputt - zu Recht.
+    mob-kills:
+      name: 'Kill Participation'
+      hint: 'Every fight you took a real part in counts - not only the last hit.'
+    boss-kills:
+      name: 'Boss Kill Participation'
+      hint: 'Same rule for bosses: a real share of the damage, not the killing blow.'
+    deaths:
+      name: 'Deaths'
+      hint: 'How often you went down. What killed you stays private.'
+    playtime-active:
+      name: 'Time Played'
+      hint: 'Time spent actually playing. Standing still does not count.'
+    damage-max:
+      name: 'Biggest Hit'
+      hint: 'Your single hardest hit after the target defence.'
+    playtime-online:
+      name: 'Time Online'
+      hint: 'Only you can see this one.'
+    level:
+      name: 'Level'
+      hint: 'The highest level among your characters.'
+    coins:
+      name: 'Coins'
+      hint: 'Everything your characters carry, added up.'
+
+  period:
+    day: 'Today'
+    week: 'This Week'
+    season: 'This Season'
+    all-time: 'All Time'
+
+  season:
+    current: '&6Season {season} &8- &7{days} days left'
+    none: '&7No season is running right now.'
+    final: '&6Season {season} &8- &7final standings'
+    score:
+      title: '&6Season Score &8- &7{season}'
+      # ADR-046 verlangt diese Zeile ausdruecklich: eine Wertung, deren
+      # Zustandekommen man nicht sieht, wird als Willkuer gelesen.
+      line: '&7{label}&8: &f{value} &8x &7{weight} &8= &e{points}'
+      total: '&6Total&8: &e{points} &8(&7#{rank}&8)'
+
+  reward:
+    available: '&6You placed #{rank} in season {season}. Your reward is waiting.'
+    claimed: '&aClaimed your reward for season {season}&a: &f{reward}'
+    already-claimed: '&7You have already claimed that reward.'
+    none: '&7You have no rewards waiting.'
+    # Der Anspruch verfaellt NICHT - der Text sagt das, weil sonst jeder
+    # Betroffene annimmt, seine Belohnung sei weg.
+    inventory-full: '&cYour inventory is full. The reward stays yours - make room and try again.'
+
+  hologram:
+    header: '&6{board} &8- &7{period}'
+    line: '&8#{rank} &f{player} &8- &7{value}'
+
+# ---------------------------------------------------------------------------
+# B13 - UI, HUD und Texte.
+#
+# Drei Flaechen, drei Rollen. Wer hier etwas umschreibt, aendert nur den
+# Wortlaut - WELCHER Wert auf WELCHER Flaeche steht, ist eine Aufzaehlung im
+# Code und keine Einstellung (FR-001). Zwei Flaechen mit demselben Wert waeren
+# kein Layout, sondern eine doppelte Wahrheit auf dem Bildschirm.
+# ---------------------------------------------------------------------------
+ui:
+
+  sidebar:
+    title: '&6&lVuntex'
+    level: '&7Level&8: &f{level}'
+    # Level und Erfahrung stehen SEIT B13 hier und nicht mehr auf der
+    # Actionbar (FR-002a). Wer die alte Zeile sucht: sie ist umgezogen, nicht
+    # verschwunden.
+    xp: '&7XP&8: &f{xp}&8/&7{xpNext}'
+    # Am Hoechstlevel ist die Schwelle 0, und '4120/0' saehe aus wie ein
+    # Fehler. Deshalb ein eigener Schluessel statt einer abgeleiteten Regel.
+    xp-max: '&7XP&8: &f{xp} &8(&6max&8)'
+    coins: '&7Coins&8: &e{coins}'
+    zone: '&7Zone&8: &f{zone}'
+    zone-wilderness: '&8Wilderness'
+
+  bossbar:
+    zone-notice: '&f{zone}'
+    boss-fight: '&c&l{name}'
+    channelling: '&b{ability}'
+
+  damage:
+    number: '&f{amount}'
+    # Ein eigener Schluessel fuer den letzten Treffer - die einzige Zahl, auf
+    # die ein Spieler wirklich wartet.
+    number-lethal: '&c&l{amount}'
+
+  sheet:
+    title: '&6{character}'
+    attribute: '&7{label}&8: &f{value}'
+    # Nicht jedes Attribut ist eine Stueckzahl. Ohne eigene Zeile stuende bei
+    # einer Cooldown-Reduktion eine nackte 0.15, und der Spieler rechnete
+    # selbst.
+    attribute-percent: '&7{label}&8: &f{value}%'
+    class: '&7Class&8: &f{class}'
+    level: '&7Level&8: &f{level}'
+    coins: '&7Coins&8: &e{coins}'
+    equipment: '&7{slot}&8: &f{item}'
+    condition: '&8Condition&8: &7{percent}%'
+    equipment-empty: '&7{slot}&8: &8empty'
+    no-character: '&7Pick a character first.'
+
+  # Die Anzeigenamen der Attribute aus B04. Es sind heute zehn; die Zahl steht
+  # weder hier noch im Code, weil sie sich mit B04 aendert - die Startpruefung
+  # geht die Aufzaehlung durch und nicht eine gemerkte Zahl.
+  attribute:
+    health: 'Health'
+    health-regen: 'Health Regen'
+    defense: 'Defense'
+    mana: 'Mana'
+    mana-regen: 'Mana Regen'
+    physical-damage: 'Physical Damage'
+    magic-damage: 'Magic Damage'
+    attack-speed: 'Attack Speed'
+    movement-speed: 'Movement Speed'
+    ability-cooldown: 'Ability Cooldown'
+
+# ==============================================================================
+# B14 - Kommandos, Rechte & Admin-Werkzeuge
+# ==============================================================================
+# Was das GERUEST erzeugt, bevor ein Kommando ueberhaupt laeuft. Die Texte der
+# einzelnen Kommandos stehen weiter bei ihrem Block - der Umzug auf das Geruest
+# aendert an keiner Zeile davon etwas (FR-005).
+#
+# FR-004: eine Argumentmeldung nennt das betroffene ARGUMENT und den erlaubten
+# Bereich - sie wiederholt nicht die Nutzungszeile. Wer die schon vor sich hatte
+# und trotzdem falsch getippt hat, liest sie kein zweites Mal richtig.
+command:
+  # Die Beschreibungen der Kommandos. Sie stehen in der Serverhilfe und nicht vor einem Spieler -
+  # aber Prinzip V kennt keine Ausnahme fuer Betreibertext. Seit dem Umzug auf Brigadier liest
+  # ohnehin niemand mehr die description: aus plugin.yml (research.md §1).
+  char:
+    description: "Dein Charakterblatt oeffnen."
+
+  stats:
+    description: "Deine Statistiken oeffnen."
+
+  top:
+    description: "Eine Rangliste oeffnen."
+
+  coins:
+    description: "Das Muenzenfenster oeffnen oder einen Kontostand aendern."
+  coins.set:
+    description: "Den Kontostand eines Charakters setzen."
+  coins.add:
+    description: "Einem Charakter Muenzen geben."
+  coins.remove:
+    description: "Einem Charakter Muenzen nehmen."
+
+  xp:
+    description: "Erfahrung geben, nehmen oder eine Stufe setzen."
+  xp.give:
+    description: "Einem Charakter Erfahrung geben."
+  xp.take:
+    description: "Einem Charakter Erfahrung nehmen."
+  xp.set:
+    description: "Einen Charakter auf eine Stufe setzen."
+
+  trash:
+    description: "Das Item in deiner Hand nach Bestaetigung endgueltig zerstoeren."
+
+  item:
+    description: "Konfigurierte Items erzeugen und ausgeben."
+  item.give:
+    description: "Einem Spieler ein konfiguriertes Item geben."
+    done: "{amount}x {template} an {player} ausgegeben."
+    dropped: "Inventar voll: {amount}x {template} fuer {player} fallengelassen."
+    target-unavailable: "{player} muss online sein und einen aktiven Charakter haben."
+
+  mob:
+    description: "Konfigurierte Kreaturen erzeugen."
+  mob.spawn:
+    description: "Eine konfigurierte Kreatur an deiner Position spawnen."
+    done: "{kind} in {zone} gespawnt."
+    no-zone: "Du musst in einer konfigurierten Zone stehen."
+    limit: "Das Admin-Kreaturenlimit von {limit} ist erreicht."
+    failed: "Die Kreatur konnte nicht gespawnt werden."
+
+  set:
+    description: "Den Fortschritt oder die Klasse eines Charakters korrigieren."
+  set.level:
+    description: "Die Stufe eines Charakters setzen."
+  set.xp:
+    description: "Die Erfahrung eines Charakters setzen."
+  set.class:
+    description: "Die Klasse eines Charakters ueber den normalen Auswahlweg waehlen."
+  set.done: "{player}: {property} von {from} auf {to} geaendert."
+  set.notice: "Ein Betreiber hat dein {property} von {from} auf {to} geaendert."
+  set.target-unavailable: "Das Ziel hat keine bereite Charaktersitzung."
+  set.rejected: "Der angeforderte Wert wurde abgelehnt; nichts wurde geaendert."
+  set.class.done: "{player}: Klasse auf {class} gesetzt."
+  set.class.notice: "Ein Betreiber hat {class} fuer dich ausgewaehlt."
+  set.class.failed: "Die Klasse konnte nicht gesetzt werden."
+
+  inspect:
+    description: "Die Daten eines anderen Spielers ansehen, ohne sie zu aendern."
+  inspect.sheet:
+    description: "Das Charakterblatt eines anderen Spielers ansehen."
+    title: "Charakterblatt von {player}."
+    class: "Klasse"
+    level: "Stufe"
+    xp: "Erfahrung"
+    coins: "Muenzen"
+    revision: "Statistikrevision"
+    equipment: "Ausrüstung"
+  inspect.statistics:
+    description: "Die oeffentlichen Statistiken eines anderen Spielers ansehen."
+    title: "Statistiken von {player}."
+  inspect.inventory:
+    description: "Das gespeicherte Inventar eines anderen Spielers ansehen."
+    title: "Inventar von {player}."
+    backpack: "Inventar"
+    ender-chest: "Endertruhe"
+    count: "{stacks} Stack(s), {items} Item(s)"
+    unreadable: "in dieser Serverversion nicht lesbar"
+  inspect.session:
+    description: "Den Sitzungsstatus eines anderen Spielers ansehen."
+    title: "Sitzung von {player}."
+    state: "Status"
+    online: "Online"
+    character: "Aktiver Charakter"
+    last-seen: "Zuletzt gesehen"
+  inspect.line: "{label}: {value}"
+  inspect.anonymous: "anonymer Spieler"
+  inspect.no-data: "Keine gespeicherten Daten fuer {player} verfuegbar."
+  inspect.failed: "Die schreibgeschuetzte Einsicht konnte nicht abgeschlossen werden."
+
+  audit:
+    description: "Das administrative Audit-Log lesen."
+  audit.page: "Audit-Log — Seite {page}/{pages} ({entries} Eintraege)."
+  audit.entry: "{time} | Akteur={actor} | Aktion={action} | Ziel={target} | {details}"
+  audit.empty: "In diesem Zeitraum wurden keine Audit-Eintraege gefunden."
+  audit.more: "Nur die ersten 10 Eintraege werden angezeigt; {remaining} weitere sind im Zeitraum vorhanden."
+  audit.failed: "Das Audit-Log konnte nicht gelesen werden."
+
+  reload:
+    description: "Die gesamte Konfiguration ohne Neustart neu laden."
+    done: "Konfiguration erfolgreich neu geladen."
+    rejected: "Konfiguration in {file} bei {path} abgelehnt: {expected} erwartet, aber {actual} gefunden."
+
+  # Die Wurzel aller Betreiberwerkzeuge.
+  rpg:
+    description: "Betreiberwerkzeuge."
+
+  error:
+    argument-missing: '&cMissing &f{argument}&c - expected {expected}.'
+    argument-invalid: '&cThe value &f{value}&c is not a valid {argument} - expected {expected}.'
+    # Eigener Schluessel, weil DER BEREICH die Antwort ist: "61 is not a valid
+    # level" hilft niemandem, "level goes from 1 to 60" schon.
+    argument-out-of-range: '&c{argument} must be between &f{min}&c and &f{max}&c - you gave &f{value}&c.'
+    unknown-player: '&cNo player named &f{name}&c.'
+    unknown-key: '&cUnknown key &f{key}&c.'
+    # Eine MELDUNG, keine Ausnahme im Log (FR-008). Eine Ausnahme saehe aus wie
+    # ein Fehler des Servers, obwohl der Betreiber nur etwas getippt hat, was
+    # von der Konsole nicht geht.
+    needs-player: '&cThat command needs a player. Run it in game.'
+    # Selten zu sehen: ohne Recht erscheint der Zweig gar nicht erst in der
+    # Vervollstaendigung (FR-014). Wer ihn volltippt, bekommt trotzdem eine
+    # Antwort - Schweigen liest sich wie ein kaputtes Kommando.
+    denied: '&cYou may not do that.'
+    # FR-032 verlangt ausdruecklich die Restzeit. Eine Sperrzeit ohne sie ist von
+    # einem defekten Kommando nicht zu unterscheiden.
+    rate-limited: '&cToo quick - try again in {seconds}s.'

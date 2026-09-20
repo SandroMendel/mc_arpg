@@ -27,6 +27,12 @@ import java.util.UUID;
  */
 public final class HordeRegistry {
 
+    /** Woher eine Kreatur stammt. Die Herkunft bleibt absichtlich nur im fluechtigen Bestand. */
+    public enum Origin {
+        BUDGET,
+        ADMIN
+    }
+
     /**
      * Ein Eintrag.
      *
@@ -36,23 +42,32 @@ public final class HordeRegistry {
      * @param chunkKey gepackt, wie in B09s Index
      * @param spawnedAt wann sie gesetzt wurde. Die Aufraeumfrist haengt am letzten Spieler und nicht
      *     hieran - dieser Zeitstempel ist fuer Auswertung und fuer „die aelteste zuerst"
+     * @param origin regulärer Budget-Spawn oder manueller Admin-Spawn
      */
     public record Entry(
-            UUID entityId, String kindKey, String zoneKey, long chunkKey, Instant spawnedAt) {
+            UUID entityId,
+            String kindKey,
+            String zoneKey,
+            long chunkKey,
+            Instant spawnedAt,
+            Origin origin) {
 
         public Entry {
             Objects.requireNonNull(entityId, "entityId");
             Objects.requireNonNull(kindKey, "kindKey");
             Objects.requireNonNull(zoneKey, "zoneKey");
             Objects.requireNonNull(spawnedAt, "spawnedAt");
+            Objects.requireNonNull(origin, "origin");
         }
     }
 
     // LinkedHashMap: die Reihenfolge ist die des Setzens, und damit ist "die aelteste zuerst" ohne
     // Sortierung zu haben - dieselbe Ueberlegung, die B08b fuer die Deckelung der Haufen anstellt.
     private final Map<UUID, Entry> byEntity = new LinkedHashMap<>();
-    private final Map<String, Integer> byZone = new HashMap<>();
+    private final Map<String, Integer> budgetByZone = new HashMap<>();
     private final ChunkCount byChunk = new ChunkCount();
+    private int budgetTotal;
+    private int adminTotal;
 
     /** Traegt eine gesetzte Kreatur ein und schreibt die drei Zaehlungen fort. */
     public void add(Entry entry) {
@@ -62,7 +77,12 @@ public final class HordeRegistry {
             // das Budget nicht mehr stimmt. Lieber hier auffallen.
             throw new IllegalStateException("entity already registered: " + entry.entityId());
         }
-        byZone.merge(entry.zoneKey(), 1, Integer::sum);
+        if (entry.origin() == Origin.BUDGET) {
+            budgetTotal++;
+            budgetByZone.merge(entry.zoneKey(), 1, Integer::sum);
+        } else {
+            adminTotal++;
+        }
         byChunk.increment(entry.chunkKey());
     }
 
@@ -78,7 +98,13 @@ public final class HordeRegistry {
         if (entry == null) {
             return null;
         }
-        byZone.computeIfPresent(entry.zoneKey(), (key, count) -> count <= 1 ? null : count - 1);
+        if (entry.origin() == Origin.BUDGET) {
+            budgetTotal--;
+            budgetByZone.computeIfPresent(
+                    entry.zoneKey(), (key, count) -> count <= 1 ? null : count - 1);
+        } else {
+            adminTotal--;
+        }
         byChunk.decrement(entry.chunkKey());
         return entry;
     }
@@ -95,12 +121,17 @@ public final class HordeRegistry {
 
     /** Wie viele insgesamt - gegen das serverweite Budget. */
     public int total() {
-        return byEntity.size();
+        return budgetTotal;
     }
 
     /** Wie viele in dieser Zone. Null fuer eine Zone, in der keine steht. */
     public int countIn(String zoneKey) {
-        return byZone.getOrDefault(zoneKey, 0);
+        return budgetByZone.getOrDefault(zoneKey, 0);
+    }
+
+    /** Wie viele manuell durch einen Admin gesetzt wurden - gegen die separate Admin-Grenze. */
+    public int countAdmin() {
+        return adminTotal;
     }
 
     /** Wie viele in diesem Chunk. */
@@ -121,7 +152,9 @@ public final class HordeRegistry {
     /** Leert den Bestand. Beim Herunterfahren, nachdem die Entitaeten entfernt sind (FR-023). */
     public void clear() {
         byEntity.clear();
-        byZone.clear();
+        budgetByZone.clear();
+        budgetTotal = 0;
+        adminTotal = 0;
         byChunk.clear();
     }
 }

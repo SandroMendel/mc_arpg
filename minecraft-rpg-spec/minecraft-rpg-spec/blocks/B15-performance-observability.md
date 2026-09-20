@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Schicht** | Querschnitt |
-| **Status** | Entwurf |
+| **Status** | In Umsetzung — Code-/Testbasis vorhanden; echter Paper-/Lastlauf offen |
 | **Abhängig von** | B01 |
 | **Benötigt von** | alle |
 
@@ -50,16 +50,34 @@ Macht die Performanceziele messbar und durchsetzbar, statt sie zu behaupten.
   Block selbst — als wiederholbare Messung. Diese Phase übernimmt nur, was sich
   erst unter 150 Spielern und 800 Mobs zeigt.
 
+## Festgelegter B15-Stand (2026-09-11)
+
+- Die Core-Messgrenze ist Bukkit-/Paper-frei. Paper liefert nur über die öffentlichen
+  `ServerTickStartEvent`-/`ServerTickEndEvent`-Adapter die Gesamt-Tickdaten.
+- Fenster sind begrenzt, die Perzentile sind p50/p95/p99. Ab 90 % Budget wird gewarnt; nach
+  60 Sekunden kontinuierlicher Verletzung folgt genau ein kritischer Alarm, danach eine einmalige
+  Erholung.
+- Monitoring besteht aus strukturierten Log-Berichten und einer atomar ersetzten,
+  Prometheus-kompatiblen Textdatei. Ein Grafana-Dashboard ist nicht Teil von B15.
+- Der Lasttest läuft extern mit dem zum Lauf gepinnten `mc-pilot`-Profil. Die Szenariovorgabe ist
+  150 Spieler, 800 Custom-Mobs, sechs Regionen, 15 Minuten Warm-up und 30 Minuten Messung.
+- Profiling nutzt nur Papers gebündeltes Spark im kontrollierten Lauf; B15 bringt keine Spark-
+  oder Profiler-Laufzeitabhängigkeit mit.
+- Jeder Vergleichslauf erfasst das reale Zielhardwareprofil und verwirft Ergebnisse bei fehlender
+  Last, veralteten Metriken, Neustart oder fehlenden Artefakten.
+
 ## Offene Fragen
 
-- [ ] Hardware-Zielprofil (Kerne, RAM, Speichertyp)?
-- [ ] Monitoring-Stack (Prometheus/Grafana, oder nur Logausgabe)?
-- [ ] Werkzeug für simulierte Spieler im Lasttest?
-- [ ] Ab welcher Abweichung wird alarmiert?
+- [x] Hardware-Zielprofil: reale Zielmaschine; CPU, Kerne, RAM, Storage, OS und JVM werden je Lauf
+  im Manifest erfasst.
+- [x] Monitoring-Stack: strukturierte Logs plus Prometheus-kompatibler Export; kein Grafana in B15.
+- [x] Werkzeug: externes, für Paper 26.2 gepinntes `mc-pilot`-Profil.
+- [x] Alarmgrenzen: Warnung ab 90 %, kritisch nach 60 Sekunden; Lasttestziele 19,5 TPS / 40 ms
+  p95 / 50 ms p99.
 
 ## Akzeptanzkriterien (Entwurf)
 
-- Ein reproduzierbarer Lasttest mit 150 simulierten Spielern existiert und läuft
-  automatisiert.
+- Ein reproduzierbarer Lasttest mit 150 simulierten Spielern existiert als versioniertes Szenario
+  und Runner; der echte 45-Minuten-Lauf bleibt der Betriebsnachweis.
 - Tick-Zeiten je Subsystem sind zur Laufzeit abrufbar.
 - Eine absichtlich eingebaute Budgetüberschreitung wird erkannt und gemeldet.

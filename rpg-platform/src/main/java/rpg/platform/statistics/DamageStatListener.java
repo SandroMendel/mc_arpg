@@ -3,9 +3,11 @@ package rpg.platform.statistics;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Supplier;
 
 import rpg.core.combat.DamageDealtEvent;
 import rpg.core.event.EventBus;
+import rpg.core.performance.MeasurementScope;
 import rpg.core.statistics.MetricRegistry;
 import rpg.core.statistics.Statistics;
 
@@ -41,10 +43,19 @@ public final class DamageStatListener {
 
     private final Statistics statistics;
     private final CloneOwnership clones;
+    private final Supplier<MeasurementScope> performanceScope;
 
     public DamageStatListener(Statistics statistics, CloneOwnership clones) {
+        this(statistics, clones, () -> () -> {});
+    }
+
+    public DamageStatListener(
+            Statistics statistics,
+            CloneOwnership clones,
+            Supplier<MeasurementScope> performanceScope) {
         this.statistics = Objects.requireNonNull(statistics, "statistics");
         this.clones = Objects.requireNonNull(clones, "clones");
+        this.performanceScope = Objects.requireNonNull(performanceScope, "performanceScope");
     }
 
     public void subscribeTo(EventBus events) {
@@ -52,19 +63,21 @@ public final class DamageStatListener {
     }
 
     void onDamage(DamageDealtEvent event) {
-        if (event.attackerId() == null) {
-            // Umgebungsschaden hat keinen Urheber, dem etwas gutzuschreiben waere.
-            return;
-        }
+        try (MeasurementScope ignored = performanceScope.get()) {
+            if (event.attackerId() == null) {
+                // Umgebungsschaden hat keinen Urheber, dem etwas gutzuschreiben waere.
+                return;
+            }
 
-        UUID account = clones.summonerOf(event.attackerId()).orElse(event.attackerId());
+            UUID account = clones.summonerOf(event.attackerId()).orElse(event.attackerId());
 
-        // Math.floor ueber (long) zu setzen waere dasselbe fuer positive Werte - aber der Cast
-        // schneidet zur Null hin ab, und ein negativer Schaden waere damit still aufgerundet.
-        long damage = (long) Math.floor(event.totalDamage());
-        if (damage <= 0) {
-            return;
+            // Math.floor ueber (long) zu setzen waere dasselbe fuer positive Werte - aber der Cast
+            // schneidet zur Null hin ab, und ein negativer Schaden waere damit still aufgerundet.
+            long damage = (long) Math.floor(event.totalDamage());
+            if (damage <= 0) {
+                return;
+            }
+            statistics.reportMax(account, MetricRegistry.DAMAGE_MAX, damage);
         }
-        statistics.reportMax(account, MetricRegistry.DAMAGE_MAX, damage);
     }
 }

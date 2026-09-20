@@ -1318,18 +1318,11 @@ B08b ist umgesetzt, und damit ist eingelöst, was oben als offen benannt war:
 
 **Status:** Angenommen · **Datum:** 2026-08-22 · **Blöcke:** B08b, später B14 und B13
 
-> **Zur Hälfte eingelöst am 2026-08-30 durch B13.** Das **Fenster** ist umgezogen: `CurrencyMenu` und
-> `CurrencyMenuListener` liegen jetzt in `rpg.platform.ui`. In `rpg.platform.currency` liegt kein
-> Anzeigecode mehr — `NoDisplayCodeLeftTest` hält das fest.
->
-> **Das Kommando nicht.** `/coins` bleibt in `rpg.plugin.command` und wartet weiter auf **B14**:
-> dieses ADR weist Kommandos ausdrücklich dorthin zu, und B13 sammelt keine ein — es legt nur das
-> eine an, das sein eigenes Fenster braucht (`/char`, FR-057). Der Unterschied zu ADR-032, wo Fenster
-> *und* Eingabe wanderten: eine Rechtsklick-Geste ist Präsentation, ein Kommando mit Rechtebaum und
-> Tab-Completion ist es nicht.
->
-> **Offen bleibt** damit genau die Kommandoschale. Was hier stand — „Anzeige gehört B13" — ist
-> erledigt.
+> **Vollständig eingelöst am 2026-09-11 durch B13 und B14.** Das **Fenster** ist umgezogen:
+> `CurrencyMenu` und `CurrencyMenuListener` liegen in `rpg.platform.ui`. In
+> `rpg.platform.currency` liegt kein Anzeigecode mehr — `NoDisplayCodeLeftTest` hält das fest.
+> Das Kommando `/coins` liegt jetzt gemeinsam mit `/char`, `/stats` und `/top` im B14-Kommandobaum;
+> Rechte, Argumente und Tab-Completion werden dort einheitlich geführt.
 
 **Kontext.** B08b braucht einen Aufrufweg für den Admin-Eingriff (FR-039 bis FR-046) und eine Anzeige
 für Stand und Verlauf (FR-046a, FR-046b, FR-056). Kommandos, Rechtebaum und Tab-Completion gehören
@@ -2696,6 +2689,10 @@ anzusehen ist nichts, wofür ein Betreiber erst etwas freischalten müsste.
 
 Das Kommando ist **vorläufig** und geht mit `/coins`, `/stats` und `/top` an B14.
 
+**Eingelöst am 2026-09-11 durch B14.** `/char` ist zusammen mit `/coins`, `/stats` und `/top`
+über das gemeinsame Kommandogerüst registriert; die vier vorläufigen Wege besitzen jetzt den
+einheitlichen Rechtebaum und dieselbe Argument-/Completion-Naht.
+
 **Kein Argument.** Es gibt nichts zu wählen: die Übersicht zeigt den aktiven Charakter, und eine
 Summe über mehrere bildet sie nicht (FR-053). Ein Argument wäre die Einladung, genau das zu
 erwarten.
@@ -2753,3 +2750,53 @@ auffallen zu lassen.
 `StatisticsMenu` und `LeaderboardMenu` tauchen in `rpg/platform/ui/` nirgends auf. B13 sichert jede
 andere Zusage per Test; ausgerechnet die vier „nicht anfassen" nur dem Augenschein zu überlassen
 hieße, sie beim ersten gut gemeinten Umbau zu verlieren.
+
+---
+
+## ADR-053: Herkunft von Horden-Einträgen — B14 ADR-1
+
+**Status:** Angenommen · **Datum:** 2026-09-11 · **Blöcke:** B10, B14
+
+**Kontext.** B14 bekommt `/rpg mob spawn <Art>` für Betreiber. Das Wesen muss in dieselbe
+`HordeRegistry` wie die regulär gesetzten Horden, damit der bestehende Cleanup-Pfad aus B10 es beim
+Chunk-Lifecycle und beim Herunterfahren findet. Es darf dabei aber weder das reguläre Zonen-/Server-
+Budget verbrauchen noch als persistente Markierung in der Welt zurückbleiben.
+
+**Entscheidung.** Jeder `HordeRegistry.Entry` trägt eine Herkunft: `BUDGET` oder `ADMIN`.
+`total()` und `countIn(zoneKey)` zählen ausschließlich `BUDGET`; `countInChunk(chunkKey)` bleibt
+die Gesamtbelegung des Chunks; `countAdmin()` zählt ausschließlich `ADMIN`. Die Herkunft ist
+flüchtiger Registry-Zustand und wird nicht in der Entity-PersistentDataContainer gespeichert.
+Die Obergrenze für Admin-Spawns steht separat in `mobs.yml` und hat standardmäßig den Wert 20.
+
+**Alternative: eine zweite Registry für Admin-Spawns.** Verworfen. Dann müsste der Cleanup-Pfad
+beide Quellen kennen, und B10 hätte zwei Bestände, die bei Chunk-Entladung oder Shutdown auseinander-
+laufen können. Ein gemeinsamer Bestand mit expliziter Herkunft ist die eine Wahrheit.
+
+**Auswirkung.** Alle regulären Spawn-Stellen übergeben `BUDGET`; der neue Admin-Befehl übergibt
+`ADMIN`. Bestehende Budget- und Chunk-Zählungen bleiben semantisch stabil, während die Admin-Grenze
+separat und sichtbar testbar ist.
+
+---
+
+## ADR-054: Einzelne Attribute bleiben ohne Admin-Setzer — B14 ADR-2
+
+**Status:** Angenommen · **Datum:** 2026-09-11 · **Blöcke:** B04, B14
+
+**Kontext.** B14 braucht Korrekturen an Stufe, Erfahrung und Klasse. Ein direktes Setzen einzelner
+Attribute wäre dagegen kein verlässliches Admin-Werkzeug: Die sichtbaren Werte entstehen aus den
+Beiträgen mehrerer Quellen und werden von `StatEngine` bewusst nur berechnet, nicht als einzelner
+Wert entgegengenommen.
+
+**Entscheidung.** B14 bietet kein Kommando zum Setzen einzelner Attribute. Korrekturen laufen über
+die bestehenden öffentlichen Wege für Progression und Klassenwahl. `SourceKind` bleibt geschlossen;
+seine Deklarationsreihenfolge ist zugleich die definierte Summationsreihenfolge. Ein zusätzlicher
+Admin-Beitrag wäre eine siebte Quelle und würde nach dem nächsten Anmelden verschwinden, weil B04
+Beiträge nicht als dauerhafter Charakterzustand persistiert.
+
+**Alternative: einen temporären Admin-Wert in `StatEngine` ergänzen.** Verworfen. Er würde eine
+zweite Wahrheit neben den konfigurierten Quellen schaffen und eine Dauerhaftigkeit vortäuschen, die
+der nächste Login nicht einlösen kann.
+
+**Auswirkung.** Die B14-Kommandos setzen nur Zustände, für die es bereits einen vollständigen,
+persistierbaren öffentlichen Pfad gibt. Die Abwesenheit eines Attribut-Kommandos wird durch
+`NoAttributeSetterTest` bewacht.

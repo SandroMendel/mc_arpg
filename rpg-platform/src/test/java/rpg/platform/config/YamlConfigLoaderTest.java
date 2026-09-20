@@ -7,6 +7,8 @@ import static org.assertj.core.api.Assertions.catchThrowableOfType;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -112,13 +114,75 @@ class YamlConfigLoaderTest {
                   max-targets: 9
                 """);
 
-        assertThat(
-                        catchThrowableOfType(
-                                ConfigValidationException.class,
-                                () ->
-                                        new YamlConfigLoader(dir)
-                                                .loadAndValidate(Path.of("combat.yml"), schema())))
-                .isNotNull();
+        ConfigValidationException thrown =
+                catchThrowableOfType(
+                        ConfigValidationException.class,
+                        () ->
+                                new YamlConfigLoader(dir)
+                                        .loadAndValidate(Path.of("combat.yml"), schema()));
+
+        assertThat(thrown).isNotNull();
+        assertThat(thrown.documentPath()).isEqualTo("<document>");
+        assertThat(thrown.actual()).contains("max-targets");
+        assertThat(thrown.getCause()).isNotNull();
+    }
+
+    @Test
+    void aNonStringYamlRootKeyKeepsLegacyStringNormalization(@TempDir Path dir) throws Exception {
+        Path file = dir.resolve("combat.yml");
+        write(file, "42: unexpected\n");
+
+        Map<String, Object> document =
+                new YamlConfigLoader(dir).readDocument(Path.of("combat.yml"));
+
+        assertThat(document).containsEntry("42", "unexpected");
+    }
+
+    @Test
+    void aNullYamlRootIsRejectedAsNonMapping(@TempDir Path dir) throws Exception {
+        Path file = dir.resolve("combat.yml");
+        write(file, "null\n");
+
+        ConfigValidationException thrown =
+                catchThrowableOfType(
+                        ConfigValidationException.class,
+                        () -> new YamlConfigLoader(dir).readDocument(Path.of("combat.yml")));
+
+        assertThat(thrown.documentPath()).isEqualTo("<document>");
+        assertThat(thrown.expected()).contains("mapping");
+        assertThat(thrown.actual()).contains("null");
+    }
+
+    @Test
+    void aNestedNumericYamlKeyRemainsReadableAndStringifiable(@TempDir Path dir) throws Exception {
+        Path file = dir.resolve("progression.yml");
+        write(file, "xp-curve:\n  1: 100\n");
+
+        Map<String, Object> document =
+                new YamlConfigLoader(dir).readDocument(Path.of("progression.yml"));
+        Map<?, ?> curve = (Map<?, ?>) document.get("xp-curve");
+
+        assertThat(curve.get(1)).isEqualTo(100);
+        assertThat(curve.keySet())
+                .singleElement()
+                .satisfies(key -> assertThat(String.valueOf(key)).isEqualTo("1"));
+    }
+
+    @Test
+    void severalDocumentsAreParsedInCallerOrderWithoutSchemaBinding(@TempDir Path dir)
+            throws Exception {
+        Path first = dir.resolve("classes.yml");
+        Path second = dir.resolve("abilities.yml");
+        write(first, "first: value\n");
+        write(second, "second: value\n");
+
+        Map<Path, Map<String, Object>> documents =
+                new YamlConfigLoader(dir).readDocuments(List.of(Path.of("classes.yml"), Path.of("abilities.yml")));
+
+        assertThat(documents.keySet())
+                .containsExactly(Path.of("classes.yml"), Path.of("abilities.yml"));
+        assertThat(documents.get(Path.of("classes.yml"))).containsEntry("first", "value");
+        assertThat(documents.get(Path.of("abilities.yml"))).containsEntry("second", "value");
     }
 
     @Test

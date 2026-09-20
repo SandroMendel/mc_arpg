@@ -96,7 +96,8 @@ class OneSweepPerZoneTest {
                             "probe.kind",
                             "zone-a",
                             rpg.core.mob.NearbyChunks.pack(i, 0),
-                            Instant.now()));
+                            Instant.now(),
+                            HordeRegistry.Origin.BUDGET));
         }
         addPlayerIn("zone-a", 100, 0);
         addPlayerIn("zone-b", 2100, 0);

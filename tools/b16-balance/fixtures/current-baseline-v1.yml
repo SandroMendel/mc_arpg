@@ -1,0 +1,49 @@
+schemaVersion: 1
+fixtureVersion: 1
+baselineVersion: 1
+scenario:
+  id: b16-current-baseline-v1
+  name: Current B16 runtime baseline
+  source-files:
+    - classes.yml
+    - abilities.yml
+    - progression.yml
+    - combat.yml
+    - zones.yml
+    - mobs.yml
+    - items.yml
+    - currency.yml
+    - stats.yml
+  metrics:
+    - id: class-physical-damage-curve
+      type: damage-curve
+      class-ids: [WARRIOR, ROGUE, MAGE]
+      levels: [1, 10, 35, 60]
+    - id: warrior-ttk-selected-mobs
+      type: ttk
+      class-id: WARRIOR
+      level: 10
+      mob-ids: [greenfields.rotling, greenfields.warden-of-the-field, dustlands.dust-crawler]
+    - id: current-baseline-values
+      type: baseline-values
+      values:
+        - id: global-cooldown
+          source: abilities.yml
+          path: runtime.global-cooldown-ms
+          unit: milliseconds
+        - id: fall-max-damage
+          source: combat.yml
+          path: environment.fall.max-damage
+          unit: damage-units
+        - id: per-zone-mob-budget
+          source: mobs.yml
+          path: budget.per-zone
+          unit: mob-count
+        - id: defense-cap
+          source: stats.yml
+          path: attributes.defense.max
+          unit: stat-points
+        - id: level-two-xp
+          source: progression.yml
+          path: xp-curve.2
+          unit: experience-points

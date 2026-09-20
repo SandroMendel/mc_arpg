@@ -12,6 +12,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 
+import rpg.core.performance.MeasurementScope;
 import rpg.core.zone.MovementGuard;
 import rpg.core.zone.ZoneTracker;
 import rpg.core.zone.Zones;
@@ -50,12 +51,23 @@ public final class ZoneMovementListener implements Listener {
     private final Supplier<Zones> zones;
     private final ZoneTracker tracker;
     private final Function<Player, UUID> characters;
+    private final java.util.function.Supplier<MeasurementScope> performanceScope;
 
     public ZoneMovementListener(
             Supplier<Zones> zones, ZoneTracker tracker, Function<Player, UUID> characters) {
+        this(zones, tracker, characters, () -> () -> {});
+    }
+
+    public ZoneMovementListener(
+            Supplier<Zones> zones,
+            ZoneTracker tracker,
+            Function<Player, UUID> characters,
+            java.util.function.Supplier<MeasurementScope> performanceScope) {
         this.zones = zones;
         this.tracker = tracker;
         this.characters = characters;
+        this.performanceScope =
+                java.util.Objects.requireNonNull(performanceScope, "performanceScope");
     }
 
     /**
@@ -79,35 +91,37 @@ public final class ZoneMovementListener implements Listener {
     }
 
     private void evaluate(PlayerMoveEvent event) {
-        Location from = event.getFrom();
-        Location to = event.getTo();
-        if (to == null) {
-            return;
-        }
-        Zones current = zones.get();
-        if (current == null) {
-            return;
-        }
+        try (MeasurementScope ignored = performanceScope.get()) {
+            Location from = event.getFrom();
+            Location to = event.getTo();
+            if (to == null) {
+                return;
+            }
+            Zones current = zones.get();
+            if (current == null) {
+                return;
+            }
 
-        UUID worldId = to.getWorld().getUID();
-        // Changing world is always worth a look, and comparing the ids is cheaper than resolving
-        // anything: a cross-world step can never stay in the same zone.
-        boolean sameWorld = worldId.equals(from.getWorld().getUID());
-        if (sameWorld
-                && !MovementGuard.needsEvaluation(
-                        current,
-                        worldId,
-                        from.getBlockX(),
-                        from.getBlockZ(),
-                        to.getBlockX(),
-                        to.getBlockZ())) {
-            return;
-        }
+            UUID worldId = to.getWorld().getUID();
+            // Changing world is always worth a look, and comparing the ids is cheaper than resolving
+            // anything: a cross-world step can never stay in the same zone.
+            boolean sameWorld = worldId.equals(from.getWorld().getUID());
+            if (sameWorld
+                    && !MovementGuard.needsEvaluation(
+                            current,
+                            worldId,
+                            from.getBlockX(),
+                            from.getBlockZ(),
+                            to.getBlockX(),
+                            to.getBlockZ())) {
+                return;
+            }
 
-        UUID characterId = characters.apply(event.getPlayer());
-        if (characterId == null) {
-            return;
+            UUID characterId = characters.apply(event.getPlayer());
+            if (characterId == null) {
+                return;
+            }
+            tracker.evaluate(characterId, BukkitPositions.of(to));
         }
-        tracker.evaluate(characterId, BukkitPositions.of(to));
     }
 }

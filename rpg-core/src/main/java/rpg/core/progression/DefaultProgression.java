@@ -316,7 +316,7 @@ public final class DefaultProgression implements Progression {
                 new AuditEntry(
                         clock.instant(),
                         actorId.toString(),
-                        "progression.set",
+                        "progress_set",
                         Optional.of(playerId),
                         Map.of(
                                 "characterId", characterId.toString(),

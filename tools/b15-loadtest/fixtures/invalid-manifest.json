@@ -1,0 +1,50 @@
+{
+  "runId": "fixture-invalid",
+  "status": "PASSED",
+  "scenario": {
+    "id": "b15-full",
+    "revision": 1,
+    "players": 80,
+    "regions": 2,
+    "customMobs": 200,
+    "warmupMinutes": 1,
+    "measurementMinutes": 2,
+    "workloads": ["movement"]
+  },
+  "environment": {
+    "minecraft": "26.2",
+    "paperBuild": "26.2.build.112-stable",
+    "java": "25",
+    "tool": "mc-pilot",
+    "toolVersion": "fixture"
+  },
+  "hardware": {
+    "cpu": "fixture-cpu",
+    "cores": "unknown",
+    "memoryBytes": "unknown",
+    "storage": "unknown",
+    "os": "Windows",
+    "jvmArguments": ""
+  },
+  "artifacts": {
+    "metrics": "missing-metrics.prom",
+    "report": "missing-report.log",
+    "logs": "missing-server.log"
+  },
+  "result": {
+    "meanTps": null,
+    "msptP95": null,
+    "msptP99": null,
+    "peakCustomMobs": null,
+    "measurementMinutes": null,
+    "activePlayersPeak": null,
+    "missingSources": ["b13-hud"],
+    "metricsFresh": false,
+    "restartDetected": true,
+    "warmupCompleted": false,
+    "firstFailure": {
+      "code": "INSUFFICIENT_LOAD",
+      "message": "The fixture deliberately does not meet the scenario contract."
+    }
+  }
+}

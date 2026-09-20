@@ -1,0 +1,8 @@
+schemaVersion: 1
+account:
+  starting-balance: 0
+drops:
+  default: 4
+ledger:
+  retention-days: 30
+history: {}

@@ -10,6 +10,7 @@ import java.util.Map;
 
 import rpg.core.config.ConfigSchema;
 import rpg.core.config.ConfigView;
+import rpg.core.config.FieldDefinition;
 import rpg.core.config.FieldType;
 import rpg.core.stats.Attribute;
 
@@ -45,6 +46,10 @@ public final class MobConfigSchema {
         builder.required("horde", FieldType.MAP);
         builder.required("kinds", FieldType.MAP);
         builder.required("hordes", FieldType.MAP);
+        builder.field(
+                FieldDefinition.optional(
+                                "admin-spawn-limit", FieldType.INTEGER, MobConfig.DEFAULT_ADMIN_SPAWN_LIMIT)
+                        .withRange(1, Integer.MAX_VALUE));
         return builder.boundTo(MobConfigSchema::bind).build();
     }
 
@@ -69,7 +74,15 @@ public final class MobConfigSchema {
         Map<String, HordeSpec> hordes = readHordes(view.getMap("hordes"), kinds);
 
         return new MobConfig(
-                budget, respawn, density, cleanupAfter, cleanupRadius, retarget, kinds, hordes);
+                budget,
+                respawn,
+                density,
+                cleanupAfter,
+                cleanupRadius,
+                retarget,
+                kinds,
+                hordes,
+                view.getInt("admin-spawn-limit"));
     }
 
     // ----------------------------------------------------------------- kinds
