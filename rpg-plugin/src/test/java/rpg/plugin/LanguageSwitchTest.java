@@ -108,6 +108,42 @@ class LanguageSwitchTest {
         assertThat(missing).isEmpty();
     }
 
+    @Test
+    @DisplayName("T135a: die Abbruchmeldung nennt die GELESENE Datei, nicht messages.yml")
+    void thefailureNamesTheFileThatWasActuallyRead() throws Exception {
+        // Gefunden bei der Serverabnahme, Schritt 17. Mit language: de bricht der Start korrekt ab
+        // und nennt alle Luecken - aber er nannte sie in "messages.yml". Die englische Vorlage
+        // liegt vollstaendig daneben, also sucht der Betreiber dort, findet nichts und haelt die
+        // Meldung fuer falsch. Die Luecke steht in messages_de.yml.
+        //
+        // Der Test steht hier und nicht in rpg-core, weil die Zusage B13 gehoert: erst dieser Block
+        // macht "welche Datei" zu einer Frage, die eine Antwort braucht.
+        Map<String, Object> gappy = shipped();
+        removeKey(gappy, "ui.sidebar.level");
+        Messages incomplete = MapMessages.fromNested(gappy);
+
+        assertThatThrownBy(
+                        () ->
+                                MessageKeyValidator.verifyAllPresent(
+                                        incomplete, UiMessageKeys.all(), "messages_de.yml"))
+                .as("die Datei, in der die Luecke wirklich steht")
+                .hasMessageContaining("messages_de.yml")
+                .as("und NICHT die englische Vorlage, in der nichts fehlt")
+                .hasMessageNotContaining(" messages.yml");
+    }
+
+    @Test
+    @DisplayName("T135a: ohne Angabe bleibt es bei messages.yml - fuer jeden Aufrufer vor B13")
+    void withoutAFileNameTheDefaultStillHolds() throws Exception {
+        Map<String, Object> gappy = shipped();
+        removeKey(gappy, "ui.sidebar.level");
+        Messages incomplete = MapMessages.fromNested(gappy);
+
+        assertThatThrownBy(
+                        () -> MessageKeyValidator.verifyAllPresent(incomplete, UiMessageKeys.all()))
+                .hasMessageContaining("messages.yml");
+    }
+
     // --- Aufbau ---------------------------------------------------------------
 
     @SuppressWarnings("unchecked")

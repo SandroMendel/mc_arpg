@@ -63,7 +63,7 @@ Migration, kein `rpg-persistence`-Anteil.
 - [X] T012 Test `ChunkCountTest` in `rpg-core/src/test/java/rpg/core/mob/ChunkCountTest.java` — hoch, runter, auf null; die Struktur schrumpft wirklich und wächst nicht monoton
 - [X] T012a `NearbyChunks` in `rpg-core/src/main/java/rpg/core/mob/NearbyChunks.java` — **der räumliche Index, den FR-018 verlangt**: jeder Spieler stempelt die Chunks im Aufräumradius in eine wiederverwendete Long-Menge, danach ist die Frage je Kreatur ein Mengenzugriff statt einer Schleife über alle Spieler (research.md R3a, Prinzip II). Der Puffer wird zwischen Durchläufen wiederverwendet — eine neue Menge je Durchlauf wäre eine Zuweisung im Spawn-Pfad
 - [X] T012b Test `NearbyChunksTest` in `rpg-core/src/test/java/rpg/core/mob/NearbyChunksTest.java` — Grenzfall am Radiusrand; zwei nah beieinanderstehende Spieler stempeln denselben Chunk nur einmal; und die Menge ist beim nächsten Durchlauf wirklich geleert
-- [ ] T012c Test `CleanupCostIsFlatTest` in `rpg-core/src/test/java/rpg/core/mob/CleanupCostIsFlatTest.java` — die Aufräumentscheidung für 130 Kreaturen kostet bei gleicher Spielerzahl nicht messbar mehr als die für 13. **Der Test, der eine lineare Iteration auffliegen ließe** — ohne ihn wäre der Verstoß grün und fiele erst unter Last auf
+- [X] T012c Test `CleanupCostIsFlatTest` in `rpg-core/src/test/java/rpg/core/mob/CleanupCostIsFlatTest.java` — die Aufräumentscheidung für 130 Kreaturen kostet bei gleicher Spielerzahl nicht messbar mehr als die für 13. **Der Test, der eine lineare Iteration auffliegen ließe** — ohne ihn wäre der Verstoß grün und fiele erst unter Last auf
 - [X] T013 `HordeRegistry` in `rpg-core/src/main/java/rpg/core/mob/HordeRegistry.java` — Bestand plus die drei Zählungen (Zone, Chunk, gesamt) aus [data-model.md](./data-model.md)
 - [X] T014 Test `HordeRegistryTest` in `rpg-core/src/test/java/rpg/core/mob/HordeRegistryTest.java` — Eintragen, Austragen, Zählungen stimmen nach jeder Folge; eine Kreatur bleibt der **Ursprungs**zone zugerechnet (FR-017)
 - [X] T015 `MobConfig` in `rpg-core/src/main/java/rpg/core/mob/MobConfig.java` — der validierte Inhalt von `mobs.yml`: Budgets, Horden-Werte, Arten, Horden (FR-001). **Kein Schalter für die Unterdrückung** — siehe T057
@@ -71,6 +71,7 @@ Migration, kein `rpg-persistence`-Anteil.
 - [X] T017 Test `MobConfigSchemaTest` in `rpg-core/src/test/java/rpg/core/mob/MobConfigSchemaTest.java` — je ein Fall für jede Regel der Tabelle; geprüft wird nicht nur *dass* es scheitert, sondern **dass die Meldung den Schlüssel nennt**
 - [X] T018 `MobModule` in `rpg-core/src/main/java/rpg/core/mob/MobModule.java` — Start, Konfiguration laden, Nachladen nach dem Muster von `ZoneModule`
 - [ ] T019 Test `MobModuleTest` in `rpg-core/src/test/java/rpg/core/mob/MobModuleTest.java` — Start scheitert bei unbrauchbarer Konfiguration, Nachladen tauscht die Konfiguration im Ganzen
+      - Stand 2026-08-30: die zweite Haelfte ist da, unter anderem Namen — `MobModuleReloadTest` deckt „Nachladen tauscht die Konfiguration im Ganzen" (Budget und Nachschubrate wirken sofort, laufender Bestand bleibt, Zuhoerer werden benachrichtigt). Offen ist nur noch die **erste** Haelfte: dass `MobModule.start` bei unbrauchbarer Konfiguration abbricht. `MobConfigSchemaTest` prueft die Regeln, aber niemand prueft, dass der Start daran wirklich scheitert.
 - [X] T020 `MobKinds` und `Hordes` als die zwei öffentlichen Abfragen in `rpg-core/src/main/java/rpg/core/mob/` — Signaturen und Zusagen nach [contracts/mob-api.md](./contracts/mob-api.md) §2 und §3
 - [X] T021 Test `MobApiContractTest` in `rpg-core/src/test/java/rpg/core/mob/MobApiContractTest.java` — unbekannter Artschlüssel antwortet **leer**, unbekannter Zonenschlüssel antwortet **0**, beide werfen nicht
 
@@ -89,7 +90,7 @@ Standardwerte.
 
 ### Tests zuerst
 
-- [ ] T022 [P] [US1] Test `MobKindLookupTest` in `rpg-core/src/test/java/rpg/core/mob/MobKindLookupTest.java` — zwei Arten auf derselben Basis liefern verschiedene Werte (FR-004)
+- [X] T022 [P] [US1] Test `MobKindLookupTest` in `rpg-core/src/test/java/rpg/core/mob/MobKindLookupTest.java` — zwei Arten auf derselben Basis liefern verschiedene Werte (FR-004)
 - [X] T023 [P] [US1] Test `MobKeyFallbackTest` in `rpg-core/src/test/java/rpg/core/mob/MobKeyFallbackTest.java` — ohne Vermerk fällt der Schlüssel auf den Vanilla-Typnamen zurück, und die vorhandenen `combat.yml`-Einträge greifen weiter (FR-009, research.md R5)
 - [X] T024 [P] [US1] Test `ConfigOnlyMobTest` in `rpg-core/src/test/java/rpg/core/mob/ConfigOnlyMobTest.java` — SC-001 und FR-003: eine neue Art rein aus Konfiguration, **und kein Bezeichner einer einzelnen Art irgendwo im Code**; nach dem Muster von `ConfigOnlyAbilityTest`
 - [X] T025 [P] [US1] Test `MobKindTagTest` in `rpg-platform/src/test/java/rpg/platform/mob/MobKindTagTest.java` — Schreiben und Lesen von `rpg:mob_kind` und `rpg:mob_zone`; ein fremder Gegenstand antwortet leer
@@ -109,7 +110,7 @@ Standardwerte.
 - [X] T034 [US1] `MobNameplate` in `rpg-platform/src/main/java/rpg/platform/hud/MobNameplate.java` auf Art und Level umstellen — Text über Message-Schlüssel, keine zweite Anzeige (FR-010, research.md R11)
 - [X] T035 [P] [US1] Anzeigenamen der Arten in `rpg-plugin/src/main/resources/messages.yml` ergänzen — mit Kommentar, dass die Art den **Schlüssel** nennt und nie den Text
 - [X] T036 [P] [US1] Erste vollständige Region in `rpg-plugin/src/main/resources/mobs.yml`: acht Arten für *Greenfields*, mit Levelband 1–10 abgestimmt
-- [ ] T037 [US1] Test `MobStatSeamTest` in `rpg-platform/src/test/java/rpg/platform/mob/MobStatSeamTest.java` — die drei übernommenen Schnittstellen antworten nach Art; **keine hat eine zweite Fassung bekommen** (SC-008)
+- [X] T037 [US1] Test `MobStatSeamTest` in `rpg-platform/src/test/java/rpg/platform/mob/MobStatSeamTest.java` — die drei übernommenen Schnittstellen antworten nach Art; **keine hat eine zweite Fassung bekommen** (SC-008)
 
 **Checkpoint**: US1 steht für sich. Ein Betreiber kann Kreaturen von Hand setzen und sie verhalten
 sich richtig — noch ohne Horde.
